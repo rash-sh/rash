@@ -2,8 +2,12 @@
 
 Embedded Ansible to run in linux minimal environment (just kernel).
 
-## Usages
+## purpose
 
-### Containers
+Main usages are little containers or embedded systems for entrypoints which requires fast
+interactions to start process.
 
-### Embedded systems
+Advantages over alpine/bash:
+
+- More security (choose your favour)
+- Declarative over bash imperative language.
