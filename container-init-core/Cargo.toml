@@ -1,5 +1,5 @@
 [package]
-name = "ansible-rs-core"
+name = "container-init-core"
 version = "0.1.0"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2018"

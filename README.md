@@ -1,6 +1,6 @@
-# ansible-rs
+# container-init
 
-Embedded ansible to run in linux minimal environment (just kernel).
+Embedded Ansible to run in linux minimal environment (just kernel).
 
 ## Usages
 

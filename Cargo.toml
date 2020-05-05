@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "ansible-rs-core",
+    "container-init-core",
 ]
 
 
