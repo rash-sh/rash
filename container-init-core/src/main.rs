@@ -1,8 +1,12 @@
 #![deny(warnings)]
 
+#[macro_use]
+extern crate lazy_static;
+
 mod constants;
 mod context;
 mod executor;
+mod modules;
 mod plugins;
 
 use context::Context;
