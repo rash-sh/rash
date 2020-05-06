@@ -30,7 +30,6 @@ mod tests {
         env::set_var(&envar.0, &envar.1);
         test_fn();
         env::remove_var(&envar.0);
-
     }
 
     #[test]
@@ -48,7 +47,7 @@ mod tests {
         run_test_with_envar(("KEY", "VALUE"), || {
             let inventory = Inventory::new(env::vars());
             assert!(inventory.facts.get("KEY").is_none());
-            });
+        });
     }
 
     #[test]
