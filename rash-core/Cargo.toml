@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 lazy_static = "1.4.0"
 yaml-rust = "0.4"
+
+[dev-dependencies]
+tempfile = "3"

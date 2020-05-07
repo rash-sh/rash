@@ -5,7 +5,6 @@ use std::fmt;
 
 use yaml_rust::Yaml;
 
-
 #[derive(Debug, Clone)]
 struct ModuleNotFound;
 
@@ -37,6 +36,7 @@ fn is_module(module: &(&Yaml, &Yaml)) -> bool {
 
 #[inline(always)]
 fn find_module(task: &Yaml) -> Option<&Module> {
+    println!("{:?}", task);
     task.clone()
         .into_hash()
         .unwrap()
@@ -55,6 +55,14 @@ impl Task {
             name: task["name"].as_str().map(String::from),
         })
     }
+
+    #[cfg(test)]
+    pub fn test_example() -> Self {
+        Task {
+            module: Module::test_example(),
+            name: None,
+        }
+    }
 }
 
 // execute tasks requires contexts and replace Jinja
@@ -67,10 +75,10 @@ mod tests {
 
     #[test]
     fn test_from_yaml() {
-        let s: String = "
-name: 'Test task'
-command: 'example'
-        "
+        let s: String = r#"
+        name: 'Test task'
+        command: 'example'
+        "#
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
@@ -82,10 +90,10 @@ command: 'example'
 
     #[test]
     fn test_from_yaml_no_module() {
-        let s: String = "
-name: 'Test task'
-no_module: 'example'
-        "
+        let s: String = r#"
+        name: 'Test task'
+        no_module: 'example'
+        "#
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();

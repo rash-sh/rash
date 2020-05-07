@@ -19,6 +19,17 @@ impl Inventory {
                 .collect(),
         }
     }
+
+    #[cfg(test)]
+    pub fn test_example() -> Self {
+        Inventory {
+            facts: [("foo", "boo"), ("xuu", "zoo")]
+                .iter()
+                .cloned()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(),
+        }
+    }
 }
 
 #[cfg(test)]
