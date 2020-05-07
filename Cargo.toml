@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "container-init-core",
+    "rash-core",
 ]
 
 
