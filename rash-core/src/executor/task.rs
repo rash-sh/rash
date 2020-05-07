@@ -5,22 +5,6 @@ use std::fmt;
 
 use yaml_rust::Yaml;
 
-// _args = FieldAttribute(isa='dict', default=dict)
-// _action = FieldAttribute(isa='string')
-// _async_val = FieldAttribute(isa='int', default=0, alias='async')
-// _changed_when = FieldAttribute(isa='list', default=list)
-// _delay = FieldAttribute(isa='int', default=5)
-// _delegate_to = FieldAttribute(isa='string')
-// _delegate_facts = FieldAttribute(isa='bool')
-// _failed_when = FieldAttribute(isa='list', default=list)
-// _loop = FieldAttribute()
-// _loop_control = FieldAttribute(isa='class', class_type=LoopControl, inherit=False)
-// _notify = FieldAttribute(isa='list')
-// _poll = FieldAttribute(isa='int', default=C.DEFAULT_POLL_INTERVAL)
-// _register = FieldAttribute(isa='string', static=True)
-// _retries = FieldAttribute(isa='int', default=3)
-// _until = FieldAttribute(isa='list', default=list)
-// when?
 
 #[derive(Debug, Clone)]
 struct ModuleNotFound;

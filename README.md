@@ -2,7 +2,7 @@
 
 Declarative shell using Rust native bindings scripting inspired in [Ansible](https://www.ansible.com/)
 
-## Advantages over alpine/bash:
+## Advantages over alpine/bash
 
 - More security (choose your flavour)
 - Declarative over bash imperative language.
@@ -22,7 +22,7 @@ Declarative shell using Rust native bindings scripting inspired in [Ansible](htt
     state: directory
 
 - name: copy ssh key
-  host: "{{ $1 }}"
+  delegate_to: "{{ $1 }}"
   lineinfile:
     path: "~/.ssh/authorized_keys"
     line: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAeGW1P62P2rsq0XqbRaDKBcXZUPRklo0L1EyR30CwoP agil@z800

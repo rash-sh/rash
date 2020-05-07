@@ -1,3 +1,7 @@
 use yaml_rust::Yaml;
 
-pub fn command(_args: Yaml) -> () {}
+use crate::modules::ModuleResult;
+
+pub fn exec(parameters: Yaml) -> ModuleResult {
+    parameters
+}
