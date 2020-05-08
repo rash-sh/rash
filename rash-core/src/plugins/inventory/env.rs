@@ -36,9 +36,9 @@ mod tests {
 
     #[test]
     fn test_inventory_from_envars_none() {
-        run_test_with_envar(("KEY", "VALUE"), || {
+        run_test_with_envar(("KEY_NOT_FOUND", "VALUE"), || {
             let facts = load();
-            assert!(facts.get("KEY").is_none());
+            assert!(facts.get("KEY_NOT_FOUND").is_none());
         });
     }
 }

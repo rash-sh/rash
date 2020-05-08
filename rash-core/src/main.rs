@@ -5,6 +5,7 @@ extern crate lazy_static;
 
 mod constants;
 mod context;
+mod error;
 mod executor;
 mod modules;
 mod plugins;
