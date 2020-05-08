@@ -10,7 +10,7 @@ mod modules;
 mod plugins;
 
 use context::Context;
-use plugins::inventory::env::Inventory;
+use plugins::inventory::INVENTORIES;
 
 use std::env;
 use std::path::PathBuf;
@@ -20,7 +20,7 @@ lazy_static! {
 }
 
 fn main() {
-    let inventory = Inventory::new(env::vars());
-    let context = Context::new(TASKS_PATH.to_path_buf(), inventory);
+    let inventory = INVENTORIES.get("env").expect("Inventory does not exists");
+    let context = Context::new(TASKS_PATH.to_path_buf(), inventory.load());
     println!("{:?}", context);
 }

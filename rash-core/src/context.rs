@@ -2,7 +2,7 @@
 ///
 /// Preserve state between executions
 use crate::executor::task::Task;
-use crate::plugins::inventory::env::Inventory;
+use crate::plugins::inventory::{Facts, Inventory};
 
 use std::error;
 use std::fs;
@@ -13,26 +13,25 @@ use yaml_rust::YamlLoader;
 #[derive(Debug)]
 pub struct Context {
     tasks: Box<[Task]>,
-    inventory: Inventory,
+    facts: Facts,
+}
+
+fn read_tasks(tasks_file_path: PathBuf) -> Result<Box<[Task]>, Box<dyn error::Error>> {
+    let tasks_file =
+        fs::read_to_string(tasks_file_path).expect("Something went wrong reading the file");
+    let docs = YamlLoader::load_from_str(&tasks_file)?;
+    let yaml = docs.first().unwrap();
+    yaml.clone()
+        .into_iter()
+        .map(|task| Task::from(&task))
+        .collect::<Result<Box<[Task]>, _>>()
 }
 
 impl Context {
-    pub fn new(
-        tasks_file_path: PathBuf,
-        inventory: Inventory,
-    ) -> Result<Self, Box<dyn error::Error>> {
-        let tasks_file =
-            fs::read_to_string(tasks_file_path).expect("Something went wrong reading the file");
-        let docs = YamlLoader::load_from_str(&tasks_file)?;
-        let yaml = docs.first().unwrap();
-        let tasks: Result<Box<[Task]>, _> = yaml
-            .clone()
-            .into_iter()
-            .map(|task| Task::from(&task))
-            .collect();
+    pub fn new(tasks_file_path: PathBuf, facts: Facts) -> Result<Self, Box<dyn error::Error>> {
         Ok(Context {
-            tasks: tasks?,
-            inventory: inventory,
+            tasks: read_tasks(tasks_file_path)?,
+            facts: facts,
         })
     }
 
@@ -40,7 +39,7 @@ impl Context {
     pub fn test_example() -> Self {
         Context {
             tasks: vec![Task::test_example()].into_boxed_slice(),
-            inventory: Inventory::test_example(),
+            facts: Inventory::test_example().load(),
         }
     }
 }
@@ -75,7 +74,7 @@ mod tests {
         )
         .unwrap();
 
-        let context = Context::new(file_path, Inventory::new(env::vars())).unwrap();
+        let context = Context::new(file_path, Inventory::test_example().load()).unwrap();
         assert_eq!(context.tasks.len(), 2);
     }
 }

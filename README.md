@@ -14,7 +14,6 @@ Declarative shell using Rust native bindings scripting inspired in [Ansible](htt
 
 ```yaml
 #!/bin/rash
----
 - name: .ssh create if not exists
   file:
     path: "~/.ssh"
@@ -32,7 +31,6 @@ Declarative shell using Rust native bindings scripting inspired in [Ansible](htt
 
 ```yaml
 #!/bin/rash
----
 - name: get secrets
   request:
     url: https://vault/my/secret

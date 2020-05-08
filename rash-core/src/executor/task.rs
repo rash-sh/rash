@@ -27,29 +27,34 @@ pub struct Task {
     name: Option<String>,
 }
 
-fn is_module(module: &(&Yaml, &Yaml)) -> bool {
-    match MODULES.get(module.0.as_str().expect("Key is not string")) {
+fn is_module(module: &Yaml) -> bool {
+    match MODULES.get(module.as_str().expect("Key is not string")) {
         Some(_) => true,
         None => false,
     }
 }
 
 #[inline(always)]
-fn find_module(task: &Yaml) -> Option<&Module> {
-    println!("{:?}", task);
-    task.clone()
+fn find_module(task: &Yaml) -> Result<&Module, ModuleNotFound> {
+    let module_names: Vec<String> = task
+        .clone()
         .into_hash()
         .unwrap()
         .iter()
-        .filter(|key| is_module(key))
-        .map(|(key, _)| key.as_str().expect("Key is not string"))
-        .map(|s| MODULES.get(s))
-        .next()?
+        .filter(|(key, _)| is_module(key))
+        .map(|(key, _)| key.as_str().unwrap().to_string())
+        .collect();
+    match module_names.len() == 1 {
+        false => return Err(ModuleNotFound),
+        true => (),
+    };
+    let module = module_names.first().ok_or(ModuleNotFound)?;
+    MODULES.get::<str>(module).ok_or(ModuleNotFound)
 }
 
 impl Task {
     pub fn from(task: &Yaml) -> Result<Self, Box<dyn error::Error>> {
-        let module = find_module(task).ok_or(ModuleNotFound)?;
+        let module = find_module(task)?;
         Ok(Task {
             module: module.clone(),
             name: task["name"].as_str().map(String::from),
@@ -64,8 +69,6 @@ impl Task {
         }
     }
 }
-
-// execute tasks requires contexts and replace Jinja
 
 #[cfg(test)]
 mod tests {

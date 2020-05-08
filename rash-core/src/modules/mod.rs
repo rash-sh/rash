@@ -11,10 +11,10 @@ pub struct ModuleResult {
     extra: Option<Yaml>,
 }
 
-/// Module definition with exec function and params received
+/// Module definition with exec function and input parameters
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
-    exec: fn(Option<Yaml>) -> ModuleResult,
+    exec_fn: fn(Option<Yaml>) -> ModuleResult,
     params: Option<Yaml>,
 }
 
@@ -22,7 +22,7 @@ pub struct Module {
 impl Module {
     pub fn test_example() -> Self {
         Module {
-            exec: |_: Option<Yaml>| ModuleResult {
+            exec_fn: |_: Option<Yaml>| ModuleResult {
                 changed: true,
                 extra: None,
             },
@@ -37,7 +37,7 @@ lazy_static! {
         m.insert(
             "command",
             Module {
-                exec: command::exec,
+                exec_fn: command::exec,
                 params: None,
             },
         );
@@ -74,8 +74,7 @@ impl ModuleExec {
     }
 
     pub fn exec(&self) -> ModuleResult {
-        let exec_fn = self.module.exec;
-        exec_fn(self.rendered_params.clone())
+        (self.module.exec_fn)(self.rendered_params.clone())
     }
 
     #[cfg(test)]
