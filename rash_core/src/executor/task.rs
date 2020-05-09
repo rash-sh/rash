@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 use yaml_rust::Yaml;
 
+/// Task is composed of Module and parameters to be executed in a concrete context
 #[derive(Debug, FieldNames)]
 pub struct Task {
     module: Module,
@@ -42,6 +43,7 @@ impl Task {
     }
 }
 
+/// TaskValid is a task with valid yaml but without verify Task attributes and modules
 #[derive(Debug)]
 struct TaskValid {
     attrs: Yaml,
@@ -92,6 +94,7 @@ impl TaskValid {
     }
 }
 
+/// TaskNew is a new task without checking yaml validity
 #[derive(Debug)]
 struct TaskNew {
     proto_attrs: Yaml,
