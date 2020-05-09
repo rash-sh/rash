@@ -1,9 +1,12 @@
 /// Context
 ///
 /// Preserve state between executions
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 use crate::executor::task::Task;
-use crate::plugins::inventory::{Facts, Inventory};
+use crate::plugins::inventory::Facts;
+
+#[cfg(test)]
+use crate::plugins::inventory::Inventory;
 
 use std::fs;
 use std::path::PathBuf;
@@ -16,20 +19,20 @@ pub struct Context {
     facts: Facts,
 }
 
-fn read_tasks(tasks_file_path: PathBuf) -> Result<Box<[Task]>> {
-    let tasks_file = fs::read_to_string(tasks_file_path)?;
-    let docs = YamlLoader::load_from_str(&tasks_file)?;
-    let yaml = docs.first().unwrap();
-    yaml.clone()
-        .into_iter()
-        .map(|task| Task::from(&task))
-        .collect::<Result<Box<[Task]>>>()
-}
-
 impl Context {
+    fn read_tasks(tasks_file_path: PathBuf) -> Result<Box<[Task]>> {
+        let tasks_file = fs::read_to_string(tasks_file_path)?;
+        let docs = YamlLoader::load_from_str(&tasks_file)?;
+        let yaml = docs.first().unwrap();
+        yaml.clone()
+            .into_iter()
+            .map(|task| Task::new(&task))
+            .collect::<Result<Box<[Task]>>>()
+    }
+
     pub fn new(tasks_file_path: PathBuf, facts: Facts) -> Result<Self> {
         Ok(Context {
-            tasks: read_tasks(tasks_file_path)?,
+            tasks: Context::read_tasks(tasks_file_path)?,
             facts: facts,
         })
     }
@@ -46,8 +49,6 @@ impl Context {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use std::env;
 
     use std::fs::File;
     use std::io::Write;

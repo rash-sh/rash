@@ -5,6 +5,8 @@ use crate::modules::{Module, MODULES};
 
 use rash_derive::FieldNames;
 
+use std::collections::HashSet;
+
 use yaml_rust::Yaml;
 
 #[derive(Debug, FieldNames)]
@@ -26,77 +28,9 @@ fn is_module(module: &str) -> bool {
     }
 }
 
-fn validate_task(task: &Yaml) -> Result<&Yaml> {
-    let non_attrs: Vec<String> = task
-        .clone()
-        .into_hash()
-        .unwrap()
-        .iter()
-        .filter(|(key, _)| !is_task_attr(key.as_str().unwrap()))
-        .map(|(key, _)| key.as_str().unwrap().to_string())
-        .collect();
-    match non_attrs.len() > 1 {
-        true => {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Multiple possible modules found in task: {:?}", task),
-            ))
-        }
-        false => (),
-    };
-    let possible_module = non_attrs.first().ok_or(Error::new(
-        ErrorKind::NotFound,
-        format!("Not module found in task: {:?}", task),
-    ))?;
-    match is_module(possible_module) {
-        true => Ok(task),
-        _ => Err(Error::new(
-            ErrorKind::NotFound,
-            format!(
-                "Module `{}` not found in modules. Possibles values: {:?}",
-                possible_module,
-                MODULES.keys()
-            ),
-        )),
-    }
-}
-
-fn find_module(task: &Yaml) -> Result<&Module> {
-    let module_names: Vec<String> = task
-        .clone()
-        .into_hash()
-        .unwrap()
-        .iter()
-        .filter(|(key, _)| is_module(key.as_str().unwrap()))
-        .map(|(key, _)| key.as_str().unwrap().to_string())
-        .collect();
-    match module_names.len() > 1 {
-        true => {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Multiple modules found in task: {:?}", task),
-            ))
-        }
-        false => (),
-    };
-    let module = module_names.first().ok_or(Error::new(
-        ErrorKind::NotFound,
-        format!("Not module found in task: {:?}", task),
-    ))?;
-    MODULES.get::<str>(module).ok_or(Error::new(
-        ErrorKind::NotFound,
-        format!("Module not found in modules: {:?}", MODULES.keys()),
-    ))
-}
-
 impl Task {
-    pub fn from(task: &Yaml) -> Result<Self> {
-        validate_task(task)?;
-        let module = find_module(task)?;
-        Ok(Task {
-            module: module.clone(),
-            name: task["name"].as_str().map(String::from),
-        })
+    pub fn new(yaml: &Yaml) -> Result<Self> {
+        TaskNew::from(yaml).validate_attrs()?.get_task()
     }
 
     #[cfg(test)]
@@ -105,6 +39,107 @@ impl Task {
             module: Module::test_example(),
             name: None,
         }
+    }
+}
+
+#[derive(Debug)]
+struct TaskValid {
+    attrs: Yaml,
+}
+
+impl TaskValid {
+    fn get_possible_attrs(&self) -> HashSet<String> {
+        self.attrs
+            .clone()
+            .into_hash()
+            .unwrap()
+            .iter()
+            .map(|(key, _)| key.as_str().unwrap().to_string())
+            .collect::<HashSet<String>>()
+    }
+
+    fn get_module<'a>(&'a self) -> Result<&Module> {
+        let module_names: HashSet<String> = self
+            .get_possible_attrs()
+            .iter()
+            .filter(|&key| is_module(key))
+            .map(String::clone)
+            .collect();
+        match module_names.len() > 1 {
+            true => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Multiple modules found in task: {:?}", self),
+                ))
+            }
+            false => (),
+        };
+        let module = module_names.iter().next().ok_or(Error::new(
+            ErrorKind::NotFound,
+            format!("Not module found in task: {:?}", self),
+        ))?;
+        MODULES.get::<str>(module).ok_or(Error::new(
+            ErrorKind::NotFound,
+            format!("Module not found in modules: {:?}", MODULES.keys()),
+        ))
+    }
+
+    pub fn get_task<'task>(&self) -> Result<Task> {
+        Ok(Task {
+            name: self.attrs["name"].as_str().map(String::from),
+            module: self.get_module()?.clone(),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct TaskNew {
+    proto_attrs: Yaml,
+}
+
+impl From<&Yaml> for TaskNew {
+    fn from(yaml: &Yaml) -> Self {
+        TaskNew {
+            proto_attrs: yaml.clone(),
+        }
+    }
+}
+
+impl TaskNew {
+    pub fn validate_attrs(&self) -> Result<TaskValid> {
+        let _ = self
+            .proto_attrs
+            .clone()
+            .into_hash()
+            .ok_or(Error::new(
+                ErrorKind::InvalidData,
+                format!("Task is not a dict {:?}", self.proto_attrs),
+            ))?
+            .iter()
+            .map(|(key, _)| match key.as_str() {
+                Some(s) => Ok(s.to_string()),
+                None => {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Key is not valid in {:?}", self.proto_attrs),
+                    ))
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(TaskValid {
+            attrs: self.proto_attrs.clone(),
+        })
+    }
+}
+
+#[cfg(test)]
+impl From<&Yaml> for Task {
+    fn from(yaml: &Yaml) -> Self {
+        TaskNew::from(yaml)
+            .validate_attrs()
+            .unwrap()
+            .get_task()
+            .unwrap()
     }
 }
 
@@ -123,7 +158,7 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task = Task::from(&yaml).unwrap();
+        let task = Task::from(yaml);
         println!("{:?}", task);
         assert_eq!(task.name.unwrap(), "Test task");
         assert_eq!(&task.module, MODULES.get("command").unwrap());
@@ -138,7 +173,7 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task = Task::from(&yaml);
-        assert!(task.is_err());
+        let task = Task::new(yaml).unwrap_err();
+        assert_eq!(task.kind(), ErrorKind::NotFound);
     }
 }
