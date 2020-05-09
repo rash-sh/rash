@@ -6,14 +6,14 @@ extern crate lazy_static;
 mod constants;
 mod context;
 mod error;
-mod executor;
 mod modules;
 mod plugins;
+#[macro_use]
+mod task;
 
 use context::Context;
 use plugins::inventory::INVENTORIES;
 
-use std::env;
 use std::path::PathBuf;
 
 lazy_static! {

@@ -2,8 +2,8 @@
 ///
 /// Preserve state between executions
 use crate::error::Result;
-use crate::executor::task::Task;
 use crate::plugins::inventory::Facts;
+use crate::task::Task;
 
 #[cfg(test)]
 use crate::plugins::inventory::Inventory;
