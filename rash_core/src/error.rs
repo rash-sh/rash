@@ -1,7 +1,10 @@
 use std::convert::From;
 use std::error;
 use std::fmt;
+use std::io;
 use std::result;
+
+use yaml_rust::scanner::ScanError;
 
 /// A specialized [`Result`](../result/enum.Result.html) type rash
 /// operations.
@@ -93,6 +96,41 @@ impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
             repr: Repr::Simple(kind),
+        }
+    }
+}
+
+impl From<io::Error> for Error {
+    /// Converts an io::Error into an [`Error`].
+    ///
+    /// This conversion allocates a new error with a simple representation of error kind.
+    ///
+    /// [`Error`]: ../../std/io/struct.Error.html
+    #[inline]
+    fn from(error: io::Error) -> Error {
+        Error {
+            repr: Repr::Custom(Box::new(Custom {
+                kind: ErrorKind::Other,
+                error: Box::new(error),
+            })),
+        }
+    }
+}
+
+impl From<ScanError> for Error {
+    /// Converts an ScanError into an [`Error`].
+    ///
+    /// This conversion allocates a new error with a custom representation of scan error.
+    ///
+    ///
+    /// [`Error`]: ../../std/io/struct.Error.html
+    #[inline]
+    fn from(error: ScanError) -> Error {
+        Error {
+            repr: Repr::Custom(Box::new(Custom {
+                kind: ErrorKind::InvalidData,
+                error: Box::new(error),
+            })),
         }
     }
 }
@@ -232,8 +270,6 @@ impl Error {
     /// }
     ///
     /// fn main() {
-    ///     // Will print "No inner error".
-    ///     print_error(&change_error(Error::last_os_error()));
     ///     // Will print "Inner error: ...".
     ///     print_error(&change_error(Error::new(ErrorKind::Other, MyError::new())));
     /// }

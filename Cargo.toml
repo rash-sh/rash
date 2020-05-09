@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "rash-core",
+    "rash_core",
 ]
 
 

@@ -1,14 +1,18 @@
 [package]
-name = "rash-core"
+name = "rash_derive"
 version = "0.1.0"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-lazy_static = "1.4.0"
-yaml-rust = "0.4"
+[lib]
+proc-macro = true
 
-[dev-dependencies]
-tempfile = "3"
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[features]
+default = ["syn/full"]

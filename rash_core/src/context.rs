@@ -1,10 +1,10 @@
 /// Context
 ///
 /// Preserve state between executions
+use crate::error::{Error, ErrorKind, Result};
 use crate::executor::task::Task;
 use crate::plugins::inventory::{Facts, Inventory};
 
-use std::error;
 use std::fs;
 use std::path::PathBuf;
 
@@ -16,19 +16,18 @@ pub struct Context {
     facts: Facts,
 }
 
-fn read_tasks(tasks_file_path: PathBuf) -> Result<Box<[Task]>, Box<dyn error::Error>> {
-    let tasks_file =
-        fs::read_to_string(tasks_file_path).expect("Something went wrong reading the file");
+fn read_tasks(tasks_file_path: PathBuf) -> Result<Box<[Task]>> {
+    let tasks_file = fs::read_to_string(tasks_file_path)?;
     let docs = YamlLoader::load_from_str(&tasks_file)?;
     let yaml = docs.first().unwrap();
     yaml.clone()
         .into_iter()
         .map(|task| Task::from(&task))
-        .collect::<Result<Box<[Task]>, _>>()
+        .collect::<Result<Box<[Task]>>>()
 }
 
 impl Context {
-    pub fn new(tasks_file_path: PathBuf, facts: Facts) -> Result<Self, Box<dyn error::Error>> {
+    pub fn new(tasks_file_path: PathBuf, facts: Facts) -> Result<Self> {
         Ok(Context {
             tasks: read_tasks(tasks_file_path)?,
             facts: facts,
