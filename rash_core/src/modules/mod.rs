@@ -1,32 +1,53 @@
 mod command;
 
-use crate::context::Context;
+use crate::error::Result;
 
 use std::collections::HashMap;
 
+use serde_json::Value;
 use yaml_rust::Yaml;
 
 pub struct ModuleResult {
     changed: bool,
-    extra: Option<Yaml>,
+    extra: Option<Value>,
+}
+
+impl ModuleResult {
+    pub fn get_changed(&self) -> bool {
+        self.changed
+    }
+
+    pub fn get_extra(&self) -> Option<Value> {
+        self.extra.clone()
+    }
 }
 
 /// Module definition with exec function and input parameters
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
-    exec_fn: fn(Option<Yaml>) -> ModuleResult,
-    params: Option<Yaml>,
+    name: &'static str,
+    exec_fn: fn(Yaml) -> Result<ModuleResult>,
 }
 
-#[cfg(test)]
 impl Module {
+    pub fn get_name(&self) -> &str {
+        self.name
+    }
+
+    pub fn exec(&self, params: Yaml) -> Result<ModuleResult> {
+        (self.exec_fn)(params.clone())
+    }
+
+    #[cfg(test)]
     pub fn test_example() -> Self {
         Module {
-            exec_fn: |_: Option<Yaml>| ModuleResult {
-                changed: true,
-                extra: None,
+            name: "test",
+            exec_fn: |_: Yaml| {
+                Ok(ModuleResult {
+                    changed: true,
+                    extra: None,
+                })
             },
-            params: None,
         }
     }
 }
@@ -37,63 +58,10 @@ lazy_static! {
         m.insert(
             "command",
             Module {
+                name: "command",
                 exec_fn: command::exec,
-                params: None,
             },
         );
         m
     };
-}
-
-/// Module with rendered params ready to be executed
-#[derive(Debug)]
-pub struct ModuleExec {
-    // until unnamed field: https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html
-    module: Module,
-    rendered_params: Option<Yaml>,
-}
-
-/// Render string params with Jinja2 and context substitution
-fn render_params(_context: Context, args: Option<Yaml>) -> Option<Yaml> {
-    // TODO jinja2 on strings with context
-    Some(args?)
-}
-
-/// Verify input args are valid
-fn verify_params(_params: Yaml, _args: Yaml) -> bool {
-    // TODO
-    true
-}
-
-impl ModuleExec {
-    pub fn new(module: Module, context: Context, args: Option<Yaml>) -> Self {
-        ModuleExec {
-            module: module,
-            rendered_params: render_params(context, args),
-        }
-    }
-
-    pub fn exec(&self) -> ModuleResult {
-        (self.module.exec_fn)(self.rendered_params.clone())
-    }
-
-    #[cfg(test)]
-    pub fn test_example() -> Self {
-        ModuleExec {
-            module: MODULES.get("command").unwrap().clone(),
-            rendered_params: None,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_moduleexec_new() {
-        let module_exec = ModuleExec::new(Module::test_example(), Context::test_example(), None);
-        assert_eq!(module_exec.module, Module::test_example());
-        assert_eq!(module_exec.rendered_params, None);
-    }
 }

@@ -15,19 +15,19 @@ use yaml_rust::YamlLoader;
 
 #[derive(Debug)]
 pub struct Context {
-    tasks: Box<[Task]>,
+    tasks: Vec<Task>,
     facts: Facts,
 }
 
 impl Context {
-    fn read_tasks(tasks_file_path: PathBuf) -> Result<Box<[Task]>> {
+    fn read_tasks(tasks_file_path: PathBuf) -> Result<Vec<Task>> {
         let tasks_file = fs::read_to_string(tasks_file_path)?;
         let docs = YamlLoader::load_from_str(&tasks_file)?;
         let yaml = docs.first().unwrap();
         yaml.clone()
             .into_iter()
             .map(|task| Task::new(&task))
-            .collect::<Result<Box<[Task]>>>()
+            .collect::<Result<Vec<Task>>>()
     }
 
     pub fn new(tasks_file_path: PathBuf, facts: Facts) -> Result<Self> {
@@ -37,10 +37,21 @@ impl Context {
         })
     }
 
+    /// Execute task using facts
+    pub fn execute_task(&self) -> Result<Self> {
+        let mut next_tasks = self.tasks.clone();
+        let next_task = next_tasks.remove(0);
+        let facts = next_task.execute(self.facts.clone())?;
+        Ok(Self {
+            tasks: self.tasks.clone(),
+            facts: facts,
+        })
+    }
+
     #[cfg(test)]
     pub fn test_example() -> Self {
         Context {
-            tasks: vec![Task::test_example()].into_boxed_slice(),
+            tasks: vec![Task::test_example()],
             facts: Inventory::test_example().load(),
         }
     }

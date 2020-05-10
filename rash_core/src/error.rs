@@ -59,6 +59,8 @@ pub enum ErrorKind {
     NotFound,
     /// Data is invalid, often fail to render Jinja2.
     InvalidData,
+    /// Generic fail executing subprocess.
+    SubprocessFail,
     /// Any rash error not part of this list.
     Other,
 }
@@ -68,6 +70,7 @@ impl ErrorKind {
         match *self {
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
+            ErrorKind::SubprocessFail => "subprocess fail",
             ErrorKind::Other => "other os error",
         }
     }
@@ -380,11 +383,6 @@ impl error::Error for Error {
             Repr::Custom(ref c) => c.error.source(),
         }
     }
-}
-
-fn _assert_error_is_sync_send() {
-    fn _is_sync_send<T: Sync + Send>() {}
-    _is_sync_send::<Error>();
 }
 
 #[cfg(test)]

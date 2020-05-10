@@ -17,6 +17,7 @@ impl Inventory {
     }
 
     pub fn load(&self) -> Facts {
+        debug!("loading inventory");
         (self.load_fn)()
     }
 

@@ -1,7 +1,6 @@
-#![feature(proc_macro)]
-
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, MODULES};
+use crate::plugins::inventory::Facts;
 
 use rash_derive::FieldNames;
 
@@ -9,10 +8,14 @@ use std::collections::HashSet;
 
 use yaml_rust::Yaml;
 
+#[cfg(test)]
+use yaml_rust::YamlLoader;
+
 /// Task is composed of Module and parameters to be executed in a concrete context
-#[derive(Debug, FieldNames)]
+#[derive(Debug, Clone, FieldNames)]
 pub struct Task {
     module: Module,
+    params: Yaml,
     name: Option<String>,
 }
 
@@ -34,11 +37,43 @@ impl Task {
         TaskNew::from(yaml).validate_attrs()?.get_task()
     }
 
+    fn render_params(&self, facts: Facts) -> Yaml {
+        // TODO
+        self.params.clone()
+    }
+
+    pub fn execute(&self, facts: Facts) -> Result<Facts> {
+        info!(
+            "TASK [{}] {separator}",
+            match self.name.clone() {
+                Some(s) => s,
+                None => self.module.get_name().to_string(),
+            },
+            separator = ["*"; 40].join("")
+        );
+        debug!("{:?}", self.params);
+        let result = self.module.exec(self.render_params(facts.clone())).unwrap();
+        info!(
+            "{}: {:?}",
+            match result.get_changed() {
+                true => "changed",
+                false => "ok",
+            },
+            result.get_extra()
+        );
+        Ok(facts)
+    }
+
     #[cfg(test)]
     pub fn test_example() -> Self {
         Task {
             module: Module::test_example(),
             name: None,
+            params: YamlLoader::load_from_str("cmd: ls")
+                .unwrap()
+                .first()
+                .unwrap()
+                .clone(),
         }
     }
 }
@@ -60,7 +95,7 @@ impl TaskValid {
             .collect::<HashSet<String>>()
     }
 
-    fn get_module<'a>(&'a self) -> Result<&Module> {
+    fn get_module_name<'a>(&'a self) -> Result<String> {
         let module_names: HashSet<String> = self
             .get_possible_attrs()
             .iter()
@@ -76,20 +111,27 @@ impl TaskValid {
             }
             false => (),
         };
-        let module = module_names.iter().next().ok_or(Error::new(
-            ErrorKind::NotFound,
-            format!("Not module found in task: {:?}", self),
-        ))?;
-        MODULES.get::<str>(module).ok_or(Error::new(
-            ErrorKind::NotFound,
-            format!("Module not found in modules: {:?}", MODULES.keys()),
-        ))
+        match module_names.iter().map(String::clone).next() {
+            Some(s) => Ok(s),
+            None => Err(Error::new(
+                ErrorKind::NotFound,
+                format!("Not module found in task: {:?}", self),
+            )),
+        }
     }
 
     pub fn get_task<'task>(&self) -> Result<Task> {
+        let module_name: &str = &self.get_module_name()?;
         Ok(Task {
             name: self.attrs["name"].as_str().map(String::from),
-            module: self.get_module()?.clone(),
+            module: MODULES
+                .get::<str>(&module_name)
+                .ok_or(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Module not found in modules: {:?}", MODULES.keys()),
+                ))?
+                .clone(),
+            params: self.attrs[module_name].clone(),
         })
     }
 }
@@ -150,6 +192,7 @@ impl From<&Yaml> for Task {
 mod tests {
     use super::*;
 
+    use crate::plugins::inventory::Inventory;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -178,5 +221,13 @@ mod tests {
         let yaml = out.first().unwrap();
         let task = Task::new(yaml).unwrap_err();
         assert_eq!(task.kind(), ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_task_execute() {
+        let task = Task::test_example();
+        let facts = Inventory::test_example().load();
+        let result = task.execute(facts.clone()).unwrap();
+        assert_eq!(result, facts);
     }
 }
