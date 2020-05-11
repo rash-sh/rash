@@ -45,10 +45,9 @@ impl Task {
     pub fn execute(&self, facts: Facts) -> Result<Facts> {
         info!(
             "TASK [{}] {separator}",
-            match self.name.clone() {
-                Some(s) => s,
-                None => self.module.get_name().to_string(),
-            },
+            self.name
+                .clone()
+                .unwrap_or_else(|| self.module.get_name().to_string()),
             separator = ["*"; 40].join("")
         );
         debug!("{:?}", self.params);
@@ -111,13 +110,14 @@ impl TaskValid {
             }
             false => (),
         };
-        match module_names.iter().map(String::clone).next() {
-            Some(s) => Ok(s),
-            None => Err(Error::new(
+        module_names
+            .iter()
+            .map(String::clone)
+            .next()
+            .ok_or(Error::new(
                 ErrorKind::NotFound,
                 format!("Not module found in task: {:?}", self),
-            )),
-        }
+            ))
     }
 
     pub fn get_task<'task>(&self) -> Result<Task> {
@@ -161,14 +161,11 @@ impl TaskNew {
                 format!("Task is not a dict {:?}", self.proto_attrs),
             ))?
             .iter()
-            .map(|(key, _)| match key.as_str() {
-                Some(s) => Ok(s.to_string()),
-                None => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Key is not valid in {:?}", self.proto_attrs),
-                    ))
-                }
+            .map(|(key, _)| {
+                key.as_str().ok_or(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Key is not valid in {:?}", self.proto_attrs),
+                ))
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(TaskValid {
