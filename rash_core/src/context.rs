@@ -2,11 +2,11 @@
 ///
 /// Preserve state between executions
 use crate::error::Result;
-use crate::plugins::inventory::Facts;
+use crate::plugins::facts::Facts;
 use crate::task::Task;
 
 #[cfg(test)]
-use crate::plugins::inventory::Inventory;
+use crate::plugins::facts::test_example as facts_text_example;
 
 use std::fs;
 use std::path::PathBuf;
@@ -37,7 +37,7 @@ impl Context {
         })
     }
 
-    /// Execute task using facts
+    /// Execute task using inventory
     pub fn execute_task(&self) -> Result<Self> {
         let mut next_tasks = self.tasks.clone();
         let next_task = next_tasks.remove(0);
@@ -52,7 +52,7 @@ impl Context {
     pub fn test_example() -> Self {
         Context {
             tasks: vec![Task::test_example()],
-            facts: Inventory::test_example().load(),
+            facts: facts_text_example(),
         }
     }
 }
@@ -85,7 +85,7 @@ mod tests {
         )
         .unwrap();
 
-        let context = Context::new(file_path, Inventory::test_example().load()).unwrap();
+        let context = Context::new(file_path, facts_text_example()).unwrap();
         assert_eq!(context.tasks.len(), 2);
     }
 }

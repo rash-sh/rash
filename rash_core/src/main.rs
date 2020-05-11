@@ -16,7 +16,7 @@ mod plugins;
 mod task;
 
 use context::Context;
-use plugins::inventory::INVENTORIES;
+use plugins::facts::FACTS_SOURCES;
 
 use std::path::PathBuf;
 
@@ -27,9 +27,12 @@ lazy_static! {
 fn main() {
     logger::init();
     debug!("start logger");
-    let inventory = INVENTORIES.get("env").expect("Inventory does not exists");
-    let context =
-        Context::new(TASKS_PATH.to_path_buf(), inventory.load()).expect("Failed to load context");
+    let facts_fn = FACTS_SOURCES.get("env").expect("Inventory does not exists");
+    let context = Context::new(
+        TASKS_PATH.to_path_buf(),
+        (facts_fn)().expect("Failed to load inventory"),
+    )
+    .expect("Failed to load context");
     let _ = context.execute_task().unwrap();
 }
 
@@ -44,7 +47,7 @@ mod tests {
     #[test]
     fn test_command_ls() {
         logger::init();
-        let inventory = INVENTORIES.get("env").expect("Inventory does not exists");
+        let facts_fn = FACTS_SOURCES.get("env").expect("Inventory does not exists");
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("entrypoint.rh");
@@ -62,7 +65,8 @@ mod tests {
         )
         .unwrap();
 
-        let context = Context::new(file_path, inventory.load()).expect("Failed to load context");
+        let context =
+            Context::new(file_path, (facts_fn)().unwrap()).expect("Failed to load context");
         let _ = context.execute_task().unwrap();
     }
 }

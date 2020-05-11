@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, MODULES};
-use crate::plugins::inventory::Facts;
+use crate::plugins::facts::Facts;
 
 use rash_derive::FieldNames;
 
@@ -101,14 +101,11 @@ impl TaskValid {
             .filter(|&key| is_module(key))
             .map(String::clone)
             .collect();
-        match module_names.len() > 1 {
-            true => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Multiple modules found in task: {:?}", self),
-                ))
-            }
-            false => (),
+        if module_names.len() > 1 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Multiple modules found in task: {:?}", self),
+            ));
         };
         module_names
             .iter()
@@ -189,7 +186,7 @@ impl From<&Yaml> for Task {
 mod tests {
     use super::*;
 
-    use crate::plugins::inventory::Inventory;
+    use crate::plugins::facts;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -223,7 +220,7 @@ mod tests {
     #[test]
     fn test_task_execute() {
         let task = Task::test_example();
-        let facts = Inventory::test_example().load();
+        let facts = facts::test_example();
         let result = task.execute(facts.clone()).unwrap();
         assert_eq!(result, facts);
     }
