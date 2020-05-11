@@ -1,5 +1,5 @@
 # rash
-![](https://img.shields.io/github/workflow/status/pando85/rash/Rust/master) ![](https://img.shields.io/github/license/pando85/rash)
+![](https://img.shields.io/github/workflow/status/pando85/rash/Rust/master) [![](https://img.shields.io/badge/design-concept--map-blue)](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56) ![](https://img.shields.io/github/license/pando85/rash)
 
 Declarative shell using Rust native bindings scripting inspired in [Ansible](https://www.ansible.com/)
 
