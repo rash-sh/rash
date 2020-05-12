@@ -26,9 +26,17 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
 
 pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
     let params = parse_params(optional_params)?;
-    let output = Command::new(params.cmd)
+    trace!("command - exec - params: {:?}", params);
+
+    let mut args = params.cmd.split_whitespace();
+
+    // safe unwrap: verify in parse_params
+    let program = args.next().unwrap();
+    let output = Command::new(program)
+        .args(&args.collect::<Vec<_>>())
         .output()
         .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?;
+    trace!("command - exec - output: {:?}", output);
 
     Ok(ModuleResult {
         changed: true,

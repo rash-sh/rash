@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use yaml_rust::YamlLoader;
 
 pub fn read_file(tasks_file_path: PathBuf) -> Result<Tasks> {
+    trace!("reading tasks from: {:?}", tasks_file_path);
     let tasks_file = fs::read_to_string(tasks_file_path)
         .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
 

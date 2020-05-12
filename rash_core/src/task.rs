@@ -36,6 +36,7 @@ fn is_module(module: &str) -> bool {
 
 impl Task {
     pub fn new(yaml: &Yaml) -> Result<Self> {
+        trace!("new task: {:?}", yaml);
         TaskNew::from(yaml).validate_attrs()?.get_task()
     }
 
@@ -44,7 +45,7 @@ impl Task {
         self.params.clone()
     }
 
-    pub fn execute(&self, facts: Facts) -> Result<Facts> {
+    pub fn exec(&self, facts: Facts) -> Result<Facts> {
         info!(
             "TASK [{}] {separator}",
             self.name
@@ -53,7 +54,7 @@ impl Task {
             separator = ["*"; 40].join("")
         );
         debug!("{:?}", self.params);
-        let result = self.module.exec(self.render_params(facts.clone())).unwrap();
+        let result = self.module.exec(self.render_params(facts.clone()))?;
         info!(
             "{}: {:?}",
             match result.get_changed() {
@@ -229,7 +230,7 @@ mod tests {
     fn test_task_execute() {
         let task = Task::test_example();
         let facts = facts::test_example();
-        let result = task.execute(facts.clone()).unwrap();
+        let result = task.exec(facts.clone()).unwrap();
         assert_eq!(result, facts);
     }
 

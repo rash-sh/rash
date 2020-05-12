@@ -33,6 +33,7 @@ mod tests {
     use super::*;
 
     use context::Context;
+    use error::ErrorKind;
     use facts::FACTS_SOURCES;
     use input::read_file;
 
@@ -62,6 +63,10 @@ mod tests {
         .unwrap();
 
         let context = Context::new(read_file(file_path).unwrap(), (facts_fn)().unwrap());
-        let _ = context.exec().unwrap();
+        let context_error = Context::exec(context).unwrap_err();
+        let _ = match context_error.kind() {
+            ErrorKind::EmptyTaskStack => (),
+            _ => panic!(context_error),
+        };
     }
 }

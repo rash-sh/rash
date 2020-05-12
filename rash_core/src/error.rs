@@ -61,6 +61,8 @@ pub enum ErrorKind {
     InvalidData,
     /// Generic fail executing subprocess.
     SubprocessFail,
+    /// Task stack is empty
+    EmptyTaskStack,
     /// Any rash error not part of this list.
     Other,
 }
@@ -71,6 +73,7 @@ impl ErrorKind {
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
             ErrorKind::SubprocessFail => "subprocess fail",
+            ErrorKind::EmptyTaskStack => "task stack is empty",
             ErrorKind::Other => "other os error",
         }
     }

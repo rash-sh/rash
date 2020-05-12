@@ -1,7 +1,7 @@
 /// Context
 ///
 /// Preserve state between executions
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::facts::Facts;
 use crate::task::Tasks;
 
@@ -26,14 +26,25 @@ impl Context {
     }
 
     /// Execute task using inventory
-    pub fn exec(&self) -> Result<Self> {
+    pub fn exec_task(&self) -> Result<Self> {
         let mut next_tasks = self.tasks.clone();
+        if next_tasks.len() == 0 {
+            return Err(Error::new(
+                ErrorKind::EmptyTaskStack,
+                format!("No more tasks in context stack: {:?}", self),
+            ));
+        }
         let next_task = next_tasks.remove(0);
-        let facts = next_task.execute(self.facts.clone())?;
+        let facts = next_task.exec(self.facts.clone())?;
         Ok(Self {
-            tasks: self.tasks.clone(),
+            tasks: next_tasks.clone(),
             facts: facts,
         })
+    }
+
+    pub fn exec(context: Self) -> Result<Self> {
+        // https://prev.rust-lang.org/en-US/faq.html#does-rust-do-tail-call-optimization
+        Self::exec(context.exec_task()?)
     }
 
     #[cfg(test)]
