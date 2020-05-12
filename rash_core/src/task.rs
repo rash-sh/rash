@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
+use crate::facts::Facts;
 use crate::modules::{Module, MODULES};
-use crate::plugins::facts::Facts;
 
 use rash_derive::FieldNames;
 
@@ -12,12 +12,14 @@ use yaml_rust::Yaml;
 use yaml_rust::YamlLoader;
 
 /// Task is composed of Module and parameters to be executed in a concrete context
-#[derive(Debug, Clone, FieldNames)]
+#[derive(Debug, Clone, PartialEq, FieldNames)]
 pub struct Task {
     module: Module,
     params: Yaml,
     name: Option<String>,
 }
+
+pub type Tasks = Vec<Task>;
 
 #[inline(always)]
 fn is_task_attr(attr: &str) -> bool {
@@ -186,7 +188,13 @@ impl From<&Yaml> for Task {
 mod tests {
     use super::*;
 
-    use crate::plugins::facts;
+    use crate::facts;
+    use crate::input::read_file;
+
+    use std::fs::File;
+    use std::io::Write;
+
+    use tempfile::tempdir;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -206,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_from_yaml_no_module() {
-        let s: String = r#"
+        let s = r#"
         name: 'Test task'
         no_module: 'example'
         "#
@@ -223,5 +231,52 @@ mod tests {
         let facts = facts::test_example();
         let result = task.execute(facts.clone()).unwrap();
         assert_eq!(result, facts);
+    }
+
+    fn get_yaml(s: String) -> Yaml {
+        let doc = YamlLoader::load_from_str(&s).unwrap();
+        doc.first().unwrap().clone()
+    }
+
+    #[test]
+    fn test_read_tasks() {
+        let dir = tempdir().unwrap();
+
+        let file_path = dir.path().join("entrypoint.rh");
+        let mut file = File::create(file_path.clone()).unwrap();
+        writeln!(
+            file,
+            r#"
+        #!/bin/rash
+        - name: task 1
+          command:
+            foo: boo
+
+        - name: task 2
+          command: boo
+        "#
+        )
+        .unwrap();
+        let tasks = read_file(file_path).unwrap();
+        assert_eq!(tasks.len(), 2);
+
+        let s0 = r#"
+        name: task 1
+        command:
+          foo: boo
+        "#
+        .to_owned();
+        let yaml = get_yaml(s0);
+        let task_0 = Task::from(&yaml);
+        assert_eq!(tasks[0], task_0);
+
+        let s1 = r#"
+        name: task 2
+        command: boo
+        "#
+        .to_owned();
+        let yaml = get_yaml(s1);
+        let task_1 = Task::from(&yaml);
+        assert_eq!(tasks[1], task_1);
     }
 }

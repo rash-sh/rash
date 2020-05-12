@@ -103,30 +103,13 @@ impl From<ErrorKind> for Error {
     }
 }
 
-impl From<io::Error> for Error {
-    /// Converts an io::Error into an [`Error`].
-    ///
-    /// This conversion allocates a new error with a simple representation of error kind.
-    ///
-    /// [`Error`]: ../../std/io/struct.Error.html
-    #[inline]
-    fn from(error: io::Error) -> Error {
-        Error {
-            repr: Repr::Custom(Box::new(Custom {
-                kind: ErrorKind::Other,
-                error: Box::new(error),
-            })),
-        }
-    }
-}
-
 impl From<ScanError> for Error {
     /// Converts an ScanError into an [`Error`].
     ///
     /// This conversion allocates a new error with a custom representation of scan error.
     ///
     ///
-    /// [`Error`]: ../../std/io/struct.Error.html
+    /// [`Error`]: ../error/struct.Error.html
     #[inline]
     fn from(error: ScanError) -> Error {
         Error {

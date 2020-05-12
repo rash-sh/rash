@@ -1,6 +1,6 @@
 use crate::constants::ENV_VAR_PREFIX;
 use crate::error::{Error, ErrorKind, Result};
-use crate::plugins::facts::Facts;
+use crate::facts::Facts;
 
 use std::env;
 

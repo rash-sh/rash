@@ -10,13 +10,11 @@ extern crate serde_json;
 mod constants;
 mod context;
 mod error;
+mod facts;
+mod input;
 mod logger;
 mod modules;
-mod plugins;
 mod task;
-
-use context::Context;
-use plugins::facts::FACTS_SOURCES;
 
 use std::path::PathBuf;
 
@@ -27,18 +25,16 @@ lazy_static! {
 fn main() {
     logger::init();
     debug!("start logger");
-    let facts_fn = FACTS_SOURCES.get("env").expect("Inventory does not exists");
-    let context = Context::new(
-        TASKS_PATH.to_path_buf(),
-        (facts_fn)().expect("Failed to load inventory"),
-    )
-    .expect("Failed to load context");
-    let _ = context.execute_task().unwrap();
+    println!("TODO");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use context::Context;
+    use facts::FACTS_SOURCES;
+    use input::read_file;
 
     use std::fs::File;
     use std::io::Write;
@@ -47,7 +43,7 @@ mod tests {
     #[test]
     fn test_command_ls() {
         logger::init();
-        let facts_fn = FACTS_SOURCES.get("env").expect("Inventory does not exists");
+        let facts_fn = FACTS_SOURCES.get("env").unwrap();
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("entrypoint.rh");
@@ -65,8 +61,7 @@ mod tests {
         )
         .unwrap();
 
-        let context =
-            Context::new(file_path, (facts_fn)().unwrap()).expect("Failed to load context");
-        let _ = context.execute_task().unwrap();
+        let context = Context::new(read_file(file_path).unwrap(), (facts_fn)().unwrap());
+        let _ = context.exec().unwrap();
     }
 }
