@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/pando85/rash/master/artwork/logo.png" width="20%" height="auto" />
+
 # rash
 ![](https://img.shields.io/github/workflow/status/pando85/rash/Rust/master) [![](https://img.shields.io/badge/design-concept--map-blue)](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56) ![](https://img.shields.io/github/license/pando85/rash)
 
