@@ -18,14 +18,42 @@ mod task;
 
 use std::path::PathBuf;
 
+use clap;
+
+use context::Context;
+use error::ErrorKind;
+use facts::FACTS_SOURCES;
+use input::read_file;
+
 lazy_static! {
     static ref TASKS_PATH: PathBuf = PathBuf::from("./entrypoint.rh");
 }
 
 fn main() {
-    logger::init();
-    debug!("start logger");
-    println!("TODO");
+    let cmd_arguments = clap::App::new("cmd-program")
+        .arg(
+            clap::Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .multiple(true)
+                .help("Increases logging verbosity each use for up to 3 times"),
+        )
+        .get_matches();
+
+    let verbosity = cmd_arguments.occurrences_of("verbose");
+
+    logger::setup_logging(verbosity).expect("failed to initialize logging.");
+    trace!("start logger");
+    let facts_fn = FACTS_SOURCES.get("env").unwrap();
+    let context = Context::new(
+        read_file(PathBuf::from("./entrypoint.rh")).unwrap(),
+        (facts_fn)().unwrap(),
+    );
+    let context_error = Context::exec(context).unwrap_err();
+    let _ = match context_error.kind() {
+        ErrorKind::EmptyTaskStack => (),
+        _ => panic!(context_error),
+    };
 }
 
 #[cfg(test)]
@@ -43,7 +71,8 @@ mod tests {
 
     #[test]
     fn test_command_ls() {
-        logger::init();
+        logger::setup_logging(0).expect("failed to initialize logging.");
+
         let facts_fn = FACTS_SOURCES.get("env").unwrap();
         let dir = tempdir().unwrap();
 

@@ -1,19 +1,12 @@
 use std::convert::From;
 use std::error;
 use std::fmt;
-use std::io;
 use std::result;
 
 use yaml_rust::scanner::ScanError;
 
 /// A specialized [`Result`](../result/enum.Result.html) type rash
 /// operations.
-///
-/// While usual Rust style is to import types directly, aliases of [`Result`]
-/// often are not, to make it easier to distinguish between them. [`Result`] is
-/// generally assumed to be [`std::result::Result`][`Result`], and so users of this alias
-/// will generally use `crate::error::Result` instead of shadowing the prelude's import
-/// of [`std::result::Result`][`Result`].
 ///
 /// [`Error`]: ../struct.Error.html
 /// [`Result`]: ../result/enum.Result.html
