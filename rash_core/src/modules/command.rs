@@ -40,10 +40,12 @@ pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
 
     Ok(ModuleResult {
         changed: true,
+        output: Some(
+            String::from_utf8(output.stdout)
+                .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
+        ),
         extra: Some(json!({
             "rc": output.status.code(),
-            "stdout": String::from_utf8(output.stdout)
-                .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
             "stderr": String::from_utf8(output.stderr)
                 .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
         })),

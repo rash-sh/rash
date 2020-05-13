@@ -10,6 +10,7 @@ use yaml_rust::Yaml;
 pub struct ModuleResult {
     changed: bool,
     extra: Option<Value>,
+    output: Option<String>,
 }
 
 impl ModuleResult {
@@ -19,6 +20,10 @@ impl ModuleResult {
 
     pub fn get_extra(&self) -> Option<Value> {
         self.extra.clone()
+    }
+
+    pub fn get_output(&self) -> Option<String> {
+        self.output.clone()
     }
 }
 
@@ -46,6 +51,7 @@ impl Module {
                 Ok(ModuleResult {
                     changed: true,
                     extra: None,
+                    output: None,
                 })
             },
         }

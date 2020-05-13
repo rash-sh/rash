@@ -46,23 +46,25 @@ impl Task {
     }
 
     pub fn exec(&self, facts: Facts) -> Result<Facts> {
-        info!(target: "task",
-            "[{}] {separator}",
-            self.name
-                .clone()
-                .unwrap_or_else(|| self.module.get_name().to_string()),
-            separator = ["*"; 80].join("")
-        );
-        debug!("{:?}", self.params);
+        debug!("Module: {}", self.module.get_name());
+        debug!("Params: {:?}", self.params);
         let result = self.module.exec(self.render_params(facts.clone()))?;
         info!(target: match result.get_changed() {
             true => "changed",
             false => "ok",
             },
             "{:?}",
-            result.get_extra()
+            result.get_output().unwrap_or("".to_string())
         );
         Ok(facts)
+    }
+
+    pub fn get_name(&self) -> Option<String> {
+        self.name.clone()
+    }
+
+    pub fn get_module(&self) -> Module {
+        self.module.clone()
     }
 
     #[cfg(test)]

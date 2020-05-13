@@ -6,10 +6,11 @@ use std::io;
 use fern::colors::Color;
 use fern::FormatCallback;
 use log;
+use term_size;
 
 fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
     out.finish(format_args!(
-        "{color_line}{log_header}{message}\x1B[0m",
+        "{color_line}{log_header}{message}{separator}\x1B[0m",
         color_line = format_args!(
             "\x1B[{}m",
             match (record.level(), record.target()) {
@@ -36,6 +37,11 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
         }
         .clone(),
         message = message,
+        separator = match (record.level(), record.target()) {
+            (log::Level::Info, "task") =>
+                vec!["*"; term_size::dimensions().map(|(w, _)| w).unwrap_or(80)].join(""),
+            (_, _) => "".to_string(),
+        },
     ))
 }
 
