@@ -6,6 +6,7 @@ use rash_derive::FieldNames;
 
 use std::collections::HashSet;
 
+use tera::Tera;
 use yaml_rust::Yaml;
 
 #[cfg(test)]
@@ -40,15 +41,48 @@ impl Task {
         TaskNew::from(yaml).validate_attrs()?.get_task()
     }
 
-    fn render_params(&self, facts: Facts) -> Yaml {
-        // TODO
-        self.params.clone()
+    fn render_string(s: &str, facts: Facts) -> Result<String> {
+        let mut tera = Tera::default();
+        tera.add_raw_template("a", &s)
+            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+        tera.render("a", &facts)
+            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
+    }
+
+    fn render_params(&self, facts: Facts) -> Result<Yaml> {
+        let original_params = self.params.clone();
+        match original_params.as_hash() {
+            Some(hash) => match hash
+                .clone()
+                .iter()
+                .map(|t| {
+                    match Task::render_string(
+                        // safe unwrap: validated attr
+                        &t.1.clone().as_str().unwrap().to_string(),
+                        facts.clone(),
+                    ) {
+                        Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
+                        Err(e) => Err(e),
+                    }
+                })
+                .collect::<Result<_>>()
+            {
+                Ok(hash) => Ok(Yaml::Hash(hash)),
+                Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
+            },
+
+            None => Ok(Yaml::String(Task::render_string(
+                // safe unwrap: validated attr
+                original_params.as_str().unwrap(),
+                facts.clone(),
+            )?)),
+        }
     }
 
     pub fn exec(&self, facts: Facts) -> Result<Facts> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
-        let result = self.module.exec(self.render_params(facts.clone()))?;
+        let result = self.module.exec(self.render_params(facts.clone())?)?;
         info!(target: match result.get_changed() {
             true => "changed",
             false => "ok",
@@ -61,6 +95,10 @@ impl Task {
 
     pub fn get_name(&self) -> Option<String> {
         self.name.clone()
+    }
+
+    pub fn get_rendered_name(&self, facts: Facts) -> Option<String> {
+        Task::render_string(&self.name.clone().unwrap_or("".to_string()), facts).ok()
     }
 
     pub fn get_module(&self) -> Module {
@@ -94,6 +132,7 @@ impl TaskValid {
             .into_hash()
             .unwrap()
             .iter()
+            // safe unwrap: validated attr
             .map(|(key, _)| key.as_str().unwrap().to_string())
             .collect::<HashSet<String>>()
     }
@@ -193,6 +232,7 @@ mod tests {
     use crate::facts;
     use crate::input::read_file;
 
+    use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
 
@@ -280,5 +320,50 @@ mod tests {
         let yaml = get_yaml(s1);
         let task_1 = Task::from(&yaml);
         assert_eq!(tasks[1], task_1);
+    }
+
+    #[test]
+    fn test_render_params() {
+        let s0 = r#"
+        name: task 1
+        command:
+          cmd: ls {{ directory }}
+        "#
+        .to_owned();
+        let yaml = get_yaml(s0);
+        let task = Task::from(&yaml);
+        let facts = Facts::from_serialize(
+            [("directory", "boo"), ("xuu", "zoo")]
+                .iter()
+                .cloned()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(),
+        )
+        .unwrap();
+
+        let rendered_params = task.render_params(facts).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
+    }
+
+    #[test]
+    fn test_render_params_no_hash_map() {
+        let s0 = r#"
+        name: task 1
+        command: ls {{ directory }}
+        "#
+        .to_owned();
+        let yaml = get_yaml(s0);
+        let task = Task::from(&yaml);
+        let facts = Facts::from_serialize(
+            [("directory", "boo"), ("xuu", "zoo")]
+                .iter()
+                .cloned()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(),
+        )
+        .unwrap();
+
+        let rendered_params = task.render_params(facts).unwrap();
+        assert_eq!(rendered_params.as_str().unwrap(), "ls boo");
     }
 }
