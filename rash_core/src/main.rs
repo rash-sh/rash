@@ -71,8 +71,6 @@ mod tests {
 
     #[test]
     fn test_command_ls() {
-        logger::setup_logging(0).expect("failed to initialize logging.");
-
         let facts_fn = FACTS_SOURCES.get("env").unwrap();
         let dir = tempdir().unwrap();
 
