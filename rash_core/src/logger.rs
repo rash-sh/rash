@@ -9,6 +9,17 @@ use log;
 use term_size;
 
 fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
+    let log_header = match (record.level(), record.target()) {
+        (log::Level::Info, "ok") => "ok: ",
+        (log::Level::Info, "changed") => "changed: ",
+        (log::Level::Warn, _) => "[WARNING] ",
+        (log::Level::Error, "task") => "failed: ",
+        (log::Level::Error, _) => "[ERROR] ",
+        (log::Level::Info, "task") => "TASK ",
+        (log::Level::Info, _) => "",
+        (log::Level::Debug, _) => "",
+        (log::Level::Trace, s) => s,
+    };
     out.finish(format_args!(
         "{color_line}{log_header}{message}{separator}\x1B[0m",
         color_line = format_args!(
@@ -24,22 +35,16 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
             }
             .to_fg_str()
         ),
-        log_header = match (record.level(), record.target()) {
-            (log::Level::Info, "ok") => "ok: ",
-            (log::Level::Info, "changed") => "changed: ",
-            (log::Level::Warn, _) => "[WARNING] ",
-            (log::Level::Error, "task") => "failed: ",
-            (log::Level::Error, _) => "[ERROR] ",
-            (log::Level::Info, "task") => "TASK ",
-            (log::Level::Info, _) => "",
-            (log::Level::Debug, _) => "",
-            (log::Level::Trace, s) => s,
-        }
-        .clone(),
-        message = message,
+        log_header = log_header.clone(),
+        message = message.clone(),
         separator = match (record.level(), record.target()) {
-            (log::Level::Info, "task") =>
-                vec!["*"; term_size::dimensions().map(|(w, _)| w).unwrap_or(80)].join(""),
+            (log::Level::Info, "task") => vec![
+                "*";
+                term_size::dimensions().map(|(w, _)| w).unwrap_or(80)
+                    - log_header.len()
+                    - message.to_string().len()
+            ]
+            .join(""),
             (_, _) => "".to_string(),
         },
     ))
