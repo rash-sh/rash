@@ -10,15 +10,15 @@ use term_size;
 
 fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
     let log_header = match (record.level(), record.target()) {
-        (log::Level::Info, "ok") => "ok: ",
-        (log::Level::Info, "changed") => "changed: ",
-        (log::Level::Warn, _) => "[WARNING] ",
-        (log::Level::Error, "task") => "failed: ",
-        (log::Level::Error, _) => "[ERROR] ",
-        (log::Level::Info, "task") => "TASK ",
-        (log::Level::Info, _) => "",
-        (log::Level::Debug, _) => "",
-        (log::Level::Trace, s) => s,
+        (log::Level::Info, "ok") => "ok: ".to_owned(),
+        (log::Level::Info, "changed") => "changed: ".to_owned(),
+        (log::Level::Warn, _) => "[WARNING] ".to_owned(),
+        (log::Level::Error, "task") => "failed: ".to_owned(),
+        (log::Level::Error, _) => "[ERROR] ".to_owned(),
+        (log::Level::Info, "task") => "TASK ".to_owned(),
+        (log::Level::Info, _) => "".to_owned(),
+        (log::Level::Debug, _) => "".to_owned(),
+        (log::Level::Trace, s) => s.to_owned() + " - ",
     };
     out.finish(format_args!(
         "{color_line}{log_header}{message}{separator}\x1B[0m",
