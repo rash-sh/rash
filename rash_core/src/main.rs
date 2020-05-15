@@ -1,8 +1,8 @@
 use rash_core::context::Context;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::facts::FACTS_SOURCES;
-use rash_core::input::read_file;
 use rash_core::logger;
+use rash_core::task::read_file;
 
 use std::path::PathBuf;
 use std::process::exit;
@@ -12,7 +12,7 @@ use clap::{crate_version, Clap};
 #[macro_use]
 extern crate log;
 
-/// Declarative shell using Rust native bindings scripting
+/// Declarative shell scripting using Rust native bindings
 #[derive(Clap)]
 #[clap(version = crate_version!(), author = "Alexander Gil <pando855@gmail.com>")]
 struct Opts {

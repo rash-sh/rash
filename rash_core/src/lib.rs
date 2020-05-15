@@ -2,7 +2,6 @@
 pub mod context;
 pub mod error;
 pub mod facts;
-pub mod input;
 pub mod logger;
 pub mod modules;
 pub mod task;
@@ -21,7 +20,7 @@ mod tests {
     use context::Context;
     use error::ErrorKind;
     use facts::FACTS_SOURCES;
-    use input::read_file;
+    use task::read_file;
 
     use std::fs::File;
     use std::io::Write;

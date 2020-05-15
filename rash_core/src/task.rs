@@ -5,12 +5,11 @@ use crate::modules::{Module, MODULES};
 use rash_derive::FieldNames;
 
 use std::collections::HashSet;
+use std::fs;
+use std::path::PathBuf;
 
 use tera::Tera;
-use yaml_rust::Yaml;
-
-#[cfg(test)]
-use yaml_rust::YamlLoader;
+use yaml_rust::{Yaml, YamlLoader};
 
 /// Task is composed of Module and parameters to be executed in a concrete context
 #[derive(Debug, Clone, PartialEq, FieldNames)]
@@ -220,6 +219,23 @@ impl TaskNew {
     }
 }
 
+pub fn read_file(tasks_file_path: PathBuf) -> Result<Tasks> {
+    trace!("reading tasks from: {:?}", tasks_file_path);
+    let tasks_file = fs::read_to_string(tasks_file_path)
+        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+
+    let docs = YamlLoader::load_from_str(&tasks_file)?;
+    let yaml = docs.first().ok_or(Error::new(
+        ErrorKind::InvalidData,
+        format!("Docs not contain yaml: {:?}", docs),
+    ))?;
+
+    yaml.clone()
+        .into_iter()
+        .map(|task| Task::new(&task))
+        .collect::<Result<Tasks>>()
+}
+
 #[cfg(test)]
 impl From<&Yaml> for Task {
     fn from(yaml: &Yaml) -> Self {
@@ -236,7 +252,6 @@ mod tests {
     use super::*;
 
     use crate::facts;
-    use crate::input::read_file;
 
     use std::collections::HashMap;
     use std::fs::File;
