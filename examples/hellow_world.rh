@@ -1,0 +1,5 @@
+#!/bin/rash
+
+- name: "user:  {{ env.USER }}"
+  command: echo My favorite browser is {{ env.BROWSER | split(pat="/") | last }}
+

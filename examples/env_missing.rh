@@ -1,0 +1,4 @@
+#!/bin/rash
+
+- name: "{{ env.TITTLE }}"
+  command: ls {{ env.target }}
