@@ -13,17 +13,36 @@ struct Env {
     env: HashMap<String, String>,
 }
 
-impl From<env::Vars> for Env {
-    fn from(envars: env::Vars) -> Self {
-        Self {
-            env: envars.collect::<HashMap<String, String>>(),
+#[derive(Debug)]
+pub enum EnvInput {
+    EnvVars(env::Vars),
+    VecVars(Vec<(String, String)>),
+}
+
+impl From<EnvInput> for Env {
+    fn from(envars: EnvInput) -> Self {
+        match envars {
+            EnvInput::EnvVars(envars) => Self {
+                env: envars.collect::<HashMap<String, String>>(),
+            },
+            EnvInput::VecVars(envars_vec) => Self {
+                env: envars_vec.into_iter().collect::<HashMap<String, String>>(),
+            },
         }
     }
 }
 
+pub fn load_generic(envars: EnvInput) -> Result<Facts> {
+    trace!("{:?}", envars);
+    Ok(Context::from_serialize(&Env::from(match envars {
+        EnvInput::EnvVars(envars) => EnvInput::EnvVars(envars),
+        EnvInput::VecVars(envars) => EnvInput::VecVars(envars),
+    }))
+    .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?)
+}
+
 pub fn load<'a>() -> Result<Facts> {
-    Ok(Context::from_serialize(&Env::from(env::vars()))
-        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?)
+    load_generic(EnvInput::EnvVars(env::vars()))
 }
 
 #[cfg(test)]

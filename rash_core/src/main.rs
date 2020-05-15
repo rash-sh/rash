@@ -1,5 +1,6 @@
 use rash_core::context::Context;
 use rash_core::error::{Error, ErrorKind};
+use rash_core::facts::env::{load_generic, EnvInput};
 use rash_core::facts::FACTS_SOURCES;
 use rash_core::logger;
 use rash_core::task::read_file;
@@ -12,6 +13,20 @@ use clap::{crate_version, Clap};
 #[macro_use]
 extern crate log;
 
+/// Parse a single key-value pair
+fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error>>
+where
+    T: std::str::FromStr,
+    T::Err: std::error::Error + 'static,
+    U: std::str::FromStr,
+    U::Err: std::error::Error + 'static,
+{
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
+}
+
 /// Declarative shell scripting using Rust native bindings
 #[derive(Clap)]
 #[clap(version = crate_version!(), author = "Alexander Gil <pando855@gmail.com>")]
@@ -21,6 +36,9 @@ struct Opts {
     /// Verbose mode (-vv for more)
     #[clap(short, long, parse(from_occurrences))]
     verbose: u8,
+    /// Set environment variables (Example: KEY=VALUE)
+    #[clap(short, long, parse(try_from_str = parse_key_val), number_of_values = 1)]
+    environment: Vec<(String, String)>,
 }
 
 fn crash_error(e: Error) {
@@ -37,7 +55,11 @@ fn main() {
     let facts_fn = FACTS_SOURCES.get("env").unwrap();
 
     match read_file(PathBuf::from(opts.script_file)) {
-        Ok(tasks) => match Context::exec(Context::new(tasks, (facts_fn)().unwrap())) {
+        Ok(tasks) => match Context::exec(Context::new(tasks, {
+            let mut context = (facts_fn)().unwrap();
+            context.extend(load_generic(EnvInput::VecVars(opts.environment)).unwrap());
+            context
+        })) {
             Ok(_) => (),
             Err(context_error) => match context_error.kind() {
                 ErrorKind::EmptyTaskStack => (),
