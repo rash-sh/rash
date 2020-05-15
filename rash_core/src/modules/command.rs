@@ -36,7 +36,14 @@ pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
         .args(&args.collect::<Vec<_>>())
         .output()
         .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?;
+
     trace!("command - exec - output: {:?}", output);
+    let stderr =
+        String::from_utf8(output.stderr).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+
+    if !output.status.success() {
+        return Err(Error::new(ErrorKind::InvalidData, stderr));
+    }
 
     Ok(ModuleResult {
         changed: true,
@@ -46,8 +53,7 @@ pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
         ),
         extra: Some(json!({
             "rc": output.status.code(),
-            "stderr": String::from_utf8(output.stderr)
-                .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
+            "stderr": stderr,
         })),
     })
 }
