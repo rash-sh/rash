@@ -39,8 +39,7 @@ impl Context {
         info!(target: "task",
             "[{}] - {} to go - ",
             next_task.get_rendered_name(self.facts.clone())
-                .clone()
-                .unwrap_or_else(|| next_task.get_module().get_name().to_string()),
+                .unwrap_or_else(|e| next_task.get_module().get_name().to_string()),
             self.tasks.len(),
         );
         let facts = next_task.exec(self.facts.clone())?;

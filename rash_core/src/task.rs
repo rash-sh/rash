@@ -97,8 +97,14 @@ impl Task {
         self.name.clone()
     }
 
-    pub fn get_rendered_name(&self, facts: Facts) -> Option<String> {
-        Task::render_string(&self.name.clone().unwrap_or("".to_string()), facts).ok()
+    pub fn get_rendered_name(&self, facts: Facts) -> Result<String> {
+        Task::render_string(
+            &self
+                .name
+                .clone()
+                .ok_or(Error::new(ErrorKind::NotFound, "no name found"))?,
+            facts,
+        )
     }
 
     pub fn get_module(&self) -> Module {
