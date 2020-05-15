@@ -8,7 +8,7 @@ Declarative shell using Rust native bindings scripting inspired in [Ansible](htt
 ## Advantages over alpine/bash
 
 - More security (choose your flavour)
-- Declarative over bash imperative language.
+- Declarative over imperative language (`bash`)
 - Not need more than kernel
 
 ## Examples
