@@ -1,5 +1,5 @@
 use rash_core::context::Context;
-use rash_core::error::ErrorKind;
+use rash_core::error::{Error, ErrorKind};
 use rash_core::facts::FACTS_SOURCES;
 use rash_core::input::read_file;
 use rash_core::logger;
@@ -23,23 +23,27 @@ struct Opts {
     verbose: u8,
 }
 
+fn crash_error(e: Error) {
+    error!("{}", e);
+    trace!(target: "error", "{:?}", e);
+    exit(1)
+}
+
 fn main() {
     let opts: Opts = Opts::parse();
 
     logger::setup_logging(opts.verbose).expect("failed to initialize logging.");
     trace!("start logger");
     let facts_fn = FACTS_SOURCES.get("env").unwrap();
-    let context = Context::new(
-        read_file(PathBuf::from(opts.script_file)).unwrap(),
-        (facts_fn)().unwrap(),
-    );
-    let context_error = Context::exec(context).unwrap_err();
-    let _ = match context_error.kind() {
-        ErrorKind::EmptyTaskStack => (),
-        _ => {
-            error!("{}", context_error);
-            trace!(target: "error", "{:?}", context_error);
-            exit(1)
-        }
-    };
+
+    match read_file(PathBuf::from(opts.script_file)) {
+        Ok(tasks) => match Context::exec(Context::new(tasks, (facts_fn)().unwrap())) {
+            Ok(_) => (),
+            Err(context_error) => match context_error.kind() {
+                ErrorKind::EmptyTaskStack => (),
+                _ => crash_error(context_error),
+            },
+        },
+        Err(e) => crash_error(e),
+    }
 }
