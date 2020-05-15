@@ -25,6 +25,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
         color_line = format_args!(
             "\x1B[{}m",
             match (record.level(), record.target()) {
+                (log::Level::Trace, "error") => Color::Red,
                 (log::Level::Trace, _) => Color::BrightBlack,
                 (log::Level::Debug, _) => Color::BrightBlue,
                 (log::Level::Info, "changed") => Color::Yellow,
@@ -50,7 +51,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
     ))
 }
 
-pub fn setup_logging(verbosity: u64) -> Result<()> {
+pub fn setup_logging(verbosity: u8) -> Result<()> {
     let mut base_config = fern::Dispatch::new();
 
     base_config = match verbosity {

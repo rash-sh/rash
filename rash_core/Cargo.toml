@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 rash_derive = { path = "../rash_derive" }
-clap = "2.33"
+clap = "3.0.0-beta.1"
 fern = { version = "0.6", features = ["colored"] }
 lazy_static = "1.4.0"
 log = "0.4"

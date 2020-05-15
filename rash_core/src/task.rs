@@ -43,9 +43,9 @@ impl Task {
 
     fn render_string(s: &str, facts: Facts) -> Result<String> {
         let mut tera = Tera::default();
-        tera.add_raw_template("a", &s)
+        tera.add_raw_template(s, &s)
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
-        tera.render("a", &facts)
+        tera.render(s, &facts)
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
     }
 
