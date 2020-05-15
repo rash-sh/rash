@@ -356,7 +356,6 @@ mod test {
 
     #[test]
     fn test_debug_error() {
-        let msg = "invalid data";
         let err = Error {
             repr: Repr::Custom(Box::new(Custom {
                 kind: ErrorKind::InvalidData,

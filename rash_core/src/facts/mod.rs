@@ -1,11 +1,11 @@
 pub mod env;
 
-use crate::error::Result;
-
-use std::collections::HashMap;
 use tera::Context;
 
 pub type Facts = Context;
+
+#[cfg(test)]
+use std::collections::HashMap;
 
 #[cfg(test)]
 pub fn test_example() -> Facts {
