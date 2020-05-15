@@ -4,7 +4,13 @@ version = "0.1.0"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rash_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rash"
+path = "src/main.rs"
 
 [dependencies]
 rash_derive = { path = "../rash_derive" }

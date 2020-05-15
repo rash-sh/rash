@@ -82,7 +82,7 @@ impl From<ErrorKind> for Error {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, ErrorKind};
+    /// use rash_core::error::{Error, ErrorKind};
     ///
     /// let not_found = ErrorKind::NotFound;
     /// let error = Error::from(not_found);
@@ -135,14 +135,10 @@ impl Error {
 
     /// Returns the OS error that this error represents (if any).
     ///
-    /// If this `Error` was constructed via `last_os_error` or
-    /// `from_raw_os_error`, then this function will return `Some`, otherwise
-    /// it will return `None`.
-    ///
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, ErrorKind};
+    /// use rash_core::error::{Error, ErrorKind};
     ///
     /// fn print_os_error(err: &Error) {
     ///     if let Some(raw_os_err) = err.raw_os_error() {
@@ -153,9 +149,6 @@ impl Error {
     /// }
     ///
     /// fn main() {
-    ///     // Will print "raw OS error: ...".
-    ///     print_os_error(&Error::last_os_error());
-    ///     // Will print "Not an OS error".
     ///     print_os_error(&Error::new(ErrorKind::Other, "oh no!"));
     /// }
     /// ```
@@ -174,7 +167,7 @@ impl Error {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, ErrorKind};
+    /// use rash_core::error::{Error, ErrorKind};
     ///
     /// fn print_error(err: &Error) {
     ///     if let Some(inner_err) = err.get_ref() {
@@ -185,9 +178,6 @@ impl Error {
     /// }
     ///
     /// fn main() {
-    ///     // Will print "No inner error".
-    ///     print_error(&Error::last_os_error());
-    ///     // Will print "Inner error: ...".
     ///     print_error(&Error::new(ErrorKind::Other, "oh no!"));
     /// }
     /// ```
@@ -207,7 +197,7 @@ impl Error {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, ErrorKind};
+    /// use rash_core::error::{Error, ErrorKind};
     /// use std::{error, fmt};
     /// use std::fmt::Display;
     ///
@@ -271,7 +261,7 @@ impl Error {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, ErrorKind};
+    /// use rash_core::error::{Error, ErrorKind};
     ///
     /// fn print_error(err: Error) {
     ///     if let Some(inner_err) = err.into_inner() {
@@ -282,9 +272,6 @@ impl Error {
     /// }
     ///
     /// fn main() {
-    ///     // Will print "No inner error".
-    ///     print_error(Error::last_os_error());
-    ///     // Will print "Inner error: ...".
     ///     print_error(Error::new(ErrorKind::Other, "oh no!"));
     /// }
     /// ```
@@ -300,17 +287,14 @@ impl Error {
     /// # Examples
     ///
     /// ```
-    /// use crate::error::{Error, ErrorKind};
+    /// use rash_core::error::{Error, ErrorKind};
     ///
     /// fn print_error(err: Error) {
     ///     println!("{:?}", err.kind());
     /// }
     ///
     /// fn main() {
-    ///     // Will print "No inner error".
-    ///     print_error(Error::last_os_error());
-    ///     // Will print "Inner error: ...".
-    ///     print_error(Error::new(ErrorKind::AddrInUse, "oh no!"));
+    ///     print_error(Error::new(ErrorKind::InvalidData, "oh no!"));
     /// }
     /// ```
     pub fn kind(&self) -> ErrorKind {
