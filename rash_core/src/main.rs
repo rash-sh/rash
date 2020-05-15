@@ -1,7 +1,6 @@
 use rash_core::context::Context;
 use rash_core::error::{Error, ErrorKind};
-use rash_core::facts::env::{load_generic, EnvInput};
-use rash_core::facts::FACTS_SOURCES;
+use rash_core::facts::env;
 use rash_core::logger;
 use rash_core::task::read_file;
 
@@ -52,14 +51,10 @@ fn main() {
 
     logger::setup_logging(opts.verbose).expect("failed to initialize logging.");
     trace!("start logger");
-    let facts_fn = FACTS_SOURCES.get("env").unwrap();
 
     match read_file(PathBuf::from(opts.script_file)) {
-        Ok(tasks) => match Context::exec(Context::new(tasks, {
-            let mut context = (facts_fn)().unwrap();
-            context.extend(load_generic(EnvInput::VecVars(opts.environment)).unwrap());
-            context
-        })) {
+        Ok(tasks) => match Context::exec(Context::new(tasks, env::load(opts.environment).unwrap()))
+        {
             Ok(_) => (),
             Err(context_error) => match context_error.kind() {
                 ErrorKind::EmptyTaskStack => (),

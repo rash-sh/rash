@@ -18,11 +18,3 @@ pub fn test_example() -> Facts {
     )
     .unwrap()
 }
-
-lazy_static! {
-    pub static ref FACTS_SOURCES: HashMap<&'static str, fn() -> Result<Facts>> = {
-        let mut m = HashMap::new();
-        m.insert("env", env::load as fn() -> Result<Facts>);
-        m
-    };
-}

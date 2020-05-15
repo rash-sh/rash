@@ -19,7 +19,7 @@ mod tests {
 
     use context::Context;
     use error::ErrorKind;
-    use facts::FACTS_SOURCES;
+    use facts::env;
     use task::read_file;
 
     use std::fs::File;
@@ -28,7 +28,6 @@ mod tests {
 
     #[test]
     fn test_command_ls() {
-        let facts_fn = FACTS_SOURCES.get("env").unwrap();
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("entrypoint.rh");
@@ -46,7 +45,7 @@ mod tests {
         )
         .unwrap();
 
-        let context = Context::new(read_file(file_path).unwrap(), (facts_fn)().unwrap());
+        let context = Context::new(read_file(file_path).unwrap(), env::load(vec![]).unwrap());
         let context_error = Context::exec(context).unwrap_err();
         let _ = match context_error.kind() {
             ErrorKind::EmptyTaskStack => (),

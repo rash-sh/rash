@@ -13,36 +13,19 @@ struct Env {
     env: HashMap<String, String>,
 }
 
-#[derive(Debug)]
-pub enum EnvInput {
-    EnvVars(env::Vars),
-    VecVars(Vec<(String, String)>),
-}
-
-impl From<EnvInput> for Env {
-    fn from(envars: EnvInput) -> Self {
-        match envars {
-            EnvInput::EnvVars(envars) => Self {
-                env: envars.collect::<HashMap<String, String>>(),
-            },
-            EnvInput::VecVars(envars_vec) => Self {
-                env: envars_vec.into_iter().collect::<HashMap<String, String>>(),
-            },
+impl From<env::Vars> for Env {
+    fn from(envars: env::Vars) -> Self {
+        Self {
+            env: envars.collect::<HashMap<String, String>>(),
         }
     }
 }
 
-pub fn load_generic(envars: EnvInput) -> Result<Facts> {
+pub fn load(envars: Vec<(String, String)>) -> Result<Facts> {
     trace!("{:?}", envars);
-    Ok(Context::from_serialize(&Env::from(match envars {
-        EnvInput::EnvVars(envars) => EnvInput::EnvVars(envars),
-        EnvInput::VecVars(envars) => EnvInput::VecVars(envars),
-    }))
-    .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?)
-}
-
-pub fn load<'a>() -> Result<Facts> {
-    load_generic(EnvInput::EnvVars(env::vars()))
+    envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
+    Ok(Context::from_serialize(&Env::from(env::vars()))
+        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?)
 }
 
 #[cfg(test)]
@@ -60,7 +43,7 @@ mod tests {
     #[test]
     fn test_inventory_from_envars() {
         run_test_with_envar(("KEY", "VALUE"), || {
-            let json = load().unwrap().into_json();
+            let json = load(vec![]).unwrap().into_json();
             let result = json.get("env").unwrap().get("KEY").unwrap();
 
             assert_eq!(result, "VALUE");
@@ -70,7 +53,7 @@ mod tests {
     #[test]
     fn test_inventory_from_envars_none() {
         run_test_with_envar(("KEY_NOT_FOUND", "VALUE"), || {
-            let facts = load().unwrap();
+            let facts = load(vec![]).unwrap();
             assert!(facts
                 .into_json()
                 .get("env")
