@@ -28,7 +28,7 @@ where
 
 /// Declarative shell scripting using Rust native bindings
 #[derive(Clap)]
-#[clap(version = crate_version!(), author = "Alexander Gil <pando855@gmail.com>")]
+#[clap(name="rash", version = crate_version!(), author = "Alexander Gil <pando855@gmail.com>")]
 struct Opts {
     /// Script file to be executed
     script_file: String,

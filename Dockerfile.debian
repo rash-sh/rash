@@ -1,0 +1,15 @@
+ARG BASE_IMAGE=rust:1.43
+FROM ${BASE_IMAGE} AS builder
+LABEL mantainer pando855@gmail.com
+
+WORKDIR /usr/src/rash
+COPY . .
+RUN cargo build --release
+
+FROM debian:buster-slim
+LABEL mantainer pando855@gmail.com
+
+COPY --from=builder /usr/src/rash/target/release/rash /bin/rash
+
+ENTRYPOINT [ "/bin/rash" ]
+

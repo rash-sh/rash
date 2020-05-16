@@ -10,6 +10,6 @@ LABEL mantainer pando855@gmail.com
 
 COPY --from=builder \
     /home/rust/src/target/x86_64-unknown-linux-musl/release/rash \
-    /sbin/
-ENTRYPOINT [ "/sbin/rash_core" ]
+    /bin/
+ENTRYPOINT [ "/bin/rash" ]
 
