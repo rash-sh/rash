@@ -12,6 +12,7 @@ use tera::Tera;
 use yaml_rust::{Yaml, YamlLoader};
 
 /// Task is composed of Module and parameters to be executed in a concrete context
+/// Admits attributes to modify task behaviour as log output, execution or changes in context
 #[derive(Debug, Clone, PartialEq, FieldNames)]
 pub struct Task {
     module: Module,
@@ -30,6 +31,11 @@ impl Task {
     pub fn new(yaml: &Yaml) -> Result<Self> {
         trace!("new task: {:?}", yaml);
         TaskNew::from(yaml).validate_attrs()?.get_task()
+    }
+
+    #[inline(always)]
+    fn is_attr(attr: &str) -> bool {
+        Self::get_field_names().contains(attr)
     }
 
     fn render_string(s: &str, facts: Facts) -> Result<String> {
@@ -113,7 +119,7 @@ impl Task {
     }
 }
 
-/// TaskValid is a task with valid yaml but without verify Task attributes and modules
+/// TaskValid is a ProtoTask with attrs validated (valid modules or attrs)
 #[derive(Debug)]
 struct TaskValid {
     attrs: Yaml,
@@ -189,17 +195,15 @@ impl From<&Yaml> for TaskNew {
 }
 
 impl TaskNew {
+    /// Validate all `proto_attrs` can be represented as String and are task fields or modules
     pub fn validate_attrs(&self) -> Result<TaskValid> {
-        let _ = self
-            .proto_attrs
-            .clone()
-            .into_hash()
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Task is not a dict {:?}", self.proto_attrs),
-                )
-            })?
+        let attrs_hash = self.proto_attrs.clone().into_hash().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Task is not a dict {:?}", self.proto_attrs),
+            )
+        })?;
+        let attrs_vec = attrs_hash
             .iter()
             .map(|(key, _)| {
                 key.as_str().ok_or_else(|| {
@@ -210,6 +214,18 @@ impl TaskNew {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+        if !attrs_vec
+            .into_iter()
+            .all(|key| is_module(key) || Task::is_attr(key))
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "Keys are not valid in {:?} must be attr or module",
+                    self.proto_attrs
+                ),
+            ));
+        }
         Ok(TaskValid {
             attrs: self.proto_attrs.clone(),
         })
@@ -283,8 +299,22 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task = Task::new(yaml).unwrap_err();
-        assert_eq!(task.kind(), ErrorKind::NotFound);
+        let task_err = Task::new(yaml).unwrap_err();
+        assert_eq!(task_err.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_from_yaml_invalid_attr() {
+        let s = r#"
+        name: 'Test task'
+        command: 'example'
+        invalid_attr: 'foo'
+        "#
+        .to_owned();
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task_err = Task::new(yaml).unwrap_err();
+        assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
