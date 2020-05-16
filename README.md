@@ -21,12 +21,7 @@ Here is Rash!
 `entrypoint.sh`:
 ```bash
 #!/bin/bash
-
 set -e
-
-if [[ "$LOG_LEVEL" == "DEBUG" ]] ; then
-  set -x
-fi
 
 REQUIRED_PARAMS="
 VAULT_URL
@@ -52,7 +47,7 @@ $VAULT_URL/v1/$VAULT_SECRET_PATH | jq -r .data.api_key)
 exec "$@"
 ```
 
-entrypoint.rh
+`entrypoint.rh`
 ```yaml
 #!/bin/rash
 
@@ -71,8 +66,6 @@ entrypoint.rh
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
 ```
 
-
-
 ### Lightness
 
 Not need more than a linux kernel to run!
@@ -81,11 +74,11 @@ You could use it in your favorite IoT chips running Linux or in containers from 
 
 ## Status
 
-Example
+![Examples](https://media.giphy.com/media/YqQQGUib5yzNM2GvFe/giphy.gif)
 
-[Jinja2](https://tera.netlify.app/docs/#templates) support by [Tera](https://github.com/Keats/tera).
+[Jinja2](https://tera.netlify.app/docs/#templates) template engine support by [Tera](https://github.com/Keats/tera).
 
-![Examples](https://media.giphy.com/media/QTsy4uHuGMwSSklHcX/giphy.gif)
+Current [modules](./rash_core/src/modules/)
 
 ## Roadmap
 
@@ -137,9 +130,7 @@ Roadmap is defined in our Concept Map but some more concrete examples could be f
     APP1_API_KEY: "{{ lookup('etcd', env.VAULT_SECRET_PATH ) }}"
 ```
 
-
 ### Modules
-
 
 #### Copy
 
@@ -162,7 +153,6 @@ Roadmap is defined in our Concept Map but some more concrete examples could be f
     dest: /myapp/config.json
     mode: 0400
 ```
-
 
 ### Filters
 

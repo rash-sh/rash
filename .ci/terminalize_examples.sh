@@ -10,7 +10,7 @@ COMMANDS="#!/bin/bash"
 
 for FILE in $(find examples -type f); do
     for COMMAND in "cat $FILE" "$FILE"; do
-    if [ "$COMMAND" = "example/env_missing.rh" ];
+    if [ "$COMMAND" = "examples/env_missing.rh" ];
     then
         COMMAND="$COMMAND -vv"
     fi
@@ -21,6 +21,9 @@ sleep 2 \n\
 "
     done
 done
+
+COMMANDS+="sleep 2\n\
+echo 'try it! :)' | pv -qL $[10]"
 
 echo -e $COMMANDS > $TMPFILE_PATH
 chmod +x $TMPFILE_PATH
