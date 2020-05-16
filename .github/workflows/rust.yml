@@ -19,13 +19,30 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          components: rustfmt
           override: true
-
-      - name: Install rustfmt
-        run: rustup component add rustfmt
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clipply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
 
   build:
     runs-on: ubuntu-latest

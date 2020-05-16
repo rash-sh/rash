@@ -40,7 +40,7 @@ impl Module {
     }
 
     pub fn exec(&self, params: Yaml) -> Result<ModuleResult> {
-        (self.exec_fn)(params.clone())
+        (self.exec_fn)(params)
     }
 
     #[cfg(test)]

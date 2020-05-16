@@ -22,16 +22,8 @@ pub struct Task {
 pub type Tasks = Vec<Task>;
 
 #[inline(always)]
-fn is_task_attr(attr: &str) -> bool {
-    Task::get_field_names().contains(attr)
-}
-
-#[inline(always)]
 fn is_module(module: &str) -> bool {
-    match MODULES.get(module) {
-        Some(_) => true,
-        None => false,
-    }
+    MODULES.get(module).is_some()
 }
 
 impl Task {
@@ -73,7 +65,7 @@ impl Task {
             None => Ok(Yaml::String(Task::render_string(
                 // safe unwrap: validated attr
                 original_params.as_str().unwrap(),
-                facts.clone(),
+                facts,
             )?)),
         }
     }
@@ -82,12 +74,9 @@ impl Task {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
         let result = self.module.exec(self.render_params(facts.clone())?)?;
-        info!(target: match result.get_changed() {
-            true => "changed",
-            false => "ok",
-            },
+        info!(target: if result.get_changed() {"changed"} else { "ok"},
             "{:?}",
-            result.get_output().unwrap_or("".to_string())
+            result.get_output().unwrap_or_else(|| "".to_string())
         );
         Ok(facts)
     }
@@ -101,7 +90,7 @@ impl Task {
             &self
                 .name
                 .clone()
-                .ok_or(Error::new(ErrorKind::NotFound, "no name found"))?,
+                .ok_or_else(|| Error::new(ErrorKind::NotFound, "no name found"))?,
             facts,
         )
     }
@@ -142,7 +131,7 @@ impl TaskValid {
             .collect::<HashSet<String>>()
     }
 
-    fn get_module_name<'a>(&'a self) -> Result<String> {
+    fn get_module_name(&'_ self) -> Result<String> {
         let module_names: HashSet<String> = self
             .get_possible_attrs()
             .iter()
@@ -159,22 +148,26 @@ impl TaskValid {
             .iter()
             .map(String::clone)
             .next()
-            .ok_or(Error::new(
-                ErrorKind::NotFound,
-                format!("Not module found in task: {:?}", self),
-            ))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::NotFound,
+                    format!("Not module found in task: {:?}", self),
+                )
+            })
     }
 
-    pub fn get_task<'task>(&self) -> Result<Task> {
+    pub fn get_task(&self) -> Result<Task> {
         let module_name: &str = &self.get_module_name()?;
         Ok(Task {
             name: self.attrs["name"].as_str().map(String::from),
             module: MODULES
                 .get::<str>(&module_name)
-                .ok_or(Error::new(
-                    ErrorKind::NotFound,
-                    format!("Module not found in modules: {:?}", MODULES.keys()),
-                ))?
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::NotFound,
+                        format!("Module not found in modules: {:?}", MODULES.keys()),
+                    )
+                })?
                 .clone(),
             params: self.attrs[module_name].clone(),
         })
@@ -201,16 +194,20 @@ impl TaskNew {
             .proto_attrs
             .clone()
             .into_hash()
-            .ok_or(Error::new(
-                ErrorKind::InvalidData,
-                format!("Task is not a dict {:?}", self.proto_attrs),
-            ))?
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Task is not a dict {:?}", self.proto_attrs),
+                )
+            })?
             .iter()
             .map(|(key, _)| {
-                key.as_str().ok_or(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Key is not valid in {:?}", self.proto_attrs),
-                ))
+                key.as_str().ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Key is not valid in {:?}", self.proto_attrs),
+                    )
+                })
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(TaskValid {
@@ -225,10 +222,12 @@ pub fn read_file(tasks_file_path: PathBuf) -> Result<Tasks> {
         .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
 
     let docs = YamlLoader::load_from_str(&tasks_file)?;
-    let yaml = docs.first().ok_or(Error::new(
-        ErrorKind::InvalidData,
-        format!("Docs not contain yaml: {:?}", docs),
-    ))?;
+    let yaml = docs.first().ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Docs not contain yaml: {:?}", docs),
+        )
+    })?;
 
     yaml.clone()
         .into_iter()

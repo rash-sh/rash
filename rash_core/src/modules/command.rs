@@ -15,10 +15,12 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     let cmd = yaml
         .as_str()
         .or_else(|| yaml["cmd"].as_str())
-        .ok_or(Error::new(
-            ErrorKind::NotFound,
-            format!("Not cmd param found in: {:?}", yaml),
-        ))?;
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("Not cmd param found in: {:?}", yaml),
+            )
+        })?;
     Ok(Params {
         cmd: cmd.to_string(),
     })

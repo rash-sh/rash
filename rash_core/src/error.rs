@@ -61,8 +61,8 @@ pub enum ErrorKind {
 }
 
 impl ErrorKind {
-    pub(crate) fn as_str(&self) -> &'static str {
-        match *self {
+    pub fn as_str(self) -> &'static str {
+        match self {
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
             ErrorKind::SubprocessFail => "subprocess fail",
@@ -148,9 +148,8 @@ impl Error {
     ///     }
     /// }
     ///
-    /// fn main() {
-    ///     print_os_error(&Error::new(ErrorKind::Other, "oh no!"));
-    /// }
+    /// print_os_error(&Error::new(ErrorKind::Other, "oh no!"));
+    ///
     /// ```
     pub fn raw_os_error(&self) -> Option<i32> {
         match self.repr {
@@ -177,9 +176,7 @@ impl Error {
     ///     }
     /// }
     ///
-    /// fn main() {
-    ///     print_error(&Error::new(ErrorKind::Other, "oh no!"));
-    /// }
+    /// print_error(&Error::new(ErrorKind::Other, "oh no!"));
     /// ```
     pub fn get_ref(&self) -> Option<&(dyn error::Error + Send + Sync + 'static)> {
         match self.repr {
@@ -241,10 +238,7 @@ impl Error {
     ///     }
     /// }
     ///
-    /// fn main() {
-    ///     // Will print "Inner error: ...".
-    ///     print_error(&change_error(Error::new(ErrorKind::Other, MyError::new())));
-    /// }
+    /// print_error(&change_error(Error::new(ErrorKind::Other, MyError::new())));
     /// ```
     pub fn get_mut(&mut self) -> Option<&mut (dyn error::Error + Send + Sync + 'static)> {
         match self.repr {
@@ -271,9 +265,7 @@ impl Error {
     ///     }
     /// }
     ///
-    /// fn main() {
-    ///     print_error(Error::new(ErrorKind::Other, "oh no!"));
-    /// }
+    /// print_error(Error::new(ErrorKind::Other, "oh no!"));
     /// ```
     pub fn into_inner(self) -> Option<Box<dyn error::Error + Send + Sync>> {
         match self.repr {
@@ -293,9 +285,7 @@ impl Error {
     ///     println!("{:?}", err.kind());
     /// }
     ///
-    /// fn main() {
-    ///     print_error(Error::new(ErrorKind::InvalidData, "oh no!"));
-    /// }
+    /// print_error(Error::new(ErrorKind::InvalidData, "oh no!"));
     /// ```
     pub fn kind(&self) -> ErrorKind {
         match self.repr {

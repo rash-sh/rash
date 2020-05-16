@@ -30,4 +30,4 @@ tempfile = "3"
 [dev-dependencies.cargo-husky]
 version = "1"
 default-features = false # Disable features which are enabled by default
-features = ["precommit-hook", "run-cargo-fmt"]
+features = ["precommit-hook", "run-cargo-fmt", "run-cargo-clippy"]

@@ -4,7 +4,6 @@ use crate::facts::Facts;
 use std::collections::HashMap;
 use std::env;
 
-#[macro_use]
 use serde::Serialize;
 use tera::Context;
 

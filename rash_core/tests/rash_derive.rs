@@ -3,6 +3,7 @@ mod tests {
     use rash_derive::FieldNames;
     use std::collections::HashSet;
 
+    #[allow(dead_code)]
     #[derive(FieldNames)]
     struct Test {
         foo: bool,

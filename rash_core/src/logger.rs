@@ -5,8 +5,6 @@ use std::io;
 
 use fern::colors::Color;
 use fern::FormatCallback;
-use log;
-use term_size;
 
 fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
     let log_header = match (record.level(), record.target()) {

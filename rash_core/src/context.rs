@@ -19,16 +19,13 @@ pub struct Context {
 
 impl Context {
     pub fn new(tasks: Tasks, facts: Facts) -> Self {
-        Context {
-            tasks: tasks,
-            facts: facts,
-        }
+        Context { tasks, facts }
     }
 
     /// Execute task using inventory
     pub fn exec_task(&self) -> Result<Self> {
         let mut next_tasks = self.tasks.clone();
-        if next_tasks.len() == 0 {
+        if next_tasks.is_empty() {
             return Err(Error::new(
                 ErrorKind::EmptyTaskStack,
                 format!("No more tasks in context stack: {:?}", self),
@@ -44,8 +41,8 @@ impl Context {
         );
         let facts = next_task.exec(self.facts.clone())?;
         Ok(Self {
-            tasks: next_tasks.clone(),
-            facts: facts,
+            tasks: next_tasks,
+            facts,
         })
     }
 
