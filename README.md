@@ -18,7 +18,7 @@ Here is Rash!
 
 ### Declarative vs imperative
 
-`entrypoint.sh`:
+Imperative: `entrypoint.sh`:
 ```bash
 #!/bin/bash
 set -e
@@ -47,7 +47,7 @@ $VAULT_URL/v1/$VAULT_SECRET_PATH | jq -r .data.api_key)
 exec "$@"
 ```
 
-`entrypoint.rh`
+Declarative: `entrypoint.rh`
 ```yaml
 #!/bin/rash
 
@@ -74,6 +74,10 @@ You could use it in your favorite IoT chips running Linux or in containers from 
 
 ## Status
 
+Currently, **Under heavy development**.
+
+Full working funcionallity show in gif, does not expect more (or less):
+
 ![Examples](https://media.giphy.com/media/YqQQGUib5yzNM2GvFe/giphy.gif)
 
 [Jinja2](https://tera.netlify.app/docs/#templates) template engine support by [Tera](https://github.com/Keats/tera).
@@ -82,7 +86,11 @@ Current [modules](./rash_core/src/modules/)
 
 ## Roadmap
 
-Roadmap is defined in our Concept Map but some more concrete examples could be found below:
+Roadmap is defined in our
+[Concept Map](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56) but some more
+concrete examples could be found below.
+
+This are just ideas of the possibilities of `rash`
 
 ### Lookups
 
@@ -93,15 +101,14 @@ Roadmap is defined in our Concept Map but some more concrete examples could be f
 #!/bin/rash
 
 - name: file from s3
-  copy:
-    content: "{{ lookup('s3', env.MYBUNDLE_S3_PATH) }}"
-    dest: /myapp/i18n/bundle.json
+  template:
+    content: "{{ lookup('s3', bucket='mybucket', object='config.json.j2')}}"
+    dest: /myapp/config.json
     mode: 0400
 
 - name: launch docker CMD
   command: {{ input.args }}
   transfer_ownership: yes
-
 ```
 
 #### vault
@@ -141,6 +148,24 @@ Roadmap is defined in our Concept Map but some more concrete examples could be f
     content: "{{ lookup('etcd', env.MYAPP_CONFIG_ETCD_PATH)}}"
     dest: /myapp/config.json
     mode: 0400
+```
+
+#### S3
+
+`s3.rh`:
+```yaml
+#!/bin/rash
+
+- name: file from s3
+  s3:
+    bucket: mybucket
+    object: "{{ env.MYBUNDLE_S3_PATH }}"
+    dest: /myapp/i18n/bundle.json
+    mode: 0400
+
+- name: launch docker CMD
+  command: {{ input.args }}
+  transfer_ownership: yes
 ```
 
 #### Template

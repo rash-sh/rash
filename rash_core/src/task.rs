@@ -11,8 +11,12 @@ use std::path::PathBuf;
 use tera::Tera;
 use yaml_rust::{Yaml, YamlLoader};
 
-/// Task is composed of Module and parameters to be executed in a concrete context
-/// Admits attributes to modify task behaviour as log output, execution or changes in context
+/// Main structure at definition level which prepare [`Module`] executions.
+///
+/// It implements a state machine using Rust Generics to enforce well done definitions.
+/// Inspired by [Kanidm Entries](https://fy.blackhats.net.au/blog/html/2019/04/13/using_rust_generics_to_enforce_db_record_state.html).
+///
+/// [`Module`]: ../modules/struct.Module.html
 #[derive(Debug, Clone, PartialEq, FieldNames)]
 pub struct Task {
     module: Module,
@@ -20,6 +24,9 @@ pub struct Task {
     name: Option<String>,
 }
 
+/// A lists of [`Task`]
+///
+/// [`Task`]: struct.Task.html
 pub type Tasks = Vec<Task>;
 
 #[inline(always)]
@@ -28,6 +35,14 @@ fn is_module(module: &str) -> bool {
 }
 
 impl Task {
+    /// Create a new Task from [`Yaml`].
+    /// Enforcing all key values are valid using TaskNew and TaskValid internal states.
+    ///
+    /// All final values must be convertible to String and all keys must contain one module and
+    /// [`Task`] fields.
+    ///
+    /// [`Task`]: struct.Task.html
+    /// [`Yaml`]: ../../yaml_rust/struct.Yaml.html
     pub fn new(yaml: &Yaml) -> Result<Self> {
         trace!("new task: {:?}", yaml);
         TaskNew::from(yaml).validate_attrs()?.get_task()
@@ -76,6 +91,10 @@ impl Task {
         }
     }
 
+    /// Execute [`Module`] rendering `self.params` with [`Facts`].
+    ///
+    /// [`Module`]: ../modules/struct.Module.html
+    /// [`Facts`]: ../facts/struct.Facts.html
     pub fn exec(&self, facts: Facts) -> Result<Facts> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
@@ -87,10 +106,14 @@ impl Task {
         Ok(facts)
     }
 
+    /// Return name.
     pub fn get_name(&self) -> Option<String> {
         self.name.clone()
     }
 
+    /// Return name rendered with [`Facts`].
+    ///
+    /// [`Facts`]: ../facts/struct.Facts.html
     pub fn get_rendered_name(&self, facts: Facts) -> Result<String> {
         Task::render_string(
             &self
@@ -101,6 +124,9 @@ impl Task {
         )
     }
 
+    /// Return [`Module`].
+    ///
+    /// [`Module`]: ../modules/struct.Module.html
     pub fn get_module(&self) -> Module {
         self.module.clone()
     }
@@ -119,7 +145,7 @@ impl Task {
     }
 }
 
-/// TaskValid is a ProtoTask with attrs validated (valid modules or attrs)
+/// TaskValid is a ProtoTask with attrs verified (one module and valid attrs)
 #[derive(Debug)]
 struct TaskValid {
     attrs: Yaml,
@@ -180,7 +206,7 @@ impl TaskValid {
     }
 }
 
-/// TaskNew is a new task without checking yaml validity
+/// TaskNew is a new task without Yaml verified
 #[derive(Debug)]
 struct TaskNew {
     proto_attrs: Yaml,

@@ -5,16 +5,10 @@ use std::result;
 
 use yaml_rust::scanner::ScanError;
 
-/// A specialized [`Result`](../result/enum.Result.html) type rash
-/// operations.
-///
-/// [`Error`]: ../struct.Error.html
-/// [`Result`]: ../result/enum.Result.html
+/// A specialized type `rash` operations.
 pub type Result<T> = result::Result<T, Error>;
 
-/// The error type for rash executions.
-///
-/// [`ErrorKind`]: enum.ErrorKind.html
+/// The error type for `rash` executions.
 pub struct Error {
     repr: Repr,
 }
@@ -36,7 +30,7 @@ struct Custom {
     error: Box<dyn error::Error + Send + Sync>,
 }
 
-/// A list specifying general categories of rash error.
+/// A list specifying general categories of `rash` error.
 ///
 /// This list is intended to grow over time and it is not recommended to
 /// exhaustively match against it.
@@ -56,7 +50,7 @@ pub enum ErrorKind {
     SubprocessFail,
     /// Task stack is empty
     EmptyTaskStack,
-    /// Any rash error not part of this list.
+    /// Any `rash` error not part of this list.
     Other,
 }
 
@@ -89,8 +83,8 @@ impl From<ErrorKind> for Error {
     /// assert_eq!("entity not found", format!("{}", error));
     /// ```
     ///
-    /// [`ErrorKind`]: ../../std/io/enum.ErrorKind.html
-    /// [`Error`]: ../../std/io/struct.Error.html
+    /// [`ErrorKind`]: enum.ErrorKind.html
+    /// [`Error`]: struct.Error.html
     #[inline]
     fn from(kind: ErrorKind) -> Error {
         Error {
@@ -118,8 +112,24 @@ impl From<ScanError> for Error {
 }
 
 impl Error {
-    /// Creates a new rash error from a known kind of error as well as an
+    /// Creates a new `rash` error from a known kind of error as well as an
     /// arbitrary error payload.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rash_core::error::{Error, ErrorKind};
+    ///
+    /// let invalid_data_err = Error::new(
+    ///     ErrorKind::InvalidData,
+    ///     "no valid data",
+    /// );
+    /// let custom_error = Error::new(
+    ///     ErrorKind::Other,
+    ///     invalid_data_err,
+    /// );
+
+    /// ```
     pub fn new<E>(kind: ErrorKind, error: E) -> Error
     where
         E: Into<Box<dyn error::Error + Send + Sync>>,
@@ -130,6 +140,26 @@ impl Error {
     fn _new(kind: ErrorKind, error: Box<dyn error::Error + Send + Sync>) -> Error {
         Error {
             repr: Repr::Custom(Box::new(Custom { kind, error })),
+        }
+    }
+
+    /// Returns the corresponding `ErrorKind` for this error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rash_core::error::{Error, ErrorKind};
+    ///
+    /// fn print_error(err: Error) {
+    ///     println!("{:?}", err.kind());
+    /// }
+    ///
+    /// print_error(Error::new(ErrorKind::InvalidData, "oh no!"));
+    /// ```
+    pub fn kind(&self) -> ErrorKind {
+        match self.repr {
+            Repr::Custom(ref c) => c.kind,
+            Repr::Simple(kind) => kind,
         }
     }
 
@@ -271,26 +301,6 @@ impl Error {
         match self.repr {
             Repr::Simple(..) => None,
             Repr::Custom(c) => Some(c.error),
-        }
-    }
-
-    /// Returns the corresponding `ErrorKind` for this error.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rash_core::error::{Error, ErrorKind};
-    ///
-    /// fn print_error(err: Error) {
-    ///     println!("{:?}", err.kind());
-    /// }
-    ///
-    /// print_error(Error::new(ErrorKind::InvalidData, "oh no!"));
-    /// ```
-    pub fn kind(&self) -> ErrorKind {
-        match self.repr {
-            Repr::Custom(ref c) => c.kind,
-            Repr::Simple(kind) => kind,
         }
     }
 }

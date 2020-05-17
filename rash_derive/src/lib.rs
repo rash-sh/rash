@@ -6,6 +6,15 @@ extern crate syn;
 use proc_macro::TokenStream;
 
 /// Implementation of the `#[derive(FieldNames)]` derive macro.
+///
+/// Add a new method which return field names
+/// ```
+/// # use std::collections::HashSet;
+/// pub fn get_field_names() -> HashSet<String>
+/// # {
+/// # HashSet::new()
+/// # }
+/// ```
 #[proc_macro_derive(FieldNames, attributes(field_names))]
 pub fn derive_field_names(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::ItemStruct);
@@ -19,6 +28,7 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
 
     let expanded = quote::quote! {
         impl #name {
+            /// Return field names.
             pub fn get_field_names() -> std::collections::HashSet<String> {
                 [#(#field_names),*].iter().map(ToString::to_string).collect::<std::collections::HashSet<String>>()
             }

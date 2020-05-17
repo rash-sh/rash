@@ -11,6 +11,11 @@ use crate::task::Task;
 #[cfg(test)]
 use crate::facts::test_example as facts_text_example;
 
+/// Main data structure in `rash`.
+/// It contents all [`task::Tasks`] with its [`facts::Facts`] to be executed
+///
+/// [`task::Tasks`]: ../task/type.Tasks.html
+/// [`facts::Facts`]: ../facts/type.Facts.html
 #[derive(Debug)]
 pub struct Context {
     tasks: Tasks,
@@ -18,20 +23,26 @@ pub struct Context {
 }
 
 impl Context {
+    /// Create a new context from [`task::Tasks`] and [`facts::Facts`].Error
+    ///
+    /// [`task::Tasks`]: ../task/type.Tasks.html
+    /// [`facts::Facts`]: ../facts/type.Facts.html
     pub fn new(tasks: Tasks, facts: Facts) -> Self {
         Context { tasks, facts }
     }
 
-    /// Execute task using inventory
+    /// Execute first [`task::Task`] and return a new context without that executed [`task::Task`]
+    ///
+    /// [`task::Task`]: ../task/struct.Task.html
     pub fn exec_task(&self) -> Result<Self> {
-        let mut next_tasks = self.tasks.clone();
-        if next_tasks.is_empty() {
+        if self.tasks.is_empty() {
             return Err(Error::new(
                 ErrorKind::EmptyTaskStack,
                 format!("No more tasks in context stack: {:?}", self),
             ));
         }
 
+        let mut next_tasks = self.tasks.clone();
         let next_task = next_tasks.remove(0);
         info!(target: "task",
             "[{}] - {} to go - ",
@@ -46,6 +57,12 @@ impl Context {
         })
     }
 
+    /// Execute all Tasks in Context until empty.
+    ///
+    /// If it finish correctly it will return an [`error::Error`] with [`ErrorKind::EmptyTaskStack`]
+    ///
+    /// [`error::Error`]: ../error/struct.Error.html
+    /// [`ErrorKind::EmptyTaskStack`]: ../error/enum.ErrorKind.html
     pub fn exec(context: Self) -> Result<Self> {
         // https://prev.rust-lang.org/en-US/faq.html#does-rust-do-tail-call-optimization
         Self::exec(context.exec_task()?)

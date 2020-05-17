@@ -7,7 +7,7 @@ use rash_core::task::read_file;
 use std::path::PathBuf;
 use std::process::exit;
 
-use clap::{crate_version, Clap};
+use clap::{crate_description, crate_version, Clap};
 
 #[macro_use]
 extern crate log;
@@ -26,9 +26,13 @@ where
     Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
-/// Declarative shell scripting using Rust native bindings
 #[derive(Clap)]
-#[clap(name="rash", version = crate_version!(), author = "Alexander Gil <pando855@gmail.com>")]
+#[clap(
+    name="rash",
+    about = crate_description!(),
+    version = crate_version!(),
+    author = "Alexander Gil <pando855@gmail.com>",
+)]
 struct Opts {
     /// Script file to be executed
     script_file: String,
@@ -40,10 +44,14 @@ struct Opts {
     environment: Vec<(String, String)>,
 }
 
+/// Fail program printing [`Error`] and returning code associated if exists.
+/// By default fail with `exit(1)`
+///
+/// [`Error`]: ../rash_core/error/struct.Error.html
 fn crash_error(e: Error) {
     error!("{}", e);
     trace!(target: "error", "{:?}", e);
-    exit(1)
+    exit(e.raw_os_error().unwrap_or(1))
 }
 
 fn main() {

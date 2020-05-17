@@ -20,6 +20,19 @@ impl From<env::Vars> for Env {
     }
 }
 
+/// Create [`Facts`] from environment variables plus input vector overwriting them.
+///
+/// [`Facts`]: ../type.Facts.html
+///
+/// # Example
+///
+/// ```
+/// use rash_core::facts::env::load;
+///
+/// use std::env;
+///
+/// let facts = load(vec![("foo".to_string(), "boo".to_string())]).unwrap();
+/// ```
 pub fn load(envars: Vec<(String, String)>) -> Result<Facts> {
     trace!("{:?}", envars);
     envars.into_iter().for_each(|(k, v)| env::set_var(k, v));

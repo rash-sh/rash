@@ -7,6 +7,9 @@ use std::collections::HashMap;
 use serde_json::Value;
 use yaml_rust::Yaml;
 
+/// Return values by [`Module`] execution.
+///
+/// [`Module`]: struct.Module.html
 pub struct ModuleResult {
     changed: bool,
     extra: Option<Value>,
@@ -14,20 +17,23 @@ pub struct ModuleResult {
 }
 
 impl ModuleResult {
+    /// Return changed
     pub fn get_changed(&self) -> bool {
         self.changed
     }
 
+    /// Return extra
     pub fn get_extra(&self) -> Option<Value> {
         self.extra.clone()
     }
 
+    /// Return output which is printed in log
     pub fn get_output(&self) -> Option<String> {
         self.output.clone()
     }
 }
 
-/// Module definition with exec function and input parameters
+/// Basic execution structure. Build with module name and module exec function
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     name: &'static str,
@@ -35,10 +41,12 @@ pub struct Module {
 }
 
 impl Module {
+    /// Return name
     pub fn get_name(&self) -> &str {
         self.name
     }
 
+    /// Execute `self.exec_fn`
     pub fn exec(&self, params: Yaml) -> Result<ModuleResult> {
         (self.exec_fn)(params)
     }

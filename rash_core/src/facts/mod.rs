@@ -2,6 +2,9 @@ pub mod env;
 
 use tera::Context;
 
+/// Variables stored and accessible during execution, based on [`tera::Context`]
+///
+/// [`tera::Context`]: ../../tera/struct.Context.html
 pub type Facts = Context;
 
 #[cfg(test)]
