@@ -13,15 +13,17 @@ build-images:	## build images
 build-images:
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker build -f $$DOCKERFILE \
-			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE//.\/Dockerfile/} | tr '.' '-'` \
-			. ;\
-	done
+			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			. &\
+	done; \
+	wait
 
 push-images:	## push images
 push-images:
 	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE//.\/Dockerfile/} | tr '.' '-'`;\
-	done
+		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` &\
+	done; \
+	wait
 
 update-version: ## update version from VERSION file in all Cargo.toml manifests
 update-version: */Cargo.toml
