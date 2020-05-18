@@ -9,10 +9,12 @@ Declarative shell scripting using Rust native bindings inspired in [Ansible](htt
 
 Manage your docker entrypoints in a declarative style.
 
-If you think that:
+If you::
 
-- long bash scripts are difficult to maintain
-- you love Ansible syntax to setup your environments
+- think that long bash scripts are difficult to maintain
+- love Ansible syntax to setup your environments
+
+Then keep keep on reading.
 
 Here is Rash!
 
@@ -68,15 +70,15 @@ Declarative: `entrypoint.rh`
 
 ### Lightness
 
-Not need more than a linux kernel to run!
+All you need to run Rash is a Linux kernel!
 
-You could use it in your favorite IoT chips running Linux or in containers from scratch!
+You can use it in your favorite IoT chips running Linux or in containers from scratch!
 
 ## Status
 
 Currently, **Under heavy development**.
 
-Full working funcionallity show in gif, does not expect more (or less):
+The full working funcionallity is shown in the following gif, don't expect more (or less):
 
 ![Examples](https://media.giphy.com/media/YqQQGUib5yzNM2GvFe/giphy.gif)
 
@@ -86,11 +88,11 @@ Current [modules](./rash_core/src/modules/)
 
 ## Roadmap
 
-Roadmap is defined in our
-[Concept Map](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56) but some more
-concrete examples could be found below.
+The projects Roadmap is defined in our
+[Concept Map](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56). Some more
+concrete examples can be found below.
 
-This are just ideas of the possibilities of `rash`
+These are just some ideas about the possibilities of `rash`.
 
 ### Lookups
 
