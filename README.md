@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/pando85/rash/master/artwork/logo.png" width="20%" height="auto" />
+<img src="https://raw.githubusercontent.com/pando85/rash/master/artwork/shelly.svg" width="20%" height="auto" />
 
 # rash
 ![](https://img.shields.io/github/workflow/status/pando85/rash/Rust/master)
