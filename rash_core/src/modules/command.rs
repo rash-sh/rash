@@ -11,7 +11,7 @@ struct Params {
 }
 
 fn parse_params(yaml: Yaml) -> Result<Params> {
-    trace!("command - parse params: {:?}", yaml);
+    trace!("parse params: {:?}", yaml);
     let cmd = yaml
         .as_str()
         .or_else(|| yaml["cmd"].as_str())
@@ -28,7 +28,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
 
 pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
     let params = parse_params(optional_params)?;
-    trace!("command - exec - params: {:?}", params);
+    trace!("exec - params: {:?}", params);
 
     let mut args = params.cmd.split_whitespace();
 
@@ -39,7 +39,7 @@ pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
         .output()
         .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?;
 
-    trace!("command - exec - output: {:?}", output);
+    trace!("exec - output: {:?}", output);
     let stderr =
         String::from_utf8(output.stderr).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
 
