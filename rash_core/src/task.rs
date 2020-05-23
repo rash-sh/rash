@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn test_task_execute() {
         let task = Task::test_example();
-        let facts = facts::test_example();
+        let facts = facts::from_iter(vec![].into_iter());
         let result = task.exec(facts.clone()).unwrap();
         assert_eq!(result, facts);
     }

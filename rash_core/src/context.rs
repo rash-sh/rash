@@ -9,7 +9,7 @@ use crate::task::Tasks;
 use crate::task::Task;
 
 #[cfg(test)]
-use crate::facts::test_example as facts_text_example;
+use crate::facts;
 
 /// Main data structure in `rash`.
 /// It contents all [`task::Tasks`] with its [`facts::Facts`] to be executed
@@ -72,7 +72,7 @@ impl Context {
     pub fn test_example() -> Self {
         Context {
             tasks: vec![Task::test_example()],
-            facts: facts_text_example(),
+            facts: facts::from_iter(vec![].into_iter()),
         }
     }
 }

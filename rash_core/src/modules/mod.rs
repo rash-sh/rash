@@ -1,5 +1,6 @@
 mod command;
 mod copy;
+mod template;
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::facts::Facts;
@@ -84,6 +85,13 @@ lazy_static! {
                 Module {
                     name: "copy",
                     exec_fn: copy::exec,
+                },
+            ),
+            (
+                "template",
+                Module {
+                    name: "template",
+                    exec_fn: template::exec,
                 },
             ),
         ]

@@ -12,10 +12,25 @@ use std::os::unix::fs::PermissionsExt;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq)]
-struct Params {
+pub struct Params {
     content: String,
     dest: String,
     mode: u32,
+}
+
+impl Params {
+    pub fn new(content: String, dest: String, mode: u32) -> Self {
+        Params {
+            content,
+            dest,
+            mode,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn get_content(&self) -> String {
+        self.content.clone()
+    }
 }
 
 fn parse_params(yaml: Yaml) -> Result<Params> {
@@ -31,7 +46,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     })
 }
 
-fn verify_file(params: Params) -> Result<ModuleResult> {
+pub fn verify_file(params: Params) -> Result<ModuleResult> {
     trace!("params: {:?}", params);
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.clone().open(&params.dest).or_else(|_| {
