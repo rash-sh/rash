@@ -1,6 +1,7 @@
 mod command;
+mod copy;
 
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 
 use std::collections::HashMap;
 
@@ -10,6 +11,7 @@ use yaml_rust::Yaml;
 /// Return values by [`Module`] execution.
 ///
 /// [`Module`]: struct.Module.html
+#[derive(PartialEq, Debug)]
 pub struct ModuleResult {
     changed: bool,
     extra: Option<Value>,
@@ -68,14 +70,41 @@ impl Module {
 
 lazy_static! {
     pub static ref MODULES: HashMap<&'static str, Module> = {
-        let mut m = HashMap::new();
-        m.insert(
-            "command",
-            Module {
-                name: "command",
-                exec_fn: command::exec,
-            },
-        );
-        m
+        vec![
+            (
+                "command",
+                Module {
+                    name: "command",
+                    exec_fn: command::exec,
+                },
+            ),
+            (
+                "copy",
+                Module {
+                    name: "copy",
+                    exec_fn: copy::exec,
+                },
+            ),
+        ]
+        .into_iter()
+        .collect::<HashMap<&'static str, Module>>()
     };
+}
+
+#[inline]
+pub fn get_param(yaml: &Yaml, key: &str) -> Result<String> {
+    if yaml[key].is_badvalue() {
+        return Err(Error::new(
+            ErrorKind::NotFound,
+            format!("param {} not found in: {:?}", key, yaml),
+        ));
+    };
+
+    match yaml[key].as_str() {
+        Some(s) => Ok(s.to_string()),
+        None => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("param '{}' not valid string in: {:?}", key, yaml),
+        )),
+    }
 }

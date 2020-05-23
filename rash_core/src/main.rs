@@ -12,7 +12,7 @@ use clap::{crate_description, crate_version, Clap};
 #[macro_use]
 extern crate log;
 
-/// Parse a single key-value pair
+/// Parse a single KEY=VALUE pair
 fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error>>
 where
     T: std::str::FromStr,
