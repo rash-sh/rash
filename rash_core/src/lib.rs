@@ -4,6 +4,7 @@ pub mod facts;
 pub mod logger;
 pub mod modules;
 pub mod task;
+pub mod utils;
 
 #[macro_use]
 extern crate lazy_static;
