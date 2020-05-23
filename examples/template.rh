@@ -1,0 +1,8 @@
+#!/usr/bin/env -S rash -eMY_PASSWORD=supersecret
+
+- name: "example config"
+  template:
+    src: ./examples/template.j2
+    dest: "/tmp/MY_PASSWORD_FILE"
+    mode: "400"
+

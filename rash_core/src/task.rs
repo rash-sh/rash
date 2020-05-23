@@ -98,7 +98,9 @@ impl Task {
     pub fn exec(&self, facts: Facts) -> Result<Facts> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
-        let result = self.module.exec(self.render_params(facts.clone())?)?;
+        let result = self
+            .module
+            .exec(self.render_params(facts.clone())?, facts.clone())?;
         info!(target: if result.get_changed() {"changed"} else { "ok"},
             "{:?}",
             result.get_output().unwrap_or_else(|| "".to_string())
@@ -346,7 +348,7 @@ mod tests {
     #[test]
     fn test_task_execute() {
         let task = Task::test_example();
-        let facts = facts::test_example();
+        let facts = facts::from_iter(vec![].into_iter());
         let result = task.exec(facts.clone()).unwrap();
         assert_eq!(result, facts);
     }

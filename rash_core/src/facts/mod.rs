@@ -11,11 +11,12 @@ pub type Facts = Context;
 use std::collections::HashMap;
 
 #[cfg(test)]
-pub fn test_example() -> Facts {
+pub fn from_iter<'a, I>(iterable: I) -> Facts
+where
+    I: Iterator<Item = (&'a str, &'a str)>,
+{
     Context::from_serialize(
-        [("foo", "boo"), ("xuu", "zoo")]
-            .iter()
-            .cloned()
+        iterable
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect::<HashMap<String, String>>(),
     )

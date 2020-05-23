@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
+use crate::facts::Facts;
 use crate::modules::ModuleResult;
 
 use std::process::Command;
@@ -26,7 +27,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     })
 }
 
-pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
+pub fn exec(optional_params: Yaml, _: Facts) -> Result<ModuleResult> {
     let params = parse_params(optional_params)?;
     trace!("exec - params: {:?}", params);
 

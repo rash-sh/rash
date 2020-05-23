@@ -1,5 +1,7 @@
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{ErrorKind, Result};
+use crate::facts::Facts;
 use crate::modules::{get_param, ModuleResult};
+use crate::utils::parse_octal;
 
 use std::fs::{set_permissions, OpenOptions};
 use std::io::prelude::*;
@@ -10,21 +12,24 @@ use std::os::unix::fs::PermissionsExt;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq)]
-struct Params {
+pub struct Params {
     content: String,
     dest: String,
     mode: u32,
 }
 
-fn parse_octal(s: &str) -> Result<u32> {
-    match s.len() {
-        3 => u32::from_str_radix(&s, 8).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e))),
-        4 => u32::from_str_radix(s.get(1..).unwrap(), 8)
-            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e))),
-        _ => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("{} cannot be parsed to octal", s),
-        )),
+impl Params {
+    pub fn new(content: String, dest: String, mode: u32) -> Self {
+        Params {
+            content,
+            dest,
+            mode,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn get_content(&self) -> String {
+        self.content.clone()
     }
 }
 
@@ -41,7 +46,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     })
 }
 
-fn verify_file(params: Params) -> Result<ModuleResult> {
+pub fn verify_file(params: Params) -> Result<ModuleResult> {
     trace!("params: {:?}", params);
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.clone().open(&params.dest).or_else(|_| {
@@ -94,7 +99,7 @@ fn verify_file(params: Params) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
+pub fn exec(optional_params: Yaml, _: Facts) -> Result<ModuleResult> {
     verify_file(parse_params(optional_params)?)
 }
 
@@ -108,16 +113,6 @@ mod tests {
 
     use tempfile::tempdir;
     use yaml_rust::YamlLoader;
-
-    #[test]
-    fn test_parse_octal() {
-        assert_eq!(parse_octal("644").unwrap(), 0o644);
-        assert_eq!(parse_octal("0644").unwrap(), 0o644);
-        assert_eq!(parse_octal("777").unwrap(), 0o777);
-        assert_eq!(parse_octal("0444").unwrap(), 0o444);
-        assert_eq!(parse_octal("600").unwrap(), 0o600);
-        assert_eq!(parse_octal("0600").unwrap(), 0o600);
-    }
 
     #[test]
     fn test_parse_params() {
