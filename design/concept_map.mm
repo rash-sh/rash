@@ -1,41 +1,55 @@
 <map version="0.9.0">
-  <node ID="ID_1589703809994" TEXT="rash" COLOR="#000000">
+  <node ID="ID_1590235380996" TEXT="rash" COLOR="#000000">
     <font SIZE="12" BOLD="true" ITALIC="false"/>
-    <node ID="ID_1589703809995" TEXT="data" COLOR="#000000" POSITION="left">
+    <node ID="ID_1590235380997" TEXT="data" COLOR="#000000" POSITION="left">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
-      <node ID="ID_1589703809996" TEXT="Context" COLOR="#000000">
+      <node ID="ID_1590235380998" TEXT="Context" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
-        <node ID="ID_1589703809997" TEXT="Facts" COLOR="#000000">
+        <node ID="ID_1590235380999" TEXT="Facts" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
-          <node ID="ID_1589703809998" TEXT="env" COLOR="#000000">
+          <node ID="ID_1590235381000" TEXT="env" COLOR="#000000">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
-            <richcontent TYPE="NOTE">
-              <html>
-                <body>
-                  <p><b>Todos:</b><br/>env - Normal priority - 100% - 05/11/2020<br/>cli - Normal priority - 100% - 05/15/2020</p>
-                  <br/>
-                </body>
-              </html>
-            </richcontent>
+          </node>
+          <node ID="ID_1590235381001" TEXT="extend Jinja2" COLOR="#000000">
+            <font SIZE="12" BOLD="false" ITALIC="false"/>
+            <node ID="ID_1590235381002" TEXT="Lookup" COLOR="#000000">
+              <font SIZE="12" BOLD="false" ITALIC="false"/>
+              <richcontent TYPE="NOTE">
+                <html>
+                  <body>
+                    <p>https://github.com/pando85/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Flookup</p>
+                  </body>
+                </html>
+              </richcontent>
+            </node>
+            <node ID="ID_1590235381003" TEXT="Filter" COLOR="#000000">
+              <font SIZE="12" BOLD="false" ITALIC="false"/>
+              <richcontent TYPE="NOTE">
+                <html>
+                  <body>
+                    <p>https://github.com/pando85/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ffilter</p>
+                  </body>
+                </html>
+              </richcontent>
+            </node>
           </node>
         </node>
-        <node ID="ID_1589703809999" TEXT="Tasks" COLOR="#000000">
+        <node ID="ID_1590235381004" TEXT="Tasks" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
-          <node ID="ID_1589703810000" TEXT="Task" COLOR="#000000">
+          <node ID="ID_1590235381005" TEXT="Task" COLOR="#000000">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
             <richcontent TYPE="NOTE">
               <html>
                 <body>
-                  <p><b>Todos:</b><br/>TaskNew - Normal priority - 100% - 05/11/2020<br/>TaskValid - Normal priority - 100% - 05/11/2020<br/>Task - Normal priority - 100% - 05/11/2020</p>
-                  <br/>
+                  <p>https://github.com/pando85/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ftask</p>
                 </body>
               </html>
             </richcontent>
-            <node ID="ID_1589703810001" TEXT="name" COLOR="#000000">
+            <node ID="ID_1590235381006" TEXT="name" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <icon BUILTIN="help"/>
             </node>
-            <node ID="ID_1589703810002" TEXT="params" COLOR="#000000">
+            <node ID="ID_1590235381007" TEXT="params" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <richcontent TYPE="NOTE">
                 <html>
@@ -45,48 +59,59 @@
                 </html>
               </richcontent>
             </node>
-            <node ID="ID_1589703810003" TEXT="Module" COLOR="#000000">
+            <node ID="ID_1590235381008" TEXT="Module" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <richcontent TYPE="NOTE">
                 <html>
                   <body>
-                    <p><b>Todos:</b><br/>command - Normal priority - 50% - 05/11/2020<br/>request - Normal priority - 0% - 05/11/2020<br/>copy - Normal priority - 0% - 05/11/2020<br/>template - Normal priority - 0% - 05/11/2020<br/>lineinfile - Normal priority - 0% - 05/11/2020</p>
-                    <br/>
+                    <p>https://github.com/pando85/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fmodule</p>
                   </body>
                 </html>
               </richcontent>
-              <node ID="ID_1589703810004" TEXT="name" COLOR="#000000">
+              <node ID="ID_1590235381009" TEXT="name" COLOR="#000000">
                 <font SIZE="12" BOLD="false" ITALIC="false"/>
               </node>
-              <node ID="ID_1589703810005" TEXT="exec_fn" COLOR="#000000">
+              <node ID="ID_1590235381010" TEXT="exec_fn" COLOR="#000000">
                 <font SIZE="12" BOLD="false" ITALIC="false"/>
               </node>
             </node>
-            <node ID="ID_1589703810006" TEXT="when" COLOR="#000000">
+            <node ID="ID_1590235381011" TEXT="when" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <icon BUILTIN="help"/>
             </node>
-            <node ID="ID_1589703810007" TEXT="loop" COLOR="#000000">
+            <node ID="ID_1590235381012" TEXT="loop" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <icon BUILTIN="help"/>
             </node>
-            <node ID="ID_1589703810008" TEXT="changed_when" COLOR="#000000">
+            <node ID="ID_1590235381013" TEXT="changed_when" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <icon BUILTIN="help"/>
             </node>
-            <node ID="ID_1589703810009" TEXT="ignore_errors" COLOR="#000000">
+            <node ID="ID_1590235381014" TEXT="ignore_errors" COLOR="#000000">
+              <font SIZE="12" BOLD="false" ITALIC="false"/>
+              <icon BUILTIN="help"/>
+            </node>
+            <node ID="ID_1590235381015" TEXT="until" COLOR="#000000">
+              <font SIZE="12" BOLD="false" ITALIC="false"/>
+              <icon BUILTIN="help"/>
+            </node>
+            <node ID="ID_1590235381016" TEXT="register" COLOR="#000000">
+              <font SIZE="12" BOLD="false" ITALIC="false"/>
+              <icon BUILTIN="help"/>
+            </node>
+            <node ID="ID_1590235381017" TEXT="variables" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
               <icon BUILTIN="help"/>
             </node>
           </node>
         </node>
       </node>
-      <node ID="ID_1589703810010" TEXT="ModuleResult" COLOR="#000000">
+      <node ID="ID_1590235381018" TEXT="ModuleResult" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
-        <node ID="ID_1589703810011" TEXT="changed" COLOR="#000000">
+        <node ID="ID_1590235381019" TEXT="changed" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
         </node>
-        <node ID="ID_1589703810012" TEXT="extra" COLOR="#000000">
+        <node ID="ID_1590235381020" TEXT="extra" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
           <icon BUILTIN="help"/>
           <richcontent TYPE="NOTE">
@@ -97,8 +122,11 @@
             </html>
           </richcontent>
         </node>
+        <node ID="ID_1590235381021" TEXT="output" COLOR="#000000">
+          <font SIZE="12" BOLD="false" ITALIC="false"/>
+        </node>
       </node>
-      <node ID="ID_1589703810013" TEXT="Block" COLOR="#000000">
+      <node ID="ID_1590235381022" TEXT="Group" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -107,10 +135,26 @@
             </body>
           </html>
         </richcontent>
-        <node ID="ID_1589703810014" TEXT="Tasks" COLOR="#000000">
+        <node ID="ID_1590235381023" TEXT="Tasks" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
         </node>
-        <node ID="ID_1589703810015" TEXT="until" COLOR="#000000">
+        <node ID="ID_1590235381024" TEXT="when" COLOR="#000000">
+          <font SIZE="12" BOLD="false" ITALIC="false"/>
+          <icon BUILTIN="help"/>
+        </node>
+        <node ID="ID_1590235381025" TEXT="ignore_errors" COLOR="#000000">
+          <font SIZE="12" BOLD="false" ITALIC="false"/>
+          <icon BUILTIN="help"/>
+        </node>
+        <node ID="ID_1590235381026" TEXT="loop" COLOR="#000000">
+          <font SIZE="12" BOLD="false" ITALIC="false"/>
+          <icon BUILTIN="help"/>
+        </node>
+        <node ID="ID_1590235381027" TEXT="changed_when" COLOR="#000000">
+          <font SIZE="12" BOLD="false" ITALIC="false"/>
+          <icon BUILTIN="help"/>
+        </node>
+        <node ID="ID_1590235381028" TEXT="until" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
           <icon BUILTIN="help"/>
           <richcontent TYPE="NOTE">
@@ -121,31 +165,35 @@
             </html>
           </richcontent>
         </node>
+        <node ID="ID_1590235381029" TEXT="variables" COLOR="#000000">
+          <font SIZE="12" BOLD="false" ITALIC="false"/>
+          <icon BUILTIN="help"/>
+        </node>
       </node>
     </node>
-    <node ID="ID_1589703810016" TEXT="error" COLOR="#000000" POSITION="left">
+    <node ID="ID_1590235381030" TEXT="error" COLOR="#000000" POSITION="left">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
       <icon BUILTIN="messagebox_warning"/>
-      <node ID="ID_1589703810017" TEXT="repr" COLOR="#000000">
+      <node ID="ID_1590235381031" TEXT="repr" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
-        <node ID="ID_1589703810018" TEXT="Simple" COLOR="#000000">
+        <node ID="ID_1590235381032" TEXT="Simple" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
         </node>
-        <node ID="ID_1589703810019" TEXT="Custom" COLOR="#000000">
+        <node ID="ID_1590235381033" TEXT="Custom" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
-          <node ID="ID_1589703810020" TEXT="ErrorKind" COLOR="#000000">
+          <node ID="ID_1590235381034" TEXT="ErrorKind" COLOR="#000000">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
           </node>
-          <node ID="ID_1589703810021" TEXT="Error" COLOR="#000000">
+          <node ID="ID_1590235381035" TEXT="Error" COLOR="#000000">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
           </node>
         </node>
       </node>
     </node>
-    <node ID="ID_1589703810022" TEXT="log" COLOR="#000000" POSITION="left">
+    <node ID="ID_1590235381036" TEXT="log" COLOR="#000000" POSITION="left">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
       <icon BUILTIN="info"/>
-      <node ID="ID_1589703810023" TEXT="trace" COLOR="#777777">
+      <node ID="ID_1590235381037" TEXT="trace" COLOR="#777777">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -155,14 +203,14 @@
             </body>
           </html>
         </richcontent>
-        <node ID="ID_1589703810024" TEXT="trace" COLOR="#777777">
+        <node ID="ID_1590235381038" TEXT="trace" COLOR="#777777">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
         </node>
-        <node ID="ID_1589703810025" TEXT="error" COLOR="#fc6e6e">
+        <node ID="ID_1590235381039" TEXT="error" COLOR="#fc6e6e">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
         </node>
       </node>
-      <node ID="ID_1589703810026" TEXT="debug" COLOR="#3fbaee">
+      <node ID="ID_1590235381040" TEXT="debug" COLOR="#3fbaee">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <icon BUILTIN="flag-blue"/>
         <richcontent TYPE="NOTE">
@@ -174,42 +222,42 @@
           </html>
         </richcontent>
       </node>
-      <node ID="ID_1589703810027" TEXT="info" COLOR="#8ac25b">
+      <node ID="ID_1590235381041" TEXT="info" COLOR="#8ac25b">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
-        <node ID="ID_1589703810028" TEXT="task" COLOR="#8ac25b">
+        <node ID="ID_1590235381042" TEXT="task" COLOR="#8ac25b">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
-          <node ID="ID_1589703810029" TEXT="separator" COLOR="#777777">
+          <node ID="ID_1590235381043" TEXT="separator" COLOR="#777777">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
-            <node ID="ID_1589703810030" TEXT="tasks to go" COLOR="#777777">
+            <node ID="ID_1590235381044" TEXT="tasks to go" COLOR="#777777">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
             </node>
-            <node ID="ID_1589703810031" TEXT="task name" COLOR="#777777">
+            <node ID="ID_1590235381045" TEXT="task name" COLOR="#777777">
               <font SIZE="12" BOLD="false" ITALIC="false"/>
             </node>
           </node>
-          <node ID="ID_1589703810032" TEXT="changed" COLOR="#fea852">
+          <node ID="ID_1590235381046" TEXT="changed" COLOR="#fea852">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
             <icon BUILTIN="flag-yellow"/>
           </node>
-          <node ID="ID_1589703810033" TEXT="ok" COLOR="#8ac25b">
+          <node ID="ID_1590235381047" TEXT="ok" COLOR="#8ac25b">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
             <icon BUILTIN="flag-green"/>
           </node>
         </node>
       </node>
-      <node ID="ID_1589703810034" TEXT="warning" COLOR="#8971c1">
+      <node ID="ID_1590235381048" TEXT="warning" COLOR="#8971c1">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <icon BUILTIN="flag-pink"/>
       </node>
-      <node ID="ID_1589703810035" TEXT="error" COLOR="#fc6e6e">
+      <node ID="ID_1590235381049" TEXT="error" COLOR="#fc6e6e">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <icon BUILTIN="flag"/>
       </node>
     </node>
-    <node ID="ID_1589703810036" TEXT="execution" COLOR="#000000" POSITION="left">
+    <node ID="ID_1590235381050" TEXT="execution" COLOR="#000000" POSITION="left">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
       <icon BUILTIN="list"/>
-      <node ID="ID_1589703810037" TEXT="context.exec" COLOR="#000000">
+      <node ID="ID_1590235381051" TEXT="context.exec" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -223,7 +271,7 @@
             </body>
           </html>
         </richcontent>
-        <node ID="ID_1589703810038" TEXT="task.exec" COLOR="#000000">
+        <node ID="ID_1590235381052" TEXT="task.exec" COLOR="#000000">
           <font SIZE="12" BOLD="false" ITALIC="false"/>
           <richcontent TYPE="NOTE">
             <html>
@@ -232,7 +280,7 @@
               </body>
             </html>
           </richcontent>
-          <node ID="ID_1589703810039" TEXT="module.exec" COLOR="#000000">
+          <node ID="ID_1590235381053" TEXT="module.exec" COLOR="#000000">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
             <richcontent TYPE="NOTE">
               <html>
@@ -244,7 +292,7 @@
           </node>
         </node>
       </node>
-      <node ID="ID_1589703810040" TEXT="read_file" COLOR="#000000">
+      <node ID="ID_1590235381054" TEXT="read_file" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -255,28 +303,9 @@
         </richcontent>
       </node>
     </node>
-    <node ID="ID_1589703810041" TEXT="plugins" COLOR="#000000" POSITION="right">
+    <node ID="ID_1590235381055" TEXT="release" COLOR="#000000" POSITION="right">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
-      <icon BUILTIN="bell"/>
-      <node ID="ID_1589703810042" TEXT="lookup" COLOR="#000000">
-        <font SIZE="12" BOLD="false" ITALIC="false"/>
-        <node ID="ID_1589703810043" TEXT="etcd" COLOR="#000000">
-          <font SIZE="12" BOLD="false" ITALIC="false"/>
-        </node>
-        <node ID="ID_1589703810044" TEXT="vault" COLOR="#000000">
-          <font SIZE="12" BOLD="false" ITALIC="false"/>
-        </node>
-        <node ID="ID_1589703810045" TEXT="s3" COLOR="#000000">
-          <font SIZE="12" BOLD="false" ITALIC="false"/>
-        </node>
-      </node>
-      <node ID="ID_1589703810046" TEXT="filter" COLOR="#000000">
-        <font SIZE="12" BOLD="false" ITALIC="false"/>
-      </node>
-    </node>
-    <node ID="ID_1589703810047" TEXT="release" COLOR="#000000" POSITION="right">
-      <font SIZE="12" BOLD="true" ITALIC="false"/>
-      <node ID="ID_1589703810048" TEXT="Dockerfile" COLOR="#000000">
+      <node ID="ID_1590235381056" TEXT="Dockerfile" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -287,7 +316,7 @@
           </html>
         </richcontent>
       </node>
-      <node ID="ID_1589703810049" TEXT="binaries" COLOR="#000000">
+      <node ID="ID_1590235381057" TEXT="binaries" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -301,10 +330,10 @@
         </richcontent>
       </node>
     </node>
-    <node ID="ID_1589703810050" TEXT="cli" COLOR="#000000" POSITION="right">
+    <node ID="ID_1590235381058" TEXT="cli" COLOR="#000000" POSITION="right">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
       <icon BUILTIN="male1"/>
-      <node ID="ID_1589703810051" TEXT="envars" COLOR="#000000">
+      <node ID="ID_1590235381059" TEXT="envars" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
         <richcontent TYPE="NOTE">
           <html>
@@ -314,27 +343,28 @@
           </html>
         </richcontent>
       </node>
-      <node ID="ID_1589703810052" TEXT="verbosity" COLOR="#000000">
+      <node ID="ID_1590235381060" TEXT="verbosity" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
       </node>
-      <node ID="ID_1589703810053" TEXT="script-file" COLOR="#000000">
+      <node ID="ID_1590235381061" TEXT="script-file" COLOR="#000000">
         <font SIZE="12" BOLD="false" ITALIC="false"/>
       </node>
     </node>
-    <node ID="ID_1589703810054" TEXT="integrated documentation" COLOR="#000000" POSITION="right">
+    <node ID="ID_1590235381062" TEXT="integrated documentation" COLOR="#000000" POSITION="right">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
       <icon BUILTIN="list"/>
     </node>
-    <node ID="ID_1589703810055" TEXT="integrated testing tool" COLOR="#000000" POSITION="right">
+    <node ID="ID_1590235381063" TEXT="integrated testing tool" COLOR="#000000" POSITION="right">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
     </node>
-    <node ID="ID_1589703810056" TEXT="Repository" COLOR="#000000" POSITION="right">
+    <node ID="ID_1590235381064" TEXT="Repository" COLOR="#000000" POSITION="right">
       <font SIZE="12" BOLD="true" ITALIC="false"/>
       <icon BUILTIN="idea"/>
       <richcontent TYPE="NOTE">
         <html>
           <body>
-            <p>Repository of entrypoints.rh or custom scripts</p>
+            <div>Repository of entrypoints.rh or custom scripts</div>
+            <div>**initially could be a repo of examples<br/></div>
           </body>
         </html>
       </richcontent>
