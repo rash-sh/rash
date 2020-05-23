@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
+use crate::facts::Facts;
 use crate::modules::{get_param, ModuleResult};
 
 use std::fs::{set_permissions, OpenOptions};
@@ -94,7 +95,7 @@ fn verify_file(params: Params) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml) -> Result<ModuleResult> {
+pub fn exec(optional_params: Yaml, _: Facts) -> Result<ModuleResult> {
     verify_file(parse_params(optional_params)?)
 }
 

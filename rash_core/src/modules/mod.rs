@@ -2,6 +2,7 @@ mod command;
 mod copy;
 
 use crate::error::{Error, ErrorKind, Result};
+use crate::facts::Facts;
 
 use std::collections::HashMap;
 
@@ -39,7 +40,7 @@ impl ModuleResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     name: &'static str,
-    exec_fn: fn(Yaml) -> Result<ModuleResult>,
+    exec_fn: fn(Yaml, Facts) -> Result<ModuleResult>,
 }
 
 impl Module {
@@ -49,15 +50,15 @@ impl Module {
     }
 
     /// Execute `self.exec_fn`
-    pub fn exec(&self, params: Yaml) -> Result<ModuleResult> {
-        (self.exec_fn)(params)
+    pub fn exec(&self, params: Yaml, facts: Facts) -> Result<ModuleResult> {
+        (self.exec_fn)(params, facts)
     }
 
     #[cfg(test)]
     pub fn test_example() -> Self {
         Module {
             name: "test",
-            exec_fn: |_: Yaml| {
+            exec_fn: |_, _| {
                 Ok(ModuleResult {
                     changed: true,
                     extra: None,

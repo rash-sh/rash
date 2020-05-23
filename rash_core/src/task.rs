@@ -98,7 +98,9 @@ impl Task {
     pub fn exec(&self, facts: Facts) -> Result<Facts> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
-        let result = self.module.exec(self.render_params(facts.clone())?)?;
+        let result = self
+            .module
+            .exec(self.render_params(facts.clone())?, facts.clone())?;
         info!(target: if result.get_changed() {"changed"} else { "ok"},
             "{:?}",
             result.get_output().unwrap_or_else(|| "".to_string())
