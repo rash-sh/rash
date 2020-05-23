@@ -1,0 +1,30 @@
+name: automerge
+on:
+  pull_request:
+    types:
+      - labeled
+      - unlabeled
+      - synchronize
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - unlocked
+  pull_request_review:
+    types:
+      - submitted
+  check_suite:
+    types:
+      - completed
+  status: {}
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: automerge
+        uses: "pascalgn/automerge-action@7ab42e888a333bf77ce865bc84fedc6a365a3548"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          # retry 60 times every 30s => 30min
+          MERGE_RETRIES: 60
+          MERGE_RETRY_SLEEP: 30000
