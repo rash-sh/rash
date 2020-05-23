@@ -1,6 +1,7 @@
 use std::convert::From;
 use std::error;
 use std::fmt;
+use std::io;
 use std::result;
 
 use yaml_rust::scanner::ScanError;
@@ -46,6 +47,8 @@ pub enum ErrorKind {
     NotFound,
     /// Data is invalid, often fail to render Jinja2.
     InvalidData,
+    /// I/O error propagation
+    IOError,
     /// Generic fail executing subprocess.
     SubprocessFail,
     /// Task stack is empty
@@ -59,6 +62,7 @@ impl ErrorKind {
         match self {
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
+            ErrorKind::IOError => "I/O error",
             ErrorKind::SubprocessFail => "subprocess fail",
             ErrorKind::EmptyTaskStack => "task stack is empty",
             ErrorKind::Other => "other os error",
@@ -90,6 +94,30 @@ impl From<ErrorKind> for Error {
         Error {
             repr: Repr::Simple(kind),
         }
+    }
+}
+
+impl From<io::Error> for Error {
+    /// Converts an [`io::Error`] into an [`Error`].
+    ///
+    /// This conversion allocates a new error with a ErrorKind::IOError of error kind.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rash_core::error::Error;
+    /// use std::io;
+    ///
+    /// let io_error = io::Error::new(io::ErrorKind::NotFound, "fail");
+    /// let error = Error::from(io_error);
+    /// assert_eq!("fail", format!("{}", error));
+    /// ```
+    ///
+    /// [`io::Error`]: ../../std/io/type.Error.html
+    /// [`Error`]: struct.Error.html
+    #[inline]
+    fn from(e: io::Error) -> Error {
+        Error::new(ErrorKind::IOError, e)
     }
 }
 

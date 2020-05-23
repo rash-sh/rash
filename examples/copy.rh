@@ -1,0 +1,8 @@
+#!/usr/bin/env -S rash -eMY_PASSWORD=supersecret
+
+- name: "save password to file"
+  copy:
+    content: "{{ env.MY_PASSWORD }}"
+    dest: "/tmp/MY_PASSWORD_FILE"
+    mode: "400"
+
