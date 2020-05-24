@@ -1,5 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::facts::Facts;
+use crate::vars::Vars;
 
 use std::collections::HashMap;
 use std::env;
@@ -20,20 +20,20 @@ impl From<env::Vars> for Env {
     }
 }
 
-/// Create [`Facts`] from environment variables plus input vector overwriting them.
+/// Create [`Vars`] from environment variables plus input vector overwriting them.
 ///
-/// [`Facts`]: ../type.Facts.html
+/// [`Vars`]: ../type.Vars.html
 ///
 /// # Example
 ///
 /// ```
-/// use rash_core::facts::env::load;
+/// use rash_core::vars::env::load;
 ///
 /// use std::env;
 ///
-/// let facts = load(vec![("foo".to_string(), "boo".to_string())]).unwrap();
+/// let vars = load(vec![("foo".to_string(), "boo".to_string())]).unwrap();
 /// ```
-pub fn load(envars: Vec<(String, String)>) -> Result<Facts> {
+pub fn load(envars: Vec<(String, String)>) -> Result<Vars> {
     trace!("{:?}", envars);
     envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
     Ok(Context::from_serialize(&Env::from(env::vars()))
@@ -65,8 +65,8 @@ mod tests {
     #[test]
     fn test_inventory_from_envars_none() {
         run_test_with_envar(("KEY_NOT_FOUND", "VALUE"), || {
-            let facts = load(vec![]).unwrap();
-            assert!(facts
+            let vars = load(vec![]).unwrap();
+            assert!(vars
                 .into_json()
                 .get("env")
                 .unwrap()

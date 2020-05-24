@@ -198,7 +198,7 @@ These are just some ideas about the possibilities of `rash`.
     url: https://api.example.com/v1/my_data
   register: my_data
 
-- set_facts:
+- set_vars:
     my_ips: "{{ my_data.json | json_query('[*].ipv4.address') }}"
 
 ```

@@ -1,9 +1,9 @@
 use rash_core::context::Context;
 use rash_core::error::{Error, ErrorKind};
-use rash_core::facts::builtin::Builtins;
-use rash_core::facts::env;
 use rash_core::logger;
 use rash_core::task::read_file;
+use rash_core::vars::builtin::Builtins;
+use rash_core::vars::env;
 
 use std::path::Path;
 use std::process::exit;
@@ -67,8 +67,8 @@ fn main() {
     let script_path = Path::new(&opts.script_file);
     match read_file(script_path.to_path_buf()) {
         Ok(tasks) => match Context::exec(Context::new(tasks, {
-            let mut facts = env::load(opts.environment).unwrap();
-            facts.insert(
+            let mut vars = env::load(opts.environment).unwrap();
+            vars.insert(
                 "rash",
                 &Builtins::new(
                     opts._args
@@ -79,8 +79,8 @@ fn main() {
                 )
                 .unwrap(),
             );
-            trace!("Facts: {}", &facts.clone().into_json().to_string());
-            facts
+            trace!("Vars: {}", &vars.clone().into_json().to_string());
+            vars
         })) {
             Ok(_) => (),
             Err(context_error) => match context_error.kind() {

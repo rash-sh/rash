@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::facts::Facts;
 use crate::modules::{Module, MODULES};
+use crate::vars::Vars;
 
 use rash_derive::FieldNames;
 
@@ -53,22 +53,22 @@ impl Task {
         Self::get_field_names().contains(attr)
     }
 
-    fn render_string(s: &str, facts: Facts) -> Result<String> {
+    fn render_string(s: &str, vars: Vars) -> Result<String> {
         let mut tera = Tera::default();
         tera.add_raw_template(s, &s)
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
-        tera.render(s, &facts)
+        tera.render(s, &vars)
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
     }
 
-    fn render_params(&self, facts: Facts) -> Result<Yaml> {
+    fn render_params(&self, vars: Vars) -> Result<Yaml> {
         let original_params = self.params.clone();
         match original_params.as_hash() {
             Some(hash) => match hash
                 .clone()
                 .iter()
                 .map(|t| match &t.1.clone().as_str() {
-                    Some(s) => match Task::render_string(s, facts.clone()) {
+                    Some(s) => match Task::render_string(s, vars.clone()) {
                         Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
                         Err(e) => Err(e),
                     },
@@ -83,26 +83,26 @@ impl Task {
             None => Ok(Yaml::String(Task::render_string(
                 // safe unwrap: validated attr
                 original_params.as_str().unwrap(),
-                facts,
+                vars,
             )?)),
         }
     }
 
-    /// Execute [`Module`] rendering `self.params` with [`Facts`].
+    /// Execute [`Module`] rendering `self.params` with [`Vars`].
     ///
     /// [`Module`]: ../modules/struct.Module.html
-    /// [`Facts`]: ../facts/struct.Facts.html
-    pub fn exec(&self, facts: Facts) -> Result<Facts> {
+    /// [`Vars`]: ../vars/struct.Vars.html
+    pub fn exec(&self, vars: Vars) -> Result<Vars> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
         let result = self
             .module
-            .exec(self.render_params(facts.clone())?, facts.clone())?;
+            .exec(self.render_params(vars.clone())?, vars.clone())?;
         info!(target: if result.get_changed() {"changed"} else { "ok"},
             "{:?}",
             result.get_output().unwrap_or_else(|| "".to_string())
         );
-        Ok(facts)
+        Ok(vars)
     }
 
     /// Return name.
@@ -110,16 +110,16 @@ impl Task {
         self.name.clone()
     }
 
-    /// Return name rendered with [`Facts`].
+    /// Return name rendered with [`Vars`].
     ///
-    /// [`Facts`]: ../facts/struct.Facts.html
-    pub fn get_rendered_name(&self, facts: Facts) -> Result<String> {
+    /// [`Vars`]: ../vars/struct.Vars.html
+    pub fn get_rendered_name(&self, vars: Vars) -> Result<String> {
         Task::render_string(
             &self
                 .name
                 .clone()
                 .ok_or_else(|| Error::new(ErrorKind::NotFound, "no name found"))?,
-            facts,
+            vars,
         )
     }
 
@@ -291,8 +291,8 @@ impl From<&Yaml> for Task {
 mod tests {
     use super::*;
 
-    use crate::facts;
     use crate::utils::get_yaml;
+    use crate::vars;
 
     use std::collections::HashMap;
     use std::fs::File;
@@ -346,9 +346,9 @@ mod tests {
     #[test]
     fn test_task_execute() {
         let task = Task::test_example();
-        let facts = facts::from_iter(vec![].into_iter());
-        let result = task.exec(facts.clone()).unwrap();
-        assert_eq!(result, facts);
+        let vars = vars::from_iter(vec![].into_iter());
+        let result = task.exec(vars.clone()).unwrap();
+        assert_eq!(result, vars);
     }
 
     #[test]
@@ -403,7 +403,7 @@ mod tests {
         .to_owned();
         let yaml = get_yaml(s0);
         let task = Task::from(&yaml);
-        let facts = Facts::from_serialize(
+        let vars = Vars::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
                 .cloned()
@@ -412,7 +412,7 @@ mod tests {
         )
         .unwrap();
 
-        let rendered_params = task.render_params(facts).unwrap();
+        let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
     }
 
@@ -425,7 +425,7 @@ mod tests {
         .to_owned();
         let yaml = get_yaml(s0);
         let task = Task::from(&yaml);
-        let facts = Facts::from_serialize(
+        let vars = Vars::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
                 .cloned()
@@ -434,7 +434,7 @@ mod tests {
         )
         .unwrap();
 
-        let rendered_params = task.render_params(facts).unwrap();
+        let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params.as_str().unwrap(), "ls boo");
     }
 }
