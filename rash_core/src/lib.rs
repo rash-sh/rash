@@ -10,6 +10,7 @@ pub mod utils;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate nix;
 #[macro_use]
 extern crate serde_json;
 

@@ -1,10 +1,11 @@
 use rash_core::context::Context;
 use rash_core::error::{Error, ErrorKind};
+use rash_core::facts::builtin::Builtins;
 use rash_core::facts::env;
 use rash_core::logger;
 use rash_core::task::read_file;
 
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::exit;
 
 use clap::{crate_description, crate_version, Clap};
@@ -42,6 +43,9 @@ struct Opts {
     /// Set environment variables (Example: KEY=VALUE)
     #[clap(short, long, parse(try_from_str = parse_key_val), number_of_values = 1)]
     environment: Vec<(String, String)>,
+    /// Additional args to be accessible from builtin `{{ rash.args }}` as list of strings
+    #[clap(last = true, multiple = true, takes_value = true)]
+    _args: Option<String>,
 }
 
 /// Fail program printing [`Error`] and returning code associated if exists.
@@ -60,9 +64,24 @@ fn main() {
     logger::setup_logging(opts.verbose).expect("failed to initialize logging.");
     trace!("start logger");
 
-    match read_file(PathBuf::from(opts.script_file)) {
-        Ok(tasks) => match Context::exec(Context::new(tasks, env::load(opts.environment).unwrap()))
-        {
+    let script_path = Path::new(&opts.script_file);
+    match read_file(script_path.to_path_buf()) {
+        Ok(tasks) => match Context::exec(Context::new(tasks, {
+            let mut facts = env::load(opts.environment).unwrap();
+            facts.insert(
+                "rash",
+                &Builtins::new(
+                    opts._args
+                        .unwrap_or_else(|| "".to_string())
+                        .split(' ')
+                        .collect::<Vec<&str>>(),
+                    script_path.parent().unwrap_or_else(|| Path::new("/")),
+                )
+                .unwrap(),
+            );
+            trace!("Facts: {}", &facts.clone().into_json().to_string());
+            facts
+        })) {
             Ok(_) => (),
             Err(context_error) => match context_error.kind() {
                 ErrorKind::EmptyTaskStack => (),
