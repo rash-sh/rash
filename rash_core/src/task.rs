@@ -22,6 +22,7 @@ pub struct Task {
     module: Module,
     params: Yaml,
     name: Option<String>,
+    when: Option<String>,
 }
 
 /// A lists of [`Task`]
@@ -88,6 +89,26 @@ impl Task {
         }
     }
 
+    fn is_exec(&self, vars: Vars) -> Result<bool> {
+        match &self.when {
+            Some(s) => {
+                match Task::render_string(
+                    dbg!(&format!(
+                        "{{% if {} %}}true{{% else %}}false{{% endif %}}",
+                        s
+                    )),
+                    vars,
+                )?
+                .as_str()
+                {
+                    "false" => Ok(false),
+                    _ => Ok(true),
+                }
+            }
+            None => Ok(true),
+        }
+    }
+
     /// Execute [`Module`] rendering `self.params` with [`Vars`].
     ///
     /// [`Module`]: ../modules/struct.Module.html
@@ -95,13 +116,18 @@ impl Task {
     pub fn exec(&self, vars: Vars) -> Result<Vars> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
-        let result = self
-            .module
-            .exec(self.render_params(vars.clone())?, vars.clone())?;
-        info!(target: if result.get_changed() {"changed"} else { "ok"},
-            "{:?}",
-            result.get_output().unwrap_or_else(|| "".to_string())
-        );
+
+        if self.is_exec(vars.clone())? {
+            let result = self
+                .module
+                .exec(self.render_params(vars.clone())?, vars.clone())?;
+            info!(target: if result.get_changed() {"changed"} else { "ok"},
+                "{:?}",
+                result.get_output().unwrap_or_else(|| "".to_string())
+            );
+        } else {
+            info!(target: "skipping", "")
+        }
         Ok(vars)
     }
 
@@ -135,6 +161,7 @@ impl Task {
         Task {
             module: Module::test_example(),
             name: None,
+            when: None,
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
                 .first()
@@ -191,6 +218,7 @@ impl TaskValid {
         let module_name: &str = &self.get_module_name()?;
         Ok(Task {
             name: self.attrs["name"].as_str().map(String::from),
+            when: self.attrs["when"].as_str().map(String::from),
             module: MODULES
                 .get::<str>(&module_name)
                 .ok_or_else(|| {
@@ -341,6 +369,48 @@ mod tests {
         let yaml = out.first().unwrap();
         let task_err = Task::new(yaml).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_is_exec() {
+        let s: String = r#"
+        when: "boo == 'test'"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.is_exec(vars).unwrap(), true);
+    }
+
+    #[test]
+    fn test_is_exec_bool() {
+        let s: String = r#"
+        when: "boo | bool"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "false")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.is_exec(vars).unwrap(), false);
+    }
+
+    #[test]
+    fn test_is_exec_false() {
+        let s: String = r#"
+        when: "boo != 'test'"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.is_exec(vars).unwrap(), false);
     }
 
     #[test]
