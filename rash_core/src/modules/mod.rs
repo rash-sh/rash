@@ -101,19 +101,53 @@ lazy_static! {
 }
 
 #[inline]
-pub fn get_param(yaml: &Yaml, key: &str) -> Result<String> {
+fn get_key(yaml: &Yaml, key: &str) -> Result<Yaml> {
     if yaml[key].is_badvalue() {
-        return Err(Error::new(
+        Err(Error::new(
             ErrorKind::NotFound,
             format!("param {} not found in: {:?}", key, yaml),
-        ));
-    };
+        ))
+    } else {
+        Ok(yaml[key].clone())
+    }
+}
 
-    match yaml[key].as_str() {
+/// Get param from [`Yaml`] with `rash` [`Error`] wrappers.
+///
+/// # Example
+/// ```ignore
+/// let param = get_param(&yaml, "foo").unwrap();
+/// assert_eq!(param, "boo");
+/// ```
+/// [`Yaml`]: ../../yaml_rust/struct.Yaml.
+/// [`Error`]: ../error/struct.Error.html
+#[inline]
+pub fn get_param(yaml: &Yaml, key: &str) -> Result<String> {
+    match get_key(yaml, key)?.as_str() {
         Some(s) => Ok(s.to_string()),
         None => Err(Error::new(
             ErrorKind::InvalidData,
             format!("param '{}' not valid string in: {:?}", key, yaml),
+        )),
+    }
+}
+
+/// Get param from [`Yaml`] with `rash` [`Error`] wrappers.
+///
+/// # Example
+/// ```ignore
+/// let param = get_param_bool(&yaml, "foo").unwrap();
+/// assert_eq!(param, true);
+/// ```
+/// [`Yaml`]: ../../yaml_rust/struct.Yaml.
+/// [`Error`]: ../error/struct.Error.html
+#[inline]
+pub fn get_param_bool(yaml: &Yaml, key: &str) -> Result<bool> {
+    match get_key(yaml, key)?.as_bool() {
+        Some(x) => Ok(x),
+        None => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("param '{}' not valid boolean in: {:?}", key, yaml),
         )),
     }
 }

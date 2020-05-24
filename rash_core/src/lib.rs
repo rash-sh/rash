@@ -48,6 +48,7 @@ mod tests {
 
         let context = Context::new(read_file(file_path).unwrap(), env::load(vec![]).unwrap());
         let context_error = Context::exec(context).unwrap_err();
+        dbg!(&context_error);
         let _ = match context_error.kind() {
             ErrorKind::EmptyTaskStack => (),
             _ => panic!(context_error),

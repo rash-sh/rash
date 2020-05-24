@@ -67,15 +67,12 @@ impl Task {
             Some(hash) => match hash
                 .clone()
                 .iter()
-                .map(|t| {
-                    match Task::render_string(
-                        // safe unwrap: validated attr
-                        &t.1.clone().as_str().unwrap().to_string(),
-                        facts.clone(),
-                    ) {
+                .map(|t| match &t.1.clone().as_str() {
+                    Some(s) => match Task::render_string(s, facts.clone()) {
                         Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
                         Err(e) => Err(e),
-                    }
+                    },
+                    None => Ok((t.0.clone(), t.1.clone())),
                 })
                 .collect::<Result<_>>()
             {
@@ -295,6 +292,7 @@ mod tests {
     use super::*;
 
     use crate::facts;
+    use crate::utils::get_yaml;
 
     use std::collections::HashMap;
     use std::fs::File;
@@ -351,11 +349,6 @@ mod tests {
         let facts = facts::from_iter(vec![].into_iter());
         let result = task.exec(facts.clone()).unwrap();
         assert_eq!(result, facts);
-    }
-
-    fn get_yaml(s: String) -> Yaml {
-        let doc = YamlLoader::load_from_str(&s).unwrap();
-        doc.first().unwrap().clone()
     }
 
     #[test]

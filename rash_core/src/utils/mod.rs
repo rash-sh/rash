@@ -15,6 +15,15 @@ pub fn parse_octal(s: &str) -> Result<u32> {
 }
 
 #[cfg(test)]
+use yaml_rust::{Yaml, YamlLoader};
+
+#[cfg(test)]
+pub fn get_yaml(s: String) -> Yaml {
+    let doc = YamlLoader::load_from_str(&s).unwrap();
+    doc.first().unwrap().clone()
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

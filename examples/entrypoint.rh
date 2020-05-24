@@ -1,0 +1,6 @@
+#!/bin/rash
+
+- name: last command must send with transfer_ownership to let it as PID 1
+  command:
+    cmd: sleep 10
+    transfer_ownership: true
