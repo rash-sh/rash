@@ -10,6 +10,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
     let log_header = match (record.level(), record.target()) {
         (log::Level::Info, "ok") => "ok: ".to_owned(),
         (log::Level::Info, "changed") => "changed: ".to_owned(),
+        (log::Level::Info, "skipping") => "skipping".to_owned(),
         (log::Level::Warn, _) => "[WARNING] ".to_owned(),
         (log::Level::Error, "task") => "failed: ".to_owned(),
         (log::Level::Error, _) => "[ERROR] ".to_owned(),
@@ -28,6 +29,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
                 (log::Level::Debug, _) => Color::BrightBlue,
                 (log::Level::Info, "changed") => Color::Yellow,
                 (log::Level::Info, "ok") => Color::Green,
+                (log::Level::Info, "skipping") => Color::Blue,
                 (log::Level::Info, _) => Color::White,
                 (log::Level::Warn, _) => Color::Magenta,
                 (log::Level::Error, _) => Color::Red,
