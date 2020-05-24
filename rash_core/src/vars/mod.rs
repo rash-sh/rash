@@ -6,13 +6,13 @@ use tera::Context;
 /// Variables stored and accessible during execution, based on [`tera::Context`]
 ///
 /// [`tera::Context`]: ../../tera/struct.Context.html
-pub type Facts = Context;
+pub type Vars = Context;
 
 #[cfg(test)]
 use std::collections::HashMap;
 
 #[cfg(test)]
-pub fn from_iter<'a, I>(iterable: I) -> Facts
+pub fn from_iter<'a, I>(iterable: I) -> Vars
 where
     I: Iterator<Item = (&'a str, &'a str)>,
 {

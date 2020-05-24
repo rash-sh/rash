@@ -2,33 +2,33 @@
 ///
 /// Preserve state between executions
 use crate::error::{Error, ErrorKind, Result};
-use crate::facts::Facts;
 use crate::task::Tasks;
+use crate::vars::Vars;
 
 #[cfg(test)]
 use crate::task::Task;
 
 #[cfg(test)]
-use crate::facts;
+use crate::vars;
 
 /// Main data structure in `rash`.
-/// It contents all [`task::Tasks`] with its [`facts::Facts`] to be executed
+/// It contents all [`task::Tasks`] with its [`vars::Vars`] to be executed
 ///
 /// [`task::Tasks`]: ../task/type.Tasks.html
-/// [`facts::Facts`]: ../facts/type.Facts.html
+/// [`vars::Vars`]: ../vars/type.Vars.html
 #[derive(Debug)]
 pub struct Context {
     tasks: Tasks,
-    facts: Facts,
+    vars: Vars,
 }
 
 impl Context {
-    /// Create a new context from [`task::Tasks`] and [`facts::Facts`].Error
+    /// Create a new context from [`task::Tasks`] and [`vars::Vars`].Error
     ///
     /// [`task::Tasks`]: ../task/type.Tasks.html
-    /// [`facts::Facts`]: ../facts/type.Facts.html
-    pub fn new(tasks: Tasks, facts: Facts) -> Self {
-        Context { tasks, facts }
+    /// [`vars::Vars`]: ../vars/type.Vars.html
+    pub fn new(tasks: Tasks, vars: Vars) -> Self {
+        Context { tasks, vars }
     }
 
     /// Execute first [`task::Task`] and return a new context without that executed [`task::Task`]
@@ -46,14 +46,14 @@ impl Context {
         let next_task = next_tasks.remove(0);
         info!(target: "task",
             "[{}] - {} to go - ",
-            next_task.get_rendered_name(self.facts.clone())
+            next_task.get_rendered_name(self.vars.clone())
                 .unwrap_or_else(|_| next_task.get_module().get_name().to_string()),
             self.tasks.len(),
         );
-        let facts = next_task.exec(self.facts.clone())?;
+        let vars = next_task.exec(self.vars.clone())?;
         Ok(Self {
             tasks: next_tasks,
-            facts,
+            vars,
         })
     }
 
@@ -72,7 +72,7 @@ impl Context {
     pub fn test_example() -> Self {
         Context {
             tasks: vec![Task::test_example()],
-            facts: facts::from_iter(vec![].into_iter()),
+            vars: vars::from_iter(vec![].into_iter()),
         }
     }
 }

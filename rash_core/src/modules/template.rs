@@ -1,9 +1,9 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::facts::Facts;
 use crate::modules::copy::verify_file;
 use crate::modules::copy::Params as CopyParams;
 use crate::modules::{get_param, ModuleResult};
 use crate::utils::parse_octal;
+use crate::vars::Vars;
 
 use std::path::Path;
 
@@ -30,27 +30,27 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     })
 }
 
-fn render_content(params: Params, facts: Facts) -> Result<CopyParams> {
+fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     let mut tera = Tera::default();
     tera.add_template_file(Path::new(&params.src), None)
         .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
     Ok(CopyParams::new(
-        tera.render(&params.src, &facts)
+        tera.render(&params.src, &vars)
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
         params.dest.clone(),
         params.mode,
     ))
 }
 
-pub fn exec(optional_params: Yaml, facts: Facts) -> Result<ModuleResult> {
-    verify_file(render_content(parse_params(optional_params)?, facts)?)
+pub fn exec(optional_params: Yaml, vars: Vars) -> Result<ModuleResult> {
+    verify_file(render_content(parse_params(optional_params)?, vars)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::facts;
+    use crate::vars;
 
     use std::fs::File;
     use std::io::Write;
@@ -131,15 +131,15 @@ mod tests {
         #[allow(clippy::write_literal)]
         writeln!(file, "{}", "{{ boo }}").unwrap();
 
-        let facts = facts::from_iter(vec![("boo", "test")].into_iter());
-        dbg!(&facts);
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        dbg!(&vars);
         let copy_params = render_content(
             Params {
                 src: file_path.to_str().unwrap().to_owned(),
                 dest: "/tmp/buu.txt".to_string(),
                 mode: 0o644,
             },
-            facts,
+            vars,
         )
         .unwrap();
 

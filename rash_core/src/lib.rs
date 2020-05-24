@@ -1,10 +1,10 @@
 pub mod context;
 pub mod error;
-pub mod facts;
 pub mod logger;
 pub mod modules;
 pub mod task;
 pub mod utils;
+pub mod vars;
 
 #[macro_use]
 extern crate lazy_static;
@@ -20,8 +20,8 @@ mod tests {
 
     use context::Context;
     use error::ErrorKind;
-    use facts::env;
     use task::read_file;
+    use vars::env;
 
     use std::fs::File;
     use std::io::Write;

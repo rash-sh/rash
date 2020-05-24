@@ -1,7 +1,7 @@
 use crate::error::{ErrorKind, Result};
-use crate::facts::Facts;
 use crate::modules::{get_param, ModuleResult};
 use crate::utils::parse_octal;
+use crate::vars::Vars;
 
 use std::fs::{set_permissions, OpenOptions};
 use std::io::prelude::*;
@@ -99,7 +99,7 @@ pub fn verify_file(params: Params) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, _: Facts) -> Result<ModuleResult> {
+pub fn exec(optional_params: Yaml, _: Vars) -> Result<ModuleResult> {
     verify_file(parse_params(optional_params)?)
 }
 
