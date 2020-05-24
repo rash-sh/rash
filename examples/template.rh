@@ -2,7 +2,7 @@
 
 - name: "example config"
   template:
-    src: ./examples/template.j2
+    src: "{{ rash.dir }}/template.j2"
     dest: "/tmp/MY_PASSWORD_FILE"
     mode: "400"
 
