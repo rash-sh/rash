@@ -1,14 +1,16 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::facts::Facts;
-use crate::modules::ModuleResult;
+use crate::modules::{get_param_bool, ModuleResult};
 
 use std::process::Command;
 
+use exec as exec_command;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq)]
 struct Params {
     cmd: String,
+    transfer_ownership: bool,
 }
 
 fn parse_params(yaml: Yaml) -> Result<Params> {
@@ -22,8 +24,14 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
                 format!("Not cmd param found in: {:?}", yaml),
             )
         })?;
+    let transfer_ownership =
+        get_param_bool(&yaml, "transfer_ownership").or_else(|e| match e.kind() {
+            ErrorKind::NotFound => Ok(false),
+            _ => Err(e),
+        })?;
     Ok(Params {
         cmd: cmd.to_string(),
+        transfer_ownership,
     })
 }
 
@@ -35,6 +43,14 @@ pub fn exec(optional_params: Yaml, _: Facts) -> Result<ModuleResult> {
 
     // safe unwrap: verify in parse_params
     let program = args.next().unwrap();
+
+    if params.transfer_ownership {
+        let error = exec_command::Command::new(program)
+            .args(&args.clone().collect::<Vec<_>>())
+            .exec();
+        return Err(Error::new(ErrorKind::SubprocessFail, error));
+    }
+
     let output = Command::new(program)
         .args(&args.collect::<Vec<_>>())
         .output()
@@ -78,7 +94,8 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                cmd: "ls".to_string()
+                cmd: "ls".to_string(),
+                transfer_ownership: false,
             }
         );
     }
