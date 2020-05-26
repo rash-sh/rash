@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use nix::unistd::{getuid, User};
 use serde::Serialize;
@@ -13,20 +13,26 @@ struct UserInfo {
 }
 
 #[derive(Serialize)]
-pub struct Builtins<P: AsRef<Path>> {
+pub struct Builtins {
     args: Vec<String>,
-    dir: P,
+    dir: PathBuf,
+    path: PathBuf,
     user: UserInfo,
 }
 
-impl<P: AsRef<Path>> Builtins<P> {
-    pub fn new(args: Vec<&str>, dir: P) -> Result<Self> {
+impl Builtins {
+    pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {
         let user = User::from_uid(getuid())
             .or_else(|e| Err(Error::new(ErrorKind::Other, e)))?
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "No user with current uid"))?;
+        let dir = path
+            .parent()
+            .unwrap_or_else(|| Path::new("/"))
+            .to_path_buf();
         Ok(Builtins {
             args: args.into_iter().map(String::from).collect(),
             dir,
+            path: path.to_path_buf(),
             user: UserInfo {
                 name: user.name,
                 uid: user.uid.as_raw(),
