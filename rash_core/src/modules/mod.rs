@@ -13,7 +13,7 @@ use yaml_rust::Yaml;
 /// Return values by [`Module`] execution.
 ///
 /// [`Module`]: struct.Module.html
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ModuleResult {
     changed: bool,
     extra: Option<Value>,
