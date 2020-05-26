@@ -75,7 +75,7 @@ fn main() {
                         .unwrap_or_else(|| "".to_string())
                         .split(' ')
                         .collect::<Vec<&str>>(),
-                    script_path.parent().unwrap_or_else(|| Path::new("/")),
+                    script_path,
                 )
                 .unwrap(),
             );
