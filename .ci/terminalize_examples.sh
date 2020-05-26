@@ -8,7 +8,7 @@
 TMPFILE_PATH=$(mktemp)
 COMMANDS="#!/bin/bash"
 
-for FILE in $(find examples -type f); do
+for FILE in $(find examples -type f -name '*.rh'); do
     for COMMAND in "cat $FILE" "$FILE"; do
     if [ "$COMMAND" = "examples/env_missing.rh" ];
     then
