@@ -30,7 +30,7 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
         impl #name {
             /// Return field names.
             pub fn get_field_names() -> std::collections::HashSet<String> {
-                [#(#field_names),*].iter().map(ToString::to_string).collect::<std::collections::HashSet<String>>()
+                [#(#field_names),*].iter().map(ToString::to_string).map(|s| s.replace("r#", "")).collect::<std::collections::HashSet<String>>()
             }
         }
     };

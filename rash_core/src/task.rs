@@ -1,5 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, MODULES};
+use crate::utils::get_yaml;
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
@@ -23,6 +24,7 @@ pub struct Task {
     params: Yaml,
     name: Option<String>,
     when: Option<String>,
+    r#loop: Option<Yaml>,
 }
 
 /// A lists of [`Task`]
@@ -56,9 +58,7 @@ impl Task {
 
     fn render_string(s: &str, vars: Vars) -> Result<String> {
         let mut tera = Tera::default();
-        tera.add_raw_template(s, &s)
-            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
-        tera.render(s, &vars)
+        tera.render_str(s, &vars)
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
     }
 
@@ -109,6 +109,38 @@ impl Task {
         }
     }
 
+    fn get_iterator(yaml: &Yaml, vars: Vars) -> Result<Vec<String>> {
+        match yaml.as_vec() {
+            Some(v) => Ok(v
+                .iter()
+                .map(|item| match item.clone() {
+                    Yaml::Real(s) | Yaml::String(s) => Ok(Task::render_string(&s, vars.clone())?),
+                    Yaml::Integer(x) => Ok(Task::render_string(&x.to_string(), vars.clone())?),
+                    _ => Err(Error::new(
+                        ErrorKind::InvalidData,
+                        format!("{:?} is not a valid string", item),
+                    )),
+                })
+                .collect::<Result<Vec<String>>>()?),
+            None => Err(Error::new(ErrorKind::NotFound, "loop is not iterable")),
+        }
+    }
+
+    fn render_iterator(&self, vars: Vars) -> Result<Vec<String>> {
+        // safe unwrap
+        let loop_some = self.r#loop.clone().unwrap();
+        match loop_some.as_str() {
+            Some(s) => {
+                let yaml = get_yaml(&Task::render_string(&s, vars.clone())?)?;
+                match yaml.as_str() {
+                    Some(s) => Ok(vec![s.to_string()]),
+                    None => Task::get_iterator(&yaml, vars),
+                }
+            }
+            None => Task::get_iterator(&loop_some, vars),
+        }
+    }
+
     /// Execute [`Module`] rendering `self.params` with [`Vars`].
     ///
     /// [`Module`]: ../modules/struct.Module.html
@@ -117,18 +149,44 @@ impl Task {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
 
-        if self.is_exec(vars.clone())? {
-            let result = self
-                .module
-                .exec(self.render_params(vars.clone())?, vars.clone())?;
-            info!(target: if result.get_changed() {"changed"} else { "ok"},
-                "{:?}",
-                result.get_output().unwrap_or_else(|| "".to_string())
-            );
+        let mut new_vars = vars;
+        if self.is_exec(new_vars.clone())? {
+            if self.r#loop.is_some() {
+                self.render_iterator(new_vars.clone())?
+                    .into_iter()
+                    .map(|item| {
+                        new_vars.insert("item", &item);
+                        let result_wrapped = self
+                            .module
+                            .exec(self.render_params(new_vars.clone())?, new_vars.clone());
+                        match result_wrapped {
+                            Ok(result) => {
+                                info!(target: if result.get_changed() {"changed"} else { "ok"},
+                                    "{:?}",
+                                    result.get_output().unwrap_or_else(|| "".to_string())
+                                );
+                                Ok(result)
+                            }
+                            Err(e) => {
+                                error!("{}", e);
+                                Err(e)
+                            }
+                        }
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+            } else {
+                let result = self
+                    .module
+                    .exec(self.render_params(new_vars.clone())?, new_vars.clone())?;
+                info!(target: if result.get_changed() {"changed"} else { "ok"},
+                    "{:?}",
+                    result.get_output().unwrap_or_else(|| "".to_string())
+                );
+            }
         } else {
             info!(target: "skipping", "")
         }
-        Ok(vars)
+        Ok(new_vars)
     }
 
     /// Return name.
@@ -162,6 +220,7 @@ impl Task {
             module: Module::test_example(),
             name: None,
             when: None,
+            r#loop: None,
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
                 .first()
@@ -219,6 +278,11 @@ impl TaskValid {
         Ok(Task {
             name: self.attrs["name"].as_str().map(String::from),
             when: self.attrs["when"].as_str().map(String::from),
+            r#loop: if self.attrs["loop"].is_badvalue() {
+                None
+            } else {
+                Some(self.attrs["loop"].clone())
+            },
             module: MODULES
                 .get::<str>(&module_name)
                 .ok_or_else(|| {
@@ -319,7 +383,6 @@ impl From<&Yaml> for Task {
 mod tests {
     use super::*;
 
-    use crate::utils::get_yaml;
     use crate::vars;
 
     use std::collections::HashMap;
@@ -414,6 +477,53 @@ mod tests {
     }
 
     #[test]
+    fn test_render_iterator() {
+        let s: String = r#"
+        command: 'example'
+        loop:
+          - 1
+          - 2
+          - 3
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.render_iterator(vars).unwrap(), vec!["1", "2", "3"]);
+    }
+
+    #[test]
+    fn test_render_iterator_var() {
+        let s: String = r#"
+        command: 'example'
+        loop: "{{ range(end=3) }}"
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.render_iterator(vars).unwrap(), vec!["0", "1", "2"]);
+    }
+
+    #[test]
+    fn test_render_iterator_list_with_vars() {
+        let s: String = r#"
+        command: 'example'
+        loop:
+          - "{{ boo }}"
+          - 2
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.render_iterator(vars).unwrap(), vec!["test", "2"]);
+    }
+
+    #[test]
     fn test_task_execute() {
         let task = Task::test_example();
         let vars = vars::from_iter(vec![].into_iter());
@@ -449,7 +559,7 @@ mod tests {
           foo: boo
         "#
         .to_owned();
-        let yaml = get_yaml(s0);
+        let yaml = get_yaml(&s0).unwrap();
         let task_0 = Task::from(&yaml);
         assert_eq!(tasks[0], task_0);
 
@@ -458,7 +568,7 @@ mod tests {
         command: boo
         "#
         .to_owned();
-        let yaml = get_yaml(s1);
+        let yaml = get_yaml(&s1).unwrap();
         let task_1 = Task::from(&yaml);
         assert_eq!(tasks[1], task_1);
     }
@@ -471,7 +581,7 @@ mod tests {
           cmd: ls {{ directory }}
         "#
         .to_owned();
-        let yaml = get_yaml(s0);
+        let yaml = get_yaml(&s0).unwrap();
         let task = Task::from(&yaml);
         let vars = Vars::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
@@ -493,7 +603,7 @@ mod tests {
         command: ls {{ directory }}
         "#
         .to_owned();
-        let yaml = get_yaml(s0);
+        let yaml = get_yaml(&s0).unwrap();
         let task = Task::from(&yaml);
         let vars = Vars::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
