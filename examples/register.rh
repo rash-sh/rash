@@ -1,0 +1,6 @@
+#!/bin/rash
+
+- command: ls
+  register: ls_response
+
+- command: "echo {{ ls_response.output }}"

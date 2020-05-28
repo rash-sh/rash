@@ -1,5 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, MODULES};
+use crate::modules::{Module, ModuleResult, MODULES};
 use crate::utils::get_yaml;
 use crate::vars::Vars;
 
@@ -24,6 +24,7 @@ pub struct Task {
     params: Yaml,
     name: Option<String>,
     when: Option<String>,
+    register: Option<String>,
     r#loop: Option<Yaml>,
 }
 
@@ -148,11 +149,11 @@ impl Task {
     pub fn exec(&self, vars: Vars) -> Result<Vars> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
-
         let mut new_vars = vars;
         if self.is_exec(new_vars.clone())? {
-            if self.r#loop.is_some() {
-                self.render_iterator(new_vars.clone())?
+            let result = if self.r#loop.is_some() {
+                json!(self
+                    .render_iterator(new_vars.clone())?
                     .into_iter()
                     .map(|item| {
                         new_vars.insert("item", &item);
@@ -173,7 +174,7 @@ impl Task {
                             }
                         }
                     })
-                    .collect::<Result<Vec<_>>>()?;
+                    .collect::<Result<Vec<ModuleResult>>>()?)
             } else {
                 let result = self
                     .module
@@ -182,10 +183,16 @@ impl Task {
                     "{:?}",
                     result.get_output().unwrap_or_else(|| "".to_string())
                 );
+                json!(result)
+            };
+
+            if self.register.is_some() {
+                new_vars.insert(self.register.as_ref().unwrap(), &result);
             }
         } else {
             info!(target: "skipping", "")
         }
+
         Ok(new_vars)
     }
 
@@ -220,6 +227,7 @@ impl Task {
             module: Module::test_example(),
             name: None,
             when: None,
+            register: None,
             r#loop: None,
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
@@ -278,6 +286,7 @@ impl TaskValid {
         Ok(Task {
             name: self.attrs["name"].as_str().map(String::from),
             when: self.attrs["when"].as_str().map(String::from),
+            register: self.attrs["register"].as_str().map(String::from),
             r#loop: if self.attrs["loop"].is_badvalue() {
                 None
             } else {
