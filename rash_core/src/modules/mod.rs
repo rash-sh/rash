@@ -7,13 +7,14 @@ use crate::vars::Vars;
 
 use std::collections::HashMap;
 
+use serde::Serialize;
 use serde_json::Value;
 use yaml_rust::Yaml;
 
 /// Return values by [`Module`] execution.
 ///
 /// [`Module`]: struct.Module.html
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct ModuleResult {
     changed: bool,
     extra: Option<Value>,
