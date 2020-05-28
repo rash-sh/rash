@@ -14,7 +14,7 @@ use yaml_rust::Yaml;
 /// Return values by [`Module`] execution.
 ///
 /// [`Module`]: struct.Module.html
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ModuleResult {
     changed: bool,
     extra: Option<Value>,
@@ -42,7 +42,7 @@ impl ModuleResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     name: &'static str,
-    exec_fn: fn(Yaml, Vars) -> Result<ModuleResult>,
+    exec_fn: fn(Yaml, Vars) -> Result<(ModuleResult, Vars)>,
 }
 
 impl Module {
@@ -52,7 +52,7 @@ impl Module {
     }
 
     /// Execute `self.exec_fn`
-    pub fn exec(&self, params: Yaml, vars: Vars) -> Result<ModuleResult> {
+    pub fn exec(&self, params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
         (self.exec_fn)(params, vars)
     }
 
@@ -61,11 +61,14 @@ impl Module {
         Module {
             name: "test",
             exec_fn: |_, _| {
-                Ok(ModuleResult {
-                    changed: true,
-                    extra: None,
-                    output: None,
-                })
+                Ok((
+                    ModuleResult {
+                        changed: true,
+                        extra: None,
+                        output: None,
+                    },
+                    Vars::new(),
+                ))
             },
         }
     }

@@ -99,8 +99,8 @@ pub fn verify_file(params: Params) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, _: Vars) -> Result<ModuleResult> {
-    verify_file(parse_params(optional_params)?)
+pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
+    Ok((verify_file(parse_params(optional_params)?)?, vars))
 }
 
 #[cfg(test)]
