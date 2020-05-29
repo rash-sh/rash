@@ -24,7 +24,7 @@ jobs:
       - name: automerge
         uses: "pascalgn/automerge-action@7ab42e888a333bf77ce865bc84fedc6a365a3548"
         env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_TOKEN: "${{ secrets.PAT_GITHUB }}"
           # retry 60 times every 30s => 30min
           MERGE_RETRIES: 60
           MERGE_RETRY_SLEEP: 30000
