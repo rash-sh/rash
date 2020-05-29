@@ -188,7 +188,6 @@ mod tests {
 
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o644);
-        println!("veamos {:o}", permissions.mode());
 
         let output = verify_file(Params {
             content: "test\n".to_string(),

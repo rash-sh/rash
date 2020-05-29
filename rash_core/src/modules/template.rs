@@ -138,7 +138,7 @@ mod tests {
         writeln!(file, "{}", "{{ boo }}").unwrap();
 
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        dbg!(&vars);
+
         let copy_params = render_content(
             Params {
                 src: file_path.to_str().unwrap().to_owned(),
