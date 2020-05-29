@@ -1,3 +1,4 @@
+mod assert;
 mod command;
 mod copy;
 mod set_vars;
@@ -79,6 +80,13 @@ lazy_static! {
     pub static ref MODULES: HashMap<&'static str, Module> = {
         vec![
             (
+                "assert",
+                Module {
+                    name: "assert",
+                    exec_fn: assert::exec,
+                },
+            ),
+            (
                 "command",
                 Module {
                     name: "command",
@@ -157,6 +165,35 @@ pub fn get_param(yaml: &Yaml, key: &str) -> Result<String> {
 pub fn get_param_bool(yaml: &Yaml, key: &str) -> Result<bool> {
     match get_key(yaml, key)?.as_bool() {
         Some(x) => Ok(x),
+        None => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("param '{}' not valid boolean in: {:?}", key, yaml),
+        )),
+    }
+}
+
+/// Get param from [`Yaml`] with `rash` [`Error`] wrappers.
+///
+/// # Example
+/// ```ignore
+/// let param = get_param_list(&yaml, "foo").unwrap();
+/// assert_eq!(param, vec!["1 == 1"]);
+/// ```
+/// [`Yaml`]: ../../yaml_rust/struct.Yaml.
+/// [`Error`]: ../error/struct.Error.html
+#[inline]
+pub fn get_param_list(yaml: &Yaml, key: &str) -> Result<Vec<String>> {
+    match get_key(yaml, key)?.as_vec() {
+        Some(x) => Ok(x
+            .iter()
+            .map(|yaml| match yaml.as_str() {
+                Some(s) => Ok(s.to_string()),
+                None => Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("{:?} is not a valid string", &yaml),
+                )),
+            })
+            .collect::<Result<Vec<String>>>()?),
         None => Err(Error::new(
             ErrorKind::InvalidData,
             format!("param '{}' not valid boolean in: {:?}", key, yaml),

@@ -1,0 +1,12 @@
+#!/bin/rash
+
+- name: test expressions
+  assert:
+    that:
+      - "rash.path == 'examples/assert.rh'"
+      - "1 == 1"
+
+- name: this must fail
+  assert:
+    that:
+      - "rash.path == ''"

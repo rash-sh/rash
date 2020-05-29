@@ -64,6 +64,19 @@ impl Task {
             .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
     }
 
+    #[inline(always)]
+    pub fn is_render_string(s: &str, vars: Vars) -> Result<bool> {
+        match Task::render_string(
+            &format!("{{% if {} %}}true{{% else %}}false{{% endif %}}", s),
+            vars,
+        )?
+        .as_str()
+        {
+            "false" => Ok(false),
+            _ => Ok(true),
+        }
+    }
+
     fn render_params(&self, vars: Vars) -> Result<Yaml> {
         let original_params = self.params.clone();
         match original_params.as_hash() {
@@ -93,17 +106,7 @@ impl Task {
 
     fn is_exec(&self, vars: Vars) -> Result<bool> {
         match &self.when {
-            Some(s) => {
-                match Task::render_string(
-                    &format!("{{% if {} %}}true{{% else %}}false{{% endif %}}", s),
-                    vars,
-                )?
-                .as_str()
-                {
-                    "false" => Ok(false),
-                    _ => Ok(true),
-                }
-            }
+            Some(s) => Task::is_render_string(&s, vars),
             None => Ok(true),
         }
     }
