@@ -1,0 +1,9 @@
+#!/bin/rash
+
+- set_vars:
+    foo: boo
+    zoo: soo
+
+- name: "{{ zoo }}"
+  command: "echo {{ foo }}"
+
