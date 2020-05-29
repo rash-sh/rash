@@ -95,10 +95,7 @@ impl Task {
         match &self.when {
             Some(s) => {
                 match Task::render_string(
-                    dbg!(&format!(
-                        "{{% if {} %}}true{{% else %}}false{{% endif %}}",
-                        s
-                    )),
+                    &format!("{{% if {} %}}true{{% else %}}false{{% endif %}}", s),
                     vars,
                 )?
                 .as_str()
@@ -426,7 +423,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        println!("{:?}", task);
+
         assert_eq!(task.name.unwrap(), "Test task");
         assert_eq!(&task.module, MODULES.get("command").unwrap());
     }
