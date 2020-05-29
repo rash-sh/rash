@@ -35,7 +35,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     })
 }
 
-pub fn exec(optional_params: Yaml, _: Vars) -> Result<ModuleResult> {
+pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
     let params = parse_params(optional_params)?;
     trace!("exec - params: {:?}", params);
 
@@ -64,17 +64,20 @@ pub fn exec(optional_params: Yaml, _: Vars) -> Result<ModuleResult> {
         return Err(Error::new(ErrorKind::InvalidData, stderr));
     }
 
-    Ok(ModuleResult {
-        changed: true,
-        output: Some(
-            String::from_utf8(output.stdout)
-                .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
-        ),
-        extra: Some(json!({
-            "rc": output.status.code(),
-            "stderr": stderr,
-        })),
-    })
+    Ok((
+        ModuleResult {
+            changed: true,
+            output: Some(
+                String::from_utf8(output.stdout)
+                    .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
+            ),
+            extra: Some(json!({
+                "rc": output.status.code(),
+                "stderr": stderr,
+            })),
+        },
+        vars,
+    ))
 }
 
 #[cfg(test)]

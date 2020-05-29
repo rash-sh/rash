@@ -42,8 +42,14 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     ))
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars) -> Result<ModuleResult> {
-    verify_file(render_content(parse_params(optional_params)?, vars)?)
+pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
+    Ok((
+        verify_file(render_content(
+            parse_params(optional_params)?,
+            vars.clone(),
+        )?)?,
+        vars,
+    ))
 }
 
 #[cfg(test)]

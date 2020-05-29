@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
+use serde_json::Value;
 use tera::Tera;
 use yaml_rust::{Yaml, YamlLoader};
 
@@ -149,24 +150,25 @@ impl Task {
     pub fn exec(&self, vars: Vars) -> Result<Vars> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
-        let mut new_vars = vars;
-        if self.is_exec(new_vars.clone())? {
-            let result = if self.r#loop.is_some() {
-                json!(self
-                    .render_iterator(new_vars.clone())?
+
+        let new_vars = if self.is_exec(vars.clone())? {
+            let result_json_vars: Result<(Value, Vars)> = if self.r#loop.is_some() {
+                let results_with_vars = self
+                    .render_iterator(vars.clone())?
                     .into_iter()
                     .map(|item| {
-                        new_vars.insert("item", &item);
+                        let mut exec_vars = vars.clone();
+                        exec_vars.insert("item", &item);
                         let result_wrapped = self
                             .module
-                            .exec(self.render_params(new_vars.clone())?, new_vars.clone());
+                            .exec(self.render_params(exec_vars.clone())?, exec_vars);
                         match result_wrapped {
-                            Ok(result) => {
+                            Ok((result, new_vars)) => {
                                 info!(target: if result.get_changed() {"changed"} else { "ok"},
                                     "{:?}",
                                     result.get_output().unwrap_or_else(|| "".to_string())
                                 );
-                                Ok(result)
+                                Ok((result, new_vars))
                             }
                             Err(e) => {
                                 error!("{}", e);
@@ -174,24 +176,37 @@ impl Task {
                             }
                         }
                     })
-                    .collect::<Result<Vec<ModuleResult>>>()?)
+                    .collect::<Result<Vec<(ModuleResult, Vars)>>>()?;
+                let mut new_vars = Vars::new();
+                results_with_vars
+                    .iter()
+                    .for_each(|(_, vars)| new_vars.extend(vars.clone()));
+                let results: Vec<ModuleResult> = results_with_vars
+                    .iter()
+                    .map(|(result, _)| result)
+                    .cloned()
+                    .collect();
+                Ok((json!(results), new_vars))
             } else {
-                let result = self
-                    .module
-                    .exec(self.render_params(new_vars.clone())?, new_vars.clone())?;
+                let (result, new_vars) =
+                    self.module.exec(self.render_params(vars.clone())?, vars)?;
                 info!(target: if result.get_changed() {"changed"} else { "ok"},
                     "{:?}",
                     result.get_output().unwrap_or_else(|| "".to_string())
                 );
-                json!(result)
+                Ok((json!(result), new_vars))
             };
-
+            let json_vars = result_json_vars?;
+            let result = json_vars.0;
+            let mut new_vars = json_vars.1;
             if self.register.is_some() {
                 new_vars.insert(self.register.as_ref().unwrap(), &result);
             }
+            new_vars
         } else {
-            info!(target: "skipping", "")
-        }
+            info!(target: "skipping", "");
+            vars
+        };
 
         Ok(new_vars)
     }
