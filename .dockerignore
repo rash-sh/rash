@@ -1,0 +1,11 @@
+artwork
+.ci
+design
+examples
+.git
+.gitignore
+LICENSE
+Makefile
+README.md
+target
+VERSION
