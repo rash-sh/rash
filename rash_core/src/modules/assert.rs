@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{get_param_list, ModuleResult};
-use crate::task::Task;
+use crate::utils::jinja2::is_render_string;
 use crate::vars::Vars;
 
 use yaml_rust::Yaml;
@@ -23,7 +23,7 @@ fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
         .that
         .iter()
         .map(|expression| {
-            if Task::is_render_string(&expression, vars.clone())? {
+            if is_render_string(&expression, vars.clone())? {
                 Ok(true)
             } else {
                 Err(Error::new(
