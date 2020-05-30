@@ -24,14 +24,6 @@ pub struct ModuleResult {
 }
 
 impl ModuleResult {
-    pub fn new(changed: bool, extra: Option<Value>, output: Option<String>) -> Self {
-        Self {
-            changed,
-            extra,
-            output,
-        }
-    }
-
     /// Return changed
     pub fn get_changed(&self) -> bool {
         self.changed
@@ -126,11 +118,6 @@ lazy_static! {
         .into_iter()
         .collect::<HashMap<&'static str, Module>>()
     };
-}
-
-#[inline(always)]
-pub fn is_module(module: &str) -> bool {
-    MODULES.get(module).is_some()
 }
 
 #[inline]
