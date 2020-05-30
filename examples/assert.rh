@@ -6,7 +6,8 @@
       - "rash.path == 'examples/assert.rh'"
       - "1 == 1"
 
-- name: this must fail
+- name: this must be ignored
   assert:
     that:
       - "rash.path == ''"
+  ignore_errors: true

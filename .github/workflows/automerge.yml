@@ -28,4 +28,4 @@ jobs:
           # retry 60 times every 30s => 30min
           MERGE_RETRIES: 60
           MERGE_RETRY_SLEEP: 30000
-          MERGE_METHOD: squash
+          MERGE_METHOD: rebase

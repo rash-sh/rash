@@ -24,6 +24,14 @@ pub struct ModuleResult {
 }
 
 impl ModuleResult {
+    pub fn new(changed: bool, extra: Option<Value>, output: Option<String>) -> Self {
+        Self {
+            changed,
+            extra,
+            output,
+        }
+    }
+
     /// Return changed
     pub fn get_changed(&self) -> bool {
         self.changed

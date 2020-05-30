@@ -61,6 +61,7 @@ impl TaskValid {
             name: self.attrs["name"].as_str().map(String::from),
             when: self.attrs["when"].as_str().map(String::from),
             register: self.attrs["register"].as_str().map(String::from),
+            ignore_errors: self.attrs["ignore_errors"].as_bool(),
             r#loop: if self.attrs["loop"].is_badvalue() {
                 None
             } else {
