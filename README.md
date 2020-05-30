@@ -85,7 +85,7 @@ Currently, **Under heavy development**.
 
 The full working funcionallity is shown in the following gif, don't expect more (or less):
 
-![Examples](https://media.giphy.com/media/kIREOtWgwjSgo7l82b/giphy.gif)
+<video src="https://i.imgur.com/wNV74W4.mp4" width="640" controls></video>
 
 [Jinja2](https://tera.netlify.app/docs/#templates) template engine support by [Tera](https://github.com/Keats/tera).
 
