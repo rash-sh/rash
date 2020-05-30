@@ -1,16 +1,19 @@
+mod new;
+mod valid;
+
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult, MODULES};
+use crate::modules::{Module, ModuleResult};
+use crate::task::new::TaskNew;
 use crate::utils::get_yaml;
+use crate::utils::jinja2::{is_render_string, render_string};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
 
-use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
 use serde_json::Value;
-use tera::Tera;
 use yaml_rust::{Yaml, YamlLoader};
 
 /// Main structure at definition level which prepare [`Module`] executions.
@@ -26,6 +29,7 @@ pub struct Task {
     name: Option<String>,
     when: Option<String>,
     register: Option<String>,
+    ignore_errors: Option<bool>,
     r#loop: Option<Yaml>,
 }
 
@@ -33,11 +37,6 @@ pub struct Task {
 ///
 /// [`Task`]: struct.Task.html
 pub type Tasks = Vec<Task>;
-
-#[inline(always)]
-fn is_module(module: &str) -> bool {
-    MODULES.get(module).is_some()
-}
 
 impl Task {
     /// Create a new Task from [`Yaml`].
@@ -58,25 +57,6 @@ impl Task {
         Self::get_field_names().contains(attr)
     }
 
-    fn render_string(s: &str, vars: Vars) -> Result<String> {
-        let mut tera = Tera::default();
-        tera.render_str(s, &vars)
-            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
-    }
-
-    #[inline(always)]
-    pub fn is_render_string(s: &str, vars: Vars) -> Result<bool> {
-        match Task::render_string(
-            &format!("{{% if {} %}}true{{% else %}}false{{% endif %}}", s),
-            vars,
-        )?
-        .as_str()
-        {
-            "false" => Ok(false),
-            _ => Ok(true),
-        }
-    }
-
     fn render_params(&self, vars: Vars) -> Result<Yaml> {
         let original_params = self.params.clone();
         match original_params.as_hash() {
@@ -84,7 +64,7 @@ impl Task {
                 .clone()
                 .iter()
                 .map(|t| match &t.1.clone().as_str() {
-                    Some(s) => match Task::render_string(s, vars.clone()) {
+                    Some(s) => match render_string(s, vars.clone()) {
                         Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
                         Err(e) => Err(e),
                     },
@@ -96,7 +76,7 @@ impl Task {
                 Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
             },
 
-            None => Ok(Yaml::String(Task::render_string(
+            None => Ok(Yaml::String(render_string(
                 // safe unwrap: validated attr
                 original_params.as_str().unwrap(),
                 vars,
@@ -106,7 +86,7 @@ impl Task {
 
     fn is_exec(&self, vars: Vars) -> Result<bool> {
         match &self.when {
-            Some(s) => Task::is_render_string(&s, vars),
+            Some(s) => is_render_string(&s, vars),
             None => Ok(true),
         }
     }
@@ -116,8 +96,8 @@ impl Task {
             Some(v) => Ok(v
                 .iter()
                 .map(|item| match item.clone() {
-                    Yaml::Real(s) | Yaml::String(s) => Ok(Task::render_string(&s, vars.clone())?),
-                    Yaml::Integer(x) => Ok(Task::render_string(&x.to_string(), vars.clone())?),
+                    Yaml::Real(s) | Yaml::String(s) => Ok(render_string(&s, vars.clone())?),
+                    Yaml::Integer(x) => Ok(render_string(&x.to_string(), vars.clone())?),
                     _ => Err(Error::new(
                         ErrorKind::InvalidData,
                         format!("{:?} is not a valid string", item),
@@ -133,7 +113,7 @@ impl Task {
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
-                let yaml = get_yaml(&Task::render_string(&s, vars.clone())?)?;
+                let yaml = get_yaml(&render_string(&s, vars.clone())?)?;
                 match yaml.as_str() {
                     Some(s) => Ok(vec![s.to_string()]),
                     None => Task::get_iterator(&yaml, vars),
@@ -161,7 +141,7 @@ impl Task {
                         exec_vars.insert("item", &item);
                         let result_wrapped = self
                             .module
-                            .exec(self.render_params(exec_vars.clone())?, exec_vars);
+                            .exec(self.render_params(exec_vars.clone())?, exec_vars.clone());
                         match result_wrapped {
                             Ok((result, new_vars)) => {
                                 info!(target: if result.get_changed() {"changed"} else { "ok"},
@@ -170,10 +150,22 @@ impl Task {
                                 );
                                 Ok((result, new_vars))
                             }
-                            Err(e) => {
-                                error!("{}", e);
-                                Err(e)
-                            }
+                            Err(e) => match self.ignore_errors {
+                                Some(is_true) => {
+                                    if is_true {
+                                        error!("{}", e);
+                                        info!(target: "ignoring", "");
+                                        Ok((ModuleResult::new(false, None, None), exec_vars))
+                                    } else {
+                                        error!("{}", e);
+                                        Err(e)
+                                    }
+                                }
+                                None => {
+                                    error!("{}", e);
+                                    Err(e)
+                                }
+                            },
                         }
                     })
                     .collect::<Result<Vec<(ModuleResult, Vars)>>>()?;
@@ -188,10 +180,36 @@ impl Task {
                     .collect();
                 Ok((json!(results), new_vars))
             } else {
-                let (result, new_vars) =
-                    self.module.exec(self.render_params(vars.clone())?, vars)?;
+                let (result, new_vars) = match self
+                    .module
+                    .exec(self.render_params(vars.clone())?, vars.clone())
+                {
+                    Ok((result, new_vars)) => {
+                        info!(target: if result.get_changed() {"changed"} else { "ok"},
+                            "{:?}",
+                            result.get_output().unwrap_or_else(|| "".to_string())
+                        );
+                        Ok((result, new_vars))
+                    }
+                    Err(e) => match self.ignore_errors {
+                        Some(is_true) => {
+                            if is_true {
+                                error!("{}", e);
+                                info!(target: "ignoring", "");
+                                Ok((ModuleResult::new(false, None, None), vars))
+                            } else {
+                                error!("{}", e);
+                                Err(e)
+                            }
+                        }
+                        None => {
+                            error!("{}", e);
+                            Err(e)
+                        }
+                    },
+                }?;
                 info!(target: if result.get_changed() {"changed"} else { "ok"},
-                    "{:?}",
+                    "{}",
                     result.get_output().unwrap_or_else(|| "".to_string())
                 );
                 Ok((json!(result), new_vars))
@@ -220,7 +238,7 @@ impl Task {
     ///
     /// [`Vars`]: ../vars/struct.Vars.html
     pub fn get_rendered_name(&self, vars: Vars) -> Result<String> {
-        Task::render_string(
+        render_string(
             &self
                 .name
                 .clone()
@@ -243,6 +261,7 @@ impl Task {
             name: None,
             when: None,
             register: None,
+            ignore_errors: None,
             r#loop: None,
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
@@ -250,126 +269,6 @@ impl Task {
                 .unwrap()
                 .clone(),
         }
-    }
-}
-
-/// TaskValid is a ProtoTask with attrs verified (one module and valid attrs)
-#[derive(Debug)]
-struct TaskValid {
-    attrs: Yaml,
-}
-
-impl TaskValid {
-    fn get_possible_attrs(&self) -> HashSet<String> {
-        self.attrs
-            .clone()
-            .into_hash()
-            .unwrap()
-            .iter()
-            // safe unwrap: validated attr
-            .map(|(key, _)| key.as_str().unwrap().to_string())
-            .collect::<HashSet<String>>()
-    }
-
-    fn get_module_name(&'_ self) -> Result<String> {
-        let module_names: HashSet<String> = self
-            .get_possible_attrs()
-            .iter()
-            .filter(|&key| is_module(key))
-            .map(String::clone)
-            .collect();
-        if module_names.len() > 1 {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Multiple modules found in task: {:?}", self),
-            ));
-        };
-        module_names
-            .iter()
-            .map(String::clone)
-            .next()
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::NotFound,
-                    format!("Not module found in task: {:?}", self),
-                )
-            })
-    }
-
-    pub fn get_task(&self) -> Result<Task> {
-        let module_name: &str = &self.get_module_name()?;
-        Ok(Task {
-            name: self.attrs["name"].as_str().map(String::from),
-            when: self.attrs["when"].as_str().map(String::from),
-            register: self.attrs["register"].as_str().map(String::from),
-            r#loop: if self.attrs["loop"].is_badvalue() {
-                None
-            } else {
-                Some(self.attrs["loop"].clone())
-            },
-            module: MODULES
-                .get::<str>(&module_name)
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::NotFound,
-                        format!("Module not found in modules: {:?}", MODULES.keys()),
-                    )
-                })?
-                .clone(),
-            params: self.attrs[module_name].clone(),
-        })
-    }
-}
-
-/// TaskNew is a new task without Yaml verified
-#[derive(Debug)]
-struct TaskNew {
-    proto_attrs: Yaml,
-}
-
-impl From<&Yaml> for TaskNew {
-    fn from(yaml: &Yaml) -> Self {
-        TaskNew {
-            proto_attrs: yaml.clone(),
-        }
-    }
-}
-
-impl TaskNew {
-    /// Validate all `proto_attrs` can be represented as String and are task fields or modules
-    pub fn validate_attrs(&self) -> Result<TaskValid> {
-        let attrs_hash = self.proto_attrs.clone().into_hash().ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Task is not a dict {:?}", self.proto_attrs),
-            )
-        })?;
-        let attrs_vec = attrs_hash
-            .iter()
-            .map(|(key, _)| {
-                key.as_str().ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Key is not valid in {:?}", self.proto_attrs),
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if !attrs_vec
-            .into_iter()
-            .all(|key| is_module(key) || Task::is_attr(key))
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Keys are not valid in {:?} must be attr or module",
-                    self.proto_attrs
-                ),
-            ));
-        }
-        Ok(TaskValid {
-            attrs: self.proto_attrs.clone(),
-        })
     }
 }
 
@@ -407,6 +306,7 @@ impl From<&Yaml> for Task {
 mod tests {
     use super::*;
 
+    use crate::modules::MODULES;
     use crate::vars;
 
     use std::collections::HashMap;
