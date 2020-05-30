@@ -120,6 +120,11 @@ lazy_static! {
     };
 }
 
+#[inline(always)]
+pub fn is_module(module: &str) -> bool {
+    MODULES.get(module).is_some()
+}
+
 #[inline]
 fn get_key(yaml: &Yaml, key: &str) -> Result<Yaml> {
     if yaml[key].is_badvalue() {
