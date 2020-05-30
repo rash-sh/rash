@@ -29,6 +29,7 @@ pub struct Task {
     name: Option<String>,
     when: Option<String>,
     register: Option<String>,
+    ignore_errors: Option<bool>,
     r#loop: Option<Yaml>,
 }
 
@@ -140,7 +141,7 @@ impl Task {
                         exec_vars.insert("item", &item);
                         let result_wrapped = self
                             .module
-                            .exec(self.render_params(exec_vars.clone())?, exec_vars);
+                            .exec(self.render_params(exec_vars.clone())?, exec_vars.clone());
                         match result_wrapped {
                             Ok((result, new_vars)) => {
                                 info!(target: if result.get_changed() {"changed"} else { "ok"},
@@ -149,10 +150,22 @@ impl Task {
                                 );
                                 Ok((result, new_vars))
                             }
-                            Err(e) => {
-                                error!("{}", e);
-                                Err(e)
-                            }
+                            Err(e) => match self.ignore_errors {
+                                Some(is_true) => {
+                                    if is_true {
+                                        error!("{}", e);
+                                        info!(target: "ignoring", "");
+                                        Ok((ModuleResult::new(false, None, None), exec_vars))
+                                    } else {
+                                        error!("{}", e);
+                                        Err(e)
+                                    }
+                                }
+                                None => {
+                                    error!("{}", e);
+                                    Err(e)
+                                }
+                            },
                         }
                     })
                     .collect::<Result<Vec<(ModuleResult, Vars)>>>()?;
@@ -167,10 +180,36 @@ impl Task {
                     .collect();
                 Ok((json!(results), new_vars))
             } else {
-                let (result, new_vars) =
-                    self.module.exec(self.render_params(vars.clone())?, vars)?;
+                let (result, new_vars) = match self
+                    .module
+                    .exec(self.render_params(vars.clone())?, vars.clone())
+                {
+                    Ok((result, new_vars)) => {
+                        info!(target: if result.get_changed() {"changed"} else { "ok"},
+                            "{:?}",
+                            result.get_output().unwrap_or_else(|| "".to_string())
+                        );
+                        Ok((result, new_vars))
+                    }
+                    Err(e) => match self.ignore_errors {
+                        Some(is_true) => {
+                            if is_true {
+                                error!("{}", e);
+                                info!(target: "ignoring", "");
+                                Ok((ModuleResult::new(false, None, None), vars))
+                            } else {
+                                error!("{}", e);
+                                Err(e)
+                            }
+                        }
+                        None => {
+                            error!("{}", e);
+                            Err(e)
+                        }
+                    },
+                }?;
                 info!(target: if result.get_changed() {"changed"} else { "ok"},
-                    "{:?}",
+                    "{}",
                     result.get_output().unwrap_or_else(|| "".to_string())
                 );
                 Ok((json!(result), new_vars))
@@ -222,6 +261,7 @@ impl Task {
             name: None,
             when: None,
             register: None,
+            ignore_errors: None,
             r#loop: None,
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
