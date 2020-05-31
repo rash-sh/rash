@@ -10,7 +10,7 @@ use yaml_rust::Yaml;
 #[derive(Debug, PartialEq)]
 struct Params {
     cmd: String,
-    transfer_ownership: bool,
+    transfer_pid_1: bool,
 }
 
 fn parse_params(yaml: Yaml) -> Result<Params> {
@@ -24,14 +24,13 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
                 format!("Not cmd param found in: {:?}", yaml),
             )
         })?;
-    let transfer_ownership =
-        get_param_bool(&yaml, "transfer_ownership").or_else(|e| match e.kind() {
-            ErrorKind::NotFound => Ok(false),
-            _ => Err(e),
-        })?;
+    let transfer_pid_1 = get_param_bool(&yaml, "transfer_pid_1").or_else(|e| match e.kind() {
+        ErrorKind::NotFound => Ok(false),
+        _ => Err(e),
+    })?;
     Ok(Params {
         cmd: cmd.to_string(),
-        transfer_ownership,
+        transfer_pid_1,
     })
 }
 
@@ -44,7 +43,7 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
     // safe unwrap: verify in parse_params
     let program = args.next().unwrap();
 
-    if params.transfer_ownership {
+    if params.transfer_pid_1 {
         let error = exec_command::Command::new(program)
             .args(&args.clone().collect::<Vec<_>>())
             .exec();
@@ -103,7 +102,7 @@ mod tests {
             params,
             Params {
                 cmd: "ls".to_string(),
-                transfer_ownership: false,
+                transfer_pid_1: false,
             }
         );
     }

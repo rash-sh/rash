@@ -1,6 +1,6 @@
 #!/bin/rash
 
-- name: last command must send with transfer_ownership to let it as PID 1
+- name: last command must send with transfer_pid_1 to let it as PID 1
   command:
     cmd: "cat {{ rash.path }}"
-    transfer_ownership: true
+    transfer_pid_1: true
