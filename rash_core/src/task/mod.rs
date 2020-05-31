@@ -139,14 +139,16 @@ impl Task {
                     .map(|item| {
                         let mut exec_vars = vars.clone();
                         exec_vars.insert("item", &item);
-                        let result_wrapped = self
-                            .module
-                            .exec(self.render_params(exec_vars.clone())?, exec_vars.clone());
+                        let rendered_params = self.render_params(exec_vars.clone())?;
+                        let result_wrapped =
+                            self.module.exec(rendered_params.clone(), exec_vars.clone());
                         match result_wrapped {
                             Ok((result, new_vars)) => {
                                 info!(target: if result.get_changed() {"changed"} else { "ok"},
                                     "{:?}",
-                                    result.get_output().unwrap_or_else(|| "".to_string())
+                                    result.get_output().unwrap_or_else(
+                                        || format!("{:?}", rendered_params)
+                                    )
                                 );
                                 Ok((result, new_vars))
                             }
@@ -179,33 +181,34 @@ impl Task {
                     .collect();
                 Ok((json!(results), new_vars))
             } else {
-                let (result, new_vars) = match self
-                    .module
-                    .exec(self.render_params(vars.clone())?, vars.clone())
-                {
-                    Ok((result, new_vars)) => {
-                        info!(target: if result.get_changed() {"changed"} else { "ok"},
-                            "{:?}",
-                            result.get_output().unwrap_or_else(|| "".to_string())
-                        );
-                        Ok((result, new_vars))
-                    }
-                    Err(e) => match self.ignore_errors {
-                        Some(is_true) => {
-                            if is_true {
-                                info!(target: "ignoring", "{}", e);
-                                Ok((ModuleResult::new(false, None, None), vars))
-                            } else {
+                let rendered_params = self.render_params(vars.clone())?;
+                let (result, new_vars) =
+                    match self.module.exec(rendered_params.clone(), vars.clone()) {
+                        Ok((result, new_vars)) => {
+                            info!(target: if result.get_changed() {"changed"} else { "ok"},
+                                "{:?}",
+                                result.get_output().unwrap_or_else(
+                                    || format!("{:?}", rendered_params)
+                                )
+                            );
+                            Ok((result, new_vars))
+                        }
+                        Err(e) => match self.ignore_errors {
+                            Some(is_true) => {
+                                if is_true {
+                                    info!(target: "ignoring", "{}", e);
+                                    Ok((ModuleResult::new(false, None, None), vars))
+                                } else {
+                                    error!("{}", e);
+                                    Err(e)
+                                }
+                            }
+                            None => {
                                 error!("{}", e);
                                 Err(e)
                             }
-                        }
-                        None => {
-                            error!("{}", e);
-                            Err(e)
-                        }
-                    },
-                }?;
+                        },
+                    }?;
                 Ok((json!(result), new_vars))
             };
             let json_vars = result_json_vars?;
