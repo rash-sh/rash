@@ -91,6 +91,26 @@ The full working funcionallity is shown in the following gif, don't expect more 
 
 Current [modules](./rash_core/src/modules/)
 
+## How to use
+
+Add to Dockerfile `rash` binary and enjoy it!.
+
+```dockerfile
+
+FROM pando85/rash AS rash
+
+FROM your_base_image
+
+COPY --from=rash /bin/rash /bin
+
+RUN do your things
+
+.
+.
+.
+
+```
+
 ## Roadmap
 
 The projects Roadmap is defined in our

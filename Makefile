@@ -18,6 +18,15 @@ build-images:
 	done; \
 	wait
 
+test-images:	## test images
+test-images: build-images
+	@for DOCKERFILE in $(DOCKERFILES);do \
+		docker run \
+			-v $(shell pwd)/test:/test:ro \
+			$(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			/test/run.rh; \
+	done;
+
 push-images:	## push images
 push-images:
 	@for DOCKERFILE in $(DOCKERFILES);do \
