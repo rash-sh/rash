@@ -2,3 +2,4 @@
 
 - name: "{{ env.TITTLE }}"
   command: ls {{ env.target }}
+  when: env | get(key="TARGET")
