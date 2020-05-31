@@ -68,7 +68,7 @@ Declarative: `entrypoint.rh`
 
 - name: launch docker CMD
   command: {{ input.args }}
-  transfer_ownership: yes
+  transfer_pid_1: yes
   env:
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
 ```
@@ -135,7 +135,7 @@ These are just some ideas about the possibilities of `rash`.
 
 - name: launch docker CMD
   command: {{ input.args }}
-  transfer_ownership: yes
+  transfer_pid_1: yes
 ```
 
 #### vault
@@ -146,7 +146,7 @@ These are just some ideas about the possibilities of `rash`.
 
 - name: launch docker CMD
   command: {{ input.args }}
-  transfer_ownership: yes
+  transfer_pid_1: yes
   env:
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
 ```
@@ -159,7 +159,7 @@ These are just some ideas about the possibilities of `rash`.
 
 - name: launch docker CMD
   command: {{ input.args }}
-  transfer_ownership: yes
+  transfer_pid_1: yes
   env:
     APP1_API_KEY: "{{ lookup('etcd', env.VAULT_SECRET_PATH ) }}"
 ```
@@ -192,7 +192,7 @@ These are just some ideas about the possibilities of `rash`.
 
 - name: launch docker CMD
   command: {{ input.args }}
-  transfer_ownership: yes
+  transfer_pid_1: yes
 ```
 
 #### Template
