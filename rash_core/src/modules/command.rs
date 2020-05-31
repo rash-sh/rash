@@ -63,14 +63,19 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
     if !output.status.success() {
         return Err(Error::new(ErrorKind::InvalidData, stderr));
     }
+    let output_string =
+        String::from_utf8(output.stdout).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+
+    let module_output = if output_string.is_empty() {
+        None
+    } else {
+        Some(output_string)
+    };
 
     Ok((
         ModuleResult {
             changed: true,
-            output: Some(
-                String::from_utf8(output.stdout)
-                    .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
-            ),
+            output: module_output,
             extra: Some(json!({
                 "rc": output.status.code(),
                 "stderr": stderr,
