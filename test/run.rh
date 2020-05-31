@@ -1,0 +1,10 @@
+#!/bin/rash
+
+- name: save user info
+  copy:
+    content: |
+      uid: {{ rash.user.uid }}
+      gid: {{ rash.user.gid }}
+    dest: "{% if rash.user.uid != 0 %}/tmp{% endif %}/user_info"
+    mode: "400"
+
