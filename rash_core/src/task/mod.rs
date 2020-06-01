@@ -68,7 +68,30 @@ impl Task {
                         Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
                         Err(e) => Err(e),
                     },
-                    None => Ok((t.0.clone(), t.1.clone())),
+                    None => match t.1.clone().as_vec() {
+                        Some(x) => match x
+                            .iter()
+                            .map(|yaml| match yaml.as_str() {
+                                Some(s) => Ok(s.to_string()),
+                                None => Err(Error::new(
+                                    ErrorKind::InvalidData,
+                                    format!("{:?} invalid string", yaml),
+                                )),
+                            })
+                            .map(|result_s| match result_s {
+                                Ok(s) => match render_string(&s, vars.clone()) {
+                                    Ok(rendered_s) => Ok(Yaml::String(rendered_s)),
+                                    Err(e) => Err(e),
+                                },
+                                Err(e) => Err(e),
+                            })
+                            .collect::<Result<Vec<Yaml>>>()
+                        {
+                            Ok(rendered_vec) => Ok((t.0.clone(), Yaml::Array(rendered_vec))),
+                            Err(e) => Err(e),
+                        },
+                        None => Ok((t.0.clone(), t.1.clone())),
+                    },
                 })
                 .collect::<Result<_>>()
             {
