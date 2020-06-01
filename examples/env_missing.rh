@@ -1,5 +1,5 @@
 #!/bin/rash
 
 - name: "{{ env.TITTLE }}"
-  command: ls {{ env.target }}
+  command: ls $TARGET
   when: env | get(key="TARGET")
