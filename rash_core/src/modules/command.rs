@@ -38,20 +38,19 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
     let params = parse_params(optional_params)?;
     trace!("exec - params: {:?}", params);
 
-    let mut args = params.cmd.split_whitespace();
-
-    // safe unwrap: verify in parse_params
-    let program = args.next().unwrap();
-
     if params.transfer_pid_1 {
+        let mut args = params.cmd.split_whitespace();
+
+        // safe unwrap: verify in parse_params
+        let program = args.next().unwrap();
         let error = exec_command::Command::new(program)
             .args(&args.clone().collect::<Vec<_>>())
             .exec();
         return Err(Error::new(ErrorKind::SubprocessFail, error));
     }
 
-    let output = Command::new(program)
-        .args(&args.collect::<Vec<_>>())
+    let output = Command::new("/bin/sh")
+        .args(vec!["-c", &params.cmd])
         .output()
         .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?;
 
