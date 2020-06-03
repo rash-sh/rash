@@ -1,6 +1,6 @@
 .PHONY: help build-images push-images update-version build
 
-IMAGE_NAME ?= pando85/rash
+IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
 DOCKERFILES = $(shell find . -name 'Dockerfile*')

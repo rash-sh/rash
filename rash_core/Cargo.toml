@@ -5,8 +5,8 @@ description = "Declarative shell scripting using Rust native bindings"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2018"
 license-file = "../LICENSE"
-homepage = "https://github.com/pando85/rash"
-repository = "https://github.com/pando85/rash"
+homepage = "https://github.com/rash-sh/rash"
+repository = "https://github.com/rash-sh/rash"
 readme = "../README.md"
 
 [lib]
