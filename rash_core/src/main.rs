@@ -44,7 +44,7 @@ struct Opts {
     #[clap(short, long, parse(try_from_str = parse_key_val), number_of_values = 1)]
     environment: Vec<(String, String)>,
     /// Additional args to be accessible from builtin `{{ rash.args }}` as list of strings
-    #[clap(last = true, multiple = true, takes_value = true)]
+    #[clap(multiple = true, takes_value = true)]
     _args: Option<String>,
 }
 
