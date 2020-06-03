@@ -1,3 +1,26 @@
+/// ANCHOR: module
+/// # template
+///
+/// Render [Tera template](https://tera.netlify.app/docs/#templates).
+///
+/// ## Parameters
+///
+/// ```yaml
+/// src:
+///   type: string
+///   required: true
+///   description: |
+///     Path of Tera formatted template.
+///     This can be a relative or an absolute path.
+/// dest:
+///   type: string
+///   required: true
+///   description: Absolute path where the file should be rendered to.
+/// mode:
+///   type: string
+///   description: Permissions of the destination file or directory.
+/// ```
+/// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::copy::verify_file;
 use crate::modules::copy::Params as CopyParams;

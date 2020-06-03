@@ -10,6 +10,10 @@
 
 Declarative shell scripting using Rust native bindings inspired in [Ansible](https://www.ansible.com/)
 
+## Getting Started & Documentation
+
+[Quickstart](rash_book/src/quickstart.md)
+
 ## Why Rash?
 
 Manage your docker entrypoints in a declarative style.
@@ -90,26 +94,6 @@ The full working funcionallity is shown in the following gif, don't expect more 
 [Jinja2](https://tera.netlify.app/docs/#templates) template engine support by [Tera](https://github.com/Keats/tera).
 
 Current [modules](./rash_core/src/modules/)
-
-## How to use
-
-Add to Dockerfile `rash` binary and enjoy it!.
-
-```dockerfile
-
-FROM rustagainshell/rash AS rash
-
-FROM your_base_image
-
-COPY --from=rash /bin/rash /bin
-
-RUN do your things
-
-.
-.
-.
-
-```
 
 ## Roadmap
 
