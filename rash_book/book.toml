@@ -1,0 +1,8 @@
+[book]
+authors = ["Pando85"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Rash book"
+
+[preprocessor.rash]

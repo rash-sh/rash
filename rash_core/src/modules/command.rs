@@ -1,3 +1,27 @@
+/// ANCHOR: module
+/// # command
+///
+/// Execute commands.
+///
+/// ## Parameters
+///
+/// ```yaml
+/// argv:
+///   type: list
+///   description: |
+///     Passes the command as a list rather than a string.
+///     Only the string or the list form can be provided, not both.
+///     One or the other must be provided.
+/// cmd:
+///   type: string
+///   description: The command to run.
+/// transfer_pid_1:
+///   type: bool
+///   description: |
+///     Execute command as PID 1.
+///     Note: from this point your rash script execution is transferer to command.
+/// ```
+/// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{get_param_bool, get_param_list, ModuleResult};
 use crate::vars::Vars;

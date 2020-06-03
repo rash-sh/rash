@@ -1,3 +1,18 @@
+/// ANCHOR: module
+/// # assert
+///
+/// Asserts given expressions are true.
+///
+/// ## Parameters
+///
+/// ```yaml
+/// that:
+///   type: list
+///   required: true
+///   description: |
+///     A list of string expressions of the same form that can be passed to the 'when' statement.
+/// ```
+/// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{get_param_list, ModuleResult};
 use crate::utils::jinja2::is_render_string;

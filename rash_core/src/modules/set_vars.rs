@@ -1,3 +1,18 @@
+/// ANCHOR: module
+/// # set_vars
+///
+/// This module allows setting new variables.
+///
+/// ## Parameters
+///
+/// ```yaml
+/// key_value:
+///   type: list
+///   required: true
+///   description: |
+///     This module takes key/value pairs and save un current Vars context.
+/// ```
+/// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::ModuleResult;
 use crate::vars::Vars;

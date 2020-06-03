@@ -1,3 +1,24 @@
+/// ANCHOR: module
+/// # copy
+///
+/// Copy files to path.
+///
+/// ## Parameters
+///
+/// ```yaml
+/// content:
+///   type: string
+///   required: true
+///   description: Sets the contents of a file directly to the specified value.
+/// dest:
+///   type: string
+///   required: true
+///   description: Absolute path where the file should be copied to.
+/// mode:
+///   type: string
+///   description: Permissions of the destination file or directory.
+/// ```
+/// ANCHOR_END: module
 use crate::error::{ErrorKind, Result};
 use crate::modules::{get_param, ModuleResult};
 use crate::utils::parse_octal;
