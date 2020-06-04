@@ -21,6 +21,11 @@
 ///     Execute command as PID 1.
 ///     Note: from this point your rash script execution is transferer to command.
 /// ```
+/// ## Example
+///
+/// ```yaml
+/// - command: 'echo "Hellow World"'
+/// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{get_param_bool, get_param_list, ModuleResult};

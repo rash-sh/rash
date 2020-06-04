@@ -10,7 +10,17 @@
 ///   type: list
 ///   required: true
 ///   description: |
-///     A list of string expressions of the same form that can be passed to the 'when' statement.
+///     A list of string expressions of the same form that can be passed to the
+///     'when' statement.
+/// ```
+///
+/// ## Example
+///
+/// ```yaml
+/// - assert:
+///     that:
+///       - boo is defined
+///       - 1 + 1 == 2
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};

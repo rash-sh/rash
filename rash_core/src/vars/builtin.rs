@@ -5,19 +5,38 @@ use std::path::{Path, PathBuf};
 use libc::{getgid, getuid};
 use serde::Serialize;
 
+// ANCHOR: builtins
+#[derive(Serialize)]
+pub struct Builtins {
+    /// Args passed from command line execution.
+    args: Vec<String>,
+    /// Script directory absolute path.
+    dir: PathBuf,
+    /// Script absolute path.
+    path: PathBuf,
+    user: UserInfo,
+}
+
 #[derive(Serialize)]
 struct UserInfo {
     uid: u32,
     gid: u32,
 }
+// ANCHOR_END: builtins
 
-#[derive(Serialize)]
-pub struct Builtins {
-    args: Vec<String>,
-    dir: PathBuf,
-    path: PathBuf,
-    user: UserInfo,
-}
+/// # Examples
+///
+// ANCHOR: examples
+/// ```yaml
+/// - assert:
+///     that:
+///       - 'rash.args | length == 0'
+///       - 'rash.dir == "/"'
+///       - 'rash.path == "/builtins_example.rh"'
+///       - 'rash.user.uid == 1000'
+///       - 'rash.user.gid == 1000'
+/// ```
+// ANCHOR_END: examples
 
 impl Builtins {
     pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {

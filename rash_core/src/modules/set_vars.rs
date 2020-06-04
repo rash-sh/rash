@@ -12,6 +12,17 @@
 ///   description: |
 ///     This module takes key/value pairs and save un current Vars context.
 /// ```
+///
+/// ## Example
+///
+/// ```yaml
+/// - set_vars:
+///     foo: boo
+///
+/// - assert
+///     that:
+///       - foo == 'boo'
+/// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::ModuleResult;
