@@ -209,7 +209,7 @@ impl Task {
                     match self.module.exec(rendered_params.clone(), vars.clone()) {
                         Ok((result, new_vars)) => {
                             info!(target: if result.get_changed() {"changed"} else { "ok"},
-                                "{:?}",
+                                "{}",
                                 result.get_output().unwrap_or_else(
                                     || format!("{:?}", rendered_params)
                                 )
