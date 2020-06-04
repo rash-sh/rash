@@ -23,15 +23,30 @@ use yaml_rust::{Yaml, YamlLoader};
 ///
 /// [`Module`]: ../modules/struct.Module.html
 #[derive(Debug, Clone, PartialEq, FieldNames)]
+// ANCHOR: task
 pub struct Task {
+    /// Module could be any [`Module`] accessible by its name.
+    ///
+    /// [`Module`]: ../modules/struct.Module.html
     module: Module,
+    /// Params are module execution params passed to [`Module::exec`].
+    ///
+    /// [`Module::exec`]: ../modules/struct.Module.html#method.exec
     params: Yaml,
+    /// Task name.
     name: Option<String>,
+    /// Template expression passed directly without {{ }}; if false skip task execution.
     when: Option<String>,
+    /// Variable name to store [`ModuleOutput`].
+    ///
+    /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
     register: Option<String>,
+    /// Template expression passed directly without {{ }}; if true errors are ignored.
     ignore_errors: Option<bool>,
+    /// `loop` field receives a Template (with {{ }}) or a list to iterate over it.
     r#loop: Option<Yaml>,
 }
+// ANCHOR_END: task
 
 /// A lists of [`Task`]
 ///

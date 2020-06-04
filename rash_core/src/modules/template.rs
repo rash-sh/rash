@@ -20,6 +20,14 @@
 ///   type: string
 ///   description: Permissions of the destination file or directory.
 /// ```
+/// ## Examples
+///
+/// ```yaml
+/// - template:
+///     src: "template.j2"
+///     dest: /tmp/MY_PASSWORD_FILE.txt
+///     mode: "0400"
+/// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::copy::verify_file;

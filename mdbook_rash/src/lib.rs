@@ -1,7 +1,7 @@
 use mdbook::book::{Book, BookItem, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::PreprocessorContext;
-use regex::{Match, Regex};
+use regex::{Captures, Match, Regex};
 
 #[macro_use]
 extern crate log;
@@ -12,39 +12,41 @@ pub static SUPPORTED_RENDERER: &[&str] = &["html"];
 
 lazy_static! {
     static ref RE: Regex = Regex::new(
-        r"(?x)                                     # insignificant whitespace mode
-        \\\{\{\#.*\}\}                             # match escaped link
-        |                                          # or
-        \{\{\s*                                    # link opening parens and whitespace
-        \#([a-zA-Z0-9_]+)                          # link type
-        \s+                                        # separating whitespace
-        ([a-zA-Z0-9\s_.,\[\]\(\)\|'\-\\/`\#:/\\]+) # all doc
-        \s*\}\}                                    # whitespace and link closing parens"
+        r#"(?x)                                       # insignificant whitespace mode
+        \\\{\{\#.*\}\}                                # match escaped link
+        |                                             # or
+        \{\{\s*                                       # link opening parens and whitespace
+        \#([a-zA-Z0-9_]+)                             # link type
+        \s+                                           # separating whitespace
+        ([a-zA-Z0-9\s_.,\[\]\(\)\|'\-\\/`"\#+=:/\\]+) # all doc
+        \s*\}\}                                       # whitespace and link closing parens"#
     )
     .unwrap();
 }
 
-fn get_matches<'a>(ch: &'a Chapter) -> Option<Vec<(Match<'a>, String)>> {
+fn get_matches<'a>(ch: &'a Chapter) -> Option<Vec<(Match<'a>, String, String)>> {
     RE.captures_iter(&ch.content)
         .map(|cap| match (cap.get(0), cap.get(1), cap.get(2)) {
             (Some(origin), Some(typ), Some(rest)) => match (typ.as_str(), rest.as_str()) {
-                ("include_module", content) => {
-                    Some((origin, content.replace("/// ", "").replace("///", "")))
-                }
+                ("include_module", content) | ("include_doc", content) => Some((
+                    origin,
+                    content.replace("/// ", "").replace("///", ""),
+                    typ.as_str().to_string(),
+                )),
                 _ => None,
             },
             _ => None,
         })
-        .collect::<Option<Vec<(Match, String)>>>()
+        .collect::<Option<Vec<(Match, String, String)>>>()
 }
 
-fn replace_matches(captures: Vec<(Match, String)>, ch: &mut Chapter) {
+fn replace_matches(captures: Vec<(Match, String, String)>, ch: &mut Chapter) {
     for capture in captures.iter() {
         let new_content = capture.1.clone();
         let name = new_content.split('\n').next().unwrap().replace("# ", "");
         let mut new_ch = Chapter::new(
             &name,
-            new_content,
+            new_content.clone(),
             format!("{}.md", &name),
             vec![ch.name.clone()],
         );
@@ -52,10 +54,17 @@ fn replace_matches(captures: Vec<(Match, String)>, ch: &mut Chapter) {
         let mut new_section_number = ch.number.clone().unwrap();
         new_section_number.push((ch.sub_items.len() + 1) as u32);
         new_ch.number = Some(new_section_number);
-        ch.sub_items.push(BookItem::Chapter(new_ch));
+        if capture.2 == "include_module" {
+            ch.sub_items.push(BookItem::Chapter(new_ch));
+        }
 
-        ch.content = RE.replace(&ch.content, "").to_string();
-        info!("module {} added", &name);
+        info!("add {}", &name);
+        ch.content = RE
+            .replace(&ch.content, |caps: &Captures| match &caps[1] {
+                "include_module" => format!("- [{}](./{}.html)", &name, &name),
+                _ => new_content.clone(),
+            })
+            .to_string();
     }
 }
 

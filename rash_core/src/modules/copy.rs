@@ -18,6 +18,15 @@
 ///   type: string
 ///   description: Permissions of the destination file or directory.
 /// ```
+///
+/// ## Examples
+///
+/// ```yaml
+/// - copy:
+///     content: "supersecret"
+///     dest: /tmp/MY_PASSWORD_FILE.txt
+///     mode: "0400"
+/// ```
 /// ANCHOR_END: module
 use crate::error::{ErrorKind, Result};
 use crate::modules::{get_param, ModuleResult};

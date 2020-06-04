@@ -1,4 +1,4 @@
-# Modules
+# Module Index
 
 {{#include_module {{#include ../../rash_core/src/modules/assert.rs:module}}}}
 {{#include_module {{#include ../../rash_core/src/modules/command.rs:module}}}}
