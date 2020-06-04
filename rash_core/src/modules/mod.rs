@@ -17,11 +17,16 @@ use yaml_rust::Yaml;
 ///
 /// [`Module`]: struct.Module.html
 #[derive(Clone, Debug, PartialEq, Serialize)]
+// ANCHOR: module_result
 pub struct ModuleResult {
+    /// True when module changed something.
     changed: bool,
-    extra: Option<Value>,
+    /// Output value is showed in logs when module is executed.
     output: Option<String>,
+    /// Extra field is used by modules to return its own data.
+    extra: Option<Value>,
 }
+// ANCHOR_END: module_result
 
 impl ModuleResult {
     pub fn new(changed: bool, extra: Option<Value>, output: Option<String>) -> Self {
@@ -32,23 +37,23 @@ impl ModuleResult {
         }
     }
 
-    /// Return changed
+    /// Return changed.
     pub fn get_changed(&self) -> bool {
         self.changed
     }
 
-    /// Return extra
+    /// Return extra.
     pub fn get_extra(&self) -> Option<Value> {
         self.extra.clone()
     }
 
-    /// Return output which is printed in log
+    /// Return output which is printed in log.
     pub fn get_output(&self) -> Option<String> {
         self.output.clone()
     }
 }
 
-/// Basic execution structure. Build with module name and module exec function
+/// Basic execution structure. Build with module name and module exec function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     name: &'static str,
@@ -56,12 +61,12 @@ pub struct Module {
 }
 
 impl Module {
-    /// Return name
+    /// Return name.
     pub fn get_name(&self) -> &str {
         self.name
     }
 
-    /// Execute `self.exec_fn`
+    /// Execute `self.exec_fn`.
     pub fn exec(&self, params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
         (self.exec_fn)(params, vars)
     }
