@@ -61,7 +61,20 @@ fn crash_error(e: Error) {
 fn main() {
     let opts: Opts = Opts::parse();
 
-    logger::setup_logging(opts.verbose).expect("failed to initialize logging.");
+    let verbose = if opts.verbose == 0 {
+        match std::env::var("RASH_LOG_LEVEL") {
+            Ok(s) => match s.as_ref() {
+                "DEBUG" => 1,
+                "TRACE" => 2,
+                _ => 0,
+            },
+            _ => 0,
+        }
+    } else {
+        opts.verbose
+    };
+
+    logger::setup_logging(verbose).expect("failed to initialize logging.");
     trace!("start logger");
 
     let script_path = Path::new(&opts.script_file);
