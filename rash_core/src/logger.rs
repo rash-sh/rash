@@ -43,9 +43,15 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
         separator = match (record.level(), record.target()) {
             (log::Level::Info, "task") => vec![
                 "*";
-                term_size::dimensions().map(|(w, _)| w).unwrap_or(80)
-                    - log_header.len()
-                    - message.to_string().len()
+                {
+                    let term_width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
+                    let message_total_len = log_header.len() + message.to_string().len();
+                    if term_width > message_total_len {
+                        term_width - message_total_len
+                    } else {
+                        (message_total_len / term_width + 1) * term_width - message_total_len
+                    }
+                }
             ]
             .join(""),
             (_, _) => "".to_string(),
