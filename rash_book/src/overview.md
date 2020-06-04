@@ -1,13 +1,12 @@
 # Overview
 
 Rash is a declarative shell scripting tool oriented to build containers entrypoints.
-`rash` syntax is inspired in [Ansible](https://www.ansible.com/).
-
+`rash` syntax is inspired by [Ansible](https://www.ansible.com/).
 
 ## Quickstart
 
 To start using `rash` you just need a container with entrypoint.
-For installation, add to Dockerfile `rash` binary and enjoy it:
+For install, add `rash` binary to your Dockerfile:
 
 ```dockerfile
 FROM rustagainshell/rash AS rash
