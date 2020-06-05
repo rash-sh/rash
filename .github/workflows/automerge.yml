@@ -29,3 +29,5 @@ jobs:
           MERGE_RETRIES: 60
           MERGE_RETRY_SLEEP: 30000
           MERGE_METHOD: rebase
+          MERGE_FORKS: false
+
