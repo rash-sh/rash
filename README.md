@@ -18,7 +18,7 @@ Declarative shell scripting using Rust native bindings inspired in [Ansible](htt
 
 Manage your docker entrypoints in a declarative style.
 
-If you::
+If you:
 
 - think that long bash scripts are difficult to maintain
 - love Ansible syntax to setup your environments
