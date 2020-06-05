@@ -1,0 +1,18 @@
+#!/bin/rash
+#
+# Check out the use case at https://github.com/dcarrillo/docker-phpfpm
+#
+
+- name: "Configure opcache/php"
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ item }}"
+    mode: "0644"
+  loop:
+    - "{{ env.PHP_INI_DIR }}/conf.d/opcache.ini"
+    - "{{ env.PHP_INI_DIR }}/../php-fpm.d/www.conf"
+
+- name: "Run php-fpm"
+  command:
+    cmd: php-fpm
+    transfer_pid_1: true

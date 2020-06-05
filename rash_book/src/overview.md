@@ -1,6 +1,6 @@
 # Overview
 
-Rash is a declarative shell scripting tool oriented to build containers entrypoints.
+Rash is a declarative shell scripting tool oriented to build container entrypoints.
 `rash` syntax is inspired by [Ansible](https://www.ansible.com/).
 
 ## Quickstart
@@ -30,3 +30,7 @@ Also, create your first `entrypoint.rh`:
   # transforms process in pid 1 (similar to `exec` in bash)
   transfer_pid_1: true
 ```
+
+## Who is using `rash`
+
+- A production ready [php-fpm](https://github.com/dcarrillo/docker-phpfpm) docker image
