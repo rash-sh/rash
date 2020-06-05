@@ -1,6 +1,6 @@
-# Overview
+# Getting started
 
-Rash is a declarative shell scripting tool oriented to build container entrypoints.
+Simple YAML declarative shell scripting language based in modules and templates.
 `rash` syntax is inspired by [Ansible](https://www.ansible.com/).
 
 ## Quickstart

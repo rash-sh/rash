@@ -2,7 +2,7 @@
 
 [Rash Book](title-page.md)
 
-- [Overview](overview.md)
+- [Getting Started](getting_started.md)
 - [Tasks](tasks.md)
 - [Module Index](module_index.md)
 - [Vars](vars.md)
