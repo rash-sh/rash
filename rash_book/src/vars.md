@@ -1,7 +1,7 @@
 # Vars <!-- omit in toc -->
 
 The `rash` context has variables associated to use as [Tera](https://tera.netlify.app/) templates.
-You can use them everywhere except in Yaml keys. They will be rendered at execution time.
+You can use them everywhere except in Yaml keys. Rash will render them at execution time.
 
 There are two kind of variables:
 
@@ -10,7 +10,7 @@ There are two kind of variables:
 
 ## Core
 
-By default, every execution of rash exposes two variables to the Context: `{{ rash }}` and `{{ env }}`.
+By default, every execution of Rash exposes two variables to the Context: `{{ rash }}` and `{{ env }}`.
 
 ### rash <!-- omit in toc -->
 
@@ -26,7 +26,7 @@ By default, every execution of rash exposes two variables to the Context: `{{ ra
 
 ### env <!-- omit in toc -->
 
-Any environment var can be accessed as `{{ env.MY_ENV_VAR }}`.
+You can access any environment var as `{{ env.MY_ENV_VAR }}`.
 
 Also, you can use command line arguments to pass environment variables:
 

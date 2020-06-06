@@ -1,6 +1,6 @@
 # Building Rash
 
-`rash` is a Rust entiretly project and can be built directly with
+`rash` is a project written in Rust in its entirety and can be built directly with
 [cargo](https://doc.rust-lang.org/cargo/) tool.
 
 ## Build requirements
