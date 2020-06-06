@@ -57,20 +57,20 @@ This is a rough outline of what a contributor's workflow looks like:
 
 ## Coding Style
 
-Rash projects are written in Rust and follows a functional style trying to keep code simple.
+Rash projects are written in Rust and follow a functional style trying to keep code simple.
 
 ## Comments
 
-Comments should be added to all new methods and structures as is appropriate for the coding
-language. Additionally, if an existing method or structure is modified sufficiently, comments should
-be created if they do not yet exist and updated if they do.
+UYoou should add appropriate comments to all new methods and structures.
+Additionally, if an existing method or structure is sufficiently modified, you should
+add comments to it if it doesn't have any already or update them if they do.
 
 The goal of comments is to make the code more readable and grokkable by future developers. Once you
 have made your code as understandable as possible, add comments to make sure future developers can
-understand (A) what this piece of code's responsibility is within Rash's architecture and (B) why it
+understand (A) the responsibility of piece of code within Rash's architecture and (B) why it
 was written as it was.
 
-The below blog entry explains more the why's and how's of this guideline.
+The blog entry below explains more the whys and hows of this guideline.
 <https://blog.codinghorror.com/code-tells-you-how-comments-tell-you-why/>
 
 ## Commit Messages
@@ -85,7 +85,7 @@ ceph: update MON to use rocksdb
 this enables us to remove leveldb from the codebase.
 ```
 
-The format can be described more formally as follows:
+We can define the format more formally as follows:
 
 ```text
 <area>: <what changed>
@@ -101,7 +101,7 @@ Resolves: #{issue.id}
 You can find what values area could take see
 [rash/.commitlintrc.json](https://github.com/rash-sh/rash-sh.github.io/blob/master/.commitlintrc.json).
 
-The first line is the subject and should be no longer than 70 characters, the
+The first line is the subject and should be no longer than 70 characters. The
 second line is always blank, and other lines should be wrapped at 80 characters.
 This allows the message to be easier to read on GitHub as well as in various
 git tools.

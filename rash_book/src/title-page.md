@@ -2,8 +2,8 @@
 
 `rash` solves an optimization problem in the containers ecosystem.
 
-Nowadays, container *entrypoints* must be written in `bash` or included in the binary
-(the program itself). This is a trade-off decision between being fast or being reusable,
+Nowadays, you generally need to write container *entrypoints* in `bash` or include them in the
+binary, i.e. the program itself. This is a trade-off decision between being fast or being reusable,
 efficient, flexible...
 
 Besides, *entrypoints* share use cases between different kinds of applications, e.g.
