@@ -13,4 +13,4 @@ jobs:
       - uses: wagoid/commitlint-github-action@v1.6.0
         with:
           configFile: './.commitlintrc.json'
-          helpURL: https://rash.io/docs/rash/master/contributing.html#commit-structure
+          helpURL: https://rash.sh/docs/rash/master/contributing.html#commit-structure
