@@ -12,7 +12,7 @@ use crate::task::Task;
 use crate::vars;
 
 /// Main data structure in `rash`.
-/// It contents all [`task::Tasks`] with its [`vars::Vars`] to be executed
+/// It contents all [`task::Tasks`] with their [`vars::Vars`] to be executed
 ///
 /// [`task::Tasks`]: ../task/type.Tasks.html
 /// [`vars::Vars`]: ../vars/type.Vars.html
@@ -31,7 +31,8 @@ impl Context {
         Context { tasks, vars }
     }
 
-    /// Execute first [`task::Task`] and return a new context without that executed [`task::Task`]
+    /// Execute the first [`task::Task`] and return a new context without the one
+    /// that executed [`task::Task`]
     ///
     /// [`task::Task`]: ../task/struct.Task.html
     pub fn exec_task(&self) -> Result<Self> {
@@ -59,7 +60,7 @@ impl Context {
 
     /// Execute all Tasks in Context until empty.
     ///
-    /// If it finish correctly it will return an [`error::Error`] with [`ErrorKind::EmptyTaskStack`]
+    /// If this finishes correctly, it will return an [`error::Error`] with [`ErrorKind::EmptyTaskStack`]
     ///
     /// [`error::Error`]: ../error/struct.Error.html
     /// [`ErrorKind::EmptyTaskStack`]: ../error/enum.ErrorKind.html

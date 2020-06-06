@@ -21,9 +21,9 @@ use yaml_rust::Yaml;
 pub struct ModuleResult {
     /// True when the executed module changed something.
     changed: bool,
-    /// Output value will appear in logs when module is executed.
+    /// The Output value will appear in logs when module is executed.
     output: Option<String>,
-    /// Extra field is used by modules to return their own data.
+    /// Modules store the data they return in the Extra field.
     extra: Option<Value>,
 }
 // ANCHOR_END: module_result

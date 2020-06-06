@@ -13,7 +13,7 @@
 /// dest:
 ///   type: string
 ///   required: true
-///   description: Absolute path where the file should be copied to.
+///   description: The absolute path where the file should be copied to.
 /// mode:
 ///   type: string
 ///   description: Permissions of the destination file or directory.

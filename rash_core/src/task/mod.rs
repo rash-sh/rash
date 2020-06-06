@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 use yaml_rust::{Yaml, YamlLoader};
 
-/// Main structure at definition level which prepare [`Module`] executions.
+/// Main structure at definition level which prepares [`Module`] executions.
 ///
 /// It implements a state machine using Rust Generics to enforce well done definitions.
 /// Inspired by [Kanidm Entries](https://fy.blackhats.net.au/blog/html/2019/04/13/using_rust_generics_to_enforce_db_record_state.html).

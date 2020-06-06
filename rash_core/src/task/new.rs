@@ -5,7 +5,7 @@ use crate::task::Task;
 
 use yaml_rust::Yaml;
 
-/// TaskNew is a new task without Yaml verified
+/// TaskNew is a new task without a verified Yaml
 #[derive(Debug)]
 pub struct TaskNew {
     proto_attrs: Yaml,
@@ -20,7 +20,7 @@ impl From<&Yaml> for TaskNew {
 }
 
 impl TaskNew {
-    /// Validate all `proto_attrs` can be represented as String and are task fields or modules
+    /// Validate all `proto_attrs` which can be represented as String and are task fields or modules
     pub fn validate_attrs(&self) -> Result<TaskValid> {
         let attrs_hash = self.proto_attrs.clone().into_hash().ok_or_else(|| {
             Error::new(

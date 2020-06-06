@@ -48,7 +48,7 @@ struct Opts {
     _args: Vec<String>,
 }
 
-/// Fail program printing [`Error`] and returning code associated if exists.
+/// End the program with failure, printing [`Error`] and returning code associated if exists.
 /// By default fail with `exit(1)`
 ///
 /// [`Error`]: ../rash_core/error/struct.Error.html

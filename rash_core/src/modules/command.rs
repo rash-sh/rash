@@ -9,9 +9,8 @@
 /// argv:
 ///   type: list
 ///   description: |
-///     Passes the command as a list rather than a string.
+///     Passes the command arguments as a list rather than a string.
 ///     Only the string or the list form can be provided, not both.
-///     One or the other must be provided.
 /// cmd:
 ///   type: string
 ///   description: The command to run.
@@ -19,7 +18,7 @@
 ///   type: bool
 ///   description: |
 ///     Execute command as PID 1.
-///     Note: from this point your rash script execution is transferer to command.
+///     Note: from this point on, your rash script execution is transfered to the command.
 /// ```
 /// ## Example
 ///
