@@ -28,11 +28,14 @@ jobs:
           cd mdbook_rash
           cargo install --path .
           cd ../rash_book
+          git clone --depth=1 https://github.com/rash-sh/rash-sh.github.io.git
           mdbook build
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./rash_book/book
-          publish_branch: gh-pages
+          publish_dir: ./rash_book/rash-sh.github.io
+          publish_branch: master
+          external_repository: rash-sh/rash-sh.github.io
+
