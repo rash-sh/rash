@@ -105,3 +105,16 @@ The first line is the subject and should be no longer than 70 characters, the
 second line is always blank, and other lines should be wrapped at 80 characters.
 This allows the message to be easier to read on GitHub as well as in various
 git tools.
+
+**Important!** Any submitted pull request needs to have commit messages validated according
+to that specification. To avoid nasty surprises, we set up a `commit-msg` hook that validates
+your commit message before the commit actually takes place.
+
+You need to install [Docker](https://docs.docker.com/engine/install/) for this hook to work.
+If you're working on Linux, make sure you can run it with non-root permissions! More info
+[here](https://docs.docker.com/engine/install/linux-postinstall/).
+
+Finally, keep in mind that you need to set up the hooks before you commit for the first time.
+It's really easy, as `cargo-husky` takes care of the whole thing. You just need to ensure you
+run `cargo test` at least once before committing. If the hooks changed at some point in the repo,
+remove any `target` directory and run `cargo test` again.
