@@ -3,7 +3,7 @@
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
-DOCKERFILES = $(shell find . -name 'Dockerfile*')
+DOCKERFILES ?= $(shell find . -name 'Dockerfile*')
 
 .DEFAULT: help
 help:

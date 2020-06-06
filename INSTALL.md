@@ -1,0 +1,1 @@
+rash_book/src/install.md
