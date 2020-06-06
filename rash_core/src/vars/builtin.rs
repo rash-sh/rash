@@ -61,3 +61,16 @@ impl Builtins {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builtin_new() {
+        let builtins = Builtins::new(vec![], Path::new("/example.rh")).unwrap();
+        assert_eq!(builtins.args.len(), 0);
+        assert_eq!(builtins.path.as_os_str(), "/example.rh");
+        assert_eq!(builtins.dir.as_os_str(), "/");
+    }
+}
