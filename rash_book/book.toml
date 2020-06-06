@@ -5,4 +5,7 @@ multilingual = false
 src = "src"
 title = "Rash book"
 
+[build]
+build-dir = "rash-sh.github.io/docs/rash/master"
+
 [preprocessor.rash]
