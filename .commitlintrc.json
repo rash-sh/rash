@@ -1,0 +1,31 @@
+{
+  "extends": [
+    "@commitlint/config-conventional"
+  ],
+  "rules": {
+    "type-enum": [
+      2,
+      "always",
+      [
+        "ci",
+        "cli",
+        "doc",
+        "filter",
+        "group",
+        "jinja2",
+        "lookup",
+        "module",
+        "task",
+        "vars"
+      ]
+    ],
+    "body-leading-blank": [
+      2,
+      "always"
+    ],
+    "footer-leading-blank": [
+      2,
+      "always"
+    ]
+  }
+}

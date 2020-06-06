@@ -57,7 +57,7 @@ This is a rough outline of what a contributor's workflow looks like:
 
 ## Coding Style
 
-Rook projects are written in Rust and follows a functional style trying to keep code simple.
+Rash projects are written in Rust and follows a functional style trying to keep code simple.
 
 ## Comments
 
@@ -67,7 +67,7 @@ be created if they do not yet exist and updated if they do.
 
 The goal of comments is to make the code more readable and grokkable by future developers. Once you
 have made your code as understandable as possible, add comments to make sure future developers can
-understand (A) what this piece of code's responsibility is within Rook's architecture and (B) why it
+understand (A) what this piece of code's responsibility is within Rash's architecture and (B) why it
 was written as it was.
 
 The below blog entry explains more the why's and how's of this guideline.
@@ -88,7 +88,7 @@ this enables us to remove leveldb from the codebase.
 The format can be described more formally as follows:
 
 ```
-[<area>]: <what changed>
+<area>: <what changed>
 <BLANK LINE>
 <why this change was made>
 <BLANK LINE>
@@ -97,6 +97,9 @@ The format can be described more formally as follows:
 Resolves: #{issue.id}
 {%- endif %}
 ```
+
+You can find what values area could take see
+[rash/.commitlintrc.json](https://github.com/rash-sh/rash-sh.github.io/blob/master/.commitlintrc.json).
 
 The first line is the subject and should be no longer than 70 characters, the
 second line is always blank, and other lines should be wrapped at 80 characters.
