@@ -1,0 +1,11 @@
+set -e
+
+if ! command -v docker > /dev/null; then
+  echo "Please install docker to run commit lint." >&2
+  exit 1
+fi
+
+root_dir=$(git rev-parse --show-toplevel)
+
+echo "Running commit lint on $1..."
+docker run --volume "${root_dir}:/app" --rm gtramontina/commitlint:8.3.5 -e "$1"
