@@ -23,7 +23,7 @@ If you:
 - think that long bash scripts are difficult to maintain
 - love Ansible syntax to setup your environments
 
-Then keep keep on reading.
+Then keep on reading.
 
 Here is Rash!
 
