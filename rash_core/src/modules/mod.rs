@@ -13,17 +13,17 @@ use serde::Serialize;
 use serde_json::Value;
 use yaml_rust::Yaml;
 
-/// Return values by [`Module`] execution.
+/// Return values of a [`Module`] execution.
 ///
 /// [`Module`]: struct.Module.html
 #[derive(Clone, Debug, PartialEq, Serialize)]
 // ANCHOR: module_result
 pub struct ModuleResult {
-    /// True when module changed something.
+    /// True when the executed module changed something.
     changed: bool,
-    /// Output value is showed in logs when module is executed.
+    /// Output value will appear in logs when module is executed.
     output: Option<String>,
-    /// Extra field is used by modules to return its own data.
+    /// Extra field is used by modules to return their own data.
     extra: Option<Value>,
 }
 // ANCHOR_END: module_result
