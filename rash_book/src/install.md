@@ -5,7 +5,8 @@
 
 ## Build requirements
 
-The following tools are need:
+The following tools are needed:
+
 - docker
 - make
 - rustc

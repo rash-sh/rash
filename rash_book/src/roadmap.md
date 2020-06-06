@@ -1,6 +1,6 @@
 # Roadmap <!-- omit in toc -->
 
-The projects Roadmap is defined in our
+The project Roadmap is defined in our
 [Concept Map](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56). Some more
 concrete examples can be found below.
 
@@ -22,6 +22,7 @@ These are just some ideas about the possibilities of `rash`.
 ### S3
 
 `s3.rh`:
+
 ```yaml
 #!/bin/rash
 
@@ -39,6 +40,7 @@ These are just some ideas about the possibilities of `rash`.
 ### vault
 
 `vault.rh`:
+
 ```yaml
 #!/bin/rash
 
@@ -52,6 +54,7 @@ These are just some ideas about the possibilities of `rash`.
 ### etcd
 
 `etcd.rh`:
+
 ```yaml
 #!/bin/rash
 
@@ -78,6 +81,7 @@ These are just some ideas about the possibilities of `rash`.
 ### S3
 
 `s3.rh`:
+
 ```yaml
 #!/bin/rash
 
