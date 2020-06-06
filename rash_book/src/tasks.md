@@ -16,7 +16,7 @@ Tasks admits the following keys:
 
 ### Register structure
 
-Register saves in a variable a modules result structure like this one:
+When you defined `register` field, a structure is created as following:
 
 ```rust,no_run,noplaypen
 {{#include ../../rash_core/src/modules/mod.rs:module_result}}
