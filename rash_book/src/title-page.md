@@ -16,4 +16,5 @@ secrets, configuration management...
 - **clear output** to log properly.
 - **secure** by design.
 - **fast and efficient** (TODO: performance tests versus `bash`).
+- **modular** design.
 - support [Tera](https://tera.netlify.app/) **templates**.
