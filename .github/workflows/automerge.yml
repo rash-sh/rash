@@ -19,6 +19,7 @@ on:
   status: {}
 jobs:
   automerge:
+    if: github.repository == 'rash-sh/rash'
     runs-on: ubuntu-latest
     steps:
       - name: automerge
