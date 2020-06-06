@@ -59,7 +59,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
     ))
 }
 
-/// Setup logging in function of verbosity.
+/// Setup logging according to the specified verbosity.
 pub fn setup_logging(verbosity: u8) -> Result<()> {
     let mut base_config = fern::Dispatch::new();
 

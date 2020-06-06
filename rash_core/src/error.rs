@@ -36,7 +36,7 @@ struct Custom {
 /// This list is intended to grow over time and it is not recommended to
 /// exhaustively match against it.
 ///
-/// It is used with the [`error::Error`] type.
+/// Use it with the [`error::Error`] type.
 ///
 /// [`error::Error`]: struct.Error.html
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -49,7 +49,7 @@ pub enum ErrorKind {
     InvalidData,
     /// I/O error propagation
     IOError,
-    /// Generic fail executing subprocess.
+    /// Generic failure during subprocess execution.
     SubprocessFail,
     /// Task stack is empty
     EmptyTaskStack,
@@ -70,7 +70,7 @@ impl ErrorKind {
     }
 }
 
-/// Intended for use for errors not exposed to the user, where allocating onto
+/// Intended to use with errors that aren't exposed to the user, where allocating onto
 /// the heap (for normal construction via Error::new) is too costly.
 impl From<ErrorKind> for Error {
     /// Converts an [`ErrorKind`] into an [`Error`].

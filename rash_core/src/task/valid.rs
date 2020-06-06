@@ -6,7 +6,7 @@ use std::collections::HashSet;
 
 use yaml_rust::Yaml;
 
-/// TaskValid is a ProtoTask with attrs verified (one module and valid attrs)
+/// TaskValid is a ProtoTask with verified attrs (one module and valid attrs)
 #[derive(Debug)]
 pub struct TaskValid {
     attrs: Yaml,
