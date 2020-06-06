@@ -44,8 +44,8 @@ struct Opts {
     #[clap(short, long, parse(try_from_str = parse_key_val), number_of_values = 1)]
     environment: Vec<(String, String)>,
     /// Additional args to be accessible from builtin `{{ rash.args }}` as list of strings
-    #[clap(multiple = true, takes_value = true)]
-    _args: Option<String>,
+    #[clap(multiple = true, takes_value = true, number_of_values = 1)]
+    _args: Vec<String>,
 }
 
 /// Fail program printing [`Error`] and returning code associated if exists.
@@ -84,10 +84,7 @@ fn main() {
             vars.insert(
                 "rash",
                 &Builtins::new(
-                    opts._args
-                        .unwrap_or_else(|| "".to_string())
-                        .split(' ')
-                        .collect::<Vec<&str>>(),
+                    opts._args.iter().map(|s| &**s).collect::<Vec<&str>>(),
                     script_path,
                 )
                 .unwrap(),
