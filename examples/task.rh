@@ -1,4 +1,4 @@
-#!/usr/bin/env -S rash -eMY_PASSWORD=supersecret
+#!/bin/rash
 
 - name: "save password to multiple files"
   copy:

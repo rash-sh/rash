@@ -1,4 +1,4 @@
-#!/usr/bin/env -S rash -eMY_PASSWORD=supersecret
+#!/bin/rash
 
 - assert:
     that:
@@ -11,7 +11,7 @@
       - "rash.path == ''"
   ignore_errors: true
 
-- command: ls
+- command: ls examples
   register: ls_result
 
 - set_vars:
@@ -22,6 +22,7 @@
       dummy file with dummy content
       capitalized file name:  {{ item | capitalize }}
       uppercase file name:  {{ item | upper }}
+      keep this secret: {{ env.MY_PASSWORD | default(value='not_found') }}
     dest: "/tmp/{{ item }}"
     mode: "400"
   loop: "{{ file_list }}"
@@ -31,7 +32,17 @@
   when: env | get(key="BROWSER")
 
 # env missing in title (rash ignore it and continue)
-- name: "{{ env.TITLE }}: last command must send with transfer_pid_1 to let it as PID 1"
+- name: "{{ env.TITLE }}"
   command:
-    cmd: "cat {{ rash.path }}"
+    cmd: "echo done"
+    transfer_pid_1: true
+  when: env | get(key="MY_PASSWORD")
+
+- name: last command must send with transfer_pid_1 to let it as PID 1
+  command:
+    argv:
+      - /bin/rash
+      - -eMY_PASSWORD=supersecret
+      - -eTITLE=finish execution
+      - "{{ rash.path }}"
     transfer_pid_1: true
