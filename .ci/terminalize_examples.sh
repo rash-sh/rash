@@ -4,29 +4,49 @@
 #   - pv
 #   - terminalizer
 
+set -e
 
 TMPFILE_PATH=$(mktemp)
+# shellcheck disable=SC2164
+LOCAL_DIR="$(cd "$(dirname "$0")" ; pwd -P)"
 COMMANDS="#!/bin/bash"
 
-for FILE in $(find examples -type f -name '*.rh'); do
-  for COMMAND in "cat $FILE" "$FILE"; do
+trap catch_err ERR
+
+catch_err()
+{
+    echo "An error has been catched"
+    clean_up
+}
+
+clean_up()
+{
+    echo "Cleaning up..."
+    rm -rf "$TMPFILE_PATH*"
+}
+
+build_terminalizer_text()
+{
+  while IFS= read -r -d '' FILE; do
+    for COMMAND in "cat $FILE" "$FILE"; do
     COMMANDS+="\n\
-echo \$ $COMMAND | pv -qL $[10+(-2 + RANDOM%5)] \n\
+echo \$ $COMMAND | pv -qL $((10+(-2 + RANDOM%5))) \n\
 $COMMAND \n\
 sleep 2 \n\
 "
-  done
-done
+    done
+  done <   <(find "$LOCAL_DIR/../examples" -type f -name '*.rh' -print0)
 
-COMMANDS+="sleep 2\n\
-echo 'try it! :)' | pv -qL $[10]"
+  COMMANDS+="sleep 2\n echo 'try it! :)' | pv -qL $((10))"
 
-echo -e $COMMANDS > $TMPFILE_PATH
-chmod +x $TMPFILE_PATH
+  echo -e "$COMMANDS" > "$TMPFILE_PATH"
+  chmod +x "$TMPFILE_PATH"
+}
 
-
+build_terminalizer_config()
+{
 CONFIG_PATH=${TMPFILE_PATH}_terminalizer_config.yml
-cat <<EOF > ${CONFIG_PATH}
+cat <<EOF > "${CONFIG_PATH}"
 command: $TMPFILE_PATH
 cwd: $(pwd)
 env:
@@ -63,5 +83,17 @@ theme:
   background: "transparent"
 
 EOF
+}
 
-terminalizer record -k -c ${CONFIG_PATH} $1
+## Main
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <output_file>"
+    exit 1
+fi
+
+build_terminalizer_text
+
+build_terminalizer_config
+
+terminalizer record -k -c "${CONFIG_PATH}" "$1"
