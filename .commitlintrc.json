@@ -9,6 +9,7 @@
       [
         "ci",
         "cli",
+        "core",
         "doc",
         "filter",
         "group",
