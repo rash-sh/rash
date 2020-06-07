@@ -55,4 +55,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
-
+    - name: Run examples
+      run: |
+        sudo cp target/debug/rash /bin/rash
+        for example in $(find examples -name '*.rh'); do echo $example; $example || exit 1;done
