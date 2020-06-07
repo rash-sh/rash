@@ -10,4 +10,3 @@
   - [Filters](filters.md)
 - [Roadmap](roadmap.md)
 - [Contributing](contributing.md)
-  - [Install](install.md)
