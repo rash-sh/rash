@@ -3,7 +3,7 @@
 `tasks` are the main execution unit. They need a module and admit some optional fields described below.
 
 ```yaml
-{{#include ../../examples/copy.rh:3:}}
+{{#include ../../examples/task.rh:3:}}
 ```
 
 ## Fields

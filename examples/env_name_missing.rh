@@ -1,4 +1,0 @@
-#!/usr/bin/env -S rash -eTARGET=rash_core
-
-- name: "{{ env.TITTLE }}"
-  command: ls $TARGET
