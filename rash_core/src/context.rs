@@ -31,8 +31,7 @@ impl Context {
         Context { tasks, vars }
     }
 
-    /// Execute the first [`task::Task`] and return a new context without the one
-    /// that executed [`task::Task`]
+    /// Execute the first [`task::Task`] and return a new context without the one that executed [`task::Task`]
     ///
     /// [`task::Task`]: ../task/struct.Task.html
     pub fn exec_task(&self) -> Result<Self> {
