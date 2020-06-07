@@ -79,7 +79,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
 pub fn verify_file(params: Params) -> Result<ModuleResult> {
     trace!("params: {:?}", params);
     let open_read_file = OpenOptions::new().read(true).clone();
-    let read_file = open_read_file.clone().open(&params.dest).or_else(|_| {
+    let read_file = open_read_file.open(&params.dest).or_else(|_| {
         trace!("file does not exists, create new one: {:?}", &params.dest);
         open_read_file
             .clone()

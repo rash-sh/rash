@@ -38,7 +38,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
             }
             .to_fg_str()
         ),
-        log_header = log_header.clone(),
+        log_header = log_header,
         message = message.clone(),
         separator = match (record.level(), record.target()) {
             (log::Level::Info, "task") => vec![
