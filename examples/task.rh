@@ -1,0 +1,10 @@
+#!/usr/bin/env -S rash -eMY_PASSWORD=supersecret
+
+- name: "save password to multiple files"
+  copy:
+    content: "{{ env.MY_PASSWORD }}"
+    dest: "/tmp/MY_PASSWORD_FILE_{{ item }}"
+    mode: "400"
+  loop: "{{ range(end=4) }}"
+  when: env | get(key="MY_PASSWORD")
+  register: save_passwords_result

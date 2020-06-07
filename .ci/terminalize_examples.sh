@@ -9,17 +9,13 @@ TMPFILE_PATH=$(mktemp)
 COMMANDS="#!/bin/bash"
 
 for FILE in $(find examples -type f -name '*.rh'); do
-    for COMMAND in "cat $FILE" "$FILE"; do
-    if [ "$COMMAND" = "examples/env_missing.rh" ];
-    then
-        COMMAND="$COMMAND -vv"
-    fi
+  for COMMAND in "cat $FILE" "$FILE"; do
     COMMANDS+="\n\
 echo \$ $COMMAND | pv -qL $[10+(-2 + RANDOM%5)] \n\
 $COMMAND \n\
 sleep 2 \n\
 "
-    done
+  done
 done
 
 COMMANDS+="sleep 2\n\

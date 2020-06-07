@@ -1,0 +1,37 @@
+#!/usr/bin/env -S rash -eMY_PASSWORD=supersecret
+
+- assert:
+    that:
+      - "rash.path == 'examples/all_functions.rh'"
+      - "1 == 1"
+
+- name: this must be ignored
+  assert:
+    that:
+      - "rash.path == ''"
+  ignore_errors: true
+
+- command: ls
+  register: ls_result
+
+- set_vars:
+    file_list: "{{ ls_result.output | split(pat='\n') }}"
+
+- copy:
+    content: |
+      dummy file with dummy content
+      capitalized file name:  {{ item | capitalize }}
+      uppercase file name:  {{ item | upper }}
+    dest: "/tmp/{{ item }}"
+    mode: "400"
+  loop: "{{ file_list }}"
+
+- name: user "{{ env.USER }}" loves
+  command: echo My favorite browser is {{ env.BROWSER | split(pat="/") | last }}
+  when: env | get(key="BROWSER")
+
+# env missing in title (rash ignore it and continue)
+- name: "{{ env.TITLE }}: last command must send with transfer_pid_1 to let it as PID 1"
+  command:
+    cmd: "cat {{ rash.path }}"
+    transfer_pid_1: true
