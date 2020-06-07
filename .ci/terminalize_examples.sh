@@ -11,13 +11,7 @@ TMPFILE_PATH=$(mktemp)
 LOCAL_DIR="$(cd "$(dirname "$0")" ; pwd -P)"
 COMMANDS="#!/bin/bash"
 
-trap catch_err ERR
-
-catch_err()
-{
-    echo "An error has been catched"
-    clean_up
-}
+trap clean_up EXIT
 
 clean_up()
 {
