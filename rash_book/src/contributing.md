@@ -61,7 +61,7 @@ Rash projects are written in Rust and follow a functional style trying to keep c
 
 ## Comments
 
-UYoou should add appropriate comments to all new methods and structures.
+You should add appropriate comments to all new methods and structures.
 Additionally, if an existing method or structure is sufficiently modified, you should
 add comments to it if it doesn't have any already or update them if they do.
 
