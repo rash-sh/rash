@@ -1,0 +1,7 @@
+zend_extension=opcache
+opcache.enable={{ env.OPCACHE_ENABLED | default(value=1) }}
+opcache.memory_consumption={{ env.OPCACHE_MEMORY_CONSUMPTION | default(value=128) }}
+opcache.interned_strings_buffer={{ env.OPCACHE_INTERNED_STRINGS_BUFFER | default(value=8) }}
+opcache.max_accelerated_files={{ env.OPCACHE_MAX_ACCELERATED_FILES | default(value=4000) }}
+opcache.huge_code_pages={{ env.OPCACHE_HUGE_CODE_PAGES | default(value=1) }}
+opcache.validate_timestamps={{ env.OPCACHE_VALIDATE_TIMESTAMPS | default(value=0) }}

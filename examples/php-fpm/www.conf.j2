@@ -1,0 +1,24 @@
+[www]
+
+user = www-data
+group = www-data
+
+listen = {{ env.FPM_LISTEN | default(value="127.0.0.1:9000") }}
+listen.backlog = {{ env.FPM_LISTEN_BACKLOG | default(value=8196) }}
+
+pm = {{ env.FPM_PM | default(value="dynamic") }}
+pm.max_children = {{ env.FPM_PM_MAX_CHILDREN | default(value=50) }}
+pm.start_servers = {{ env.FPM_PM_START_SERVERS | default(value=5) }}
+pm.min_spare_servers = {{ env.FPM_PM_MIN_SPARE_SERVERS | default(value=5) }}
+pm.max_spare_servers = {{ env.FPM_PM_MAX_SPARE_SERVERS | default(value=10) }}
+pm.max_requests = {{ env.FPM_PM_MAX_REQUESTS | default(value=500) }}
+pm.status_path = {{ env.FPM_PM_STATUS_PATH | default(value="/phpfpm_status") }}
+
+; ondemand only
+pm.process_idle_timeout = {{ env.FPM_PM_PROCESS_IDLE_TIMEOUT | default(value="10s") }}
+
+access.format = "%t \"%m %r%Q%q\" %s %f %{seconds}d %{mega}M %C%%"
+slowlog = /proc/self/fd/2
+
+rlimit_files = {{ env.FPM_RLIMIT_FILES | default(value=2048) }}
+

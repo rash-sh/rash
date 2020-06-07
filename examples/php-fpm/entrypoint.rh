@@ -1,6 +1,6 @@
-#!/bin/rash
+#!/usr/bin/env -S rash
 #
-# Check out the use case at https://github.com/dcarrillo/docker-phpfpm
+# based on https://github.com/dcarrillo/docker-phpfpm
 #
 
 - name: "Configure opcache/php"
@@ -9,10 +9,11 @@
     dest: "{{ item }}"
     mode: "0644"
   loop:
-    - "{{ env.PHP_INI_DIR }}/conf.d/opcache.ini"
-    - "{{ env.PHP_INI_DIR }}/../php-fpm.d/www.conf"
+    - "{{ rash.dir }}/opcache.ini"
+    - "{{ rash.dir }}/www.conf"
 
 - name: "Run php-fpm"
   command:
-    cmd: php-fpm
+    cmd: "echo fake-php-fpm"
     transfer_pid_1: true
+
