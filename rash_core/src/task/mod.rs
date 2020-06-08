@@ -115,8 +115,12 @@ impl Task {
             },
 
             None => Ok(Yaml::String(render_string(
-                // safe unwrap: validated attr
-                original_params.as_str().unwrap(),
+                original_params.as_str().ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("{:?} must be a string", original_params),
+                    )
+                })?,
                 vars,
             )?)),
         }
@@ -147,7 +151,7 @@ impl Task {
     }
 
     fn render_iterator(&self, vars: Vars) -> Result<Vec<String>> {
-        // safe unwrap
+        // safe unwrap, previous verification self.r#loop.is_some()
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {

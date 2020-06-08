@@ -22,6 +22,7 @@ impl TaskValid {
     fn get_possible_attrs(&self) -> HashSet<String> {
         self.attrs
             .clone()
+            // safe unwrap: validated attr
             .into_hash()
             .unwrap()
             .iter()
