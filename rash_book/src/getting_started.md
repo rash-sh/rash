@@ -35,8 +35,6 @@ Also, create your first `entrypoint.rh`:
 
 YAML syntax based on [modules](module_index.md).
 
-Besides, [Tera](https://tera.netlify.app/docs/) templates are included and could be used in
-all places. You can use all functions or combine then as you desire.
+Besides, `rash` includes [Tera](https://tera.netlify.app/docs/) templates which you can use anywhere. You can use all its functions and combine them as you want.
 
-Furthermore, `rash` implements custom [builtins](vars.md) as for example: `{{ rash.path }}` or
-`{{ env.MY_ENV_VAR }}`.
+`rash` implements custom [builtins](vars.md), too. For example, `{{ rash.path }}` or `{{ env.MY_ENV_VAR }}`.
