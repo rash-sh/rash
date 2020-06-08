@@ -84,8 +84,9 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
         };
         let mut args = args_vec.iter();
 
-        // safe unwrap: verify in parse_params
-        let program = args.next().unwrap();
+        let program = args
+            .next()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args)))?;
         let error = exec_command::Command::new(program)
             .args(&args.clone().collect::<Vec<_>>())
             .exec();
@@ -94,14 +95,18 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
 
     let output = if params.cmd.is_some() {
         Command::new("/bin/sh")
+            // safe unwrap: verify in parse_params
             .args(vec!["-c", &params.cmd.unwrap()])
             .output()
             .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?
     } else {
+        // safe unwrap: verify in parse_params
         let argv = params.argv.unwrap();
         let mut args = argv.iter();
-        // safe unwrap: verify in parse_params
-        let program = args.next().unwrap();
+        let program = args
+            .next()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args)))?;
+
         Command::new(program)
             .args(args)
             .output()
