@@ -97,3 +97,8 @@ The full working functionality is shown in the following gif, don't expect more 
 [Jinja2](https://tera.netlify.app/docs/#templates) template engine support by [Tera](https://github.com/Keats/tera).
 
 Current [modules](./rash_core/src/modules/)
+
+## Who is using `rash`
+
+- A production ready [php-fpm](https://github.com/dcarrillo/docker-phpfpm) docker image
+- [hs110 prometheus exporter](https://github.com/sdelrio/hs110-prometheus-exporter)

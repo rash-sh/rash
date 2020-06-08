@@ -26,11 +26,17 @@ Also, create your first `entrypoint.rh`:
 ```yaml
 #!/bin/rash
 
-- command: myapp -u "{{ rash.user }}" -h "{{ env.HOSTNAME }}"
+- command: myapp -u "{{ rash.user.uid }}" -h "{{ env.HOSTNAME }}"
   # transforms process in pid 1 (similar to `exec` in bash)
   transfer_pid_1: true
 ```
 
-## Who is using `rash`
+## Syntax
 
-- A production ready [php-fpm](https://github.com/dcarrillo/docker-phpfpm) docker image
+YAML syntax based on [modules](module_index.md).
+
+Besides, [Tera](https://tera.netlify.app/docs/) templates are included and could be used in
+all places. You can use all functions or combine then as you desire.
+
+Furthermore, `rash` implements custom [builtins](vars.md) as for example: `{{ rash.path }}` or
+`{{ env.MY_ENV_VAR }}`.
