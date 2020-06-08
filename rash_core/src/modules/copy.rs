@@ -218,6 +218,7 @@ mod tests {
 
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o644);
+        set_permissions(&file_path, permissions).unwrap();
 
         let output = verify_file(Params {
             content: "test\n".to_string(),
@@ -225,6 +226,18 @@ mod tests {
             mode: 0o644,
         })
         .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "test\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o644)
+        );
 
         assert_eq!(
             output,
@@ -250,16 +263,7 @@ mod tests {
         })
         .unwrap();
 
-        assert_eq!(
-            output,
-            ModuleResult {
-                changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
-                extra: None,
-            }
-        );
-
-        let mut file = File::open(file_path).unwrap();
+        let mut file = File::open(&file_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         assert_eq!(contents, "fu");
@@ -267,8 +271,17 @@ mod tests {
         let metadata = file.metadata().unwrap();
         let permissions = metadata.permissions();
         assert_eq!(
-            format!("{:o}", permissions.mode() & 0o777),
+            format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
         );
     }
 
@@ -284,16 +297,7 @@ mod tests {
         })
         .unwrap();
 
-        assert_eq!(
-            output,
-            ModuleResult {
-                changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
-                extra: None,
-            }
-        );
-
-        let mut file = File::open(file_path).unwrap();
+        let mut file = File::open(&file_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         assert_eq!(contents, "zoo");
@@ -301,8 +305,17 @@ mod tests {
         let metadata = file.metadata().unwrap();
         let permissions = metadata.permissions();
         assert_eq!(
-            format!("{:o}", permissions.mode() & 0o777),
+            format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
         );
     }
 
@@ -323,16 +336,7 @@ mod tests {
         })
         .unwrap();
 
-        assert_eq!(
-            output,
-            ModuleResult {
-                changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
-                extra: None,
-            }
-        );
-
-        let mut file = File::open(file_path).unwrap();
+        let mut file = File::open(&file_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         assert_eq!(contents, "zoo");
@@ -340,8 +344,17 @@ mod tests {
         let metadata = file.metadata().unwrap();
         let permissions = metadata.permissions();
         assert_eq!(
-            format!("{:o}", permissions.mode() & 0o777),
+            format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o600)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
         );
     }
 
@@ -362,16 +375,7 @@ mod tests {
         })
         .unwrap();
 
-        assert_eq!(
-            output,
-            ModuleResult {
-                changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
-                extra: None,
-            }
-        );
-
-        let mut file = File::open(file_path).unwrap();
+        let mut file = File::open(&file_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         assert_eq!(contents, "zoo");
@@ -379,8 +383,17 @@ mod tests {
         let metadata = file.metadata().unwrap();
         let permissions = metadata.permissions();
         assert_eq!(
-            format!("{:o}", permissions.mode() & 0o777),
+            format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
         );
     }
 }
