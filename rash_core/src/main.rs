@@ -79,24 +79,26 @@ fn main() {
 
     let script_path = Path::new(&opts.script_file);
     match read_file(script_path.to_path_buf()) {
-        Ok(tasks) => match Context::exec(Context::new(tasks, {
-            let mut vars = env::load(opts.environment).unwrap();
-            vars.insert(
-                "rash",
-                &Builtins::new(
+        Ok(tasks) => match env::load(opts.environment) {
+            Ok(vars) => {
+                let mut new_vars = vars;
+                match Builtins::new(
                     opts._args.iter().map(|s| &**s).collect::<Vec<&str>>(),
                     script_path,
-                )
-                .unwrap(),
-            );
-            trace!("Vars: {}", &vars.clone().into_json().to_string());
-            vars
-        })) {
-            Ok(_) => (),
-            Err(context_error) => match context_error.kind() {
-                ErrorKind::EmptyTaskStack => (),
-                _ => crash_error(context_error),
-            },
+                ) {
+                    Ok(builtins) => new_vars.insert("rash", &builtins),
+                    Err(e) => crash_error(e),
+                };
+                trace!("Vars: {}", &new_vars.clone().into_json().to_string());
+                match Context::exec(Context::new(tasks, new_vars)) {
+                    Ok(_) => (),
+                    Err(context_error) => match context_error.kind() {
+                        ErrorKind::EmptyTaskStack => (),
+                        _ => crash_error(context_error),
+                    },
+                };
+            }
+            Err(e) => crash_error(e),
         },
         Err(e) => crash_error(e),
     }
