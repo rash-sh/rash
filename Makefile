@@ -1,13 +1,19 @@
-.PHONY: help build-images push-images update-version build
+.PHONY: help build-images push-images update-version build mdbook-rash book
 
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
+VERSION ?= master
 DOCKERFILES ?= $(shell find . -name 'Dockerfile*')
 
+CARGO_TARGET_DIR ?= target
+
 .DEFAULT: help
-help:
-	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##/\n\t/'
+help:	## Show this help menu.
+	@echo "Usage: make [TARGET ...]"
+	@echo ""
+	@fgrep -h "##" $(MAKEFILE_LIST) | grep -v fgrep | sed -e 's/\\$$//' | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
 
 build-images:	## build images
 build-images:
@@ -51,3 +57,25 @@ lint:
 test:	## run tests
 test: lint
 	cargo test
+
+mdbook-rash:	## install mdbook_rash to create rash_book
+	cd mdbook_rash && \
+	cargo install --path .
+
+book:	## create rash_book under rash_book/rash-sh.github.io
+book:	mdbook-rash
+	cd rash_book && \
+	MDBOOK_BUILD__BUILD_DIR=rash-sh.github.io/docs/rash/$(VERSION) mdbook build
+
+release:	## generate vendor.tar.gz and rash-v${VERSION}-x86_64-unkown-linux-gnu.tar.gz
+	cargo vendor
+	tar -czf vendor.tar.gz vendor
+	cargo build --release
+	tar -czf rash-x86_64-unkown-linux-gnu.tar.gz -C $(CARGO_TARGET_DIR)/release rash
+
+publish:	## publish crates
+	@for package in $(shell find * -mindepth 1 -name Cargo.toml -exec dirname {} \;);do \
+		cd $$package; \
+		cargo publish;
+		cd -;
+	done;
