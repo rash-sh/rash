@@ -5,7 +5,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 use crate::utils::get_yaml;
-use crate::utils::jinja2::{is_render_string, render_string};
+use crate::utils::tera::{is_render_string, render_string};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;

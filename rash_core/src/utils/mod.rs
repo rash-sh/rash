@@ -1,5 +1,5 @@
 pub mod file;
-pub mod jinja2;
+pub mod tera;
 
 use crate::error::{Error, ErrorKind, Result};
 

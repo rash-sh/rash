@@ -29,7 +29,7 @@
               <font SIZE="12" BOLD="false" ITALIC="false"/>
             </node>
           </node>
-          <node ID="ID_1591384561158" TEXT="extend Jinja2" COLOR="#000000">
+          <node ID="ID_1591384561158" TEXT="extend Tera" COLOR="#000000">
             <font SIZE="12" BOLD="false" ITALIC="false"/>
             <node ID="ID_1591384561159" TEXT="Lookup" COLOR="#000000">
               <font SIZE="12" BOLD="false" ITALIC="false"/>

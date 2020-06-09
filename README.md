@@ -94,7 +94,7 @@ The full working functionality is shown in the following gif, don't expect more 
 
 ![Examples](https://media.giphy.com/media/kIREOtWgwjSgo7l82b/giphy.gif)
 
-[Jinja2](https://tera.netlify.app/docs/#templates) template engine support by [Tera](https://github.com/Keats/tera).
+[Tera](https://tera.netlify.app/docs/#templates) template engine support.
 
 Current [modules](./rash_core/src/modules/)
 
