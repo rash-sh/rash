@@ -1,6 +1,6 @@
 # Getting started
 
-Simple YAML declarative shell scripting language based in modules and templates.
+Simple YAML declarative shell scripting language based on modules and templates.
 `rash` syntax is inspired by [Ansible](https://www.ansible.com/).
 
 ## Quickstart
@@ -35,6 +35,8 @@ Also, create your first `entrypoint.rh`:
 
 YAML syntax based on [modules](module_index.md).
 
-Besides, `rash` includes [Tera](https://tera.netlify.app/docs/) templates which you can use anywhere. You can use all its functions and combine them as you want.
+Besides, `rash` includes [Tera](https://tera.netlify.app/docs/) templates which you can use
+anywhere. You can use all its functions and combine them as you want.
 
-`rash` implements custom [builtins](vars.md), too. For example, `{{ rash.path }}` or `{{ env.MY_ENV_VAR }}`.
+`rash` implements custom [builtins](vars.md), too. For example, `{{ rash.path }}` or
+`{{ env.MY_ENV_VAR }}`.

@@ -1,7 +1,7 @@
 /// ANCHOR: module
 /// # assert
 ///
-/// Asserts given expressions are true.
+/// Assert given expressions are true.
 ///
 /// ## Parameters
 ///
