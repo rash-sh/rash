@@ -13,7 +13,7 @@ pub fn render_string(s: &str, vars: Vars) -> Result<String> {
 #[inline(always)]
 pub fn is_render_string(s: &str, vars: Vars) -> Result<bool> {
     match render_string(
-        &format!("{{% if {} %}}true{{% else %}}false{{% endif %}}", s),
+        &format!("{{% if {} | safe %}}true{{% else %}}false{{% endif %}}", s),
         vars,
     )?
     .as_str()
