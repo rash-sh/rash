@@ -5,7 +5,7 @@ use tera::Tera;
 
 pub fn render_string(s: &str, vars: Vars) -> Result<String> {
     let mut tera = Tera::default();
-    trace!("rendering {}", &s);
+    trace!("rendering {:?}", &s);
     tera.render_str(s, &vars)
         .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))
 }
