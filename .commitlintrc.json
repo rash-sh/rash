@@ -13,7 +13,7 @@
         "doc",
         "filter",
         "group",
-        "jinja2",
+        "tera",
         "lookup",
         "module",
         "task",

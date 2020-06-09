@@ -25,7 +25,7 @@
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{get_param_list, ModuleResult};
-use crate::utils::jinja2::is_render_string;
+use crate::utils::tera::is_render_string;
 use crate::vars::Vars;
 
 use yaml_rust::Yaml;

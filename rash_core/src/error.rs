@@ -45,7 +45,7 @@ struct Custom {
 pub enum ErrorKind {
     /// An entity was not found, often a module.
     NotFound,
-    /// Data is invalid, often fail to render Jinja2.
+    /// Data is invalid, often fail to render Tera.
     InvalidData,
     /// I/O error propagation
     IOError,
