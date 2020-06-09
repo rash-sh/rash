@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*
 
 jobs:
   deploy:
@@ -25,11 +27,15 @@ jobs:
           mdbook-version: '0.3.7'
 
       - run: |
-          cd mdbook_rash
-          cargo install --path .
-          cd ../rash_book
           git clone --depth=1 https://github.com/rash-sh/rash-sh.github.io.git
-          mdbook build
+
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          VERSION=$VERSION make book
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
