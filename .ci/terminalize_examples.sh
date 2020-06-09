@@ -28,18 +28,18 @@ build_terminalizer_text()
   while IFS= read -r -d '' FILE; do
     for COMMAND in "cat $FILE" "$FILE"; do
       COMMANDS+="\n\
-echo \$ $COMMAND | pv -qL $((10+(-2 + RANDOM%5))) \n\
+echo \$ $COMMAND | pv -qL $((7+(-2 + RANDOM%5))) \n\
 $COMMAND \n\
-sleep 3 \n\
+sleep 4 \n\
 "
     done
     COMMANDS+="\n\
-sleep 3 \n\
+sleep 4 \n\
 clear \n\
 "
   done <   <(find "examples" -type f -name '*.rh' -print0)
 
-  COMMANDS+="sleep 2;echo 'try it! :)' | pv -qL $((10));sleep 2"
+  COMMANDS+="sleep 4;echo 'try it! :)' | pv -qL $((7));sleep 4"
 
   echo -e "$COMMANDS" > "$TMPFILE_PATH"
   chmod +x "$TMPFILE_PATH"
@@ -104,4 +104,4 @@ GIF_FILE=${TERMINALIZE_FILE}.gif
 terminalizer record -k -c "${CONFIG_PATH}" ${TERMINALIZE_FILE}
 terminalizer render ${TERMINALIZE_FILE} -q 100 -o ${GIF_FILE}
 
-ffmpeg -i ${GIF_FILE} -c vp9 -b:v 0 -crf 41 "$1"
+ffmpeg -i ${GIF_FILE} -y -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" "$1"
