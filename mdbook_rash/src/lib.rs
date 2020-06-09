@@ -58,7 +58,7 @@ fn replace_matches(captures: Vec<(Match, String, String)>, ch: &mut Chapter) {
             ch.sub_items.push(BookItem::Chapter(new_ch));
         }
 
-        info!("add {}", &name);
+        info!("Add {}", &name);
         ch.content = RE
             .replace(&ch.content, |caps: &Captures| match &caps[1] {
                 "include_module" => format!("- [{}](./{}.html)", &name, &name),
