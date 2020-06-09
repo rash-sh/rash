@@ -9,7 +9,11 @@ set -e
 TMPFILE_PATH=$(mktemp)
 # shellcheck disable=SC2164
 LOCAL_DIR="$(cd "$(dirname "$0")" ; pwd -P)"
-COMMANDS="#!/bin/bash"
+COMMANDS='#!/bin/bash
+function cat () {
+  pygmentize -l yaml+jinja -O full,style=emacs "$@"
+}
+'
 
 trap clean_up EXIT
 
@@ -23,15 +27,19 @@ build_terminalizer_text()
 {
   while IFS= read -r -d '' FILE; do
     for COMMAND in "cat $FILE" "$FILE"; do
-    COMMANDS+="\n\
+      COMMANDS+="\n\
 echo \$ $COMMAND | pv -qL $((10+(-2 + RANDOM%5))) \n\
 $COMMAND \n\
-sleep 2 \n\
+sleep 3 \n\
 "
     done
-  done <   <(find "$LOCAL_DIR/../examples" -type f -name '*.rh' -print0)
+    COMMANDS+="\n\
+sleep 3 \n\
+clear \n\
+"
+  done <   <(find "examples" -type f -name '*.rh' -print0)
 
-  COMMANDS+="sleep 2\n echo 'try it! :)' | pv -qL $((10))"
+  COMMANDS+="sleep 2;echo 'try it! :)' | pv -qL $((10));sleep 2"
 
   echo -e "$COMMANDS" > "$TMPFILE_PATH"
   chmod +x "$TMPFILE_PATH"
@@ -44,6 +52,7 @@ cat <<EOF > "${CONFIG_PATH}"
 command: $TMPFILE_PATH
 cwd: $(pwd)
 env:
+  MY_PASSWORD: supersecret
   USER: rash-user
   BROWSER: /usr/bin/firefox
   recording: true
@@ -90,4 +99,9 @@ build_terminalizer_text
 
 build_terminalizer_config
 
-terminalizer record -k -c "${CONFIG_PATH}" "$1"
+TERMINALIZE_FILE=$(mktemp)
+GIF_FILE=${TERMINALIZE_FILE}.gif
+terminalizer record -k -c "${CONFIG_PATH}" ${TERMINALIZE_FILE}
+terminalizer render ${TERMINALIZE_FILE} -q 100 -o ${GIF_FILE}
+
+ffmpeg -i ${GIF_FILE} -c vp9 -b:v 0 -crf 41 "$1"

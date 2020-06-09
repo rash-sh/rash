@@ -1,0 +1,26 @@
+#!/bin/rash
+
+- assert:
+    that:
+      - "rash.path == 'examples/recursivity.rh'"
+      - "1 == 1"
+
+- name: user "{{ env.USER }}" loves
+  command:
+    cmd: |
+      echo "My favorite browser is {{ env.BROWSER | split(pat="/") | last | capitalize }}"
+  when: env | get(key="BROWSER")
+
+- command:
+    cmd: "echo done"
+    transfer_pid_1: true
+  when: env | get(key="MY_PASSWORD")
+
+- name: last command must send with transfer_pid_1 to let it as PID 1
+  command:
+    argv:
+      - /bin/rash
+      - -eMY_PASSWORD=supersecret
+      - -eTITLE=finish execution
+      - "{{ rash.path }}"
+    transfer_pid_1: true
