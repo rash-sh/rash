@@ -5,7 +5,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 use crate::utils::get_yaml;
-use crate::utils::tera::{is_render_string, render_string};
+use crate::utils::tera::{is_render_string, render_as_json, render_string};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
@@ -155,7 +155,7 @@ impl Task {
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
-                let yaml = get_yaml(&render_string(&s, vars.clone())?)?;
+                let yaml = get_yaml(&render_as_json(&s, vars.clone())?)?;
                 match yaml.as_str() {
                     Some(s) => Ok(vec![s.to_string()]),
                     None => Task::get_iterator(&yaml, vars),
