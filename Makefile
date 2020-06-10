@@ -12,7 +12,7 @@ CARGO_TARGET_DIR ?= target
 help:	## Show this help menu.
 	@echo "Usage: make [TARGET ...]"
 	@echo ""
-	@fgrep -h "##" $(MAKEFILE_LIST) | grep -v fgrep | sed -e 's/\\$$//' | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@@egrep -h "#[#]" $(MAKEFILE_LIST) | sed -e 's/\\$$//' | awk 'BEGIN {FS = "[:=].*?#[#] "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
 build-images:	## build images
