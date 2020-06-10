@@ -25,12 +25,12 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         VERSION=$(cat VERSION)
-        git commit -m "v${VERSION}"
+        git commit -m "release: v${VERSION}"
         git tag "v${VERSION}"
         echo ::set-output name=PUSH::true
     - name: Push changes
       uses: ad-m/github-push-action@master
       with:
-        github_token: ${{ secrets.RASH_BOT_PAT }}
+        github_token: ${{ secrets.PAT_GITHUB }}
         tags: true
       if: ${{ steps.commit.outputs.PUSH }}
