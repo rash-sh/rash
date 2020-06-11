@@ -72,6 +72,14 @@ jobs:
     - name: Run tests
       run: make release
 
+    - name: Publish crates
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      run: |
+        cargo login "${CRATES_IO_TOKEN}"
+        make publish
+
     - name: Publish
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
