@@ -21,6 +21,7 @@
 ///     that:
 ///       - boo is defined
 ///       - 1 + 1 == 2
+///       - env.MY_VAR is defined
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
