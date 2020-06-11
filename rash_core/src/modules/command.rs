@@ -23,7 +23,11 @@
 /// ## Example
 ///
 /// ```yaml
-/// - command: 'echo "Hellow World"'
+/// - command:
+///     argv:
+///       - echo
+///       - "Hellow World"'
+///     transfer_pid_1: true
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
