@@ -5,7 +5,7 @@ version = "1.0.0"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2018"
 license-file = "../LICENSE"
-homepage = "https://github.com/rash-sh/rash"
+homepage = "https://rash.sh"
 repository = "https://github.com/rash-sh/rash"
 readme = "../README.md"
 
