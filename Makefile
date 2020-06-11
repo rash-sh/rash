@@ -34,7 +34,7 @@ test-images: build-images
 	done;
 
 push-images:	## push images
-push-images:
+push-images: build-images
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` &\
 	done; \
@@ -74,8 +74,8 @@ release:	## generate vendor.tar.gz and rash-v${VERSION}-x86_64-unkown-linux-gnu.
 	tar -czf rash-x86_64-unkown-linux-gnu.tar.gz -C $(CARGO_TARGET_DIR)/release rash
 
 publish:	## publish crates
-	@for package in $(shell find * -mindepth 1 -name Cargo.toml -exec dirname {} \;);do \
+	@for package in $(shell find . -mindepth 2 -not -path './vendor/*' -name Cargo.toml -exec dirname {} \; | sort -r);do \
 		cd $$package; \
-		cargo publish;
-		cd -;
+		cargo publish; \
+		cd -; \
 	done;

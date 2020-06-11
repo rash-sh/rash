@@ -48,5 +48,5 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
 
-          VERSION=$VERSION make push-images
+          IMAGE_VERSION=$VERSION make push-images
 

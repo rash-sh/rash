@@ -27,6 +27,7 @@ jobs:
           mdbook-version: '0.3.7'
 
       - run: |
+          make mdbook-rash
           git clone --depth=1 https://github.com/rash-sh/rash-sh.github.io.git ./rash_book/rash-sh.github.io
 
           # Strip git ref prefix from version
