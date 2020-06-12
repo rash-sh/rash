@@ -14,26 +14,13 @@ To start using `rash` you just need a container with entrypoint.
 For install, add `rash` binary to your Dockerfile:
 
 ```dockerfile
-FROM rustagainshell/rash AS rash
-
-FROM base_image
-
-COPY --from=rash /bin/rash /bin
-
-RUN my app things...
-
-COPY entrypoint.rh /
-ENTRYPOINT ["/entrypoint.rh"]
+{{#include ../../examples/envar-api-gateway/Dockerfile}}
 ```
 
-Also, create your first `entrypoint.rh`:
+Also, you must create your first `entrypoint.rh`:
 
 ```yaml
-#!/bin/rash
-
-- command: myapp -u "{{ rash.user.uid }}" -h "{{ env.HOSTNAME }}"
-  # transforms process in pid 1 (similar to `exec` in bash)
-  transfer_pid_1: true
+{{#include ../../examples/envar-api-gateway/entrypoint.rh}}
 ```
 
 ## Syntax
