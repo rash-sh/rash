@@ -1,3 +1,8 @@
+---
+title: Rash Book
+weight: 000
+---
+
 # Rash Book
 
 `rash` solves an optimization problem in the containers ecosystem.

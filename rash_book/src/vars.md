@@ -1,3 +1,8 @@
+---
+title: Vars
+weight: 5000
+---
+
 # Vars <!-- omit in toc -->
 
 The `rash` context has variables associated to use as [Tera](https://tera.netlify.app/) templates.
