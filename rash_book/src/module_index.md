@@ -1,3 +1,8 @@
+---
+title: Module Index
+weight: 4000
+---
+
 # Module Index
 
 {{#include_module {{#include ../../rash_core/src/modules/assert.rs:module}}}}

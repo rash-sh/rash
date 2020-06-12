@@ -64,8 +64,7 @@ mdbook-rash:	## install mdbook_rash to create rash_book
 
 book:	## create rash_book under rash_book/rash-sh.github.io
 book:	mdbook-rash
-	cd rash_book && \
-	MDBOOK_BUILD__BUILD_DIR=rash-sh.github.io/docs/rash/$(VERSION) mdbook build
+	MDBOOK_BUILD__BUILD_DIR=rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book
 
 release:	## generate vendor.tar.gz and rash-v${VERSION}-x86_64-unkown-linux-gnu.tar.gz
 	cargo vendor

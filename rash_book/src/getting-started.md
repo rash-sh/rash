@@ -1,3 +1,8 @@
+---
+title: Getting started
+weight: 2000
+---
+
 # Getting started
 
 Simple YAML declarative shell scripting language based on modules and templates.

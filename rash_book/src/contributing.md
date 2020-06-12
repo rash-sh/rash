@@ -1,3 +1,8 @@
+---
+title: Contributing
+weight: 7000
+---
+
 # Contributing
 
 Anyone can contribute whether you're new to the project or you've been around a long time.

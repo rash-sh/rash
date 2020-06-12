@@ -1,6 +1,6 @@
 # Rash Book
 
-[Rash Book](title-page.md)
+[Rash Book](index.md)
 
 - [Getting Started](getting-started.md)
 - [Tasks](tasks.md)

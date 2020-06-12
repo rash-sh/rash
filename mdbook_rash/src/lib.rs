@@ -8,7 +8,7 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
-pub static SUPPORTED_RENDERER: &[&str] = &["html"];
+pub static SUPPORTED_RENDERER: &[&str] = &["html", "markdown"];
 
 lazy_static! {
     static ref RE: Regex = Regex::new(
@@ -42,8 +42,34 @@ fn get_matches<'a>(ch: &'a Chapter) -> Option<Vec<(Match<'a>, String, String)>> 
 
 fn replace_matches(captures: Vec<(Match, String, String)>, ch: &mut Chapter) {
     for capture in captures.iter() {
-        let new_content = capture.1.clone();
-        let name = new_content.split('\n').next().unwrap().replace("# ", "");
+        let name = capture
+            .1
+            .clone()
+            .split('\n')
+            .next()
+            .unwrap()
+            .replace("# ", "");
+        let mut new_section_number = ch.number.clone().unwrap();
+        new_section_number.push((ch.sub_items.len() + 1) as u32);
+
+        let content_header = if capture.2 == "include_module" {
+            format!(
+                r#"---
+title: {}
+weight: {}
+indent: true
+---
+"#,
+                name,
+                (new_section_number.clone().first().unwrap() + 1) * 1000
+                    + ((ch.sub_items.len() + 1) * 100) as u32
+            )
+            .to_owned()
+        } else {
+            "".to_owned()
+        };
+
+        let new_content = content_header + &capture.1.clone();
         let mut new_ch = Chapter::new(
             &name,
             new_content.clone(),
@@ -51,13 +77,10 @@ fn replace_matches(captures: Vec<(Match, String, String)>, ch: &mut Chapter) {
             vec![ch.name.clone()],
         );
 
-        let mut new_section_number = ch.number.clone().unwrap();
-        new_section_number.push((ch.sub_items.len() + 1) as u32);
         new_ch.number = Some(new_section_number);
         if capture.2 == "include_module" {
             ch.sub_items.push(BookItem::Chapter(new_ch));
         }
-
         info!("Add {}", &name);
         ch.content = RE
             .replace(&ch.content, |caps: &Captures| match &caps[1] {
@@ -66,6 +89,12 @@ fn replace_matches(captures: Vec<(Match, String, String)>, ch: &mut Chapter) {
             })
             .to_string();
     }
+}
+
+fn escape_jekyll(ch: &mut Chapter) {
+    let mut new_content = ch.content.replace("\n---\n", "\n---\n\n{% raw %}");
+    new_content.push_str("{% endraw %}");
+    ch.content = new_content;
 }
 
 pub fn run(_ctx: &PreprocessorContext, book: Book) -> Result<Book, Error> {
@@ -77,6 +106,7 @@ pub fn run(_ctx: &PreprocessorContext, book: Book) -> Result<Book, Error> {
             if let Some(captures) = get_matches(&ch_copy) {
                 replace_matches(captures, ch);
             };
+            escape_jekyll(ch)
         }
     });
 

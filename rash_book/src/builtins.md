@@ -1,3 +1,9 @@
+---
+title: Bultins
+weight: 5100
+indent: true
+---
+
 # Bultins
 
 By default, every execution of `rash` exposes two variables to the Context: `{{ rash }}` and

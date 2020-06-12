@@ -1,3 +1,8 @@
+---
+title: Tasks
+weight: 3000
+---
+
 # Tasks
 
 `tasks` are the main execution unit. They need a module and admit some optional fields described below.
