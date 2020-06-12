@@ -4,7 +4,7 @@ IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
 VERSION ?= master
-DOCKERFILES ?= $(shell find . -name 'Dockerfile*')
+DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*')
 
 CARGO_TARGET_DIR ?= target
 

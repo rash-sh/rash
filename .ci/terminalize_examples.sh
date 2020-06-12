@@ -11,7 +11,7 @@ TMPFILE_PATH=$(mktemp)
 LOCAL_DIR="$(cd "$(dirname "$0")" ; pwd -P)"
 COMMANDS='#!/bin/bash
 function cat () {
-  pygmentize -l yaml+jinja -O full,style=emacs "$@"
+  pygmentize -l yaml+jinja -O full,style=monokai "$@"
 }
 '
 
@@ -23,7 +23,7 @@ clean_up()
     rm -rf "$TMPFILE_PATH*"
 }
 
-build_terminalizer_text()
+build_terminalizer_text_from_examples()
 {
   while IFS= read -r -d '' FILE; do
     for COMMAND in "cat $FILE" "$FILE"; do
@@ -41,6 +41,40 @@ clear \n\
 
   COMMANDS+="sleep 4;echo 'try it! :)' | pv -qL $((7));sleep 4"
 
+  echo -e "$COMMANDS" > "$TMPFILE_PATH"
+  chmod +x "$TMPFILE_PATH"
+}
+
+build_terminalizer_text()
+{
+  COMMANDS+="\n\
+clear \n\
+echo cd examples/envar-api-gateway | pv -qL $((7+(-2 + RANDOM%5))) \n\
+cd examples/envar-api-gateway \n\
+echo cat Dockerfile | pv -qL $((7+(-2 + RANDOM%5))) \n\
+cat Dockerfile \n\
+sleep 4 \n\
+echo cat entrypoint.rh | pv -qL $((7+(-2 + RANDOM%5))) \n\
+cat entrypoint.rh \n\
+sleep 8 \n\
+echo docker build -t envar-api-gateway . | pv -qL $((7+(-2 + RANDOM%5))) \n\
+docker build -t envar-api-gateway . \n\
+echo docker run -e DOMAINS=rash.sh,buildpacks.io '\\ \n'-p 80:80 envar-api-gateway \& | pv -qL $((10+(-2 + RANDOM%5))) \n\
+docker run -e DOMAINS=rash.sh,buildpacks.io -p 80:80 --rm envar-api-gateway & \n\
+sleep 6 \n\
+clear \n\
+echo curl -so /dev/null 127.0.0.1/rash | pv -qL $((7+(-2 + RANDOM%5))) \n\
+curl -so /dev/null 127.0.0.1/rash -w 'http_code: %{http_code}\nlocation:  %{redirect_url}\n' \n\
+sleep 4 \n\
+clear \n\
+echo curl -so /dev/null 127.0.0.1/buildpacks | pv -qL $((10+(-2 + RANDOM%5))) \n\
+curl -so /dev/null 127.0.0.1/buildpacks -w 'http_code: %{http_code}\nlocation:  %{redirect_url}\n' \n\
+sleep 4 \n\
+clear \n\
+echo try it! | pv -qL $((7+(-2 + RANDOM%5))) \n\
+sleep 2 \n\
+clear \n\
+"
   echo -e "$COMMANDS" > "$TMPFILE_PATH"
   chmod +x "$TMPFILE_PATH"
 }

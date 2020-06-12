@@ -1,0 +1,19 @@
+#!/bin/rash
+- copy:
+    content: |
+      server {
+        listen       80;
+
+        {% for domain in env.DOMAINS | split(pat=',') -%}
+        {% set path = domain | split(pat='.') | first -%}
+        location /{{ path }} {
+            rewrite /{{ path }}[/]?(.*) /$1 break;
+            proxy_pass http://{{ domain }};
+        }
+        {% endfor %}
+      }
+    dest: /etc/nginx/conf.d/default.conf
+
+- command:
+    argv: [nginx, '-g', 'daemon off;']
+    transfer_pid_1: true
