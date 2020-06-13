@@ -13,7 +13,7 @@ Declarative shell scripting using Rust native bindings inspired in [Ansible](htt
 
 ## Getting Started & Documentation
 
-[Quickstart](rash_book/src/getting-started.md)
+For installation and usage, see our [Documentation]([rash_book/src/getting-started.md](https://rash.sh/docs/rash/master/getting-started.html#quickstart)).
 
 ## Why Rash
 
@@ -68,13 +68,13 @@ Declarative: `entrypoint.rh`
 - name: Verify input parameters
   assert:
     that:
-      - VAULT_URL is defined
-      - VAULT_ROLE_ID is defined
-      - VAULT_SECRET_ID is defined
-      - VAULT_SECRET_PATH is defined
+      - env.VAULT_URL is defined
+      - env.VAULT_ROLE_ID is defined
+      - env.VAULT_SECRET_ID is defined
+      - env.VAULT_SECRET_PATH is defined
 
 - name: launch docker CMD
-  command: {{ input.args }}
+  command: {{ rash.argv }}
   transfer_pid_1: yes
   env:
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
@@ -89,14 +89,6 @@ You can use it in your favorite IoT chips running Linux or in containers from sc
 ## Status
 
 Currently, **Under heavy development**.
-
-The full working functionality is shown in the following gif, don't expect more (or less):
-
-![Examples](https://media.giphy.com/media/kIREOtWgwjSgo7l82b/giphy.gif)
-
-[Tera](https://tera.netlify.app/docs/#templates) template engine support.
-
-Current [modules](./rash_core/src/modules/)
 
 ## Who is using `rash`
 
