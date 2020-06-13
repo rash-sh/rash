@@ -13,7 +13,7 @@ Declarative shell scripting using Rust native bindings inspired in [Ansible](htt
 
 ## Getting Started & Documentation
 
-For installation and usage, see our [Documentation]([rash_book/src/getting-started.md](https://rash.sh/docs/rash/master/getting-started.html#quickstart)).
+For installation and usage, see our [Documentation](https://rash.sh/docs/rash/master/getting-started.html#quickstart).
 
 ## Why Rash
 
