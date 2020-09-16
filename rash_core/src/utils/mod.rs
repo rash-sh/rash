@@ -7,9 +7,9 @@ use yaml_rust::{Yaml, YamlLoader};
 
 pub fn parse_octal(s: &str) -> Result<u32> {
     match s.len() {
-        3 => u32::from_str_radix(&s, 8).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e))),
+        3 => u32::from_str_radix(&s, 8).map_err(|e| Error::new(ErrorKind::InvalidData, e)),
         4 => u32::from_str_radix(s.get(1..).unwrap(), 8)
-            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e))),
+            .map_err(|e| Error::new(ErrorKind::InvalidData, e)),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
             format!("{} cannot be parsed to octal", s),
@@ -18,8 +18,7 @@ pub fn parse_octal(s: &str) -> Result<u32> {
 }
 
 pub fn get_yaml(s: &str) -> Result<Yaml> {
-    let doc =
-        YamlLoader::load_from_str(&s).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+    let doc = YamlLoader::load_from_str(&s).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     Ok(doc.first().unwrap().clone())
 }
 
