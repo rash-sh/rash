@@ -37,7 +37,7 @@ pub fn load(envars: Vec<(String, String)>) -> Result<Vars> {
     trace!("{:?}", envars);
     envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
     Ok(Context::from_serialize(&Env::from(env::vars()))
-        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?)
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?)
 }
 
 #[cfg(test)]

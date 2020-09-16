@@ -64,10 +64,10 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
 fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     let mut tera = Tera::default();
     tera.add_template_file(Path::new(&params.src), None)
-        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     Ok(CopyParams::new(
         tera.render(&params.src, &vars)
-            .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?,
+            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
         params.dest.clone(),
         params.mode,
     ))

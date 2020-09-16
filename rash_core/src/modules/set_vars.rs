@@ -42,16 +42,16 @@ pub fn exec(params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
                 format!("{:?} must be a dict", &params),
             )
         })
-        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
         .iter()
         .map(|hash_map| {
             let mut yaml_str = String::new();
             let mut emitter = YamlEmitter::new(&mut yaml_str);
             emitter
                 .dump(hash_map.1)
-                .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
             let yaml: Value = serde_yaml::from_str(&yaml_str)
-                .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
             new_vars.insert(
                 hash_map.0.as_str().ok_or_else(|| {

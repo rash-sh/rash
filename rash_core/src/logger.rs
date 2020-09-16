@@ -74,7 +74,7 @@ pub fn setup_logging(verbosity: u8) -> Result<()> {
     base_config
         .chain(stdout_config)
         .apply()
-        .or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
     Ok(())
 }

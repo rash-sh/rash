@@ -102,7 +102,7 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
             // safe unwrap: verify in parse_params
             .args(vec!["-c", &params.cmd.unwrap()])
             .output()
-            .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
     } else {
         // safe unwrap: verify in parse_params
         let argv = params.argv.unwrap();
@@ -114,18 +114,18 @@ pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
         Command::new(program)
             .args(args)
             .output()
-            .or_else(|e| Err(Error::new(ErrorKind::SubprocessFail, e)))?
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
     };
 
     trace!("exec - output: {:?}", output);
     let stderr =
-        String::from_utf8(output.stderr).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+        String::from_utf8(output.stderr).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
     if !output.status.success() {
         return Err(Error::new(ErrorKind::InvalidData, stderr));
     }
     let output_string =
-        String::from_utf8(output.stdout).or_else(|e| Err(Error::new(ErrorKind::InvalidData, e)))?;
+        String::from_utf8(output.stdout).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
     let module_output = if output_string.is_empty() {
         None
