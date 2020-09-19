@@ -24,8 +24,12 @@ build-images:
 	done; \
 	wait
 
+qemu-arm:
+qemu-arm: 	## Prepare qemu to run arm images on x86
+	@docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
 test-images:	## test images
-test-images: build-images
+test-images: qemu-arm build-images
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker run \
 			-v $(shell pwd)/test:/test:ro \
