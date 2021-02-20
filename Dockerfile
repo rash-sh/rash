@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ekidd/rust-musl-builder:1.46.0
+ARG BASE_IMAGE=ekidd/rust-musl-builder:1.50.0
 FROM ${BASE_IMAGE} AS builder
 LABEL mantainer pando855@gmail.com
 
