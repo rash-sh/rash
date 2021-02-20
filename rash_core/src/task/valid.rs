@@ -69,7 +69,7 @@ impl TaskValid {
                 Some(self.attrs["loop"].clone())
             },
             module: MODULES
-                .get::<str>(&module_name)
+                .get::<str>(module_name)
                 .ok_or_else(|| {
                     Error::new(
                         ErrorKind::NotFound,

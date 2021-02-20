@@ -51,7 +51,7 @@ mod tests {
 
         let _ = match context_error.kind() {
             ErrorKind::EmptyTaskStack => (),
-            _ => panic!(context_error),
+            _ => panic!("{}", context_error),
         };
     }
 }
