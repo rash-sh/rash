@@ -24,7 +24,7 @@ lazy_static! {
     .unwrap();
 }
 
-fn get_matches<'a>(ch: &'a Chapter) -> Option<Vec<(Match<'a>, String, String)>> {
+fn get_matches(ch: &Chapter) -> Option<Vec<(Match, String, String)>> {
     RE.captures_iter(&ch.content)
         .map(|cap| match (cap.get(0), cap.get(1), cap.get(2)) {
             (Some(origin), Some(typ), Some(rest)) => match (typ.as_str(), rest.as_str()) {
