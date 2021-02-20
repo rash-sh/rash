@@ -49,7 +49,7 @@ fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
         .that
         .iter()
         .map(|expression| {
-            if is_render_string(&expression, vars.clone())? {
+            if is_render_string(expression, vars.clone())? {
                 Ok(true)
             } else {
                 Err(Error::new(

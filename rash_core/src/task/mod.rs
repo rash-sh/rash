@@ -128,7 +128,7 @@ impl Task {
 
     fn is_exec(&self, vars: Vars) -> Result<bool> {
         match &self.when {
-            Some(s) => is_render_string(&s, vars),
+            Some(s) => is_render_string(s, vars),
             None => Ok(true),
         }
     }
@@ -155,7 +155,7 @@ impl Task {
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
-                let yaml = get_yaml(&render_as_json(&s, vars.clone())?)?;
+                let yaml = get_yaml(&render_as_json(s, vars.clone())?)?;
                 match yaml.as_str() {
                     Some(s) => Ok(vec![s.to_string()]),
                     None => Task::get_iterator(&yaml, vars),
