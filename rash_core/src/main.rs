@@ -8,7 +8,7 @@ use rash_core::vars::env;
 use std::path::Path;
 use std::process::exit;
 
-use clap::{crate_description, crate_version, Parser};
+use clap::{crate_authors, crate_description, crate_version, Parser};
 
 #[macro_use]
 extern crate log;
@@ -32,7 +32,7 @@ where
     name="rash",
     about = crate_description!(),
     version = crate_version!(),
-    author = "Alexander Gil <pando855@gmail.com>",
+    author = crate_authors!("\n"),
 )]
 struct Opts {
     /// Script file to be executed
