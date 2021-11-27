@@ -8,18 +8,18 @@ use rash_core::vars::env;
 use std::path::Path;
 use std::process::exit;
 
-use clap::{crate_description, crate_version, Clap};
+use clap::{crate_description, crate_version, Parser};
 
 #[macro_use]
 extern crate log;
 
 /// Parse a single KEY=VALUE pair
-fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error>>
+fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync>>
 where
     T: std::str::FromStr,
-    T::Err: std::error::Error + 'static,
+    T::Err: std::error::Error + 'static + Send + Sync,
     U: std::str::FromStr,
-    U::Err: std::error::Error + 'static,
+    U::Err: std::error::Error + 'static + Send + Sync,
 {
     let pos = s
         .find('=')
@@ -27,7 +27,7 @@ where
     Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(
     name="rash",
     about = crate_description!(),
@@ -41,10 +41,10 @@ struct Opts {
     #[clap(short, long, parse(from_occurrences))]
     verbose: u8,
     /// Set environment variables (Example: KEY=VALUE)
-    #[clap(short, long, parse(try_from_str = parse_key_val), number_of_values = 1)]
+    #[clap(short, long, multiple_occurrences = true, parse(try_from_str = parse_key_val), number_of_values = 1)]
     environment: Vec<(String, String)>,
     /// Additional args to be accessible from builtin `{{ rash.args }}` as list of strings
-    #[clap(multiple = true, takes_value = true, number_of_values = 1)]
+    #[clap(multiple_occurrences = true, takes_value = true, number_of_values = 1)]
     _args: Vec<String>,
 }
 
