@@ -80,7 +80,7 @@ questions: what changed and why. The subject line should feature the what and
 the body of the commit should describe the why.
 
 ```text
-doc: add issue templates
+doc: Add issue templates
 
 I thought it would be nice to have templates for issues. This way, bug reports
 or new requests have a normalized pattern and they'll become easier to process.

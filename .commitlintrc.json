@@ -21,6 +21,11 @@
         "vars"
       ]
     ],
+    "subject-case": [
+      2,
+      "always",
+      ["sentence-case"]
+    ],
     "body-leading-blank": [
       2,
       "always"
