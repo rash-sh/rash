@@ -69,7 +69,7 @@ jobs:
         sudo cp target/debug/rash /bin/rash
         for example in $(find examples -not -path 'examples/envar-api-gateway/*' -name '*.rh'); do echo $example; $example || exit 1;done
 
-    - name: Run tests
+    - name: Build release
       run: make release
 
     - name: Publish crates
