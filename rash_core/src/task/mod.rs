@@ -200,14 +200,10 @@ impl Task {
                                         info!(target: "ignoring", "{}", e);
                                         Ok((ModuleResult::new(false, None, None), exec_vars))
                                     } else {
-                                        error!("{}", e);
                                         Err(e)
                                     }
                                 }
-                                None => {
-                                    error!("{}", e);
-                                    Err(e)
-                                }
+                                None => Err(e),
                             },
                         }
                     })
@@ -241,14 +237,10 @@ impl Task {
                                     info!(target: "ignoring", "{}", e);
                                     Ok((ModuleResult::new(false, None, None), vars))
                                 } else {
-                                    error!("{}", e);
                                     Err(e)
                                 }
                             }
-                            None => {
-                                error!("{}", e);
-                                Err(e)
-                            }
+                            None => Err(e),
                         },
                     }?;
                 Ok((json!(result), new_vars))
