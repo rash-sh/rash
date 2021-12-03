@@ -24,7 +24,7 @@
     "subject-case": [
       2,
       "always",
-      ["sentence-case"]
+      ["sentence-case", "lower-case"]
     ],
     "body-leading-blank": [
       2,
