@@ -40,7 +40,6 @@ struct Custom {
 ///
 /// [`error::Error`]: struct.Error.html
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[allow(deprecated)]
 #[non_exhaustive]
 pub enum ErrorKind {
     /// An entity was not found, often a module.
@@ -352,22 +351,6 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
-    #[allow(deprecated, deprecated_in_future)]
-    fn description(&self) -> &str {
-        match self.repr {
-            Repr::Simple(..) => self.kind().as_str(),
-            Repr::Custom(ref c) => c.error.description(),
-        }
-    }
-
-    #[allow(deprecated)]
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match self.repr {
-            Repr::Simple(..) => None,
-            Repr::Custom(ref c) => c.error.cause(),
-        }
-    }
-
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self.repr {
             Repr::Simple(..) => None,
