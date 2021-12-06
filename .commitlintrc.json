@@ -16,7 +16,7 @@
         "tera",
         "lookup",
         "module",
-	      "release",
+        "release",
         "task",
         "vars"
       ]

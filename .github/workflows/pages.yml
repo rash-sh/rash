@@ -28,12 +28,18 @@ jobs:
 
       - run: |
           make mdbook-rash
-          git clone --depth=1 https://github.com/rash-sh/rash-sh.github.io.git ./rash_book/rash-sh.github.io
+
+          GH_PAGES_DIR=./rash_book/rash-sh.github.io
+          git clone --depth=1 https://github.com/rash-sh/rash-sh.github.io.git $GH_PAGES_DIR
 
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
 
           VERSION=$VERSION make book
+
+          # update _data/projects.json
+          cd $GH_PAGES_DIR
+          make _data/projects.json
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
