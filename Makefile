@@ -20,9 +20,8 @@ build-images:
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker build -f $$DOCKERFILE \
 			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
-			. &\
-	done; \
-	wait
+			.; \
+	done;
 
 test-images:	## test images
 test-images: build-images
@@ -36,9 +35,8 @@ test-images: build-images
 push-images:	## push images
 push-images: build-images
 	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` &\
-	done; \
-	wait
+		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'`;\
+	done;
 
 update-version: ## update version from VERSION file in all Cargo.toml manifests
 update-version: */Cargo.toml
