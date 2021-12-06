@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ekidd/rust-musl-builder:1.57.0
+ARG BASE_IMAGE=quickwit/cross-base:x86_64-unknown-linux-musl
 FROM ${BASE_IMAGE} AS builder
 LABEL mantainer pando855@gmail.com
 
