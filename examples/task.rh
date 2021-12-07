@@ -1,4 +1,4 @@
-#!/bin/rash
+#!/usr/bin/env rash
 
 - name: this must be ignored
   assert:

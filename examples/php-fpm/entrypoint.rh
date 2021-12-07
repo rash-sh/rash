@@ -1,4 +1,4 @@
-#!/bin/rash
+#!/usr/bin/env rash
 #
 # based on https://github.com/dcarrillo/docker-phpfpm
 #

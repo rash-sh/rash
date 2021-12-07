@@ -1,4 +1,4 @@
-#!/bin/rash
+#!/usr/bin/env rash
 
 - assert:
     that:
@@ -19,7 +19,8 @@
 - name: last command must send with transfer_pid_1 to let it as PID 1
   command:
     argv:
-      - /bin/rash
+      - /usr/bin/env
+      - rash
       - -eMY_PASSWORD=supersecret
       - -eTITLE=finish execution
       - "{{ rash.path }}"
