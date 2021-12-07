@@ -2,7 +2,8 @@ DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*')
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
-PKG_BASE_NAME ?= rash-x86_64-unkown-linux-gnu
+CARGO_TARGET ?= x86_64-unknown-linux-gnu
+PKG_BASE_NAME ?= rash-${CARGO_TARGET}
 VERSION ?= master
 
 CARGO_TARGET_DIR ?= target
@@ -80,12 +81,12 @@ tag:	## create a tag using version from VERSION file
 	git push origin v$${PROJECT_VERSION}
 
 .PHONY: release
-release:	## generate vendor.tar.gz and rash-v${VERSION}-x86_64-unkown-linux-gnu.tar.gz
+release:	## generate vendor.tar.gz and $(PKG_BASE_NAME).tar.gz
 	cargo vendor
 	tar -czf vendor.tar.gz vendor
-	cargo build --frozen --release --all-features
-	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/release timer
-	@echo Released in $(CARGO_TARGET_DIR)/release/timer
+	cargo build --frozen --release --all-features --target ${CARGO_TARGET}
+	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash
+	@echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash
 
 .PHONY: publish
 publish:	## publish crates

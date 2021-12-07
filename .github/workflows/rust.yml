@@ -91,7 +91,8 @@ jobs:
       id: package
       shell: bash
       run: |
-        export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${{ matrix.job.target }}
+        export CARGO_TARGET=${{ matrix.job.target }}
+        export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${CARGO_TARGET}
         make release
         echo "::set-output name=PKG_BASE_NAME::${PKG_BASE_NAME}"
 
