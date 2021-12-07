@@ -1,0 +1,13 @@
+#!/usr/bin/env rash
+
+- assert:
+    that:
+      - "env.PROJECT_NAME is defined"
+      - "env.PROJECT_VERSION is defined"
+      - "env.PROJECT_DESCRIPTION is defined"
+      - "env.PROJECT_HOMEPAGE is defined"
+
+- name: Create PKGBUILD
+  template:
+    src: "{{ rash.dir }}/PKGBUILD.j2"
+    dest: PKGBUILD
