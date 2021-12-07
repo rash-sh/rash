@@ -1,4 +1,4 @@
-#!/bin/rash
+#!/usr/bin/env rash
 
 - command: ls examples
   register: ls_result
