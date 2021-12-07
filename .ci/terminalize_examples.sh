@@ -1,5 +1,4 @@
 #!/bin/bash
-# usage: ./ci/demo.sh [output-file]
 # requirements:
 #   - pv
 #   - terminalizer
@@ -133,7 +132,7 @@ build_terminalizer_text
 
 build_terminalizer_config
 
-TERMINALIZE_FILE=$(mktemp)
+TERMINALIZE_FILE=$(mktemp).yml
 GIF_FILE=${TERMINALIZE_FILE}.gif
 terminalizer record -k -c "${CONFIG_PATH}" ${TERMINALIZE_FILE}
 terminalizer render ${TERMINALIZE_FILE} -q 100 -o ${GIF_FILE}

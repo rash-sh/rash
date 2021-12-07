@@ -46,22 +46,34 @@ jobs:
           args: --all-features
 
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { target: x86_64-apple-darwin, os: macos-10.15}
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, container: quay.io/pypa/manylinux2014_x86_64}
+    name: ${{ matrix.job.target }} (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
+    # Use a container with GLIBC 2.17, make build compatible until that version
+    container: ${{ matrix.job.container }}
     steps:
     - uses: actions/checkout@v2
 
-    - uses: actions/cache@v2
+    - uses: Swatinem/rust-cache@v1
+
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
       with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        toolchain: stable
+        target: ${{ matrix.job.target }}
+        override: true
 
     - name: Build
+      shell: bash
       run: cargo build --verbose
 
     - name: Run tests
+      shell: bash
       run: cargo test --verbose
 
     - name: Run examples
@@ -69,13 +81,25 @@ jobs:
         sudo cp target/debug/rash /bin/rash
         for example in $(find examples -not -path 'examples/envar-api-gateway/*' -name '*.rh'); do echo $example; $example || exit 1;done
 
-    - name: Build release
-      run: make release
+    - name: Extract crate information
+      shell: bash
+      run: |
+        echo "PROJECT_NAME=rash" >> $GITHUB_ENV
+        echo "PROJECT_VERSION=$(cat VERSION)" >> $GITHUB_ENV
+
+    - name: Make release
+      id: package
+      shell: bash
+      run: |
+        export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${{ matrix.job.target }}
+        make release
+        echo "::set-output name=PKG_BASE_NAME::${PKG_BASE_NAME}"
 
     - name: Publish crates
       if: startsWith(github.ref, 'refs/tags/')
       env:
         CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      shell: bash
       run: |
         cargo login "${CRATES_IO_TOKEN}"
         make publish
@@ -85,7 +109,7 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       with:
           files: |
-            rash-x86_64-unkown-linux-gnu.tar.gz
+            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
             vendor.tar.gz
           prerelease: false
       env:
