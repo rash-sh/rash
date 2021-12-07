@@ -11,4 +11,5 @@
 # release
 vendor
 vendor.tar.gz
-rash-x86_64-unkown-linux-gnu.tar.gz
+rash-*.tar.gz
+PKGBUILD
