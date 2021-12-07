@@ -69,7 +69,7 @@ book:	mdbook-rash
 release:	## generate vendor.tar.gz and rash-v${VERSION}-x86_64-unkown-linux-gnu.tar.gz
 	cargo vendor
 	tar -czf vendor.tar.gz vendor
-	cargo build --release
+	cargo build --frozen --release --all-features
 	tar -czf rash-x86_64-unkown-linux-gnu.tar.gz -C $(CARGO_TARGET_DIR)/release rash
 
 publish:	## publish crates
