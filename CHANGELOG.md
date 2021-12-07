@@ -1,5 +1,13 @@
 # rash changes
 
+## [v1.0.2](https://github.com/rash-sh/rash/tree/v1.0.2) (2021-12-07)
+
+### Added
+
+* Add AUR packages automatic build and publish
+* Release with signed tags
+* Add releases binaries with Linux Glib >= 2.17 support and macOS
+
 ## [v1.0.1](https://github.com/rash-sh/rash/tree/v1.0.1) (2021-12-03)
 
 ### Bug fixes
