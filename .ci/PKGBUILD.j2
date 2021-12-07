@@ -2,7 +2,7 @@
 
 pkgname={{ env.PROJECT_NAME }}
 pkgver={{ env.PROJECT_VERSION }}
-pkgrel=1
+pkgrel=4
 pkgdesc="{{ env.PROJECT_DESCRIPTION }}"
 arch=('i686' 'x86_64' 'armv6h' 'armv7h' 'aarch64')
 url="{{ env.PROJECT_HOMEPAGE }}"
@@ -34,5 +34,5 @@ check() {
 
 package() {
     cd "$srcdir/$pkgname"
-    install -Dm0755 -t "$pkgdir/bin/" "target/release/$pkgname"
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$pkgname"
 }
