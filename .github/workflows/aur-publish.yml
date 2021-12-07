@@ -1,0 +1,43 @@
+name: aur-publish
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  aur-publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Extract crate information
+      shell: bash
+      run: |
+        echo "PROJECT_NAME=rash" >> $GITHUB_ENV
+        echo "PROJECT_VERSION=$(cat VERSION)" >> $GITHUB_ENV
+        echo "PROJECT_DESCRIPTION=$(sed -n 's/^description = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
+        echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
+
+    - name: Create PKGBUILD
+      shell: bash
+      run: |
+        curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
+          | grep browser_download_url \
+          | grep x86_64 \
+          | grep linux \
+          | cut -d '"' -f 4 \
+          | xargs curl -L \
+          | tar xvz -C /usr/local/bin
+        .ci/generate-pkgbuild.rh
+
+    - name: Publish AUR package
+      uses: KSXGitHub/github-actions-deploy-aur@v2.2.5
+      with:
+        pkgname: timer-rs
+        pkgbuild: ./PKGBUILD
+        commit_username: ${{ secrets.AUR_USERNAME }}
+        commit_email: ${{ secrets.AUR_EMAIL }}
+        ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        commit_message: Update AUR package to version ${{ env.PROJECT_VERSION }}
+        ssh_keyscan_types: rsa,ed25519
