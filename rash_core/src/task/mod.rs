@@ -37,7 +37,7 @@ pub struct Task {
     name: Option<String>,
     /// Template expression passed directly without {{ }}; if false skip task execution.
     when: Option<String>,
-    /// Variable name to store [`ModuleOutput`].
+    /// Variable name to store [`ModuleResult`].
     ///
     /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
     register: Option<String>,
