@@ -17,7 +17,7 @@ pub fn make_app() -> App<'static, 'static> {
     App::new("mdbook-rash")
         .about(crate_description!())
         .version(crate_version!())
-        .author("Alexander Gil <pando855@gmail.com>")
+        .author("Pando85 <pando855@gmail.com>")
         .subcommand(
             SubCommand::with_name("supports")
                 .arg(Arg::with_name("renderer").required(true))

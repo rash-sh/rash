@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "rash_core",
+    "rash_derive",
     "mdbook_rash",
 ]
 
