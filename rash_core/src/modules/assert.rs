@@ -25,8 +25,7 @@
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::ModuleResult;
-use crate::utils::get_string;
+use crate::modules::{parse_params, ModuleResult};
 use crate::utils::tera::is_render_string;
 use crate::vars::Vars;
 
@@ -36,11 +35,6 @@ use yaml_rust::Yaml;
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Params {
     that: Vec<String>,
-}
-
-fn parse_params(yaml: Yaml) -> Result<Params> {
-    trace!("parse params: {:?}", yaml);
-    serde_yaml::from_str(&get_string(yaml)?).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
@@ -90,7 +84,7 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
