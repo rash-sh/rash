@@ -11,7 +11,7 @@ readme = "../README.md"
 
 [[bin]]
 name = "mdbook-rash"
-path = "src/main.rs"
+path = "src/bin/mdbook-rash.rs"
 doc = false
 
 [dependencies]
