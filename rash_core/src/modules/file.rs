@@ -36,7 +36,7 @@
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{get_param, ModuleResult};
+use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
 
@@ -45,51 +45,26 @@ use std::fs::{
 };
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::str::FromStr;
 
+use serde::Deserialize;
+// Future use in doc for JsonSchema
 use strum_macros::{Display, EnumString};
 use yaml_rust::Yaml;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize)]
 struct Params {
     mode: Option<String>,
     path: String,
     state: Option<State>,
 }
 
-#[derive(Debug, PartialEq, EnumString, Display)]
-#[strum(serialize_all = "lowercase")]
+#[derive(Debug, PartialEq, EnumString, Display, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum State {
     Absent,
     Directory,
     File,
     Touch,
-}
-
-fn parse_params(yaml: Yaml) -> Result<Params> {
-    trace!("parse params: {:?}", yaml);
-    Ok(Params {
-        path: get_param(&yaml, "path")?,
-        mode: match get_param(&yaml, "mode")
-            .or_else(|e| match e.kind() {
-                ErrorKind::NotFound => Ok("None".to_string()),
-                _ => Err(e),
-            })?
-            .as_ref()
-        {
-            "None" => None,
-            s => Some(s.to_string()),
-        },
-        state: State::from_str(
-            get_param(&yaml, "state")
-                .or_else(|e| match e.kind() {
-                    ErrorKind::NotFound => Ok("This will be None".to_string()),
-                    _ => Err(e),
-                })?
-                .as_ref(),
-        )
-        .ok(),
-    })
 }
 
 fn fail_if_not_exist(params: Params) -> Result<ModuleResult> {
@@ -317,7 +292,7 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
@@ -340,8 +315,8 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let error = parse_params(yaml).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::NotFound);
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
@@ -356,7 +331,7 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
@@ -371,7 +346,8 @@ mod tests {
     fn test_parse_params_invalid_mode() {
         let yaml = YamlLoader::load_from_str(
             r#"
-            mode: 0600
+            mode:
+              yea: boo
             path: foo
             state: directory
         "#,
@@ -380,7 +356,7 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let error = parse_params(yaml).unwrap_err();
+        let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
@@ -395,7 +371,7 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {

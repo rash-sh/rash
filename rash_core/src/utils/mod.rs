@@ -1,9 +1,8 @@
-pub mod file;
 pub mod tera;
 
 use crate::error::{Error, ErrorKind, Result};
 
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 pub fn parse_octal(s: &str) -> Result<u32> {
     match s.len() {
@@ -20,6 +19,15 @@ pub fn parse_octal(s: &str) -> Result<u32> {
 pub fn get_yaml(s: &str) -> Result<Yaml> {
     let doc = YamlLoader::load_from_str(s).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     Ok(doc.first().unwrap().clone())
+}
+
+pub fn get_string(yaml: Yaml) -> Result<String> {
+    let mut yaml_str = String::new();
+    let mut emitter = YamlEmitter::new(&mut yaml_str);
+    emitter
+        .dump(&yaml)
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    Ok(yaml_str)
 }
 
 #[cfg(test)]
@@ -40,5 +48,29 @@ mod tests {
     fn test_get_yaml() {
         let yaml = get_yaml(&"foo: boo").unwrap();
         assert_eq!(yaml["foo"].as_str().unwrap(), "boo")
+    }
+
+    #[test]
+    fn test_get_string() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+            path: /yea
+            state: file
+            mode: "0644"
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let yaml_string = get_string(yaml).unwrap();
+        assert_eq!(
+            yaml_string,
+            r#"---
+path: /yea
+state: file
+mode: "0644""#
+                .to_string()
+        )
     }
 }

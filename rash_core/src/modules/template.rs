@@ -32,33 +32,20 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::copy::copy_file;
 use crate::modules::copy::Params as CopyParams;
-use crate::modules::{get_param, ModuleResult};
-use crate::utils::parse_octal;
+use crate::modules::{parse_params, ModuleResult};
 use crate::vars::Vars;
 
 use std::path::Path;
 
+use serde::Deserialize;
 use tera::Tera;
 use yaml_rust::Yaml;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize)]
 struct Params {
     src: String,
     dest: String,
-    mode: u32,
-}
-
-fn parse_params(yaml: Yaml) -> Result<Params> {
-    trace!("parse params: {:?}", yaml);
-    let mode_string = get_param(&yaml, "mode").or_else(|e| match e.kind() {
-        ErrorKind::NotFound => Ok("0644".to_string()),
-        _ => Err(e),
-    })?;
-    Ok(Params {
-        src: get_param(&yaml, "src")?,
-        dest: get_param(&yaml, "dest")?,
-        mode: parse_octal(&mode_string)?,
-    })
+    mode: Option<String>,
 }
 
 fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
@@ -108,13 +95,13 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
                 src: "/tmp/foo.j2".to_string(),
                 dest: "/tmp/buu.txt".to_string(),
-                mode: 0o600,
+                mode: Some("0600".to_string()),
             }
         );
     }
@@ -123,7 +110,7 @@ mod tests {
     fn test_parse_params_mode_int() {
         let yaml = YamlLoader::load_from_str(
             r#"
-        content: "boo"
+        src: "/tmp/foo.j2"
         dest: "/tmp/buu.txt"
         mode: 0600
         "#,
@@ -132,8 +119,15 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let error = parse_params(yaml).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(
+            params,
+            Params {
+                src: "/tmp/foo.j2".to_string(),
+                dest: "/tmp/buu.txt".to_string(),
+                mode: Some("600".to_string()),
+            }
+        );
     }
 
     #[test]
@@ -148,13 +142,13 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
                 src: "/tmp/boo.j2".to_string(),
                 dest: "/tmp/buu.txt".to_string(),
-                mode: 0o644,
+                mode: None,
             }
         );
     }
@@ -174,7 +168,7 @@ mod tests {
             Params {
                 src: file_path.to_str().unwrap().to_owned(),
                 dest: "/tmp/buu.txt".to_string(),
-                mode: 0o644,
+                mode: Some("0644".to_string()),
             },
             vars,
         )

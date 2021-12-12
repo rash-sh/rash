@@ -28,8 +28,8 @@
 ///     mode: "0400"
 /// ```
 /// ANCHOR_END: module
-use crate::error::{ErrorKind, Result};
-use crate::modules::{get_param, ModuleResult};
+use crate::error::Result;
+use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
 
@@ -39,17 +39,18 @@ use std::io::SeekFrom;
 use std::io::{BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 
+use serde::Deserialize;
 use yaml_rust::Yaml;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct Params {
     content: String,
     dest: String,
-    mode: u32,
+    mode: Option<String>,
 }
 
 impl Params {
-    pub fn new(content: String, dest: String, mode: u32) -> Self {
+    pub fn new(content: String, dest: String, mode: Option<String>) -> Self {
         Params {
             content,
             dest,
@@ -61,19 +62,6 @@ impl Params {
     pub fn get_content(&self) -> String {
         self.content.clone()
     }
-}
-
-fn parse_params(yaml: Yaml) -> Result<Params> {
-    trace!("parse params: {:?}", yaml);
-    let mode_string = get_param(&yaml, "mode").or_else(|e| match e.kind() {
-        ErrorKind::NotFound => Ok("0644".to_string()),
-        _ => Err(e),
-    })?;
-    Ok(Params {
-        content: get_param(&yaml, "content")?,
-        dest: get_param(&yaml, "dest")?,
-        mode: parse_octal(&mode_string)?,
-    })
 }
 
 pub fn copy_file(params: Params) -> Result<ModuleResult> {
@@ -114,10 +102,15 @@ pub fn copy_file(params: Params) -> Result<ModuleResult> {
         changed = true;
     };
 
+    let mode = match params.mode {
+        Some(s) => parse_octal(&s)?,
+        None => parse_octal("0644")?,
+    };
+
     // & 0o7777 to remove lead 100: 100644 -> 644
-    if permissions.mode() & 0o7777 != params.mode {
-        trace!("changing mode: {:o}", &params.mode);
-        permissions.set_mode(params.mode);
+    if permissions.mode() & 0o7777 != mode {
+        trace!("changing mode: {:o}", &mode);
+        permissions.set_mode(mode);
         set_permissions(&params.dest, permissions)?;
         changed = true;
     };
@@ -157,13 +150,13 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
                 content: "boo".to_string(),
                 dest: "/tmp/buu.txt".to_string(),
-                mode: 0o600,
+                mode: Some("0600".to_string()),
             }
         );
     }
@@ -181,8 +174,15 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let error = parse_params(yaml).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(
+            params,
+            Params {
+                content: "boo".to_string(),
+                dest: "/tmp/buu.txt".to_string(),
+                mode: Some("600".to_string()),
+            }
+        );
     }
 
     #[test]
@@ -197,13 +197,13 @@ mod tests {
         .first()
         .unwrap()
         .clone();
-        let params = parse_params(yaml).unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
                 content: "boo".to_string(),
                 dest: "/tmp/buu.txt".to_string(),
-                mode: 0o644,
+                mode: None,
             }
         );
     }
@@ -223,7 +223,7 @@ mod tests {
         let output = copy_file(Params {
             content: "test\n".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
-            mode: 0o644,
+            mode: None,
         })
         .unwrap();
 
@@ -259,7 +259,7 @@ mod tests {
         let output = copy_file(Params {
             content: "fu".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
-            mode: 0o400,
+            mode: Some("0400".to_string()),
         })
         .unwrap();
 
@@ -293,7 +293,7 @@ mod tests {
         let output = copy_file(Params {
             content: "zoo".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
-            mode: 0o400,
+            mode: Some("0400".to_string()),
         })
         .unwrap();
 
@@ -332,7 +332,7 @@ mod tests {
         let output = copy_file(Params {
             content: "zoo".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
-            mode: 0o600,
+            mode: Some("0600".to_string()),
         })
         .unwrap();
 
@@ -371,7 +371,7 @@ mod tests {
         let output = copy_file(Params {
             content: "zoo".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
-            mode: 0o400,
+            mode: Some("0400".to_string()),
         })
         .unwrap();
 
