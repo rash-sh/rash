@@ -1,5 +1,11 @@
 # rash changes
 
+## [v1.1.0](https://github.com/rash-sh/rash/tree/v1.1.0) (2021-12-12)
+
+### Added
+
+* Add file module (#180)
+
 ## [v1.0.2](https://github.com/rash-sh/rash/tree/v1.0.2) (2021-12-07)
 
 ### Added
