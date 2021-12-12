@@ -1,6 +1,7 @@
 mod assert;
 mod command;
 mod copy;
+mod file;
 mod set_vars;
 mod template;
 
@@ -111,6 +112,13 @@ lazy_static! {
                 Module {
                     name: "copy",
                     exec_fn: copy::exec,
+                },
+            ),
+            (
+                "file",
+                Module {
+                    name: "file",
+                    exec_fn: file::exec,
                 },
             ),
             (
