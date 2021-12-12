@@ -36,3 +36,36 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
     };
     TokenStream::from(expanded)
 }
+
+/// Implementation of the `#[derive(DocJsonSchema)]` derive macro.
+/// This also requires #[derive(JsonSchema)] from schemars.
+///
+/// Add a new method which returns a JsonSchema
+/// ```
+/// # use schemars::schema::RootSchema;
+/// pub fn get_json_schema() -> RootSchema
+/// # {
+/// #   unimplemented!()
+/// # }
+/// ```
+#[cfg(feature = "docs")]
+#[proc_macro_derive(DocJsonSchema)]
+pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as syn::ItemStruct);
+
+    let name = &input.ident;
+
+    let expanded = quote::quote! {
+        impl #name {
+            /// Return Json Schema.
+            pub fn get_json_schema() -> schemars::schema::RootSchema {
+                let settings = schemars::gen::SchemaSettings::default().with(|s| {
+                    s.inline_subschemas = true;
+                });
+                let gen = settings.into_generator();
+                gen.into_root_schema_for::<#name>()
+            }
+        }
+    };
+    TokenStream::from(expanded)
+}

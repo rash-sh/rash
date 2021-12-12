@@ -1,9 +1,11 @@
+use rash_core::modules::MODULES;
+
 use mdbook::book::{Book, BookItem, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{LinkPreprocessor, Preprocessor, PreprocessorContext};
+use prettytable::{cell, format, row, Table};
 use regex::{Match, Regex};
-
-use rash_core::modules::MODULES;
+use schemars::schema::{RootSchema, SingleOrVec};
 
 #[macro_use]
 extern crate log;
@@ -22,6 +24,15 @@ lazy_static! {
         \s*\}                                            # whitespace and link closing parens"#
     )
     .unwrap();
+    static ref FORMAT: format::TableFormat = format::FormatBuilder::new()
+        .padding(1, 1)
+        .borders('|')
+        .separator(
+            format::LinePosition::Title,
+            format::LineSeparator::new('-', '|', '|', '|'),
+        )
+        .column_separator('|')
+        .build();
 }
 
 fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
@@ -43,6 +54,74 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
         .collect::<Option<Vec<(Match, Option<String>, String)>>>()
 }
 
+fn format_schema(schema: &RootSchema) -> Table {
+    let mut table = Table::new();
+
+    // safe unwrap: all Params are objects
+    let object_validation = schema.clone().schema.object.unwrap();
+    let required_values = object_validation.required;
+    table.set_format(*FORMAT);
+
+    table.set_titles(row![
+        "Parameter",
+        "Required",
+        "Type",
+        "Values",
+        "Description"
+    ]);
+    for property in object_validation.properties.into_iter() {
+        let name = property.0;
+        let schema_object = property.1.into_object();
+        let metadata = schema_object.metadata;
+        let description = match metadata {
+            Some(x) => match x.description {
+                Some(d) => d,
+                None => "".to_string(),
+            },
+            None => "".to_string(),
+        };
+
+        let value = match schema_object.enum_values {
+            Some(x) => x
+                .into_iter()
+                .map(|i| {
+                    serde_yaml::to_value(i)
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_owned()
+                })
+                .collect::<Vec<String>>()
+                .join("<br>"),
+            None => "".to_string(),
+        };
+        table.add_row(row![
+            name,
+            match required_values.contains(&name) {
+                true => "true",
+                false => "",
+            },
+            match schema_object.instance_type {
+                Some(s) => {
+                    let t = match s {
+                        SingleOrVec::Vec(v) => v[0],
+                        SingleOrVec::Single(x) => *x,
+                    };
+                    serde_yaml::to_value(&t)
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_owned()
+                }
+                None => "".to_string(),
+            },
+            value,
+            description
+        ]);
+    }
+    table
+}
+
 fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chapter) {
     for capture in captures.iter() {
         if capture.2 == "include_module_index" {
@@ -57,7 +136,14 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
                 let mut new_section_number = ch.number.clone().unwrap();
                 new_section_number.push((ch.sub_items.len() + 1) as u32);
 
+                let schema = module.1.get_json_schema();
                 let name = module.0;
+
+                let parameters = match schema {
+                    Some(s) => format!("{}", format_schema(&s)),
+                    None => format!("{{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:parameters}}}}}}", name)
+                };
+
                 let content_header = format!(
                     r#"---
 title: {}
@@ -66,11 +152,19 @@ indent: true
 ---
 
 {{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:module}}}}}}
+
+## Parameters
+
+{}
+{{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:examples}}}}}}
+
 "#,
                     name,
                     (new_section_number.clone().first().unwrap() + 1) * 1000
                         + ((ch.sub_items.len() + 1) * 100) as u32,
-                    name
+                    name,
+                    parameters,
+                    name,
                 )
                 .to_owned();
 

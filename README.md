@@ -88,7 +88,7 @@ You can use it in your favorite IoT chips running Linux or in containers from sc
 
 ## Status
 
-Currently, **Under heavy development**.
+Stable API with few modules. It will be growing, stay tuned.
 
 ## Who is using `rash`
 

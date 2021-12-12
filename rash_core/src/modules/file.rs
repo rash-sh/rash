@@ -3,25 +3,8 @@
 ///
 /// Manage files and file properties.
 ///
-/// ## Parameters
-///
-/// ```yaml
-/// path:
-///   type: string
-///   required: true
-///   description: Absolute path to the file being managed.
-/// mode:
-///   type: string
-///   description: Permissions of the destination file or directory.
-/// state:
-///   type: string
-///   default: file
-///   enum:
-///     - absent
-///     - directory
-///     - file
-///     - touch
-/// ```
+/// ANCHOR_END: module
+/// ANCHOR: examples
 /// ## Example
 ///
 /// ```yaml
@@ -34,11 +17,14 @@
 ///     state: present
 ///     mode: 0644
 /// ```
-/// ANCHOR_END: module
+/// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
+
+#[cfg(feature = "docs")]
+use rash_derive::DocJsonSchema;
 
 use std::fs::{
     create_dir_all, metadata, remove_dir_all, remove_file, set_permissions, File, Metadata,
@@ -46,19 +32,31 @@ use std::fs::{
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+#[cfg(feature = "docs")]
+use schemars::JsonSchema;
 use serde::Deserialize;
-// Future use in doc for JsonSchema
+#[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
-struct Params {
+#[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+pub struct Params {
+    /// Permissions of the destination file or directory.
     mode: Option<String>,
+    /// Absolute path to the file being managed.
     path: String,
+    /// If _absent_, directories will be recursively deleted, and files or symlinks will be unlinked.
+    /// If _directory_, all intermediate subdirectories will be created if they do not exist.
+    /// If _file_, with no other options, returns the current state of path.
+    /// If _file_, even with other options (such as mode), the file will be modified if it exists but
+    ///  will NOT be created if it does not exist.
+    /// If _touch_, an empty file will be created if the file does not exist
     state: Option<State>,
 }
 
-#[derive(Debug, PartialEq, EnumString, Display, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
 enum State {
     Absent,
