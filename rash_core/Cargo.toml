@@ -18,7 +18,7 @@ name = "rash"
 path = "src/bin/rash.rs"
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "1.0.1" }
+rash_derive = { path = "../rash_derive" }
 clap = { version = "3.0.0-rc.1", features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6", features = ["colored"] }
