@@ -30,7 +30,7 @@
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::copy::verify_file;
+use crate::modules::copy::copy_file;
 use crate::modules::copy::Params as CopyParams;
 use crate::modules::{get_param, ModuleResult};
 use crate::utils::parse_octal;
@@ -75,7 +75,7 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
 
 pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
     Ok((
-        verify_file(render_content(
+        copy_file(render_content(
             parse_params(optional_params)?,
             vars.clone(),
         )?)?,

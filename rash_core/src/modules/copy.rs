@@ -76,7 +76,7 @@ fn parse_params(yaml: Yaml) -> Result<Params> {
     })
 }
 
-pub fn verify_file(params: Params) -> Result<ModuleResult> {
+pub fn copy_file(params: Params) -> Result<ModuleResult> {
     trace!("params: {:?}", params);
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.open(&params.dest).or_else(|_| {
@@ -130,7 +130,7 @@ pub fn verify_file(params: Params) -> Result<ModuleResult> {
 }
 
 pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
-    Ok((verify_file(parse_params(optional_params)?)?, vars))
+    Ok((copy_file(parse_params(optional_params)?)?, vars))
 }
 
 #[cfg(test)]
@@ -209,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_file_no_change() {
+    fn test_copy_file_no_change() {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("no_change.txt");
@@ -220,7 +220,7 @@ mod tests {
         permissions.set_mode(0o644);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = verify_file(Params {
+        let output = copy_file(Params {
             content: "test\n".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
             mode: 0o644,
@@ -250,13 +250,13 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_file_change() {
+    fn test_copy_file_change() {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("change.txt");
         let mut file = File::create(file_path.clone()).unwrap();
         writeln!(file, "test").unwrap();
-        let output = verify_file(Params {
+        let output = copy_file(Params {
             content: "fu".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
             mode: 0o400,
@@ -286,11 +286,11 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_file_create() {
+    fn test_copy_file_create() {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("create.txt");
-        let output = verify_file(Params {
+        let output = copy_file(Params {
             content: "zoo".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
             mode: 0o400,
@@ -320,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_file_read_only() {
+    fn test_copy_file_read_only() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("read_only.txt");
         let mut file = File::create(file_path.clone()).unwrap();
@@ -329,7 +329,7 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = verify_file(Params {
+        let output = copy_file(Params {
             content: "zoo".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
             mode: 0o600,
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_file_read_only_no_change_permissions() {
+    fn test_copy_file_read_only_no_change_permissions() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("read_only.txt");
         let mut file = File::create(file_path.clone()).unwrap();
@@ -368,7 +368,7 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = verify_file(Params {
+        let output = copy_file(Params {
             content: "zoo".to_string(),
             dest: file_path.to_str().unwrap().to_string(),
             mode: 0o400,
