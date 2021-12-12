@@ -89,7 +89,7 @@ or new requests have a normalized pattern and they'll become easier to process.
 We can define the format more formally as follows:
 
 ```text
-<area>: <what changed>
+<type>(<scope>): <what changed>
 <BLANK LINE>
 <why this change was made>
 <BLANK LINE>

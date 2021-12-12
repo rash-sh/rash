@@ -7,16 +7,28 @@
       2,
       "always",
       [
+        "feat",
+        "fix",
+        "docs",
+        "style",
+        "refactor",
+        "test",
+        "release",
+        "revert"
+      ]
+    ],
+    "scope-enum": [
+      2,
+      "always",
+      [
         "ci",
         "cli",
         "core",
-        "doc",
         "filter",
         "group",
         "tera",
         "lookup",
         "module",
-        "release",
         "task",
         "vars"
       ]
@@ -24,7 +36,8 @@
     "subject-case": [
       2,
       "always",
-      ["sentence-case", "lower-case"]
+      ["sentence-case",
+         "lower-case"]
     ],
     "body-leading-blank": [
       2,
