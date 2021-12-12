@@ -6,11 +6,12 @@ mod set_vars;
 mod template;
 
 use crate::error::{Error, ErrorKind, Result};
+use crate::utils::get_string;
 use crate::vars::Vars;
 
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use yaml_rust::Yaml;
 
@@ -146,83 +147,11 @@ pub fn is_module(module: &str) -> bool {
     MODULES.get(module).is_some()
 }
 
-#[inline]
-fn get_key(yaml: &Yaml, key: &str) -> Result<Yaml> {
-    if yaml[key].is_badvalue() {
-        Err(Error::new(
-            ErrorKind::NotFound,
-            format!("param {} not found in: {:?}", key, yaml),
-        ))
-    } else {
-        Ok(yaml[key].clone())
-    }
-}
-
-/// Get param from [`Yaml`] with `rash` [`Error`] wrappers.
-///
-/// # Example
-/// ```ignore
-/// let param = get_param(&yaml, "foo").unwrap();
-/// assert_eq!(param, "boo");
-/// ```
-/// [`Yaml`]: ../../yaml_rust/struct.Yaml.
-/// [`Error`]: ../error/struct.Error.html
-#[inline]
-pub fn get_param(yaml: &Yaml, key: &str) -> Result<String> {
-    match get_key(yaml, key)?.as_str() {
-        Some(s) => Ok(s.to_string()),
-        None => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("param '{}' not valid string in: {:?}", key, yaml),
-        )),
-    }
-}
-
-/// Get param from [`Yaml`] with `rash` [`Error`] wrappers.
-///
-/// # Example
-/// ```ignore
-/// let param = get_param_bool(&yaml, "foo").unwrap();
-/// assert_eq!(param, true);
-/// ```
-/// [`Yaml`]: ../../yaml_rust/struct.Yaml.
-/// [`Error`]: ../error/struct.Error.html
-#[inline]
-pub fn get_param_bool(yaml: &Yaml, key: &str) -> Result<bool> {
-    match get_key(yaml, key)?.as_bool() {
-        Some(x) => Ok(x),
-        None => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("param '{}' not valid boolean in: {:?}", key, yaml),
-        )),
-    }
-}
-
-/// Get param from [`Yaml`] with `rash` [`Error`] wrappers.
-///
-/// # Example
-/// ```ignore
-/// let param = get_param_list(&yaml, "foo").unwrap();
-/// assert_eq!(param, vec!["1 == 1"]);
-/// ```
-/// [`Yaml`]: ../../yaml_rust/struct.Yaml.
-/// [`Error`]: ../error/struct.Error.html
-#[inline]
-pub fn get_param_list(yaml: &Yaml, key: &str) -> Result<Vec<String>> {
-    match get_key(yaml, key)?.as_vec() {
-        Some(x) => Ok(x
-            .iter()
-            .map(|yaml| match yaml.as_str() {
-                Some(s) => Ok(s.to_string()),
-                None => Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("{:?} is not a valid string", &yaml),
-                )),
-            })
-            .collect::<Result<Vec<String>>>()?),
-        None => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("param '{}' not valid boolean in: {:?}", key, yaml),
-        )),
-    }
+#[inline(always)]
+pub fn parse_params<P>(yaml: Yaml) -> Result<P>
+where
+    for<'a> P: Deserialize<'a>,
+{
+    trace!("parse params: {:?}", yaml);
+    serde_yaml::from_str(&get_string(yaml)?).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }

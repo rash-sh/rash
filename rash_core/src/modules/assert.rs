@@ -25,23 +25,22 @@
 /// ```
 /// ANCHOR_END: module
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{get_param_list, ModuleResult};
+use crate::modules::ModuleResult;
+use crate::utils::get_string;
 use crate::utils::tera::is_render_string;
 use crate::vars::Vars;
 
+use serde::Deserialize;
 use yaml_rust::Yaml;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct Params {
     that: Vec<String>,
 }
 
 fn parse_params(yaml: Yaml) -> Result<Params> {
     trace!("parse params: {:?}", yaml);
-
-    Ok(Params {
-        that: get_param_list(&yaml, "that")?,
-    })
+    serde_yaml::from_str(&get_string(yaml)?).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
