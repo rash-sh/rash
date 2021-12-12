@@ -15,6 +15,7 @@ path = "src/bin/mdbook-rash.rs"
 doc = false
 
 [dependencies]
+rash_core = { path = "../rash_core" }
 clap = "2"
 chrono = "0.4"
 env_logger = "0.9"

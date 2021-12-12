@@ -503,6 +503,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mdbook",
+ "rash_core",
  "regex",
  "semver",
  "serde_json",
