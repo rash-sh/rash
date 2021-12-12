@@ -3,23 +3,8 @@
 ///
 /// Render [Tera template](https://tera.netlify.app/docs/#templates).
 ///
-/// ## Parameters
-///
-/// ```yaml
-/// src:
-///   type: string
-///   required: true
-///   description: |
-///     Path of Tera formatted template.
-///     This can be a relative or an absolute path.
-/// dest:
-///   type: string
-///   required: true
-///   description: Absolute path where the file should be rendered to.
-/// mode:
-///   type: string
-///   description: Permissions of the destination file or directory.
-/// ```
+/// ANCHOR_END: module
+/// ANCHOR: examples
 /// ## Examples
 ///
 /// ```yaml
@@ -28,23 +13,33 @@
 ///     dest: /tmp/MY_PASSWORD_FILE.txt
 ///     mode: "0400"
 /// ```
-/// ANCHOR_END: module
+/// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::copy::copy_file;
 use crate::modules::copy::Params as CopyParams;
 use crate::modules::{parse_params, ModuleResult};
 use crate::vars::Vars;
 
+#[cfg(feature = "docs")]
+use rash_derive::DocJsonSchema;
+
 use std::path::Path;
 
+#[cfg(feature = "docs")]
+use schemars::JsonSchema;
 use serde::Deserialize;
 use tera::Tera;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
-struct Params {
+#[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+pub struct Params {
+    /// Path of Tera formatted template.
+    /// This can be a relative or an absolute path.
     src: String,
+    /// Absolute path where the file should be rendered to.
     dest: String,
+    /// Permissions of the destination file or directory.
     mode: Option<String>,
 }
 
@@ -52,12 +47,13 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     let mut tera = Tera::default();
     tera.add_template_file(Path::new(&params.src), None)
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-    Ok(CopyParams::new(
-        tera.render(&params.src, &vars)
+    Ok(CopyParams {
+        content: tera
+            .render(&params.src, &vars)
             .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
-        params.dest.clone(),
-        params.mode,
-    ))
+        dest: params.dest.clone(),
+        mode: params.mode,
+    })
 }
 
 pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {

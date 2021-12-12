@@ -2,17 +2,15 @@
 /// # set_vars
 ///
 /// This module allows setting new variables.
+/// ANCHOR_END: module
+/// ANCHOR: parameters
+/// | Parameter | Required | Type  | Values | Description                                                         |
+/// |-----------|----------|-------|--------|---------------------------------------------------------------------|
+/// | key_value | true     | map   |        | This module takes key/value pairs and save un current Vars context. |
 ///
-/// ## Parameters
+/// ANCHOR_END: parameters
 ///
-/// ```yaml
-/// key_value:
-///   type: list
-///   required: true
-///   description: |
-///     This module takes key/value pairs and save un current Vars context.
-/// ```
-///
+/// ANCHOR: examples
 /// ## Example
 ///
 /// ```yaml
@@ -23,7 +21,7 @@
 ///     that:
 ///       - foo == 'boo'
 /// ```
-/// ANCHOR_END: module
+/// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::ModuleResult;
 use crate::vars::Vars;

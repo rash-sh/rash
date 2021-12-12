@@ -2,18 +2,8 @@
 /// # assert
 ///
 /// Assert given expressions are true.
-///
-/// ## Parameters
-///
-/// ```yaml
-/// that:
-///   type: list
-///   required: true
-///   description: |
-///     A list of string expressions of the same form that can be passed to the
-///     'when' statement.
-/// ```
-///
+/// ANCHOR_END: module
+/// ANCHOR: examples
 /// ## Example
 ///
 /// ```yaml
@@ -23,17 +13,25 @@
 ///       - 1 + 1 == 2
 ///       - env.MY_VAR is defined
 /// ```
-/// ANCHOR_END: module
+/// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::tera::is_render_string;
 use crate::vars::Vars;
 
+#[cfg(feature = "docs")]
+use rash_derive::DocJsonSchema;
+
+#[cfg(feature = "docs")]
+use schemars::JsonSchema;
 use serde::Deserialize;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 pub struct Params {
+    /// A list of string expressions of the same form that can be passed to the
+    /// _when_ statement.
     that: Vec<String>,
 }
 

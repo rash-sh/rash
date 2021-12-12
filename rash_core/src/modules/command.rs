@@ -2,24 +2,8 @@
 /// # command
 ///
 /// Execute commands.
-///
-/// ## Parameters
-///
-/// ```yaml
-/// argv:
-///   type: list
-///   description: |
-///     Passes the command arguments as a list rather than a string.
-///     Only the string or the list form can be provided, not both.
-/// cmd:
-///   type: string
-///   description: The command to run.
-/// transfer_pid_1:
-///   type: bool
-///   description: |
-///     Execute command as PID 1.
-///     Note: from this point on, your rash script execution is transfered to the command.
-/// ```
+/// ANCHOR_END: module
+/// ANCHOR: examples
 /// ## Example
 ///
 /// ```yaml
@@ -29,21 +13,32 @@
 ///       - "Hellow World"'
 ///     transfer_pid_1: true
 /// ```
-/// ANCHOR_END: module
+/// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, ModuleResult};
 use crate::vars::Vars;
 
+#[cfg(feature = "docs")]
+use rash_derive::DocJsonSchema;
+
 use std::process::Command;
 
 use exec as exec_command;
+#[cfg(feature = "docs")]
+use schemars::JsonSchema;
 use serde::Deserialize;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
-struct Params {
+#[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+pub struct Params {
+    /// The command to run.
     cmd: Option<String>,
+    /// Passes the command arguments as a list rather than a string.
+    /// Only the string or the list form can be provided, not both.
     argv: Option<Vec<String>>,
+    /// Execute command as PID 1.
+    /// Note: from this point on, your rash script execution is transferred to the command
     transfer_pid_1: Option<bool>,
 }
 

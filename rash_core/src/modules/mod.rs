@@ -11,6 +11,8 @@ use crate::vars::Vars;
 
 use std::collections::HashMap;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use yaml_rust::Yaml;
@@ -60,6 +62,8 @@ impl ModuleResult {
 pub struct Module {
     name: &'static str,
     exec_fn: fn(Yaml, Vars) -> Result<(ModuleResult, Vars)>,
+    #[cfg(feature = "docs")]
+    get_json_schema_fn: Option<fn() -> RootSchema>,
 }
 
 impl Module {
@@ -71,6 +75,11 @@ impl Module {
     /// Execute `self.exec_fn`.
     pub fn exec(&self, params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
         (self.exec_fn)(params, vars)
+    }
+
+    #[cfg(feature = "docs")]
+    pub fn get_json_schema(&self) -> Option<RootSchema> {
+        self.get_json_schema_fn.map(|f| (f)())
     }
 
     #[cfg(test)]
@@ -87,6 +96,8 @@ impl Module {
                     Vars::new(),
                 ))
             },
+            #[cfg(feature = "docs")]
+            get_json_schema_fn: None,
         }
     }
 }
@@ -99,6 +110,8 @@ lazy_static! {
                 Module {
                     name: "assert",
                     exec_fn: assert::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(assert::Params::get_json_schema),
                 },
             ),
             (
@@ -106,6 +119,8 @@ lazy_static! {
                 Module {
                     name: "command",
                     exec_fn: command::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(command::Params::get_json_schema),
                 },
             ),
             (
@@ -113,6 +128,8 @@ lazy_static! {
                 Module {
                     name: "copy",
                     exec_fn: copy::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(copy::Params::get_json_schema),
                 },
             ),
             (
@@ -120,6 +137,8 @@ lazy_static! {
                 Module {
                     name: "file",
                     exec_fn: file::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(file::Params::get_json_schema),
                 },
             ),
             (
@@ -127,6 +146,8 @@ lazy_static! {
                 Module {
                     name: "set_vars",
                     exec_fn: set_vars::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: None,
                 },
             ),
             (
@@ -134,6 +155,8 @@ lazy_static! {
                 Module {
                     name: "template",
                     exec_fn: template::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(template::Params::get_json_schema),
                 },
             ),
         ]

@@ -2,23 +2,8 @@
 /// # copy
 ///
 /// Copy files to path.
-///
-/// ## Parameters
-///
-/// ```yaml
-/// content:
-///   type: string
-///   required: true
-///   description: Sets the contents of a file directly to the specified value.
-/// dest:
-///   type: string
-///   required: true
-///   description: The absolute path where the file should be copied to.
-/// mode:
-///   type: string
-///   description: Permissions of the destination file or directory.
-/// ```
-///
+/// ANCHOR_END: module
+/// ANCHOR: examples
 /// ## Examples
 ///
 /// ```yaml
@@ -27,11 +12,14 @@
 ///     dest: /tmp/MY_PASSWORD_FILE.txt
 ///     mode: "0400"
 /// ```
-/// ANCHOR_END: module
+/// ANCHOR_END: examples
 use crate::error::Result;
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
+
+#[cfg(feature = "docs")]
+use rash_derive::DocJsonSchema;
 
 use std::fs::{set_permissions, OpenOptions};
 use std::io::prelude::*;
@@ -39,25 +27,23 @@ use std::io::SeekFrom;
 use std::io::{BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(feature = "docs")]
+use schemars::JsonSchema;
 use serde::Deserialize;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 pub struct Params {
-    content: String,
-    dest: String,
-    mode: Option<String>,
+    /// Sets the contents of a file directly to the specified value.
+    pub content: String,
+    /// The absolute path where the file should be copied to.
+    pub dest: String,
+    /// Permissions of the destination file or directory.
+    pub mode: Option<String>,
 }
 
 impl Params {
-    pub fn new(content: String, dest: String, mode: Option<String>) -> Self {
-        Params {
-            content,
-            dest,
-            mode,
-        }
-    }
-
     #[cfg(test)]
     pub fn get_content(&self) -> String {
         self.content.clone()
