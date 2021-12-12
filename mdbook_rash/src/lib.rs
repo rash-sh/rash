@@ -13,13 +13,13 @@ pub static SUPPORTED_RENDERER: &[&str] = &["html", "markdown"];
 lazy_static! {
     static ref RE: Regex = Regex::new(
         r#"(?x)                                       # insignificant whitespace mode
-        \\\{\{\#.*\}\}                                # match escaped link
+        \\\{\#.*\}                                    # match escaped link
         |                                             # or
-        \{\{\s*                                       # link opening parens and whitespace
+        \{\s*                                         # link opening parens and whitespace
         \#([a-zA-Z0-9_]+)                             # link type
         \s+                                           # separating whitespace
         ([a-zA-Z0-9\s_.,\[\]\(\)\|'\-\\/`"\#+=:/\\]+) # all doc
-        \s*\}\}                                       # whitespace and link closing parens"#
+        \s*\}                                         # whitespace and link closing parens"#
     )
     .unwrap();
 }

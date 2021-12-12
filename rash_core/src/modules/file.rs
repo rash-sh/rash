@@ -1,5 +1,5 @@
 /// ANCHOR: module
-/// # files
+/// # file
 ///
 /// Manage files and file properties.
 ///
