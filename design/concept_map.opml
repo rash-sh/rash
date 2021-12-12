@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head>
+    <title>rash</title>
+  </head>
+  <body>
+    <outline text="rash">
+      <outline text="data" _icon="photo">
+        <outline text="Context" _icon="progress_100">
+          <outline text="Vars" _icon="progress_100">
+            <outline text="env" _icon="progress_100"/>
+            <outline text="rash" _icon="progress_100" _note="&lt;div&gt;builtins: rash accesible values&lt;/div&gt;">
+              <outline text="dir" _icon="progress_100"/>
+              <outline text="args" _icon="progress_100"/>
+              <outline text="user" _icon="progress_100"/>
+            </outline>
+            <outline text="extend Jinja2">
+              <outline text="Lookup" _note="https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Flookup"/>
+              <outline text="Filter" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ffilter"/>
+            </outline>
+          </outline>
+          <outline text="Tasks" _icon="progress_100">
+            <outline text="Task" _icon="progress_100" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ftask">
+              <outline text="name" _icon="help;progress_100"/>
+              <outline text="params" _icon="progress_100" _note="&lt;div&gt;flexible to satisfy all modules&lt;/div&gt;"/>
+              <outline text="ModuleKind" _icon="progress_25" _note="&lt;div&gt;https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fmodule&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;&lt;div&gt;kinds names:&lt;br /&gt;- Genera/Standard/Basic&lt;br /&gt;- Core/Special/Unique&lt;br /&gt;&lt;/div&gt;">
+                <outline text="Standard">
+                  <outline text="exec_fn" _icon="progress_100"/>
+                  <outline text="name" _icon="progress_100"/>
+                </outline>
+                <outline text="Special">
+                  <outline text="Include">
+                    <outline text="name: include"/>
+                    <outline text="exec_fn"/>
+                  </outline>
+                </outline>
+                <outline text="Dynamic">
+                  <outline text="name"/>
+                  <outline text="ModuleKind::Special::Include"/>
+                </outline>
+              </outline>
+              <outline text="when" _icon="help;progress_100;progress_50"/>
+              <outline text="loop" _icon="help;progress_50"/>
+              <outline text="changed_when" _icon="help"/>
+              <outline text="ignore_errors" _icon="help;progress_100"/>
+              <outline text="until" _icon="help"/>
+              <outline text="register" _icon="help;progress_100"/>
+              <outline text="variables" _icon="help"/>
+              <outline text="become" _icon="help"/>
+            </outline>
+          </outline>
+        </outline>
+        <outline text="ModuleResult" _icon="progress_100">
+          <outline text="changed" _icon="progress_100"/>
+          <outline text="extra" _icon="help;progress_100" _note="&lt;div&gt;flexible to satisfy all modules&lt;/div&gt;"/>
+          <outline text="output" _icon="progress_100"/>
+        </outline>
+        <outline text="Group" _note="&lt;div&gt;group tasks with similar fields (when, changed_when, ignore_errors)&lt;/div&gt;">
+          <outline text="Tasks" _icon="progress_100"/>
+          <outline text="when" _icon="help"/>
+          <outline text="ignore_errors" _icon="help"/>
+          <outline text="loop" _icon="help"/>
+          <outline text="changed_when" _icon="help"/>
+          <outline text="until" _icon="help" _note="Run a block of tasks until some condition reached"/>
+          <outline text="variables" _icon="help"/>
+        </outline>
+      </outline>
+      <outline text="error" _icon="warning">
+        <outline text="repr" _icon="progress_100">
+          <outline text="Simple" _icon="progress_100"/>
+          <outline text="Custom" _icon="progress_100">
+            <outline text="ErrorKind" _icon="progress_100"/>
+            <outline text="Error" _icon="progress_100"/>
+          </outline>
+        </outline>
+      </outline>
+      <outline text="log" _icon="information">
+        <outline text="trace" _icon="progress_100" _note="&lt;div&gt;trace modules execution (command, request, copy...)&lt;/div&gt;&lt;div&gt;argument: -vv&lt;br /&gt;&lt;/div&gt;">
+          <outline text="trace" _icon="progress_100"/>
+          <outline text="error" _icon="progress_100"/>
+        </outline>
+        <outline text="debug" _icon="flag_blue;progress_100" _note="&lt;div&gt;traces main modules ( facts, context, tasks...)&lt;/div&gt;&lt;div&gt;argument: -v&lt;br /&gt;&lt;/div&gt;"/>
+        <outline text="info" _icon="progress_100">
+          <outline text="task" _icon="progress_100">
+            <outline text="separator" _icon="progress_100">
+              <outline text="tasks to go" _icon="progress_100"/>
+              <outline text="task name" _icon="progress_100"/>
+            </outline>
+            <outline text="changed" _icon="flag_yellow;progress_100"/>
+            <outline text="ok" _icon="flag_green;progress_100"/>
+          </outline>
+        </outline>
+        <outline text="warning" _icon="flag_pink;progress_100"/>
+        <outline text="error" _icon="flag_red;progress_100"/>
+      </outline>
+      <outline text="execution" _icon="book">
+        <outline text="context.exec" _icon="progress_100" _note="&lt;div&gt;exec(task[0], facts_0) -&amp;gt; facts_1&lt;/div&gt;&lt;div&gt;exec(task[1], facts_1) -&amp;gt; facts_2&lt;/div&gt;&lt;div&gt;...&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;">
+          <outline text="task.exec" _icon="progress_100" _note="&lt;div&gt;exec(module, parameters, facts) -&amp;gt; module_result&lt;/div&gt;">
+            <outline text="module.exec" _icon="progress_100" _note="exec_fn(rendered_params) -&amp;gt; module_result"/>
+          </outline>
+        </outline>
+        <outline text="read_file" _icon="progress_100" _note="&lt;div&gt;get tasks from file&lt;/div&gt;"/>
+      </outline>
+      <outline text="release" _icon="lightning">
+        <outline text="Dockerfile" _icon="progress_50" _note="&lt;div&gt;`N` flavours, compile from args (envars) or target file (read modules and compile just necessary ones)&lt;/div&gt;&lt;div&gt;alpine and scratch are redundant (both statically linked) but in the future alpine could be dynamically linked&lt;/div&gt;"/>
+        <outline text="binaries" _icon="progress_100" _note="&lt;div&gt;Just copy from docker images&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;"/>
+      </outline>
+      <outline text="cli" _icon="user">
+        <outline text="envars" _icon="progress_100" _note="-e KEY=VALUE to use as {{ env.KEY }}"/>
+        <outline text="verbosity" _icon="progress_100"/>
+        <outline text="script-file" _icon="progress_100"/>
+      </outline>
+      <outline text="integrated documentation" _icon="book"/>
+      <outline text="integrated testing tool" _icon="lock"/>
+      <outline text="repository" _icon="lightbulb" _note="&lt;div&gt;Repository of entrypoints.rh or custom scripts&lt;/div&gt;&lt;div&gt;**initially could be a repo of examples&lt;br /&gt;&lt;/div&gt;"/>
+      <outline text="linter" _icon="warning"/>
+      <outline text="performance" _icon="lightning" _note="bash comparison, CPU and MEMORY"/>
+      <outline text="log format configurable" _icon="information" _note="make log format configurable to accomplish with container log format"/>
+    </outline>
+  </body>
+</opml>
