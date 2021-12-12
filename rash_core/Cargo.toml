@@ -15,7 +15,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "rash"
-path = "src/main.rs"
+path = "src/bin/rash.rs"
 
 [dependencies]
 rash_derive = { path = "../rash_derive", version = "1.0.1" }
