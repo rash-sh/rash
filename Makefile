@@ -84,7 +84,7 @@ tag:	## create a tag using version from VERSION file
 release:	## generate vendor.tar.gz and $(PKG_BASE_NAME).tar.gz
 	cargo vendor
 	tar -czf vendor.tar.gz vendor
-	cargo build --frozen --release --all-features --target ${CARGO_TARGET}
+	cargo build --frozen --release --target ${CARGO_TARGET}
 	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash
 	@echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash
 
