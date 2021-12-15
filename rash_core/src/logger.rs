@@ -39,7 +39,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
             .to_fg_str()
         ),
         log_header = log_header,
-        message = message.clone(),
+        message = &message,
         separator = match (record.level(), record.target()) {
             (log::Level::Info, "task") => vec![
                 "*";
@@ -69,10 +69,9 @@ pub fn setup_logging(verbosity: u8) -> Result<()> {
         _ => base_config.level(log::LevelFilter::Trace),
     };
 
-    let stdout_config = fern::Dispatch::new().format(log_format).chain(io::stdout());
-
     base_config
-        .chain(stdout_config)
+        .format(log_format)
+        .chain(io::stdout())
         .apply()
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
