@@ -165,6 +165,32 @@ impl Task {
         }
     }
 
+    fn exec_module(&self, vars: Vars) -> Result<(ModuleResult, Vars)> {
+        let rendered_params = self.render_params(vars.clone())?;
+        match self.module.exec(rendered_params.clone(), vars.clone()) {
+            Ok((result, new_vars)) => {
+                info!(target: if result.get_changed() {"changed"} else { "ok"},
+                    "{}",
+                    result.get_output().unwrap_or_else(
+                        || format!("{:?}", rendered_params)
+                    )
+                );
+                Ok((result, new_vars))
+            }
+            Err(e) => match self.ignore_errors {
+                Some(is_true) => {
+                    if is_true {
+                        info!(target: "ignoring", "{}", e);
+                        Ok((ModuleResult::new(false, None, None), vars))
+                    } else {
+                        Err(e)
+                    }
+                }
+                None => Err(e),
+            },
+        }
+    }
+
     /// Execute [`Module`] rendering `self.params` with [`Vars`].
     ///
     /// [`Module`]: ../modules/struct.Module.html
@@ -181,31 +207,7 @@ impl Task {
                     .map(|item| {
                         let mut exec_vars = vars.clone();
                         exec_vars.insert("item", &item);
-                        let rendered_params = self.render_params(exec_vars.clone())?;
-                        let result_wrapped =
-                            self.module.exec(rendered_params.clone(), exec_vars.clone());
-                        match result_wrapped {
-                            Ok((result, new_vars)) => {
-                                info!(target: if result.get_changed() {"changed"} else { "ok"},
-                                    "{:?}",
-                                    result.get_output().unwrap_or_else(
-                                        || format!("{:?}", rendered_params)
-                                    )
-                                );
-                                Ok((result, new_vars))
-                            }
-                            Err(e) => match self.ignore_errors {
-                                Some(is_true) => {
-                                    if is_true {
-                                        info!(target: "ignoring", "{}", e);
-                                        Ok((ModuleResult::new(false, None, None), exec_vars))
-                                    } else {
-                                        Err(e)
-                                    }
-                                }
-                                None => Err(e),
-                            },
-                        }
+                        self.exec_module(exec_vars)
                     })
                     .collect::<Result<Vec<(ModuleResult, Vars)>>>()?;
                 let mut new_vars = Vars::new();
@@ -219,35 +221,10 @@ impl Task {
                     .collect();
                 Ok((json!(results), new_vars))
             } else {
-                let rendered_params = self.render_params(vars.clone())?;
-                let (result, new_vars) =
-                    match self.module.exec(rendered_params.clone(), vars.clone()) {
-                        Ok((result, new_vars)) => {
-                            info!(target: if result.get_changed() {"changed"} else { "ok"},
-                                "{}",
-                                result.get_output().unwrap_or_else(
-                                    || format!("{:?}", rendered_params)
-                                )
-                            );
-                            Ok((result, new_vars))
-                        }
-                        Err(e) => match self.ignore_errors {
-                            Some(is_true) => {
-                                if is_true {
-                                    info!(target: "ignoring", "{}", e);
-                                    Ok((ModuleResult::new(false, None, None), vars))
-                                } else {
-                                    Err(e)
-                                }
-                            }
-                            None => Err(e),
-                        },
-                    }?;
+                let (result, new_vars) = self.exec_module(vars)?;
                 Ok((json!(result), new_vars))
             };
-            let json_vars = result_json_vars?;
-            let result = json_vars.0;
-            let mut new_vars = json_vars.1;
+            let (result, mut new_vars) = result_json_vars?;
             if self.register.is_some() {
                 new_vars.insert(self.register.as_ref().unwrap(), &result);
             }
