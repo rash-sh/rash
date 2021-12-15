@@ -54,7 +54,7 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
         .collect::<Option<Vec<(Match, Option<String>, String)>>>()
 }
 
-fn format_schema(schema: &RootSchema) -> Table {
+fn format_schema(schema: &RootSchema) -> String {
     let mut table = Table::new();
 
     // safe unwrap: all Params are objects
@@ -119,7 +119,7 @@ fn format_schema(schema: &RootSchema) -> Table {
             description
         ]);
     }
-    table
+    format!("{}", table)
 }
 
 fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chapter) {
@@ -140,31 +140,29 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
                 let name = module.0;
 
                 let parameters = match schema {
-                    Some(s) => format!("{}", format_schema(&s)),
+                    Some(s) => format_schema(&s),
                     None => format!("{{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:parameters}}}}}}", name)
                 };
 
                 let content_header = format!(
                     r#"---
-title: {}
-weight: {}
+title: {name}
+weight: {weight}
 indent: true
 ---
 
-{{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:module}}}}}}
+{{#include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:module}}}}}}
 
 ## Parameters
 
-{}
-{{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:examples}}}}}}
+{parameters}
+{{#include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:examples}}}}}}
 
 "#,
-                    name,
-                    (new_section_number.clone().first().unwrap() + 1) * 1000
+                    name = name,
+                    weight = (new_section_number.clone().first().unwrap() + 1) * 1000
                         + ((ch.sub_items.len() + 1) * 100) as u32,
-                    name,
-                    parameters,
-                    name,
+                    parameters = parameters,
                 )
                 .to_owned();
 
