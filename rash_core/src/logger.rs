@@ -5,16 +5,57 @@ use std::io;
 
 use fern::colors::Color;
 use fern::FormatCallback;
+use similar::{ChangeTag, TextDiff};
+
+/// Print formatted diff.
+pub fn diff<T, U>(original: T, modified: U)
+where
+    T: std::string::ToString,
+    U: std::string::ToString,
+{
+    if log_enabled!(target: "diff", log::Level::Info) {
+        let o = original.to_string();
+        let m = modified.to_string();
+        let text_diff = TextDiff::from_lines(&o, &m);
+        let diff_str = text_diff
+            .iter_all_changes()
+            .map(|change| {
+                let new_line_hint = match change.missing_newline() && text_diff.newline_terminated()
+                {
+                    true => "\\ No newline at end of file\n",
+                    false => "",
+                };
+                match change.tag() {
+                    ChangeTag::Equal => format!("\x1B[0m  {}{}", change, new_line_hint),
+                    ChangeTag::Delete => format!(
+                        "\x1B[{color}m- {s}{new_line_hint}\x1B[0m",
+                        color = Color::Red.to_fg_str(),
+                        s = change,
+                        new_line_hint = new_line_hint,
+                    ),
+                    ChangeTag::Insert => format!(
+                        "\x1B[{color}m+ {s}{new_line_hint}\x1B[0m",
+                        color = Color::Green.to_fg_str(),
+                        s = change,
+                        new_line_hint = new_line_hint
+                    ),
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("");
+        info!(target: "diff", "{}", diff_str)
+    }
+}
 
 fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
     let log_header = match (record.level(), record.target()) {
-        (log::Level::Info, "ok") => "ok: ".to_owned(),
-        (log::Level::Info, "changed") => "changed: ".to_owned(),
-        (log::Level::Info, "skipping") => "skipping".to_owned(),
-        (log::Level::Info, "ignoring") => "[ignoring error] ".to_owned(),
-        (log::Level::Warn, _) => "[WARNING] ".to_owned(),
         (log::Level::Error, "task") => "failed: ".to_owned(),
         (log::Level::Error, _) => "[ERROR] ".to_owned(),
+        (log::Level::Warn, _) => "[WARNING] ".to_owned(),
+        (log::Level::Info, "changed") => "changed: ".to_owned(),
+        (log::Level::Info, "ignoring") => "[ignoring error] ".to_owned(),
+        (log::Level::Info, "ok") => "ok: ".to_owned(),
+        (log::Level::Info, "skipping") => "skipping".to_owned(),
         (log::Level::Info, "task") => "TASK ".to_owned(),
         (log::Level::Info, _) => "".to_owned(),
         (log::Level::Debug, _) => "".to_owned(),
@@ -25,16 +66,17 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
         color_line = format_args!(
             "\x1B[{}m",
             match (record.level(), record.target()) {
-                (log::Level::Trace, "error") => Color::Red,
-                (log::Level::Trace, _) => Color::BrightBlack,
-                (log::Level::Debug, _) => Color::BrightBlue,
+                (log::Level::Error, _) => Color::Red,
+                (log::Level::Warn, _) => Color::Magenta,
                 (log::Level::Info, "changed") => Color::Yellow,
+                (log::Level::Info, "diff") => Color::BrightBlack,
+                (log::Level::Info, "ignoring") => Color::Blue,
                 (log::Level::Info, "ok") => Color::Green,
                 (log::Level::Info, "skipping") => Color::Blue,
-                (log::Level::Info, "ignoring") => Color::Blue,
                 (log::Level::Info, _) => Color::White,
-                (log::Level::Warn, _) => Color::Magenta,
-                (log::Level::Error, _) => Color::Red,
+                (log::Level::Debug, _) => Color::BrightBlue,
+                (log::Level::Trace, "error") => Color::Red,
+                (log::Level::Trace, _) => Color::BrightBlack,
             }
             .to_fg_str()
         ),
@@ -60,13 +102,18 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
 }
 
 /// Setup logging according to the specified verbosity.
-pub fn setup_logging(verbosity: u8) -> Result<()> {
+pub fn setup_logging(verbosity: u8, diff: bool) -> Result<()> {
     let mut base_config = fern::Dispatch::new();
 
     base_config = match verbosity {
         0 => base_config.level(log::LevelFilter::Info),
         1 => base_config.level(log::LevelFilter::Debug),
         _2_or_more => base_config.level(log::LevelFilter::Trace),
+    };
+
+    base_config = match diff {
+        false => base_config.level_for("diff", log::LevelFilter::Error),
+        true => base_config.level_for("diff", log::LevelFilter::Info),
     };
 
     base_config

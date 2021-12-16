@@ -30,9 +30,9 @@ test-images:	## test images
 test-images: build-images
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker run \
-			-v $(shell pwd)/test:/test:ro \
+			-v $(shell pwd)/examples:/examples:ro \
 			$(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
-			/test/run.rh; \
+			/examples/builtins.rh; \
 	done;
 
 .PHONY: push-images

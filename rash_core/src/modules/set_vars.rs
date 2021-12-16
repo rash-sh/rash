@@ -60,7 +60,7 @@ pub fn exec(params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
                 })?,
                 &yaml,
             );
-            Ok(new_vars.clone())
+            Ok(())
         })
         .collect::<Result<Vec<_>>>()?;
 
