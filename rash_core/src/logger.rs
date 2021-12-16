@@ -66,12 +66,21 @@ pub fn setup_logging(verbosity: u8) -> Result<()> {
     base_config = match verbosity {
         0 => base_config.level(log::LevelFilter::Info),
         1 => base_config.level(log::LevelFilter::Debug),
-        _ => base_config.level(log::LevelFilter::Trace),
+        _2_or_more => base_config.level(log::LevelFilter::Trace),
     };
 
     base_config
         .format(log_format)
-        .chain(io::stdout())
+        .chain(
+            fern::Dispatch::new()
+                .filter(|metadata| metadata.level() >= log::LevelFilter::Warn)
+                .chain(io::stdout()),
+        )
+        .chain(
+            fern::Dispatch::new()
+                .level(log::LevelFilter::Warn)
+                .chain(io::stderr()),
+        )
         .apply()
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
