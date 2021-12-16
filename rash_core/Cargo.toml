@@ -28,15 +28,16 @@ fern = { version = "0.6", features = ["colored"] }
 lazy_static = "1.4.0"
 libc = { version = "0.2", features = ["std"] }
 log = "0.4"
-schemars = { version = "0.8", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
+similar = "2.1"
 strum = "0.23"
 strum_macros = "0.23"
 tera = { version = "1", default-features = false }
 term_size = "1.0.0-beta.2"
 yaml-rust = "0.4"
+schemars = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

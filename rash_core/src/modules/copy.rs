@@ -14,6 +14,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::Result;
+use crate::logger::diff;
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
@@ -77,6 +78,7 @@ pub fn copy_file(params: Params) -> Result<ModuleResult> {
             set_permissions(&params.dest, p)?;
         }
 
+        diff(&content, &params.content);
         let mut file = OpenOptions::new().write(true).open(&params.dest)?;
         file.seek(SeekFrom::Start(0))?;
         file.write_all(params.content.as_bytes())?;
@@ -94,7 +96,8 @@ pub fn copy_file(params: Params) -> Result<ModuleResult> {
     };
 
     // & 0o7777 to remove lead 100: 100644 -> 644
-    if permissions.mode() & 0o7777 != mode {
+    let original_mode = permissions.mode() & 0o7777;
+    if original_mode != mode {
         trace!("changing mode: {:o}", &mode);
         permissions.set_mode(mode);
         set_permissions(&params.dest, permissions)?;

@@ -35,14 +35,17 @@ where
     author = crate_authors!("\n"),
 )]
 struct Opts {
-    /// Script file to be executed
-    script_file: String,
-    /// Verbose mode (-vv for more)
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: u8,
+    /// Show the differences
+    #[clap(short, long)]
+    diff: bool,
     /// Set environment variables (Example: KEY=VALUE)
     #[clap(short, long, multiple_occurrences = true, parse(try_from_str = parse_key_val), number_of_values = 1)]
     environment: Vec<(String, String)>,
+    /// Verbose mode (-vv for more)
+    #[clap(short, long, parse(from_occurrences))]
+    verbose: u8,
+    /// Script file to be executed
+    script_file: String,
     /// Additional args to be accessible from builtin `{{ rash.args }}` as list of strings
     #[clap(multiple_occurrences = true, takes_value = true, number_of_values = 1)]
     _args: Vec<String>,
@@ -74,7 +77,7 @@ fn main() {
         opts.verbose
     };
 
-    logger::setup_logging(verbose).expect("failed to initialize logging.");
+    logger::setup_logging(verbose, opts.diff).expect("failed to initialize logging.");
     trace!("start logger");
 
     let script_path = Path::new(&opts.script_file);

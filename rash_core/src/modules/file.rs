@@ -19,6 +19,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
+use crate::logger::diff;
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
@@ -86,8 +87,13 @@ fn apply_permissions_if_necessary(
 ) -> Result<ModuleResult> {
     let mut permissions = meta.permissions();
     // & 0o7777 to remove lead 100: 100644 -> 644
-    match permissions.mode() & 0o7777 != octal_mode {
+    let original_mode = permissions.mode() & 0o7777;
+    match original_mode != octal_mode {
         true => {
+            diff(
+                format!("mode: {}", &original_mode),
+                format!("mode: {}", &octal_mode),
+            );
             permissions.set_mode(octal_mode);
             set_permissions(&params.path, permissions)?;
             Ok(ModuleResult {
@@ -151,7 +157,7 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                 let octal_mode = parse_octal(mode)?;
                 match metadata(&params.path) {
                     Ok(meta) => apply_permissions_if_necessary(meta, octal_mode, params),
-                    Err(_) => fail_if_not_exist(params),
+                    Err(_not_exists) => fail_if_not_exist(params),
                 }
             }
             None => fail_if_not_exist(params),
@@ -159,10 +165,12 @@ fn define_file(params: Params) -> Result<ModuleResult> {
         Some(State::Absent) => match metadata(&params.path) {
             Ok(meta) => {
                 if meta.is_file() {
+                    diff("state: file\n", "state: absent\n");
                     // add support for symlinks
                     // if meta.is_file() || meta.is_symlink() {
                     remove_file(&params.path)?;
                 } else if meta.is_dir() {
+                    diff("state: directory\n", "state: absent\n");
                     remove_dir_all(&params.path)?;
                 } else {
                     return Err(Error::new(
@@ -179,7 +187,7 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                     extra: None,
                 })
             }
-            Err(_) => Ok(ModuleResult {
+            Err(_not_exists) => Ok(ModuleResult {
                 changed: false,
                 output: Some(params.path),
                 extra: None,
@@ -191,7 +199,8 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                     let octal_mode = parse_octal(mode)?;
                     match metadata(&params.path) {
                         Ok(meta) => apply_permissions_if_necessary(meta, octal_mode, params),
-                        Err(_) => {
+                        Err(_not_exists) => {
+                            diff("state: absent\n", "state: directory\n");
                             // Apply permissions to subdirectories
                             let first_existing_parent =
                                 find_first_existing_directory(Path::new(&params.path))?;
@@ -210,12 +219,13 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                     }
                 }
                 None => match metadata(&params.path) {
-                    Ok(_) => Ok(ModuleResult {
+                    Ok(_exists) => Ok(ModuleResult {
                         changed: false,
                         output: Some(params.path),
                         extra: None,
                     }),
-                    Err(_) => {
+                    Err(_not_exists) => {
+                        diff("state: absent\n", "state: directory\n");
                         create_dir_all(&params.path)?;
                         Ok(ModuleResult {
                             changed: true,
@@ -231,7 +241,9 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                 let octal_mode = parse_octal(mode)?;
                 match metadata(&params.path) {
                     Ok(meta) => apply_permissions_if_necessary(meta, octal_mode, params),
-                    Err(_) => {
+                    Err(_not_exists) => {
+                        diff("state: absent\n", "state: file\n");
+
                         let file = File::create(&params.path)?;
                         let mut permissions = file.metadata()?.permissions();
                         permissions.set_mode(octal_mode);
@@ -250,7 +262,9 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                     output: Some(params.path),
                     extra: None,
                 }),
-                Err(_) => {
+                Err(_not_exists) => {
+                    diff("state: absent\n", "state: file\n");
+
                     File::create(&params.path)?;
                     Ok(ModuleResult {
                         changed: true,
