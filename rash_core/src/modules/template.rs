@@ -22,7 +22,7 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::copy::copy_file;
-use crate::modules::copy::Params as CopyParams;
+use crate::modules::copy::{Input, Params as CopyParams};
 use crate::modules::{parse_params, ModuleResult};
 use crate::vars::Vars;
 
@@ -39,6 +39,7 @@ use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Params {
     /// Path of Tera formatted template.
     /// This can be a relative or an absolute path.
@@ -54,9 +55,10 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     tera.add_template_file(Path::new(&params.src), None)
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     Ok(CopyParams {
-        content: tera
-            .render(&params.src, &vars)
-            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
+        input: Input::Content(
+            tera.render(&params.src, &vars)
+                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
+        ),
         dest: params.dest.clone(),
         mode: params.mode,
     })
@@ -156,6 +158,23 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_params_random_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        src: "/tmp/boo.j2"
+        yea: foo
+        dest: "/tmp/buu.txt"
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
     fn test_render_content() {
         let dir = tempdir().unwrap();
 
@@ -176,6 +195,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(copy_params.get_content(), "test\n");
+        assert_eq!(copy_params.get_content().unwrap(), "test\n");
     }
 }
