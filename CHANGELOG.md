@@ -1,5 +1,17 @@
 # rash changes
 
+## [v1.2.0](https://github.com/rash-sh/rash/tree/v1.2.0) (2021-12-17)
+
+### Added
+
+* Add diff param and apply in file, copy and template modules (#190)
+* Get params doc from struct (#189)
+
+### Fixed
+
+* Add warn and error to stderr instead of stdout
+* Remove `--all-features` from release
+
 ## [v1.1.0](https://github.com/rash-sh/rash/tree/v1.1.0) (2021-12-12)
 
 ### Added
