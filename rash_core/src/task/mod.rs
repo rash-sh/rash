@@ -2,7 +2,7 @@ mod new;
 mod valid;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult};
+use crate::modules::Module;
 use crate::task::new::TaskNew;
 use crate::utils::get_yaml;
 use crate::utils::tera::{is_render_string, render_as_json, render_string};
@@ -13,7 +13,6 @@ use rash_derive::FieldNames;
 use std::fs;
 use std::path::PathBuf;
 
-use serde_json::Value;
 use yaml_rust::{Yaml, YamlLoader};
 
 /// Main structure at definition level which prepares [`Module`] executions.
@@ -167,32 +166,41 @@ impl Task {
         }
     }
 
-    fn exec_module(&self, vars: Vars) -> Result<(ModuleResult, Vars)> {
-        let rendered_params = self.render_params(vars.clone())?;
-        match self
-            .module
-            .exec(rendered_params.clone(), vars.clone(), self.check_mode)
-        {
-            Ok((result, new_vars)) => {
-                info!(target: if result.get_changed() {"changed"} else { "ok"},
-                    "{}",
-                    result.get_output().unwrap_or_else(
-                        || format!("{:?}", rendered_params)
-                    )
-                );
-                Ok((result, new_vars))
-            }
-            Err(e) => match self.ignore_errors {
-                Some(is_true) => {
-                    if is_true {
-                        info!(target: "ignoring", "{}", e);
-                        Ok((ModuleResult::new(false, None, None), vars))
-                    } else {
-                        Err(e)
+    fn exec_module(&self, vars: Vars) -> Result<Vars> {
+        if self.is_exec(vars.clone())? {
+            let rendered_params = self.render_params(vars.clone())?;
+            match self
+                .module
+                .exec(rendered_params.clone(), vars.clone(), self.check_mode)
+            {
+                Ok((result, result_vars)) => {
+                    info!(target: if result.get_changed() {"changed"} else { "ok"},
+                        "{}",
+                        result.get_output().unwrap_or_else(
+                            || format!("{:?}", rendered_params)
+                        )
+                    );
+                    let mut new_vars = result_vars;
+                    if self.register.is_some() {
+                        new_vars.insert(self.register.as_ref().unwrap(), &result);
                     }
+                    Ok(new_vars)
                 }
-                None => Err(e),
-            },
+                Err(e) => match self.ignore_errors {
+                    Some(is_true) => {
+                        if is_true {
+                            info!(target: "ignoring", "{}", e);
+                            Ok(vars)
+                        } else {
+                            Err(e)
+                        }
+                    }
+                    None => Err(e),
+                },
+            }
+        } else {
+            info!(target: "skipping", "");
+            Ok(vars)
         }
     }
 
@@ -204,42 +212,17 @@ impl Task {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
 
-        let new_vars = if self.is_exec(vars.clone())? {
-            let result_json_vars: Result<(Value, Vars)> = if self.r#loop.is_some() {
-                let results_with_vars = self
-                    .render_iterator(vars.clone())?
-                    .into_iter()
-                    .map(|item| {
-                        let mut exec_vars = vars.clone();
-                        exec_vars.insert("item", &item);
-                        self.exec_module(exec_vars)
-                    })
-                    .collect::<Result<Vec<(ModuleResult, Vars)>>>()?;
-                let mut new_vars = Vars::new();
-                results_with_vars
-                    .iter()
-                    .for_each(|(_, vars)| new_vars.extend(vars.clone()));
-                let results: Vec<ModuleResult> = results_with_vars
-                    .iter()
-                    .map(|(result, _)| result)
-                    .cloned()
-                    .collect();
-                Ok((json!(results), new_vars))
-            } else {
-                let (result, new_vars) = self.exec_module(vars)?;
-                Ok((json!(result), new_vars))
-            };
-            let (result, mut new_vars) = result_json_vars?;
-            if self.register.is_some() {
-                new_vars.insert(self.register.as_ref().unwrap(), &result);
+        if self.r#loop.is_some() {
+            let mut new_vars = vars.clone();
+            for item in self.render_iterator(vars)?.into_iter() {
+                new_vars.insert("item", &item);
+                new_vars = self.exec_module(new_vars.clone())?;
             }
-            new_vars
+            Ok(new_vars)
         } else {
-            info!(target: "skipping", "");
-            vars
-        };
-
-        Ok(new_vars)
+            let new_vars = self.exec_module(vars)?;
+            Ok(new_vars)
+        }
     }
 
     /// Return name.
@@ -328,6 +311,7 @@ mod tests {
     use std::io::Write;
 
     use tempfile::tempdir;
+    use tera::Context;
     use yaml_rust::YamlLoader;
 
     #[test]
@@ -429,6 +413,27 @@ mod tests {
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
         assert_eq!(task.render_iterator(vars).unwrap(), vec!["1", "2", "3"]);
+    }
+
+    #[test]
+    fn test_when_in_loop() {
+        let s: String = r#"
+        command: echo 'example'
+        loop:
+          - 1
+          - 2
+          - 3
+        when: item == 1
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        let result = task.exec(vars).unwrap();
+        let mut expected = Context::new();
+        expected.insert("item", "3");
+        assert_eq!(result, expected);
     }
 
     #[test]
