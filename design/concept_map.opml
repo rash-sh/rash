@@ -29,14 +29,18 @@
                   <outline text="name" _icon="progress_100"/>
                 </outline>
                 <outline text="Special">
+                  <outline text="Dynamic">
+                    <outline text="name"/>
+                    <outline text="ModuleKind::Special::Include"/>
+                  </outline>
                   <outline text="Include">
                     <outline text="name: include"/>
                     <outline text="exec_fn"/>
                   </outline>
-                </outline>
-                <outline text="Dynamic">
-                  <outline text="name"/>
-                  <outline text="ModuleKind::Special::Include"/>
+                  <outline text="Group" _note="&lt;div&gt;group tasks with similar fields (when, changed_when, ignore_errors)&lt;/div&gt;">
+                    <outline text="name: group"/>
+                    <outline text="exec_fn"/>
+                  </outline>
                 </outline>
               </outline>
               <outline text="when" _icon="help;progress_100;progress_50"/>
@@ -47,6 +51,7 @@
               <outline text="register" _icon="help;progress_100"/>
               <outline text="variables" _icon="help"/>
               <outline text="become" _icon="help"/>
+              <outline text="check_mode" _icon="help"/>
             </outline>
           </outline>
         </outline>
@@ -54,15 +59,6 @@
           <outline text="changed" _icon="progress_100"/>
           <outline text="extra" _icon="help;progress_100" _note="&lt;div&gt;flexible to satisfy all modules&lt;/div&gt;"/>
           <outline text="output" _icon="progress_100"/>
-        </outline>
-        <outline text="Group" _note="&lt;div&gt;group tasks with similar fields (when, changed_when, ignore_errors)&lt;/div&gt;">
-          <outline text="Tasks" _icon="progress_100"/>
-          <outline text="when" _icon="help"/>
-          <outline text="ignore_errors" _icon="help"/>
-          <outline text="loop" _icon="help"/>
-          <outline text="changed_when" _icon="help"/>
-          <outline text="until" _icon="help" _note="Run a block of tasks until some condition reached"/>
-          <outline text="variables" _icon="help"/>
         </outline>
       </outline>
       <outline text="error" _icon="warning">

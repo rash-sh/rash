@@ -3,6 +3,12 @@
 ///
 /// Manage files and file properties.
 ///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: full
+/// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
 /// ## Example
@@ -84,6 +90,7 @@ fn apply_permissions_if_necessary(
     meta: Metadata,
     octal_mode: u32,
     params: Params,
+    check_mode: bool,
 ) -> Result<ModuleResult> {
     let mut permissions = meta.permissions();
     // & 0o7777 to remove lead 100: 100644 -> 644
@@ -94,8 +101,10 @@ fn apply_permissions_if_necessary(
                 format!("mode: {}", &original_mode),
                 format!("mode: {}", &octal_mode),
             );
-            permissions.set_mode(octal_mode);
-            set_permissions(&params.path, permissions)?;
+            if !check_mode {
+                permissions.set_mode(octal_mode);
+                set_permissions(&params.path, permissions)?;
+            }
             Ok(ModuleResult {
                 changed: true,
                 output: Some(params.path),
@@ -150,13 +159,15 @@ fn apply_permissions_recursively(octal_mode: u32, path: &Path, until: &Path) -> 
     }
 }
 
-fn define_file(params: Params) -> Result<ModuleResult> {
+fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     match &params.state {
         Some(State::File) | None => match &params.mode {
             Some(mode) => {
                 let octal_mode = parse_octal(mode)?;
                 match metadata(&params.path) {
-                    Ok(meta) => apply_permissions_if_necessary(meta, octal_mode, params),
+                    Ok(meta) => {
+                        apply_permissions_if_necessary(meta, octal_mode, params, check_mode)
+                    }
                     Err(_not_exists) => fail_if_not_exist(params),
                 }
             }
@@ -168,10 +179,14 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                     diff("state: file\n", "state: absent\n");
                     // add support for symlinks
                     // if meta.is_file() || meta.is_symlink() {
-                    remove_file(&params.path)?;
+                    if !check_mode {
+                        remove_file(&params.path)?;
+                    }
                 } else if meta.is_dir() {
                     diff("state: directory\n", "state: absent\n");
-                    remove_dir_all(&params.path)?;
+                    if !check_mode {
+                        remove_dir_all(&params.path)?;
+                    }
                 } else {
                     return Err(Error::new(
                         ErrorKind::InvalidData,
@@ -193,15 +208,17 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                 extra: None,
             }),
         },
-        Some(State::Directory) => {
-            match &params.mode {
-                Some(mode) => {
-                    let octal_mode = parse_octal(mode)?;
-                    match metadata(&params.path) {
-                        Ok(meta) => apply_permissions_if_necessary(meta, octal_mode, params),
-                        Err(_not_exists) => {
-                            diff("state: absent\n", "state: directory\n");
-                            // Apply permissions to subdirectories
+        Some(State::Directory) => match &params.mode {
+            Some(mode) => {
+                let octal_mode = parse_octal(mode)?;
+                match metadata(&params.path) {
+                    Ok(meta) => {
+                        apply_permissions_if_necessary(meta, octal_mode, params, check_mode)
+                    }
+                    Err(_not_exists) => {
+                        diff("state: absent\n", "state: directory\n");
+
+                        if !check_mode {
                             let first_existing_parent =
                                 find_first_existing_directory(Path::new(&params.path))?;
                             create_dir_all(&params.path)?;
@@ -210,44 +227,54 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                                 Path::new(&params.path),
                                 first_existing_parent,
                             )?;
-                            Ok(ModuleResult {
-                                changed: true,
-                                output: Some(params.path),
-                                extra: None,
-                            })
                         }
-                    }
-                }
-                None => match metadata(&params.path) {
-                    Ok(_exists) => Ok(ModuleResult {
-                        changed: false,
-                        output: Some(params.path),
-                        extra: None,
-                    }),
-                    Err(_not_exists) => {
-                        diff("state: absent\n", "state: directory\n");
-                        create_dir_all(&params.path)?;
+
                         Ok(ModuleResult {
                             changed: true,
                             output: Some(params.path),
                             extra: None,
                         })
                     }
-                },
+                }
             }
-        }
+            None => match metadata(&params.path) {
+                Ok(_exists) => Ok(ModuleResult {
+                    changed: false,
+                    output: Some(params.path),
+                    extra: None,
+                }),
+                Err(_not_exists) => {
+                    diff("state: absent\n", "state: directory\n");
+
+                    if !check_mode {
+                        create_dir_all(&params.path)?;
+                    }
+
+                    Ok(ModuleResult {
+                        changed: true,
+                        output: Some(params.path),
+                        extra: None,
+                    })
+                }
+            },
+        },
         Some(State::Touch) => match &params.mode {
             Some(mode) => {
                 let octal_mode = parse_octal(mode)?;
                 match metadata(&params.path) {
-                    Ok(meta) => apply_permissions_if_necessary(meta, octal_mode, params),
+                    Ok(meta) => {
+                        apply_permissions_if_necessary(meta, octal_mode, params, check_mode)
+                    }
                     Err(_not_exists) => {
                         diff("state: absent\n", "state: file\n");
 
-                        let file = File::create(&params.path)?;
-                        let mut permissions = file.metadata()?.permissions();
-                        permissions.set_mode(octal_mode);
-                        set_permissions(&params.path, permissions)?;
+                        if !check_mode {
+                            let file = File::create(&params.path)?;
+                            let mut permissions = file.metadata()?.permissions();
+                            permissions.set_mode(octal_mode);
+                            set_permissions(&params.path, permissions)?;
+                        }
+
                         Ok(ModuleResult {
                             changed: true,
                             output: Some(params.path),
@@ -264,8 +291,10 @@ fn define_file(params: Params) -> Result<ModuleResult> {
                 }),
                 Err(_not_exists) => {
                     diff("state: absent\n", "state: file\n");
+                    if !check_mode {
+                        File::create(&params.path)?;
+                    }
 
-                    File::create(&params.path)?;
                     Ok(ModuleResult {
                         changed: true,
                         output: Some(params.path),
@@ -277,8 +306,11 @@ fn define_file(params: Params) -> Result<ModuleResult> {
     }
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
-    Ok((define_file(parse_params(optional_params)?)?, vars))
+pub fn exec(optional_params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
+    Ok((
+        define_file(parse_params(optional_params)?, check_mode)?,
+        vars,
+    ))
 }
 
 #[cfg(test)]
@@ -404,11 +436,14 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = define_file(Params {
-            path: file_path.to_str().unwrap().to_string(),
-            state: None,
-            mode: None,
-        })
+        let output = define_file(
+            Params {
+                path: file_path.to_str().unwrap().to_string(),
+                state: None,
+                mode: None,
+            },
+            false,
+        )
         .unwrap();
 
         let permissions = metadata(&file_path).unwrap().permissions();
@@ -432,11 +467,14 @@ mod tests {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("no_exists");
-        let error = define_file(Params {
-            path: file_path.to_str().unwrap().to_string(),
-            state: None,
-            mode: None,
-        })
+        let error = define_file(
+            Params {
+                path: file_path.to_str().unwrap().to_string(),
+                state: None,
+                mode: None,
+            },
+            false,
+        )
         .unwrap_err();
 
         assert_eq!(error.kind(), ErrorKind::NotFound);
@@ -447,11 +485,14 @@ mod tests {
         let dir = tempdir().unwrap();
         let dir_path = dir.path().join("created");
 
-        let output = define_file(Params {
-            path: dir_path.to_str().unwrap().to_string(),
-            state: Some(State::Touch),
-            mode: None,
-        })
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Touch),
+                mode: None,
+            },
+            false,
+        )
         .unwrap();
 
         let dir_metadata = metadata(&dir_path).unwrap();
@@ -473,6 +514,33 @@ mod tests {
     }
 
     #[test]
+    fn test_define_file_created_check_mode() {
+        let dir = tempdir().unwrap();
+        let dir_path = dir.path().join("created");
+
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Touch),
+                mode: None,
+            },
+            true,
+        )
+        .unwrap();
+
+        let dir_metadata = metadata(&dir_path);
+        assert_eq!(dir_metadata.is_err(), true);
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(dir_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_define_file_created_directory_and_subdirectories() {
         let dir = tempdir().unwrap();
         let parent_path = dir.path().join("parent");
@@ -480,11 +548,14 @@ mod tests {
             .join("foo")
             .join("created_directory_and_subdirectories");
 
-        let output = define_file(Params {
-            path: dir_path.to_str().unwrap().to_string(),
-            state: Some(State::Directory),
-            mode: Some("0750".to_string()),
-        })
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Directory),
+                mode: Some("0750".to_string()),
+            },
+            false,
+        )
         .unwrap();
         let parent_metadata = metadata(&parent_path).unwrap();
         let parent_permissions = parent_metadata.permissions();
@@ -513,6 +584,39 @@ mod tests {
     }
 
     #[test]
+    fn test_define_file_created_directory_and_subdirectories_check_mode() {
+        let dir = tempdir().unwrap();
+        let parent_path = dir.path().join("parent");
+        let dir_path = parent_path
+            .join("foo")
+            .join("created_directory_and_subdirectories");
+
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Directory),
+                mode: Some("0750".to_string()),
+            },
+            true,
+        )
+        .unwrap();
+
+        let parent_metadata = metadata(&parent_path);
+        let dir_metadata = metadata(&dir_path);
+        assert_eq!(parent_metadata.is_err(), true);
+        assert_eq!(dir_metadata.is_err(), true);
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(dir_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_define_file_modify_permissions() {
         let dir = tempdir().unwrap();
 
@@ -522,11 +626,14 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = define_file(Params {
-            path: file_path.to_str().unwrap().to_string(),
-            state: Some(State::File),
-            mode: Some("0604".to_string()),
-        })
+        let output = define_file(
+            Params {
+                path: file_path.to_str().unwrap().to_string(),
+                state: Some(State::File),
+                mode: Some("0604".to_string()),
+            },
+            false,
+        )
         .unwrap();
 
         let file_metadata = metadata(&file_path).unwrap();
@@ -535,6 +642,44 @@ mod tests {
         assert_eq!(
             format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o604)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_define_file_modify_permissions_check_mode() {
+        let dir = tempdir().unwrap();
+
+        let file_path = dir.path().join("modify_permissions");
+        let file = File::create(file_path.clone()).unwrap();
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o400);
+        set_permissions(&file_path, permissions).unwrap();
+
+        let output = define_file(
+            Params {
+                path: file_path.to_str().unwrap().to_string(),
+                state: Some(State::File),
+                mode: Some("0604".to_string()),
+            },
+            true,
+        )
+        .unwrap();
+
+        let file_metadata = metadata(&file_path).unwrap();
+        let permissions = file_metadata.permissions();
+        assert_eq!(file_metadata.is_file(), true);
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
         );
 
         assert_eq!(
@@ -557,15 +702,51 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = define_file(Params {
-            path: file_path.to_str().unwrap().to_string(),
-            state: Some(State::Absent),
-            mode: None,
-        })
+        let output = define_file(
+            Params {
+                path: file_path.to_str().unwrap().to_string(),
+                state: Some(State::Absent),
+                mode: None,
+            },
+            false,
+        )
         .unwrap();
 
         let file_metadata = metadata(&file_path);
         assert_eq!(file_metadata.is_err(), true);
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_define_file_remove_file_check_mode() {
+        let dir = tempdir().unwrap();
+
+        let file_path = dir.path().join("remove_file");
+        let file = File::create(file_path.clone()).unwrap();
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o400);
+        set_permissions(&file_path, permissions).unwrap();
+
+        let output = define_file(
+            Params {
+                path: file_path.to_str().unwrap().to_string(),
+                state: Some(State::Absent),
+                mode: None,
+            },
+            true,
+        )
+        .unwrap();
+
+        let file_metadata = metadata(&file_path);
+        assert_eq!(file_metadata.is_ok(), true);
 
         assert_eq!(
             output,
@@ -588,15 +769,52 @@ mod tests {
         permissions.set_mode(0o700);
         set_permissions(&dir_path, permissions).unwrap();
 
-        let output = define_file(Params {
-            path: dir_path.to_str().unwrap().to_string(),
-            state: Some(State::Absent),
-            mode: None,
-        })
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Absent),
+                mode: None,
+            },
+            false,
+        )
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
         assert_eq!(dir_metadata.is_err(), true);
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(dir_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_define_file_remove_directory_check_mode() {
+        let dir = tempdir().unwrap();
+
+        let dir_path = dir.path().join("remove_directory");
+        create_dir(&dir_path).unwrap();
+        let dir_metadata = metadata(&dir_path).unwrap();
+        let mut permissions = dir_metadata.permissions();
+        permissions.set_mode(0o700);
+        set_permissions(&dir_path, permissions).unwrap();
+
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Absent),
+                mode: None,
+            },
+            true,
+        )
+        .unwrap();
+
+        let dir_metadata = metadata(&dir_path);
+        assert_eq!(dir_metadata.is_ok(), true);
 
         assert_eq!(
             output,
@@ -621,15 +839,54 @@ mod tests {
         permissions.set_mode(0o700);
         set_permissions(&dir_path, permissions).unwrap();
 
-        let output = define_file(Params {
-            path: dir_path.to_str().unwrap().to_string(),
-            state: Some(State::Absent),
-            mode: None,
-        })
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Absent),
+                mode: None,
+            },
+            false,
+        )
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
         assert_eq!(dir_metadata.is_err(), true);
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(dir_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_define_file_remove_directory_and_subdirectories_check_mode() {
+        let dir = tempdir().unwrap();
+
+        let dir_path = dir.path().join("remove_directory_and_subdirectories");
+        create_dir(&dir_path).unwrap();
+        create_dir(&dir_path.join("one_dir")).unwrap();
+        File::create(&dir_path.join("one_file")).unwrap();
+        let dir_metadata = metadata(&dir_path).unwrap();
+        let mut permissions = dir_metadata.permissions();
+        permissions.set_mode(0o700);
+        set_permissions(&dir_path, permissions).unwrap();
+
+        let output = define_file(
+            Params {
+                path: dir_path.to_str().unwrap().to_string(),
+                state: Some(State::Absent),
+                mode: None,
+            },
+            true,
+        )
+        .unwrap();
+
+        let dir_metadata = metadata(&dir_path);
+        assert_eq!(dir_metadata.is_ok(), true);
 
         assert_eq!(
             output,

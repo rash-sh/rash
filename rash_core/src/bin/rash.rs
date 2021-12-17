@@ -35,6 +35,9 @@ where
     author = crate_authors!("\n"),
 )]
 struct Opts {
+    /// Execute in dry-run mode without modifications
+    #[clap(short, long)]
+    check: bool,
     /// Show the differences
     #[clap(short, long)]
     diff: bool,
@@ -81,7 +84,7 @@ fn main() {
     trace!("start logger");
 
     let script_path = Path::new(&opts.script_file);
-    match read_file(script_path.to_path_buf()) {
+    match read_file(script_path.to_path_buf(), opts.check) {
         Ok(tasks) => match env::load(opts.environment) {
             Ok(vars) => {
                 let mut new_vars = vars;

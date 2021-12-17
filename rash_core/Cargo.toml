@@ -34,13 +34,11 @@ serde_yaml = "0.8"
 similar = "2.1"
 strum = "0.23"
 strum_macros = "0.23"
+tempfile = "3"
 tera = { version = "1", default-features = false }
 term_size = "1.0.0-beta.2"
 yaml-rust = "0.4"
 schemars = { version = "0.8", optional = true }
-
-[dev-dependencies]
-tempfile = "3"
 
 [dev-dependencies.cargo-husky]
 version = "1"

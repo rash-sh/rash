@@ -2,6 +2,13 @@
 /// # set_vars
 ///
 /// This module allows setting new variables.
+///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: none
+/// ```
 /// ANCHOR_END: module
 /// ANCHOR: parameters
 /// | Parameter | Required | Type  | Values | Description                                                         |
@@ -29,7 +36,7 @@ use crate::vars::Vars;
 use serde_yaml::Value;
 use yaml_rust::{Yaml, YamlEmitter};
 
-pub fn exec(params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
+pub fn exec(params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let mut new_vars = vars;
 
     params
