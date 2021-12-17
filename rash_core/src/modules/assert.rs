@@ -2,6 +2,13 @@
 /// # assert
 ///
 /// Assert given expressions are true.
+///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: none
+/// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
 /// ## Example
@@ -57,7 +64,7 @@ fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((
         verify_conditions(parse_params(optional_params)?, vars.clone())?,
         vars,

@@ -33,6 +33,8 @@ pub struct Task {
     ///
     /// [`Module::exec`]: ../modules/struct.Module.html#method.exec
     params: Yaml,
+    /// Run task in dry-run mode without modifications.
+    check_mode: bool,
     /// Task name.
     name: Option<String>,
     /// Template expression passed directly without {{ }}; if false skip task execution.
@@ -62,9 +64,9 @@ impl Task {
     ///
     /// [`Task`]: struct.Task.html
     /// [`Yaml`]: ../../yaml_rust/struct.Yaml.html
-    pub fn new(yaml: &Yaml) -> Result<Self> {
+    pub fn new(yaml: &Yaml, check: bool) -> Result<Self> {
         trace!("new task: {:?}", yaml);
-        TaskNew::from(yaml).validate_attrs()?.get_task()
+        TaskNew::from(yaml).validate_attrs()?.get_task(check)
     }
 
     #[inline(always)]
@@ -167,7 +169,10 @@ impl Task {
 
     fn exec_module(&self, vars: Vars) -> Result<(ModuleResult, Vars)> {
         let rendered_params = self.render_params(vars.clone())?;
-        match self.module.exec(rendered_params.clone(), vars.clone()) {
+        match self
+            .module
+            .exec(rendered_params.clone(), vars.clone(), self.check_mode)
+        {
             Ok((result, new_vars)) => {
                 info!(target: if result.get_changed() {"changed"} else { "ok"},
                     "{}",
@@ -267,6 +272,7 @@ impl Task {
         Task {
             module: Module::test_example(),
             name: None,
+            check_mode: false,
             when: None,
             register: None,
             ignore_errors: None,
@@ -280,7 +286,7 @@ impl Task {
     }
 }
 
-pub fn read_file(tasks_file_path: PathBuf) -> Result<Tasks> {
+pub fn read_file(tasks_file_path: PathBuf, check: bool) -> Result<Tasks> {
     trace!("reading tasks from: {:?}", tasks_file_path);
     let tasks_file =
         fs::read_to_string(tasks_file_path).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
@@ -295,7 +301,7 @@ pub fn read_file(tasks_file_path: PathBuf) -> Result<Tasks> {
 
     yaml.clone()
         .into_iter()
-        .map(|task| Task::new(&task))
+        .map(|task| Task::new(&task, check))
         .collect::<Result<Tasks>>()
 }
 
@@ -305,7 +311,7 @@ impl From<&Yaml> for Task {
         TaskNew::from(yaml)
             .validate_attrs()
             .unwrap()
-            .get_task()
+            .get_task(false)
             .unwrap()
     }
 }
@@ -348,7 +354,7 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task_err = Task::new(yaml).unwrap_err();
+        let task_err = Task::new(yaml, false).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
@@ -362,7 +368,7 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task_err = Task::new(yaml).unwrap_err();
+        let task_err = Task::new(yaml, false).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
@@ -482,7 +488,7 @@ mod tests {
         "#
         )
         .unwrap();
-        let tasks = read_file(file_path).unwrap();
+        let tasks = read_file(file_path, false).unwrap();
         assert_eq!(tasks.len(), 2);
 
         let s0 = r#"

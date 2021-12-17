@@ -9,7 +9,7 @@
 [![concept-map](https://img.shields.io/badge/design-concept--map-blue)](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56)
 ![Rash license](https://img.shields.io/github/license/rash-sh/rash)
 
-Declarative shell scripting using Rust native bindings inspired in [Ansible](https://www.ansible.com/)
+Declarative shell scripting using Rust native bindings inspired by [Ansible](https://www.ansible.com/)
 
 ## Getting Started & Documentation
 

@@ -61,7 +61,7 @@ impl ModuleResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     name: &'static str,
-    exec_fn: fn(Yaml, Vars) -> Result<(ModuleResult, Vars)>,
+    exec_fn: fn(Yaml, Vars, bool) -> Result<(ModuleResult, Vars)>,
     #[cfg(feature = "docs")]
     get_json_schema_fn: Option<fn() -> RootSchema>,
 }
@@ -73,8 +73,8 @@ impl Module {
     }
 
     /// Execute `self.exec_fn`.
-    pub fn exec(&self, params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
-        (self.exec_fn)(params, vars)
+    pub fn exec(&self, params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
+        (self.exec_fn)(params, vars, check_mode)
     }
 
     #[cfg(feature = "docs")]
@@ -86,7 +86,7 @@ impl Module {
     pub fn test_example() -> Self {
         Module {
             name: "test",
-            exec_fn: |_, _| {
+            exec_fn: |_, _, _| {
                 Ok((
                     ModuleResult {
                         changed: true,

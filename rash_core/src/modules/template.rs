@@ -3,6 +3,12 @@
 ///
 /// Render [Tera template](https://tera.netlify.app/docs/#templates).
 ///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: full
+/// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
 /// ## Examples
@@ -56,12 +62,12 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((
-        copy_file(render_content(
-            parse_params(optional_params)?,
-            vars.clone(),
-        )?)?,
+        copy_file(
+            render_content(parse_params(optional_params)?, vars.clone())?,
+            check_mode,
+        )?,
         vars,
     ))
 }

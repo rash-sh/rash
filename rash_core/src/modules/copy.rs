@@ -2,6 +2,13 @@
 /// # copy
 ///
 /// Copy files to path.
+///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: full
+/// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
 /// ## Examples
@@ -31,6 +38,7 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
+use tempfile::tempfile;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -51,16 +59,21 @@ impl Params {
     }
 }
 
-pub fn copy_file(params: Params) -> Result<ModuleResult> {
+pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {:?}", params);
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.open(&params.dest).or_else(|_| {
-        trace!("file does not exists, create new one: {:?}", &params.dest);
-        open_read_file
-            .clone()
-            .write(true)
-            .create(true)
-            .open(&params.dest)
+        if !check_mode {
+            trace!("file does not exists, create new one: {:?}", &params.dest);
+            open_read_file
+                .clone()
+                .write(true)
+                .create(true)
+                .open(&params.dest)
+        } else {
+            // TODO: avoid this logic. Hint: remove tempfile from dependencies if not used anywhere
+            tempfile()
+        }
     })?;
     let mut buf_reader = BufReader::new(&read_file);
     let mut content = String::new();
@@ -70,23 +83,27 @@ pub fn copy_file(params: Params) -> Result<ModuleResult> {
     let mut changed = false;
 
     if content != params.content {
-        trace!("changing content: {:?}", &params.content);
-        if permissions.readonly() {
-            let mut p = permissions.clone();
-            // enable write
-            p.set_mode(permissions.mode() | 0o200);
-            set_permissions(&params.dest, p)?;
-        }
-
         diff(&content, &params.content);
-        let mut file = OpenOptions::new().write(true).open(&params.dest)?;
-        file.seek(SeekFrom::Start(0))?;
-        file.write_all(params.content.as_bytes())?;
-        file.set_len(params.content.len() as u64)?;
 
-        if permissions.readonly() {
-            set_permissions(&params.dest, permissions.clone())?;
+        if !check_mode {
+            trace!("changing content: {:?}", &params.content);
+            if permissions.readonly() {
+                let mut p = permissions.clone();
+                // enable write
+                p.set_mode(permissions.mode() | 0o200);
+                set_permissions(&params.dest, p)?;
+            }
+
+            let mut file = OpenOptions::new().write(true).open(&params.dest)?;
+            file.seek(SeekFrom::Start(0))?;
+            file.write_all(params.content.as_bytes())?;
+            file.set_len(params.content.len() as u64)?;
+
+            if permissions.readonly() {
+                set_permissions(&params.dest, permissions.clone())?;
+            }
         }
+
         changed = true;
     };
 
@@ -98,9 +115,11 @@ pub fn copy_file(params: Params) -> Result<ModuleResult> {
     // & 0o7777 to remove lead 100: 100644 -> 644
     let original_mode = permissions.mode() & 0o7777;
     if original_mode != mode {
-        trace!("changing mode: {:o}", &mode);
-        permissions.set_mode(mode);
-        set_permissions(&params.dest, permissions)?;
+        if !check_mode {
+            trace!("changing mode: {:o}", &mode);
+            permissions.set_mode(mode);
+            set_permissions(&params.dest, permissions)?;
+        }
         changed = true;
     };
 
@@ -111,15 +130,15 @@ pub fn copy_file(params: Params) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
-    Ok((copy_file(parse_params(optional_params)?)?, vars))
+pub fn exec(optional_params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
+    Ok((copy_file(parse_params(optional_params)?, check_mode)?, vars))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use std::fs::File;
+    use std::fs::{metadata, File};
     use std::io::Read;
     use std::os::unix::fs::PermissionsExt;
 
@@ -209,11 +228,14 @@ mod tests {
         permissions.set_mode(0o644);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = copy_file(Params {
-            content: "test\n".to_string(),
-            dest: file_path.to_str().unwrap().to_string(),
-            mode: None,
-        })
+        let output = copy_file(
+            Params {
+                content: "test\n".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: None,
+            },
+            false,
+        )
         .unwrap();
 
         let mut file = File::open(&file_path).unwrap();
@@ -245,11 +267,14 @@ mod tests {
         let file_path = dir.path().join("change.txt");
         let mut file = File::create(file_path.clone()).unwrap();
         writeln!(file, "test").unwrap();
-        let output = copy_file(Params {
-            content: "fu".to_string(),
-            dest: file_path.to_str().unwrap().to_string(),
-            mode: Some("0400".to_string()),
-        })
+        let output = copy_file(
+            Params {
+                content: "fu".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            false,
+        )
         .unwrap();
 
         let mut file = File::open(&file_path).unwrap();
@@ -275,15 +300,58 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_file_change_check_mode() {
+        let dir = tempdir().unwrap();
+
+        let file_path = dir.path().join("change_check_mode.txt");
+        let mut file = File::create(file_path.clone()).unwrap();
+        writeln!(file, "test").unwrap();
+        let output = copy_file(
+            Params {
+                content: "fu".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            true,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "test\n");
+        assert_ne!(contents, "fu");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_ne!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_copy_file_create() {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("create.txt");
-        let output = copy_file(Params {
-            content: "zoo".to_string(),
-            dest: file_path.to_str().unwrap().to_string(),
-            mode: Some("0400".to_string()),
-        })
+        let output = copy_file(
+            Params {
+                content: "zoo".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            false,
+        )
         .unwrap();
 
         let mut file = File::open(&file_path).unwrap();
@@ -309,6 +377,33 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_file_create_check_mode() {
+        let dir = tempdir().unwrap();
+
+        let file_path = dir.path().join("create_check_mode.txt");
+        let output = copy_file(
+            Params {
+                content: "zoo".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            true,
+        )
+        .unwrap();
+
+        let file_metadata = metadata(&file_path);
+        assert_eq!(file_metadata.is_err(), true);
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_copy_file_read_only() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("read_only.txt");
@@ -318,11 +413,14 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = copy_file(Params {
-            content: "zoo".to_string(),
-            dest: file_path.to_str().unwrap().to_string(),
-            mode: Some("0600".to_string()),
-        })
+        let output = copy_file(
+            Params {
+                content: "zoo".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0600".to_string()),
+            },
+            false,
+        )
         .unwrap();
 
         let mut file = File::open(&file_path).unwrap();
@@ -348,6 +446,53 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_file_read_only_check_mode() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("read_only_check_mode.txt");
+        let mut file = File::create(file_path.clone()).unwrap();
+        writeln!(file, "read_only").unwrap();
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o400);
+        set_permissions(&file_path, permissions).unwrap();
+
+        let output = copy_file(
+            Params {
+                content: "zoo".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0600".to_string()),
+            },
+            true,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "read_only\n");
+        assert_ne!(contents, "zoo");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
+        );
+        assert_ne!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o600)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_copy_file_read_only_no_change_permissions() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("read_only.txt");
@@ -357,17 +502,62 @@ mod tests {
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
 
-        let output = copy_file(Params {
-            content: "zoo".to_string(),
-            dest: file_path.to_str().unwrap().to_string(),
-            mode: Some("0400".to_string()),
-        })
+        let output = copy_file(
+            Params {
+                content: "zoo".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            false,
+        )
         .unwrap();
 
         let mut file = File::open(&file_path).unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         assert_eq!(contents, "zoo");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_file_read_only_no_change_permissions_check_mode() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("read_only.txt");
+        let mut file = File::create(file_path.clone()).unwrap();
+        writeln!(file, "read_only").unwrap();
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o400);
+        set_permissions(&file_path, permissions).unwrap();
+
+        let output = copy_file(
+            Params {
+                content: "zoo".to_string(),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            true,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "read_only\n");
 
         let metadata = file.metadata().unwrap();
         let permissions = metadata.permissions();

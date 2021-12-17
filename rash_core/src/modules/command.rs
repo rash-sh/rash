@@ -2,6 +2,13 @@
 /// # command
 ///
 /// Execute commands.
+///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: none
+/// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
 /// ## Example
@@ -42,7 +49,7 @@ pub struct Params {
     transfer_pid_1: Option<bool>,
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let params: Params = match optional_params.as_str() {
         Some(s) => Params {
             cmd: Some(s.to_string()),

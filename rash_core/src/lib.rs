@@ -46,7 +46,10 @@ mod tests {
         )
         .unwrap();
 
-        let context = Context::new(read_file(file_path).unwrap(), env::load(vec![]).unwrap());
+        let context = Context::new(
+            read_file(file_path, false).unwrap(),
+            env::load(vec![]).unwrap(),
+        );
         let context_error = Context::exec(context).unwrap_err();
 
         let _ = match context_error.kind() {

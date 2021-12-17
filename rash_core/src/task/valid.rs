@@ -56,11 +56,15 @@ impl TaskValid {
             })
     }
 
-    pub fn get_task(&self) -> Result<Task> {
+    pub fn get_task(&self, check_mode: bool) -> Result<Task> {
         let module_name: &str = &self.get_module_name()?;
         Ok(Task {
             name: self.attrs["name"].as_str().map(String::from),
             when: self.attrs["when"].as_str().map(String::from),
+            check_mode: match check_mode {
+                true => true,
+                false => self.attrs["check_mode"].as_bool().unwrap_or(false),
+            },
             register: self.attrs["register"].as_str().map(String::from),
             ignore_errors: self.attrs["ignore_errors"].as_bool(),
             r#loop: if self.attrs["loop"].is_badvalue() {
