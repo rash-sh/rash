@@ -81,9 +81,7 @@ tag:	## create a tag using version from VERSION file
 	git push origin v$${PROJECT_VERSION}
 
 .PHONY: release
-release:	## generate vendor.tar.gz and $(PKG_BASE_NAME).tar.gz
-	cargo vendor
-	tar -czf vendor.tar.gz vendor
+release:	## generate $(PKG_BASE_NAME).tar.gz with binary
 	cargo build --frozen --release --target ${CARGO_TARGET}
 	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash
 	@echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash

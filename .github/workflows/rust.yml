@@ -111,7 +111,6 @@ jobs:
       with:
           files: |
             ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
-            vendor.tar.gz
           prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
