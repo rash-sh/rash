@@ -29,7 +29,7 @@ use crate::vars::Vars;
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::fs::{set_permissions, OpenOptions};
+use std::fs::{set_permissions, File, OpenOptions};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::io::{BufReader, Write};
@@ -38,24 +38,40 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
+#[cfg(feature = "docs")]
+use strum_macros::{Display, EnumString};
 use tempfile::tempfile;
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Params {
-    /// Sets the contents of a file directly to the specified value.
-    pub content: String,
+    #[serde(flatten)]
+    pub input: Input,
     /// The absolute path where the file should be copied to.
     pub dest: String,
     /// Permissions of the destination file or directory.
     pub mode: Option<String>,
 }
 
+#[derive(Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum Input {
+    /// When used instead of src, sets the contents of a file directly to the specified value.
+    Content(String),
+    /// Path to a file should be copied to dest.
+    Src(String),
+}
+
 impl Params {
     #[cfg(test)]
-    pub fn get_content(&self) -> String {
-        self.content.clone()
+    pub fn get_content(&self) -> Option<String> {
+        match &self.input {
+            Input::Content(content) => Some(content.clone()),
+            _ => None,
+        }
     }
 }
 
@@ -82,11 +98,22 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let mut permissions = metadata.permissions();
     let mut changed = false;
 
-    if content != params.content {
-        diff(&content, &params.content);
+    let desired_content = match params.input {
+        Input::Content(s) => s,
+        Input::Src(src) => {
+            let file = File::open(&src)?;
+            let mut buf_reader = BufReader::new(file);
+            let mut contents = String::new();
+            buf_reader.read_to_string(&mut contents)?;
+            contents
+        }
+    };
+
+    if content != desired_content {
+        diff(&content, &desired_content);
 
         if !check_mode {
-            trace!("changing content: {:?}", &params.content);
+            trace!("changing content: {:?}", &desired_content);
             if permissions.readonly() {
                 let mut p = permissions.clone();
                 // enable write
@@ -96,8 +123,8 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
             let mut file = OpenOptions::new().write(true).open(&params.dest)?;
             file.seek(SeekFrom::Start(0))?;
-            file.write_all(params.content.as_bytes())?;
-            file.set_len(params.content.len() as u64)?;
+            file.write_all(desired_content.as_bytes())?;
+            file.set_len(desired_content.len() as u64)?;
 
             if permissions.readonly() {
                 set_permissions(&params.dest, permissions.clone())?;
@@ -138,6 +165,8 @@ pub fn exec(optional_params: Yaml, vars: Vars, check_mode: bool) -> Result<(Modu
 mod tests {
     use super::*;
 
+    use crate::error::ErrorKind;
+
     use std::fs::{metadata, File};
     use std::io::Read;
     use std::os::unix::fs::PermissionsExt;
@@ -162,7 +191,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                content: "boo".to_string(),
+                input: Input::Content("boo".to_string()),
                 dest: "/tmp/buu.txt".to_string(),
                 mode: Some("0600".to_string()),
             }
@@ -186,7 +215,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                content: "boo".to_string(),
+                input: Input::Content("boo".to_string()),
                 dest: "/tmp/buu.txt".to_string(),
                 mode: Some("600".to_string()),
             }
@@ -209,11 +238,68 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                content: "boo".to_string(),
+                input: Input::Content("boo".to_string()),
                 dest: "/tmp/buu.txt".to_string(),
                 mode: None,
             }
         );
+    }
+
+    #[test]
+    fn test_parse_params_src_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        src: "/tmp/a"
+        dest: "/tmp/buu.txt"
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(
+            params,
+            Params {
+                input: Input::Src("/tmp/a".to_string()),
+                dest: "/tmp/buu.txt".to_string(),
+                mode: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_params_content_and_src() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        content: "boo"
+        src: "/tmp/a"
+        dest: "/tmp/buu.txt"
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_parse_params_random_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        random: "boo"
+        src: "/tmp/a"
+        dest: "/tmp/buu.txt"
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
@@ -230,7 +316,7 @@ mod tests {
 
         let output = copy_file(
             Params {
-                content: "test\n".to_string(),
+                input: Input::Content("test\n".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: None,
             },
@@ -269,7 +355,7 @@ mod tests {
         writeln!(file, "test").unwrap();
         let output = copy_file(
             Params {
-                content: "fu".to_string(),
+                input: Input::Content("fu".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0400".to_string()),
             },
@@ -308,7 +394,7 @@ mod tests {
         writeln!(file, "test").unwrap();
         let output = copy_file(
             Params {
-                content: "fu".to_string(),
+                input: Input::Content("fu".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0400".to_string()),
             },
@@ -346,7 +432,7 @@ mod tests {
         let file_path = dir.path().join("create.txt");
         let output = copy_file(
             Params {
-                content: "zoo".to_string(),
+                input: Input::Content("zoo".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0400".to_string()),
             },
@@ -377,13 +463,52 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_file_create_src() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("create.txt");
+        let src_path = dir.path().join("src.txt");
+        let mut file = File::create(src_path.clone()).unwrap();
+        writeln!(file, "zoo").unwrap();
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_path.into_os_string().into_string().unwrap()),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            false,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "zoo\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
     fn test_copy_file_create_check_mode() {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("create_check_mode.txt");
         let output = copy_file(
             Params {
-                content: "zoo".to_string(),
+                input: Input::Content("zoo".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0400".to_string()),
             },
@@ -415,7 +540,7 @@ mod tests {
 
         let output = copy_file(
             Params {
-                content: "zoo".to_string(),
+                input: Input::Content("zoo".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0600".to_string()),
             },
@@ -457,7 +582,7 @@ mod tests {
 
         let output = copy_file(
             Params {
-                content: "zoo".to_string(),
+                input: Input::Content("zoo".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0600".to_string()),
             },
@@ -504,7 +629,7 @@ mod tests {
 
         let output = copy_file(
             Params {
-                content: "zoo".to_string(),
+                input: Input::Content("zoo".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0400".to_string()),
             },
@@ -546,7 +671,7 @@ mod tests {
 
         let output = copy_file(
             Params {
-                content: "zoo".to_string(),
+                input: Input::Content("zoo".to_string()),
                 dest: file_path.to_str().unwrap().to_string(),
                 mode: Some("0400".to_string()),
             },

@@ -38,6 +38,7 @@ use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Params {
     /// The command to run.
     cmd: Option<String>,
@@ -165,5 +166,22 @@ mod tests {
                 transfer_pid_1: Some(false),
             }
         );
+    }
+
+    #[test]
+    fn test_parse_params_random_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        cmd: "ls"
+        yea: boo
+        transfer_pid_1: false
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 }

@@ -36,6 +36,7 @@ use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Params {
     /// A list of string expressions of the same form that can be passed to the
     /// _when_ statement.
@@ -96,6 +97,23 @@ mod tests {
                 that: vec!["1 == 1".to_string()],
             }
         );
+    }
+
+    #[test]
+    fn test_parse_params_random_field() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        that:
+          - 1 == 1
+        yea: boo
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]

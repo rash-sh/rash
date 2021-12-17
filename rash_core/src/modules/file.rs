@@ -48,6 +48,7 @@ use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Params {
     /// Permissions of the destination file or directory.
     mode: Option<String>,
