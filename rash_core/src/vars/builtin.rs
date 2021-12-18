@@ -1,6 +1,6 @@
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use libc::{getgid, getuid};
 use serde::Serialize;
@@ -11,9 +11,9 @@ pub struct Builtins {
     /// Args passed from command line execution.
     args: Vec<String>,
     /// Script directory absolute path.
-    dir: PathBuf,
+    dir: String,
     /// Script absolute path.
-    path: PathBuf,
+    path: String,
     user: UserInfo,
 }
 
@@ -42,8 +42,15 @@ impl Builtins {
     pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {
         let dir = path
             .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_path_buf();
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Script parent dir not found"))?
+            .to_str()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    "Script parent dir cannot be parsed to String",
+                )
+            })?
+            .to_string();
 
         let uid: u32;
         let gid: u32;
@@ -55,8 +62,16 @@ impl Builtins {
 
         Ok(Builtins {
             args: args.into_iter().map(String::from).collect(),
-            dir,
-            path: path.to_path_buf(),
+            dir: if dir.is_empty() { ".".to_string() } else { dir },
+            path: path
+                .to_str()
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "Script path cannot be parsed to String",
+                    )
+                })?
+                .to_string(),
             user: UserInfo { uid, gid },
         })
     }
@@ -70,7 +85,13 @@ mod tests {
     fn test_builtin_new() {
         let builtins = Builtins::new(vec![], Path::new("/example.rh")).unwrap();
         assert_eq!(builtins.args.len(), 0);
-        assert_eq!(builtins.path.as_os_str(), "/example.rh");
-        assert_eq!(builtins.dir.as_os_str(), "/");
+        assert_eq!(builtins.path, "/example.rh".to_string());
+        assert_eq!(builtins.dir, "/".to_string());
+    }
+
+    #[test]
+    fn test_builtin_same_dir() {
+        let builtins = Builtins::new(vec![], Path::new("example.rh")).unwrap();
+        assert_eq!(builtins.dir, ".".to_string());
     }
 }
