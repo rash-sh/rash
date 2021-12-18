@@ -1,5 +1,22 @@
 # rash changes
 
+## [v1.3.0](https://github.com/rash-sh/rash/tree/v1.3.0) (2021-12-19)
+
+### Added
+
+* Add `changed_when` optional field in task
+* Add support for arrays in `when` and `changed_when`
+* Add clearer logger for diff files
+* Add src option to copy module
+* Add `check` mode
+
+### Fixed
+
+* Parsed `when` and `changed_when` when they are booleans
+* Builtin dir when current dir returns `.`
+* Check `when` for each different item in loop
+* Remove vendor on release
+
 ## [v1.2.0](https://github.com/rash-sh/rash/tree/v1.2.0) (2021-12-17)
 
 ### Added
