@@ -90,7 +90,7 @@ pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(Mod
         None | Some(false) => {
             let output = if params.cmd.is_some() {
                 Command::new("/bin/sh")
-                    // safe unwrap: verify in parse_params
+                    // safe unwrap: verified
                     .args(vec!["-c", &params.cmd.unwrap()])
                     .output()
                     .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
