@@ -84,7 +84,7 @@ impl Task {
                 .clone()
                 .iter()
                 .map(|t| match &t.1.clone().as_str() {
-                    Some(s) => match render_string(s, vars.clone()) {
+                    Some(s) => match render_string(s, &vars) {
                         Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
                         Err(e) => Err(e),
                     },
@@ -99,7 +99,7 @@ impl Task {
                                 )),
                             })
                             .map(|result_s| match result_s {
-                                Ok(s) => match render_string(&s, vars.clone()) {
+                                Ok(s) => match render_string(&s, &vars) {
                                     Ok(rendered_s) => Ok(Yaml::String(rendered_s)),
                                     Err(e) => Err(e),
                                 },
@@ -126,12 +126,12 @@ impl Task {
                         format!("{:?} must be a string", original_params),
                     )
                 })?,
-                vars,
+                &vars,
             )?)),
         }
     }
 
-    fn is_exec(&self, vars: Vars) -> Result<bool> {
+    fn is_exec(&self, vars: &Vars) -> Result<bool> {
         match &self.when {
             Some(s) => is_render_string(s, vars),
             None => Ok(true),
@@ -143,8 +143,8 @@ impl Task {
             Some(v) => Ok(v
                 .iter()
                 .map(|item| match item.clone() {
-                    Yaml::Real(s) | Yaml::String(s) => Ok(render_string(&s, vars.clone())?),
-                    Yaml::Integer(x) => Ok(render_string(&x.to_string(), vars.clone())?),
+                    Yaml::Real(s) | Yaml::String(s) => Ok(render_string(&s, &vars)?),
+                    Yaml::Integer(x) => Ok(render_string(&x.to_string(), &vars)?),
                     _ => Err(Error::new(
                         ErrorKind::InvalidData,
                         format!("{:?} is not a valid string", item),
@@ -160,7 +160,7 @@ impl Task {
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
-                let yaml = get_yaml(&render_as_json(s, vars.clone())?)?;
+                let yaml = get_yaml(&render_as_json(s, &vars)?)?;
                 match yaml.as_str() {
                     Some(s) => Ok(vec![s.to_string()]),
                     None => Task::get_iterator(&yaml, vars),
@@ -170,7 +170,7 @@ impl Task {
         }
     }
 
-    fn is_changed(&self, result: &ModuleResult, vars: Vars) -> Result<bool> {
+    fn is_changed(&self, result: &ModuleResult, vars: &Vars) -> Result<bool> {
         match &self.changed_when {
             Some(s) => is_render_string(s, vars),
             None => Ok(result.get_changed()),
@@ -178,14 +178,14 @@ impl Task {
     }
 
     fn exec_module(&self, vars: Vars) -> Result<Vars> {
-        if self.is_exec(vars.clone())? {
+        if self.is_exec(&vars)? {
             let rendered_params = self.render_params(vars.clone())?;
             match self
                 .module
                 .exec(rendered_params.clone(), vars.clone(), self.check_mode)
             {
                 Ok((result, result_vars)) => {
-                    info!(target: if self.is_changed(&result, result_vars.clone())? {"changed"} else { "ok"},
+                    info!(target: if self.is_changed(&result, &result_vars)? {"changed"} else { "ok"},
                         "{}",
                         result.get_output().unwrap_or_else(
                             || format!("{:?}", rendered_params)
@@ -250,7 +250,7 @@ impl Task {
                 .name
                 .clone()
                 .ok_or_else(|| Error::new(ErrorKind::NotFound, "no name found"))?,
-            vars,
+            &vars,
         )
     }
 
@@ -379,7 +379,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(vars).unwrap(), true);
+        assert_eq!(task.is_exec(&vars).unwrap(), true);
     }
 
     #[test]
@@ -393,7 +393,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(vars).unwrap(), false);
+        assert_eq!(task.is_exec(&vars).unwrap(), false);
     }
 
     #[test]
@@ -407,7 +407,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(vars).unwrap(), false);
+        assert_eq!(task.is_exec(&vars).unwrap(), false);
     }
 
     #[test]
@@ -439,7 +439,7 @@ mod tests {
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
         assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), vars)
+            task.is_changed(&ModuleResult::new(false, None, None), &vars)
                 .unwrap(),
             true
         );
@@ -457,7 +457,7 @@ mod tests {
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
         assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), vars)
+            task.is_changed(&ModuleResult::new(false, None, None), &vars)
                 .unwrap(),
             false
         );

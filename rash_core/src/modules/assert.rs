@@ -43,12 +43,12 @@ pub struct Params {
     that: Vec<String>,
 }
 
-fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
+fn verify_conditions(params: Params, vars: &Vars) -> Result<ModuleResult> {
     let _ = params
         .that
         .iter()
         .map(|expression| {
-            if is_render_string(expression, vars.clone())? {
+            if is_render_string(expression, vars)? {
                 Ok(true)
             } else {
                 Err(Error::new(
@@ -67,7 +67,7 @@ fn verify_conditions(params: Params, vars: Vars) -> Result<ModuleResult> {
 
 pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((
-        verify_conditions(parse_params(optional_params)?, vars.clone())?,
+        verify_conditions(parse_params(optional_params)?, &vars)?,
         vars,
     ))
 }
@@ -122,7 +122,7 @@ mod tests {
             Params {
                 that: vec!["1 == 1".to_string()],
             },
-            Vars::new(),
+            &Vars::new(),
         )
         .unwrap();
     }
@@ -133,7 +133,7 @@ mod tests {
             Params {
                 that: vec!["1 != 1".to_string()],
             },
-            Vars::new(),
+            &Vars::new(),
         )
         .unwrap_err();
     }
