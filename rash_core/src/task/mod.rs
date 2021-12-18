@@ -132,6 +132,7 @@ impl Task {
     }
 
     fn is_exec(&self, vars: &Vars) -> Result<bool> {
+        trace!("when: {:?}", &self.when);
         match &self.when {
             Some(s) => is_render_string(s, vars),
             None => Ok(true),
@@ -171,6 +172,7 @@ impl Task {
     }
 
     fn is_changed(&self, result: &ModuleResult, vars: &Vars) -> Result<bool> {
+        trace!("changed_when: {:?}", &self.changed_when);
         match &self.changed_when {
             Some(s) => is_render_string(s, vars),
             None => Ok(result.get_changed()),
@@ -193,7 +195,9 @@ impl Task {
                     );
                     let mut new_vars = result_vars;
                     if self.register.is_some() {
-                        new_vars.insert(self.register.as_ref().unwrap(), &result);
+                        let register = self.register.as_ref().unwrap();
+                        trace!("register {:?} in {:?}", &result, register);
+                        new_vars.insert(register, &result);
                     }
                     Ok(new_vars)
                 }
@@ -425,6 +429,38 @@ mod tests {
     }
 
     #[test]
+    fn test_is_exec_array() {
+        let s: String = r#"
+        when:
+          - true
+          - "boo == 'test'"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.is_exec(&vars).unwrap(), true);
+    }
+
+    #[test]
+    fn test_is_exec_array_one_false() {
+        let s: String = r#"
+        when:
+          - false
+          - "boo == 'test'"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(task.is_exec(&vars).unwrap(), false);
+    }
+
+    #[test]
     fn test_render_iterator() {
         let s: String = r#"
         command: 'example'
@@ -526,6 +562,46 @@ mod tests {
         let task = Task::from(yaml);
         assert_eq!(
             task.is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn test_is_changed_array() {
+        let s: String = r#"
+        changed_when:
+          - "boo == 'test'"
+          - true
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(
+            task.is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_is_changed_array_false() {
+        let s: String = r#"
+        changed_when:
+          - "boo == 'test'"
+          - false
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(
+            task.is_changed(&ModuleResult::new(true, None, None), &vars)
                 .unwrap(),
             false
         );
