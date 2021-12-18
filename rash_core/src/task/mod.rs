@@ -2,7 +2,7 @@ mod new;
 mod valid;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::Module;
+use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 use crate::utils::get_yaml;
 use crate::utils::tera::{is_render_string, render_as_json, render_string};
@@ -24,6 +24,8 @@ use yaml_rust::{Yaml, YamlLoader};
 #[derive(Debug, Clone, PartialEq, FieldNames)]
 // ANCHOR: task
 pub struct Task {
+    /// Run task in dry-run mode without modifications.
+    check_mode: bool,
     /// Module could be any [`Module`] accessible by its name.
     ///
     /// [`Module`]: ../modules/struct.Module.html
@@ -32,20 +34,22 @@ pub struct Task {
     ///
     /// [`Module::exec`]: ../modules/struct.Module.html#method.exec
     params: Yaml,
-    /// Run task in dry-run mode without modifications.
-    check_mode: bool,
+    /// Overwrite changed field in [`ModuleResult`].
+    ///
+    /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
+    changed_when: Option<String>,
+    /// Template expression passed directly without {{ }}; if true errors are ignored.
+    ignore_errors: Option<bool>,
     /// Task name.
     name: Option<String>,
-    /// Template expression passed directly without {{ }}; if false skip task execution.
-    when: Option<String>,
+    /// `loop` field receives a Template (with {{ }}) or a list to iterate over it.
+    r#loop: Option<Yaml>,
     /// Variable name to store [`ModuleResult`].
     ///
     /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
     register: Option<String>,
-    /// Template expression passed directly without {{ }}; if true errors are ignored.
-    ignore_errors: Option<bool>,
-    /// `loop` field receives a Template (with {{ }}) or a list to iterate over it.
-    r#loop: Option<Yaml>,
+    /// Template expression passed directly without {{ }}; if false skip task execution.
+    when: Option<String>,
 }
 // ANCHOR_END: task
 
@@ -166,6 +170,13 @@ impl Task {
         }
     }
 
+    fn is_changed(&self, result: &ModuleResult, vars: Vars) -> Result<bool> {
+        match &self.changed_when {
+            Some(s) => is_render_string(s, vars),
+            None => Ok(result.get_changed()),
+        }
+    }
+
     fn exec_module(&self, vars: Vars) -> Result<Vars> {
         if self.is_exec(vars.clone())? {
             let rendered_params = self.render_params(vars.clone())?;
@@ -174,7 +185,7 @@ impl Task {
                 .exec(rendered_params.clone(), vars.clone(), self.check_mode)
             {
                 Ok((result, result_vars)) => {
-                    info!(target: if result.get_changed() {"changed"} else { "ok"},
+                    info!(target: if self.is_changed(&result, result_vars.clone())? {"changed"} else { "ok"},
                         "{}",
                         result.get_output().unwrap_or_else(
                             || format!("{:?}", rendered_params)
@@ -253,18 +264,19 @@ impl Task {
     #[cfg(test)]
     pub fn test_example() -> Self {
         Task {
-            module: Module::test_example(),
-            name: None,
             check_mode: false,
-            when: None,
-            register: None,
-            ignore_errors: None,
-            r#loop: None,
+            module: Module::test_example(),
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
                 .first()
                 .unwrap()
                 .clone(),
+            changed_when: None,
+            ignore_errors: None,
+            name: None,
+            r#loop: None,
+            register: None,
+            when: None,
         }
     }
 }
@@ -413,6 +425,42 @@ mod tests {
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
         assert_eq!(task.render_iterator(vars).unwrap(), vec!["1", "2", "3"]);
+    }
+
+    #[test]
+    fn test_is_changed() {
+        let s: String = r#"
+        changed_when: "boo == 'test'"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(
+            task.is_changed(&ModuleResult::new(false, None, None), vars)
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_is_changed_false() {
+        let s: String = r#"
+        changed_when: "boo != 'test'"
+        command: 'example'
+        "#
+        .to_owned();
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let out = YamlLoader::load_from_str(&s).unwrap();
+        let yaml = out.first().unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(
+            task.is_changed(&ModuleResult::new(false, None, None), vars)
+                .unwrap(),
+            false
+        );
     }
 
     #[test]
