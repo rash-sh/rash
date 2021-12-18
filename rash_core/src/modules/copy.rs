@@ -21,7 +21,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::Result;
-use crate::logger::diff;
+use crate::logger::diff_files;
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
@@ -110,7 +110,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     };
 
     if content != desired_content {
-        diff(&content, &desired_content);
+        diff_files(&content, &desired_content);
 
         if !check_mode {
             trace!("changing content: {:?}", &desired_content);
