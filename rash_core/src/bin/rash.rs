@@ -27,7 +27,7 @@ where
     Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(
     name="rash",
     about = crate_description!(),
@@ -82,7 +82,7 @@ fn main() {
 
     logger::setup_logging(verbose, opts.diff).expect("failed to initialize logging.");
     trace!("start logger");
-
+    trace!("{:?}", &opts);
     let script_path = Path::new(&opts.script_file);
     match read_file(script_path.to_path_buf(), opts.check) {
         Ok(tasks) => match env::load(opts.environment) {

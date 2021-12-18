@@ -56,6 +56,22 @@ impl TaskValid {
             })
     }
 
+    fn parse_array(&'_ self, attr: &Yaml) -> Option<String> {
+        match attr.as_vec() {
+            Some(v) => Some(
+                v.iter()
+                    .map(|x| self.parse_bool_or_string(x))
+                    .collect::<Option<Vec<String>>>()?
+                    // tera v2 will fix this allowing ({})
+                    // .iter()
+                    // .map(|s| format!("({})", s))
+                    // .collect::<Vec<String>>()
+                    .join(" and "),
+            ),
+            None => self.parse_bool_or_string(attr),
+        }
+    }
+
     fn parse_bool_or_string(&'_ self, attr: &Yaml) -> Option<String> {
         match attr.as_bool() {
             Some(x) => match x {
@@ -69,7 +85,7 @@ impl TaskValid {
     pub fn get_task(&self, check_mode: bool) -> Result<Task> {
         let module_name: &str = &self.get_module_name()?;
         Ok(Task {
-            changed_when: self.parse_bool_or_string(&self.attrs["changed_when"]),
+            changed_when: self.parse_array(&self.attrs["changed_when"]),
             check_mode: match check_mode {
                 true => true,
                 false => self.attrs["check_mode"].as_bool().unwrap_or(false),
@@ -92,7 +108,7 @@ impl TaskValid {
                 Some(self.attrs["loop"].clone())
             },
             register: self.attrs["register"].as_str().map(String::from),
-            when: self.parse_bool_or_string(&self.attrs["when"]),
+            when: self.parse_array(&self.attrs["when"]),
         })
     }
 }
