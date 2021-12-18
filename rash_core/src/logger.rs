@@ -67,27 +67,18 @@ where
     }
 }
 
-fn format_change<'a, 'b, 'c, T: similar::DiffableStr + ?Sized>(
-    change: Change<&T>,
-    text_diff: &TextDiff<'a, 'b, 'c, T>,
-) -> String {
-    let new_line_hint = match change.missing_newline() && text_diff.newline_terminated() {
-        true => "\\ No newline at end of file\n",
-        false => "",
-    };
+fn format_change<T: similar::DiffableStr + ?Sized>(change: Change<&T>) -> String {
     match change.tag() {
-        ChangeTag::Equal => format!("\x1B[0m  {}{}", change, new_line_hint),
+        ChangeTag::Equal => format!("\x1B[0m  {}", change),
         ChangeTag::Delete => format!(
-            "\x1B[{color}m- {s}{new_line_hint}\x1B[0m",
+            "\x1B[{color}m- {s}\x1B[0m",
             color = Color::Red.to_fg_str(),
             s = change,
-            new_line_hint = new_line_hint,
         ),
         ChangeTag::Insert => format!(
-            "\x1B[{color}m+ {s}{new_line_hint}\x1B[0m",
+            "\x1B[{color}m+ {s}\x1B[0m",
             color = Color::Green.to_fg_str(),
             s = change,
-            new_line_hint = new_line_hint
         ),
     }
 }
@@ -104,7 +95,7 @@ where
         let text_diff = TextDiff::from_lines(&o, &m);
         let diff_str = text_diff
             .iter_all_changes()
-            .map(|change| format_change(change, &text_diff))
+            .map(format_change)
             .collect::<Vec<String>>()
             .join("");
         info!(target: "diff", "{}", diff_str)
