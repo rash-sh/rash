@@ -3,9 +3,94 @@ use crate::error::{Error, ErrorKind, Result};
 use std::fmt;
 use std::io;
 
+use console::{style, Style};
 use fern::colors::Color;
 use fern::FormatCallback;
-use similar::{ChangeTag, TextDiff};
+use similar::{Change, ChangeTag, TextDiff};
+
+struct Line(Option<usize>);
+
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.0 {
+            None => write!(f, "    "),
+            Some(idx) => write!(f, "{:<4}", idx + 1),
+        }
+    }
+}
+
+fn get_terminal_width() -> usize {
+    term_size::dimensions().map(|(w, _)| w).unwrap_or(80)
+}
+
+/// Print formatted diff for files.
+pub fn diff_files<T, U>(original: T, modified: U)
+where
+    T: std::string::ToString,
+    U: std::string::ToString,
+{
+    if log_enabled!(target: "diff", log::Level::Info) {
+        let o = original.to_string();
+        let m = modified.to_string();
+        let text_diff = TextDiff::from_lines(&o, &m);
+
+        for (idx, group) in text_diff.grouped_ops(3).iter().enumerate() {
+            if idx > 0 {
+                println!("{:-^1$}", "-", get_terminal_width());
+            }
+            for op in group {
+                for change in text_diff.iter_inline_changes(op) {
+                    let (sign, s) = match change.tag() {
+                        ChangeTag::Delete => ("-", Style::new().red()),
+                        ChangeTag::Insert => ("+", Style::new().green()),
+                        ChangeTag::Equal => (" ", Style::new().dim()),
+                    };
+                    print!(
+                        "{}{} |{}",
+                        style(Line(change.old_index())).dim(),
+                        style(Line(change.new_index())).dim(),
+                        s.apply_to(sign).bold(),
+                    );
+                    for (emphasized, value) in change.iter_strings_lossy() {
+                        if emphasized {
+                            print!("{}", s.apply_to(value).underlined().on_black());
+                        } else {
+                            print!("{}", s.apply_to(value));
+                        }
+                    }
+                    if change.missing_newline() {
+                        println!();
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn format_change<'a, 'b, 'c, T: similar::DiffableStr + ?Sized>(
+    change: Change<&T>,
+    text_diff: &TextDiff<'a, 'b, 'c, T>,
+) -> String {
+    let new_line_hint = match change.missing_newline() && text_diff.newline_terminated() {
+        true => "\\ No newline at end of file\n",
+        false => "",
+    };
+    match change.tag() {
+        ChangeTag::Equal => format!("\x1B[0m  {}{}", change, new_line_hint),
+        ChangeTag::Delete => format!(
+            "\x1B[{color}m- {s}{new_line_hint}\x1B[0m",
+            color = Color::Red.to_fg_str(),
+            s = change,
+            new_line_hint = new_line_hint,
+        ),
+        ChangeTag::Insert => format!(
+            "\x1B[{color}m+ {s}{new_line_hint}\x1B[0m",
+            color = Color::Green.to_fg_str(),
+            s = change,
+            new_line_hint = new_line_hint
+        ),
+    }
+}
 
 /// Print formatted diff.
 pub fn diff<T, U>(original: T, modified: U)
@@ -19,28 +104,7 @@ where
         let text_diff = TextDiff::from_lines(&o, &m);
         let diff_str = text_diff
             .iter_all_changes()
-            .map(|change| {
-                let new_line_hint = match change.missing_newline() && text_diff.newline_terminated()
-                {
-                    true => "\\ No newline at end of file\n",
-                    false => "",
-                };
-                match change.tag() {
-                    ChangeTag::Equal => format!("\x1B[0m  {}{}", change, new_line_hint),
-                    ChangeTag::Delete => format!(
-                        "\x1B[{color}m- {s}{new_line_hint}\x1B[0m",
-                        color = Color::Red.to_fg_str(),
-                        s = change,
-                        new_line_hint = new_line_hint,
-                    ),
-                    ChangeTag::Insert => format!(
-                        "\x1B[{color}m+ {s}{new_line_hint}\x1B[0m",
-                        color = Color::Green.to_fg_str(),
-                        s = change,
-                        new_line_hint = new_line_hint
-                    ),
-                }
-            })
+            .map(|change| format_change(change, &text_diff))
             .collect::<Vec<String>>()
             .join("");
         info!(target: "diff", "{}", diff_str)
@@ -86,7 +150,7 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
             (log::Level::Info, "task") => vec![
                 "*";
                 {
-                    let term_width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
+                    let term_width = get_terminal_width();
                     let message_total_len = log_header.len() + message.to_string().len();
                     if term_width > message_total_len {
                         term_width - message_total_len
