@@ -28,3 +28,16 @@ pub fn is_render_string(s: &str, vars: &Vars) -> Result<bool> {
         _ => Ok(true),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_render_string() {
+        let r_true = is_render_string("true", &Vars::new()).unwrap();
+        assert_eq!(r_true, true);
+        let r_false = is_render_string("false", &Vars::new()).unwrap();
+        assert_eq!(r_false, false);
+    }
+}

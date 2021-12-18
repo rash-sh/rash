@@ -56,9 +56,20 @@ impl TaskValid {
             })
     }
 
+    fn parse_bool_or_string(&'_ self, attr: &Yaml) -> Option<String> {
+        match attr.as_bool() {
+            Some(x) => match x {
+                true => Some("true".to_string()),
+                false => Some("false".to_string()),
+            },
+            None => attr.as_str().map(String::from),
+        }
+    }
+
     pub fn get_task(&self, check_mode: bool) -> Result<Task> {
         let module_name: &str = &self.get_module_name()?;
         Ok(Task {
+            changed_when: self.parse_bool_or_string(&self.attrs["changed_when"]),
             check_mode: match check_mode {
                 true => true,
                 false => self.attrs["check_mode"].as_bool().unwrap_or(false),
@@ -73,7 +84,6 @@ impl TaskValid {
                 })?
                 .clone(),
             params: self.attrs[module_name].clone(),
-            changed_when: self.attrs["changed_when"].as_str().map(String::from),
             name: self.attrs["name"].as_str().map(String::from),
             ignore_errors: self.attrs["ignore_errors"].as_bool(),
             r#loop: if self.attrs["loop"].is_badvalue() {
@@ -82,7 +92,7 @@ impl TaskValid {
                 Some(self.attrs["loop"].clone())
             },
             register: self.attrs["register"].as_str().map(String::from),
-            when: self.attrs["when"].as_str().map(String::from),
+            when: self.parse_bool_or_string(&self.attrs["when"]),
         })
     }
 }
