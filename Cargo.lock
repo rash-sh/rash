@@ -909,6 +909,7 @@ dependencies = [
  "libc",
  "log",
  "rash_derive",
+ "regex",
  "schemars",
  "serde",
  "serde_json",
