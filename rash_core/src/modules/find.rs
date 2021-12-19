@@ -63,6 +63,9 @@ pub struct Params {
     /// Set this to true to follow symlinks
     #[serde(default = "default_false")]
     follow: Option<bool>,
+    /// Set this to yes to include hidden files, otherwise they will be ignored.
+    #[serde(default = "default_false")]
+    hidden: Option<bool>,
     /// If target is a directory, recursively descend into the directory looking for files.
     #[serde(default = "default_false")]
     recurse: Option<bool>,
@@ -130,9 +133,13 @@ fn find(params: Params) -> Result<ModuleResult> {
         .follow_links(params.follow.unwrap())
         // this prevents about unbounded feedback loops
         .skip_stdout(true)
-        //.hidden(true)//default true: ignore hidden
-        //.max_filesize(Some(300))//bytes
-        // see ignore files
+        // safe unwrap: default value defined
+        // hidden criterion is opposite for params than for ignore library
+        .hidden(!params.hidden.unwrap())
+        .ignore(!params.hidden.unwrap())
+        .git_global(!params.hidden.unwrap())
+        .git_ignore(!params.hidden.unwrap())
+        .git_exclude(!params.hidden.unwrap())
         .build()
         .into_iter()
         .map(|dir_entry| dir_entry.map_err(|e| Error::new(ErrorKind::Other, e)))
@@ -179,6 +186,7 @@ mod tests {
     use super::*;
 
     use std::fs::{create_dir, File};
+    use std::io::Write;
 
     use tempfile::tempdir;
     use yaml_rust::YamlLoader;
@@ -204,6 +212,7 @@ excludes: 'nginx,mysql'
                 paths: vec!["/var/log".to_string()],
                 file_type: Some(FileType::Directory),
                 follow: Some(false),
+                hidden: Some(false),
                 excludes: Some(vec!["nginx,mysql".to_string()]),
                 recurse: Some(false),
                 size: None,
@@ -229,6 +238,7 @@ paths: /var/log
                 paths: vec!["/var/log".to_string()],
                 file_type: Some(FileType::File),
                 follow: Some(false),
+                hidden: Some(false),
                 excludes: None,
                 recurse: Some(false),
                 size: None,
@@ -272,6 +282,7 @@ paths:
                 paths: vec!["/foo".to_string(), "/boo".to_string()],
                 file_type: Some(FileType::File),
                 follow: Some(false),
+                hidden: Some(false),
                 excludes: None,
                 recurse: Some(false),
                 size: None,
@@ -290,6 +301,7 @@ paths:
             paths: vec![dir.path().to_str().unwrap().to_string()],
             file_type: Some(FileType::File),
             follow: Some(false),
+            hidden: Some(false),
             excludes: None,
             recurse: Some(false),
             size: None,
@@ -317,6 +329,7 @@ paths:
             paths: vec![dir.path().to_str().unwrap().to_string()],
             file_type: Some(FileType::Directory),
             follow: Some(false),
+            hidden: Some(false),
             excludes: None,
             recurse: Some(false),
             size: None,
@@ -330,7 +343,7 @@ paths:
                 output: None,
                 extra: Some(json!(vec![
                     dir.path().to_str().unwrap().to_string(),
-                    dir_path.to_str().unwrap().to_string()
+                    dir_path.to_str().unwrap().to_string(),
                 ])),
             }
         );
@@ -349,6 +362,7 @@ paths:
             paths: vec![dir.path().to_str().unwrap().to_string()],
             file_type: Some(FileType::File),
             follow: Some(false),
+            hidden: Some(false),
             excludes: None,
             recurse: Some(true),
             size: None,
@@ -361,6 +375,72 @@ paths:
                 changed: false,
                 output: None,
                 extra: Some(json!(vec![file_path.to_str().unwrap().to_string()])),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_files_ignore_hidden() {
+        let dir = tempdir().unwrap();
+
+        let ignore_path = dir.path().join(".ignore");
+        let mut ignore_file = File::create(ignore_path.clone()).unwrap();
+        writeln!(ignore_file, "ignored_file").unwrap();
+        let file_path = dir.path().join("ignored_file");
+        let _ = File::create(file_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_string()],
+            file_type: Some(FileType::File),
+            follow: Some(false),
+            hidden: Some(false),
+            excludes: None,
+            recurse: Some(false),
+            size: None,
+        })
+        .unwrap();
+
+        let result: Vec<String> = Vec::new();
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(result)),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_files_hidden_true() {
+        let dir = tempdir().unwrap();
+
+        let ignore_path = dir.path().join(".ignore");
+        let mut ignore_file = File::create(ignore_path.clone()).unwrap();
+        writeln!(ignore_file, "ignored_file").unwrap();
+        let file_path = dir.path().join("ignored_file");
+        let _ = File::create(file_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_string()],
+            file_type: Some(FileType::File),
+            follow: Some(false),
+            hidden: Some(true),
+            excludes: None,
+            recurse: Some(false),
+            size: None,
+        })
+        .unwrap();
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(vec![
+                    file_path.to_str().unwrap().to_string(),
+                    ignore_path.to_str().unwrap().to_string(),
+                ])),
             }
         );
     }
