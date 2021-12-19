@@ -110,7 +110,7 @@ jobs:
       id: changelog_reader
       uses: mindsers/changelog-reader-action@v2
       with:
-        version: ${{ env.PROJECT_VERSION }}
+        version: v${{ env.PROJECT_VERSION }}
         path: ./CHANGELOG.md
 
     - name: Publish
