@@ -16,12 +16,12 @@ pub static SUPPORTED_RENDERER: &[&str] = &["html", "markdown"];
 
 lazy_static! {
     static ref RE: Regex = Regex::new(
-        r#"(?x)                                          # insignificant whitespace mode
-        \{\s*                                            # link opening parens and whitespace
-        \#([a-zA-Z0-9_]+)                                # link type
-        (?:\s+                                           # separating whitespace
-        ([a-zA-Z0-9\s_.,\[\]\(\)\|'\-\\/`"\#+=:/\\]+))?  # all doc
-        \s*\}                                            # whitespace and link closing parens"#
+        r#"(?x)                                                # insignificant whitespace mode
+        \{\s*                                                  # link opening parens and whitespace
+        \$([a-zA-Z0-9_]+)                                      # link type
+        (?:\s+                                                 # separating whitespace
+        ([a-zA-Z0-9\s_.,\*\{\}\[\]\(\)\|'\-\\/`"\#+=:/\\]+))?  # all doc
+        \s*\}                                                  # whitespace and link closing parens"#
     )
     .unwrap();
     static ref FORMAT: format::TableFormat = format::FormatBuilder::new()
@@ -141,7 +141,7 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
 
                 let parameters = match schema {
                     Some(s) => format_schema(&s),
-                    None => format!("{{#include_doc {{{{#include ../../rash_core/src/modules/{}.rs:parameters}}}}}}", name)
+                    None => format!("{{$include_doc {{{{#include ../../rash_core/src/modules/{}.rs:parameters}}}}}}", name)
                 };
 
                 let content_header = format!(
@@ -151,12 +151,12 @@ weight: {weight}
 indent: true
 ---
 
-{{#include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:module}}}}}}
+{{$include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:module}}}}}}
 
 ## Parameters
 
 {parameters}
-{{#include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:examples}}}}}}
+{{$include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:examples}}}}}}
 
 "#,
                     name = name,
