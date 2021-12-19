@@ -46,6 +46,7 @@ push-images: build-images
 update-version: ## update version from VERSION file in all Cargo.toml manifests
 update-version: */Cargo.toml
 	@VERSION=`cat VERSION`; sed -i "0,/^version\ \= .*$$/{s//version = \"$$VERSION\"/}" */Cargo.toml
+	@cargo update -p rash_core -p rash_derive
 	@echo updated to version "`cat VERSION`" cargo files
 
 .PHONY: build
@@ -78,7 +79,7 @@ book:	mdbook-rash
 tag:	## create a tag using version from VERSION file
 	PROJECT_VERSION=$$(cat VERSION); \
 	git tag -s v$${PROJECT_VERSION} && \
-	git push origin v$${PROJECT_VERSION}
+	git push origin v$${PROJECT_VERSION} -m "v$${PROJECT_VERSION}"
 
 .PHONY: release
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary

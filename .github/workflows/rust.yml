@@ -105,12 +105,22 @@ jobs:
         cargo login "${CRATES_IO_TOKEN}"
         make publish
 
+    - name: Get Changelog Entry
+      if: startsWith(github.ref, 'refs/tags/')
+      id: changelog_reader
+      uses: mindsers/changelog-reader-action@v2
+      with:
+        version: ${{ env.PROJECT_VERSION }}
+        path: ./CHANGELOG.md
+
     - name: Publish
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-          files: |
-            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
-          prerelease: false
+        body: ${{ steps.changelog_reader.outputs.changes }}
+        prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
+        draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+        files: |
+          ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

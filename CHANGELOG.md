@@ -1,5 +1,15 @@
 # rash changes
 
+## [v1.3.1](https://github.com/rash-sh/rash/tree/v1.3.1) (2021-12-19)
+
+### Added
+
+* Automatically added body to GitHub release
+
+### Fixed
+
+* Update rash package versions in Cargo.lock (missing in 1.3.0)
+
 ## [v1.3.0](https://github.com/rash-sh/rash/tree/v1.3.0) (2021-12-19)
 
 ### Added
