@@ -13,7 +13,7 @@ By default, every execution of `rash` exposes two variables to the Context: `{{ 
 
 `{{ rash }}` variables are builtin values retrieved from execution context.
 
-{#include_doc  {{#include ../../rash_core/src/vars/builtin.rs:examples}}}
+{$include_doc  {{#include ../../rash_core/src/vars/builtin.rs:examples}}}
 
 `src/vars/builtin.rs`:
 
