@@ -35,8 +35,11 @@ use crate::vars::Vars;
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
+use std::path::Path;
+
 use byte_unit::Byte;
 use ignore::WalkBuilder;
+use regex::RegexSet;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -44,6 +47,30 @@ use serde_with::{serde_as, OneOrMany};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 use yaml_rust::Yaml;
+
+#[derive(Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[serde(rename_all = "lowercase")]
+enum FileType {
+    Any,
+    Directory,
+    File,
+    Link,
+}
+
+impl Default for FileType {
+    fn default() -> Self {
+        FileType::File
+    }
+}
+
+fn default_file_type() -> Option<FileType> {
+    Some(FileType::default())
+}
+
+fn default_false() -> Option<bool> {
+    Some(false)
+}
 
 #[serde_as]
 #[derive(Debug, PartialEq, Deserialize)]
@@ -76,25 +103,29 @@ pub struct Params {
     size: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
-#[serde(rename_all = "lowercase")]
-enum FileType {
-    Any,
-    Directory,
-    File,
-    Link,
-}
-
-fn default_false() -> Option<bool> {
-    Some(false)
-}
-
-fn default_file_type() -> Option<FileType> {
-    Some(FileType::File)
+impl Default for Params {
+    fn default() -> Self {
+        let paths: Vec<String> = Vec::new();
+        Params {
+            paths,
+            file_type: Some(FileType::default()),
+            follow: Some(false),
+            hidden: Some(false),
+            excludes: None,
+            recurse: Some(false),
+            size: None,
+        }
+    }
 }
 
 fn find(params: Params) -> Result<ModuleResult> {
+    if params.paths.iter().map(Path::new).any(|x| x.is_relative()) {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "paths contains relative path",
+        ));
+    };
+
     let mut walk_builder = WalkBuilder::new(params.paths.first().ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
@@ -123,6 +154,11 @@ fn find(params: Params) -> Result<ModuleResult> {
         ));
     };
 
+    let exclude_set = match params.excludes {
+        Some(x) => Some(RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?),
+        None => None,
+    };
+
     let result: Vec<String> = walk_builder
         // safe unwrap: default value defined
         .max_depth(match params.recurse.unwrap() {
@@ -146,29 +182,37 @@ fn find(params: Params) -> Result<ModuleResult> {
         .collect::<Result<Vec<_>>>()?
         .into_iter()
         // safe unwrap: default value defined
-        .filter(|x| match params.file_type.as_ref().unwrap() {
-            FileType::File => match x.file_type() {
+        .filter(|dir_entry| match params.file_type.as_ref().unwrap() {
+            FileType::File => match dir_entry.file_type() {
                 Some(t) => t.is_file(),
                 None => false,
             },
-            FileType::Directory => match x.file_type() {
+            FileType::Directory => match dir_entry.file_type() {
                 Some(t) => t.is_dir(),
                 None => false,
             },
-            FileType::Link => match x.file_type() {
+            FileType::Link => match dir_entry.file_type() {
                 Some(t) => t.is_symlink(),
                 None => false,
             },
             FileType::Any => true,
         })
-        .map(|x| match x.path().to_str() {
+        .map(|dir_entry| match dir_entry.path().to_str() {
             Some(s) => Ok(s.to_string()),
             None => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Path `{:?}` cannot be represented as UTF-8", x),
+                format!("Path `{:?}` cannot be represented as UTF-8", dir_entry),
             )),
         })
-        .collect::<Result<_>>()?;
+        .collect::<Result<Vec<_>>>()?
+        .iter()
+        .filter(|s| match exclude_set.as_ref() {
+            // safe unwrap: previously checked
+            Some(set) => !set.is_match(Path::new(s).file_name().unwrap().to_str().unwrap()),
+            None => true,
+        })
+        .map(String::from)
+        .collect();
 
     Ok(ModuleResult {
         changed: false,
@@ -211,11 +255,9 @@ excludes: 'nginx,mysql'
             Params {
                 paths: vec!["/var/log".to_string()],
                 file_type: Some(FileType::Directory),
-                follow: Some(false),
-                hidden: Some(false),
-                excludes: Some(vec!["nginx,mysql".to_string()]),
                 recurse: Some(false),
-                size: None,
+                excludes: Some(vec!["nginx,mysql".to_string()]),
+                ..Default::default()
             }
         );
     }
@@ -236,12 +278,7 @@ paths: /var/log
             params,
             Params {
                 paths: vec!["/var/log".to_string()],
-                file_type: Some(FileType::File),
-                follow: Some(false),
-                hidden: Some(false),
-                excludes: None,
-                recurse: Some(false),
-                size: None,
+                ..Default::default()
             }
         );
     }
@@ -280,12 +317,7 @@ paths:
             params,
             Params {
                 paths: vec!["/foo".to_string(), "/boo".to_string()],
-                file_type: Some(FileType::File),
-                follow: Some(false),
-                hidden: Some(false),
-                excludes: None,
-                recurse: Some(false),
-                size: None,
+                ..Default::default()
             }
         );
     }
@@ -299,12 +331,7 @@ paths:
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
-            file_type: Some(FileType::File),
-            follow: Some(false),
-            hidden: Some(false),
-            excludes: None,
-            recurse: Some(false),
-            size: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -319,6 +346,17 @@ paths:
     }
 
     #[test]
+    fn test_find_relative_path() {
+        let error = find(Params {
+            paths: vec!["./".to_string()],
+            ..Default::default()
+        })
+        .unwrap_err();
+
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
     fn test_find_directories() {
         let dir = tempdir().unwrap();
 
@@ -328,11 +366,7 @@ paths:
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
             file_type: Some(FileType::Directory),
-            follow: Some(false),
-            hidden: Some(false),
-            excludes: None,
-            recurse: Some(false),
-            size: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -361,11 +395,8 @@ paths:
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
             file_type: Some(FileType::File),
-            follow: Some(false),
-            hidden: Some(false),
-            excludes: None,
             recurse: Some(true),
-            size: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -391,12 +422,7 @@ paths:
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
-            file_type: Some(FileType::File),
-            follow: Some(false),
-            hidden: Some(false),
-            excludes: None,
-            recurse: Some(false),
-            size: None,
+            ..Default::default()
         })
         .unwrap();
 
@@ -423,12 +449,44 @@ paths:
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
-            file_type: Some(FileType::File),
-            follow: Some(false),
             hidden: Some(true),
-            excludes: None,
-            recurse: Some(false),
-            size: None,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut finds = output
+            .extra
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+        finds.sort();
+        assert_eq!(
+            finds,
+            vec![
+                ignore_path.to_str().unwrap().to_string(),
+                file_path.to_str().unwrap().to_string(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_find_files_excludes() {
+        let dir = tempdir().unwrap();
+
+        let ignore_path = dir.path().join(".ignore");
+        let mut ignore_file = File::create(ignore_path.clone()).unwrap();
+        writeln!(ignore_file, "ignored_file").unwrap();
+        let file_path = dir.path().join("ignored_file");
+        let _ = File::create(file_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_string()],
+            hidden: Some(true),
+            excludes: Some(vec!["\\..*".to_string()]),
+            ..Default::default()
         })
         .unwrap();
 
@@ -437,10 +495,62 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![
-                    file_path.to_str().unwrap().to_string(),
-                    ignore_path.to_str().unwrap().to_string(),
-                ])),
+                extra: Some(json!(vec![file_path.to_str().unwrap().to_string(),])),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_files_excludes_name() {
+        let dir = tempdir().unwrap();
+
+        let ignore_path = dir.path().join(".ignore");
+        let mut ignore_file = File::create(ignore_path.clone()).unwrap();
+        writeln!(ignore_file, "ignored_file").unwrap();
+        let file_path = dir.path().join("ignored_file");
+        let _ = File::create(file_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_string()],
+            hidden: Some(true),
+            excludes: Some(vec!["ignored_file".to_string()]),
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(vec![ignore_path.to_str().unwrap().to_string(),])),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_directories_exclude() {
+        let dir = tempdir().unwrap();
+        let parent_path = dir.path().join("foo");
+        let _ = create_dir(parent_path.clone()).unwrap();
+
+        let dir_path = parent_path.join("boo");
+        let _ = create_dir(dir_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![parent_path.to_str().unwrap().to_string()],
+            file_type: Some(FileType::Directory),
+            excludes: Some(vec!["foo".to_string()]),
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(vec![dir_path.to_str().unwrap().to_string(),])),
             }
         );
     }
