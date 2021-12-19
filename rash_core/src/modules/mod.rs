@@ -2,6 +2,7 @@ mod assert;
 mod command;
 mod copy;
 mod file;
+mod find;
 mod set_vars;
 mod template;
 
@@ -139,6 +140,15 @@ lazy_static! {
                     exec_fn: file::exec,
                     #[cfg(feature = "docs")]
                     get_json_schema_fn: Some(file::Params::get_json_schema),
+                },
+            ),
+            (
+                "find",
+                Module {
+                    name: "find",
+                    exec_fn: find::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(find::Params::get_json_schema),
                 },
             ),
             (
