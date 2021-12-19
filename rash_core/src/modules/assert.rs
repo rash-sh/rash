@@ -7,7 +7,7 @@
 ///
 /// ```yaml
 /// check_mode:
-///   support: none
+///   support: always
 /// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples

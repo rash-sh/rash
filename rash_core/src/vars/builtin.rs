@@ -47,7 +47,7 @@ impl Builtins {
             .ok_or_else(|| {
                 Error::new(
                     ErrorKind::InvalidData,
-                    "Script parent dir cannot be parsed to String",
+                    "Script parent dir cannot be represented as UTF-8",
                 )
             })?
             .to_string();

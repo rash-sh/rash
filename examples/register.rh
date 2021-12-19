@@ -1,6 +1,7 @@
 #!/usr/bin/env rash
 
-- command: ls examples
-  register: ls_result
+- find:
+    paths: examples
+  register: find_result
 
-- command: echo "{{ ls_result.output }}"
+- command: echo "{{ find_result.extra }}"

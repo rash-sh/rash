@@ -17,7 +17,7 @@
 /// - command:
 ///     argv:
 ///       - echo
-///       - "Hellow World"'
+///       - "Hellow World"
 ///     transfer_pid_1: true
 /// ```
 /// ANCHOR_END: examples
