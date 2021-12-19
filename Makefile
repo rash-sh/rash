@@ -78,8 +78,8 @@ book:	mdbook-rash
 .PHONY: tag
 tag:	## create a tag using version from VERSION file
 	PROJECT_VERSION=$$(cat VERSION); \
-	git tag -s v$${PROJECT_VERSION} && \
-	git push origin v$${PROJECT_VERSION} -m "v$${PROJECT_VERSION}"
+	git tag -s v$${PROJECT_VERSION}  -m "v$${PROJECT_VERSION}" && \
+	git push origin v$${PROJECT_VERSION}
 
 .PHONY: release
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
