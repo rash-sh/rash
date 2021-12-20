@@ -93,6 +93,12 @@ pub struct Params {
     /// Set this to yes to include hidden files, otherwise they will be ignored.
     #[serde(default = "default_false")]
     hidden: Option<bool>,
+    /// The patterns restrict the list of files to be returned to those whose basenames
+    /// match at least one of the patterns specified.
+    /// Multiple patterns can be specified using a list.
+    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde(default)]
+    patterns: Option<Vec<String>>,
     /// If target is a directory, recursively descend into the directory looking for files.
     #[serde(default = "default_false")]
     recurse: Option<bool>,
@@ -108,10 +114,11 @@ impl Default for Params {
         let paths: Vec<String> = Vec::new();
         Params {
             paths,
+            excludes: None,
             file_type: Some(FileType::default()),
             follow: Some(false),
             hidden: Some(false),
-            excludes: None,
+            patterns: None,
             recurse: Some(false),
             size: None,
         }
@@ -155,6 +162,11 @@ fn find(params: Params) -> Result<ModuleResult> {
     };
 
     let exclude_set = match params.excludes {
+        Some(x) => Some(RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?),
+        None => None,
+    };
+
+    let patterns_set = match params.patterns {
         Some(x) => Some(RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?),
         None => None,
     };
@@ -209,6 +221,11 @@ fn find(params: Params) -> Result<ModuleResult> {
         .filter(|s| match exclude_set.as_ref() {
             // safe unwrap: previously checked
             Some(set) => !set.is_match(Path::new(s).file_name().unwrap().to_str().unwrap()),
+            None => true,
+        })
+        .filter(|s| match patterns_set.as_ref() {
+            // safe unwrap: previously checked
+            Some(set) => set.is_match(Path::new(s).file_name().unwrap().to_str().unwrap()),
             None => true,
         })
         .map(String::from)
@@ -551,6 +568,33 @@ paths:
                 changed: false,
                 output: None,
                 extra: Some(json!(vec![dir_path.to_str().unwrap().to_string(),])),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_directories_patterns() {
+        let dir = tempdir().unwrap();
+        let parent_path = dir.path().join("foo");
+        let _ = create_dir(parent_path.clone()).unwrap();
+
+        let dir_path = parent_path.join("boo");
+        let _ = create_dir(dir_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![parent_path.to_str().unwrap().to_string()],
+            file_type: Some(FileType::Directory),
+            patterns: Some(vec!["foo".to_string()]),
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(vec![parent_path.to_str().unwrap().to_string(),])),
             }
         );
     }
