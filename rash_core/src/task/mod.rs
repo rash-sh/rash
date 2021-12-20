@@ -85,7 +85,10 @@ impl Task {
                 .iter()
                 .map(|t| match &t.1.clone().as_str() {
                     Some(s) => match render_string(s, &vars) {
-                        Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
+                        Ok(s) => match get_yaml(&s) {
+                            Ok(yaml) => Ok((t.0.clone(), yaml)),
+                            Err(e) => Err(e),
+                        },
                         Err(e) => Err(e),
                     },
                     None => match t.1.clone().as_vec() {
@@ -100,7 +103,7 @@ impl Task {
                             })
                             .map(|result_s| match result_s {
                                 Ok(s) => match render_string(&s, &vars) {
-                                    Ok(rendered_s) => Ok(Yaml::String(rendered_s)),
+                                    Ok(rendered_s) => get_yaml(&rendered_s),
                                     Err(e) => Err(e),
                                 },
                                 Err(e) => Err(e),
@@ -751,5 +754,37 @@ mod tests {
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params.as_str().unwrap(), "ls boo");
+    }
+
+    #[test]
+    fn test_render_params_array() {
+        let s0 = r#"
+        command:
+          argv: "{{ yea | json_encode() }}"
+        "#
+        .to_owned();
+        let yaml = get_yaml(&s0).unwrap();
+        let task = Task::from(&yaml);
+        let vars = Vars::from_serialize(
+            [(
+                "yea".to_string(),
+                vec!["boo".to_string(), "foo".to_string(), "buu".to_string()],
+            )]
+            .iter()
+            .cloned()
+            .collect::<HashMap<String, Vec<String>>>(),
+        )
+        .unwrap();
+
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(
+            rendered_params["argv"]
+                .as_vec()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_str().unwrap().to_string())
+                .collect::<Vec<String>>(),
+            vec!["boo".to_string(), "foo".to_string(), "buu".to_string()]
+        );
     }
 }
