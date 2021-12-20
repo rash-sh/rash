@@ -125,6 +125,21 @@ impl Default for Params {
     }
 }
 
+fn get_regex_set(v: Option<Vec<String>>) -> Result<Option<RegexSet>> {
+    match v {
+        Some(x) => {
+            if !x.is_empty() {
+                Ok(Some(
+                    RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?,
+                ))
+            } else {
+                Ok(None)
+            }
+        }
+        None => Ok(None),
+    }
+}
+
 fn find(params: Params) -> Result<ModuleResult> {
     if params.paths.iter().map(Path::new).any(|x| x.is_relative()) {
         return Err(Error::new(
@@ -161,15 +176,8 @@ fn find(params: Params) -> Result<ModuleResult> {
         ));
     };
 
-    let exclude_set = match params.excludes {
-        Some(x) => Some(RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?),
-        None => None,
-    };
-
-    let patterns_set = match params.patterns {
-        Some(x) => Some(RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?),
-        None => None,
-    };
+    let exclude_set = get_regex_set(params.excludes)?;
+    let patterns_set = get_regex_set(params.patterns)?;
 
     let result: Vec<String> = walk_builder
         // safe unwrap: default value defined
@@ -568,6 +576,32 @@ paths:
                 changed: false,
                 output: None,
                 extra: Some(json!(vec![dir_path.to_str().unwrap().to_string(),])),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_patterns() {
+        let dir = tempdir().unwrap();
+        let file1_path = dir.path().join("file1.txt");
+        let _ = File::create(file1_path.clone()).unwrap();
+        let file2_path = dir.path().join("file2.log");
+        let _ = File::create(file2_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_string()],
+            file_type: Some(FileType::File),
+            patterns: Some(vec![r".*\.log".to_string()]),
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(vec![file2_path.to_str().unwrap().to_string(),])),
             }
         );
     }
