@@ -1,7 +1,9 @@
 #!/usr/bin/env rash
 
 - find:
-    paths: examples
+    paths: "{{ rash.dir }}"
   register: find_result
 
-- command: echo "{{ find_result.extra }}"
+- name: files in directory
+  command: echo {{ item | replace(from=rash.dir, to='.') }}
+  loop: "{{ find_result.extra }}"
