@@ -3,11 +3,12 @@
 # rash
 
 ![Build status](https://img.shields.io/github/workflow/status/rash-sh/rash/Rust/master)
-[![Rash Docker image](https://img.shields.io/docker/v/rustagainshell/rash)](https://cloud.docker.com/repository/docker/rustagainshell/rash)
+[![Rash Docker image](https://img.shields.io/docker/image-size/rustagainshell/rash?sort=semver)](https://cloud.docker.com/repository/docker/rustagainshell/rash)
 [![Documentation](https://docs.rs/rash_core/badge.svg)](https://docs.rs/rash_core)
 [![crates.io](https://img.shields.io/crates/v/rash_core)](https://crates.io/crates/rash_core)
 [![concept-map](https://img.shields.io/badge/design-concept--map-blue)](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56)
 ![Rash license](https://img.shields.io/github/license/rash-sh/rash)
+[![Rash Aur package](https://img.shields.io/aur/version/rash)](https://aur.archlinux.org/packages/rash)
 
 Declarative shell scripting using Rust native bindings inspired by [Ansible](https://www.ansible.com/)
 
