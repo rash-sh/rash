@@ -21,7 +21,7 @@ path = "src/bin/rash.rs"
 docs = ["rash_derive/docs", "schemars"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive" }
+rash_derive = { path = "../rash_derive", version = "1.3.1" }
 byte-unit = "4.0"
 console = "0.14.0"
 clap = { version = "3.0.0-rc.1", features = ["std", "color", "derive", "cargo"]}

@@ -45,9 +45,11 @@ push-images: build-images
 .PHONY: update-version
 update-version: ## update version from VERSION file in all Cargo.toml manifests
 update-version: */Cargo.toml
-	@VERSION=`cat VERSION`; sed -i "0,/^version\ \= .*$$/{s//version = \"$$VERSION\"/}" */Cargo.toml
-	@cargo update -p rash_core -p rash_derive
-	@echo updated to version "`cat VERSION`" cargo files
+	@VERSION=$$(cat VERSION); \
+	sed -i "0,/^version\ \= .*$$/{s//version = \"$$VERSION\"/}" */Cargo.toml && \
+	sed -i -E "s/^(rash\_.*version\s=\s)\"(.*)\"/\1\"$$VERSION\"/gm" */Cargo.toml && \
+	cargo update -p rash_core -p rash_derive && \
+	echo updated to version "$$(cat VERSION)" cargo files
 
 .PHONY: build
 build:	## compile rash
