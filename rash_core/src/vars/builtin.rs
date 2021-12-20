@@ -1,5 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
 
+use std::fs::canonicalize;
 use std::path::Path;
 
 use libc::{getgid, getuid};
@@ -40,9 +41,10 @@ struct UserInfo {
 
 impl Builtins {
     pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {
-        let dir = path
+        let parent_path = path
             .parent()
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Script parent dir not found"))?
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Script parent dir not found"))?;
+        let dir = canonicalize(parent_path)?
             .to_str()
             .ok_or_else(|| {
                 Error::new(
@@ -81,6 +83,8 @@ impl Builtins {
 mod tests {
     use super::*;
 
+    use tempfile::tempdir;
+
     #[test]
     fn test_builtin_new() {
         let builtins = Builtins::new(vec![], Path::new("/example.rh")).unwrap();
@@ -91,7 +95,18 @@ mod tests {
 
     #[test]
     fn test_builtin_same_dir() {
-        let builtins = Builtins::new(vec![], Path::new("example.rh")).unwrap();
-        assert_eq!(builtins.dir, ".".to_string());
+        let dir = tempdir().unwrap();
+        let dir_path = dir.path();
+
+        let file_path = dir_path.join("example.rh");
+        let builtins = Builtins::new(vec![], file_path.as_ref()).unwrap();
+        assert_eq!(
+            builtins.dir,
+            canonicalize(dir_path)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string()
+        );
     }
 }
