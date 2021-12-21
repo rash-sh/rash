@@ -29,7 +29,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_if_json, parse_params, ModuleResult};
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
@@ -130,7 +130,8 @@ fn get_regex_set(v: Option<Vec<String>>) -> Result<Option<RegexSet>> {
         Some(x) => {
             if !x.is_empty() {
                 Ok(Some(
-                    RegexSet::new(&x).map_err(|e| Error::new(ErrorKind::Other, e))?,
+                    RegexSet::new(&parse_if_json(x))
+                        .map_err(|e| Error::new(ErrorKind::Other, e))?,
                 ))
             } else {
                 Ok(None)
@@ -141,20 +142,21 @@ fn get_regex_set(v: Option<Vec<String>>) -> Result<Option<RegexSet>> {
 }
 
 fn find(params: Params) -> Result<ModuleResult> {
-    if params.paths.iter().map(Path::new).any(|x| x.is_relative()) {
+    let paths = parse_if_json(params.paths);
+    if paths.iter().map(Path::new).any(|x| x.is_relative()) {
         return Err(Error::new(
             ErrorKind::InvalidData,
             "paths contains relative path",
         ));
     };
 
-    let mut walk_builder = WalkBuilder::new(params.paths.first().ok_or_else(|| {
+    let mut walk_builder = WalkBuilder::new(paths.first().ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
             "paths must contain at least one valid path",
         )
     })?);
-    params.paths.into_iter().skip(1).for_each(|path| {
+    paths.into_iter().skip(1).for_each(|path| {
         walk_builder.add(path);
     });
 
@@ -371,6 +373,55 @@ paths:
     }
 
     #[test]
+    fn test_find_json_paths() {
+        let dir = tempdir().unwrap();
+
+        let subdir_path1 = dir.path().join("subdir1");
+        let _ = create_dir(subdir_path1.clone()).unwrap();
+
+        let subdir_path2 = dir.path().join("subdir2");
+        let _ = create_dir(subdir_path2.clone()).unwrap();
+
+        let subdir_path3 = dir.path().join("subdir3");
+        let _ = create_dir(subdir_path3.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![
+                format!(
+                    r#"["{base_dir}/subdir1", "{base_dir}/subdir2"]"#,
+                    base_dir = dir.path().to_str().unwrap()
+                ),
+                format!(
+                    "{base_dir}/subdir3",
+                    base_dir = dir.path().to_str().unwrap()
+                ),
+            ],
+            file_type: Some(FileType::Directory),
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut finds = output
+            .extra
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+        finds.sort();
+
+        assert_eq!(
+            finds,
+            vec![
+                subdir_path1.to_str().unwrap().to_string(),
+                subdir_path2.to_str().unwrap().to_string(),
+                subdir_path3.to_str().unwrap().to_string(),
+            ],
+        );
+    }
+
+    #[test]
     fn test_find_relative_path() {
         let error = find(Params {
             paths: vec!["./".to_string()],
@@ -581,6 +632,34 @@ paths:
     }
 
     #[test]
+    fn test_find_directories_exclude_from_json() {
+        let dir = tempdir().unwrap();
+        let parent_path = dir.path().join("foo");
+        let _ = create_dir(parent_path.clone()).unwrap();
+
+        let dir_path = parent_path.join("boo");
+        let _ = create_dir(dir_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![parent_path.to_str().unwrap().to_string()],
+            file_type: Some(FileType::Directory),
+            excludes: Some(vec![r#"["foo", "boo"]"#.to_string()]),
+            ..Default::default()
+        })
+        .unwrap();
+
+        let result: Vec<String> = Vec::new();
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(json!(result)),
+            }
+        );
+    }
+
+    #[test]
     fn test_find_patterns() {
         let dir = tempdir().unwrap();
         let file1_path = dir.path().join("file1.txt");
@@ -603,6 +682,46 @@ paths:
                 output: None,
                 extra: Some(json!(vec![file2_path.to_str().unwrap().to_string(),])),
             }
+        );
+    }
+
+    #[test]
+    fn test_find_patterns_from_json() {
+        let dir = tempdir().unwrap();
+        let file1_path = dir.path().join("file1.txt");
+        let _ = File::create(file1_path.clone()).unwrap();
+        let file2_path = dir.path().join("file2.log");
+        let _ = File::create(file2_path.clone()).unwrap();
+        let file3_path = dir.path().join("file3.log");
+        let _ = File::create(file3_path.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_string()],
+            file_type: Some(FileType::File),
+            patterns: Some(vec![
+                r#"["file2.log"]"#.to_string(),
+                "file3.log".to_string(),
+            ]),
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut finds = output
+            .extra
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+        finds.sort();
+
+        assert_eq!(
+            finds,
+            vec![
+                file2_path.to_str().unwrap().to_string(),
+                file3_path.to_str().unwrap().to_string(),
+            ],
         );
     }
 
