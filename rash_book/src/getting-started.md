@@ -23,6 +23,9 @@ Also, you must create your first `entrypoint.rh`:
 {{#include ../../examples/envar-api-gateway/entrypoint.rh}}
 ```
 
+Or instead, you could want to use `rash` for local scripting. In that case you can follow
+our [installation guide](installation.md).
+
 ## Syntax
 
 YAML syntax based on [modules](module_index.md).

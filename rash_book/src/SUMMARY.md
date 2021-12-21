@@ -3,6 +3,7 @@
 [Rash Book](index.md)
 
 - [Getting Started](getting-started.md)
+- [Installation](installation.md)
 - [Tasks](tasks.md)
 - [Module Index](module_index.md)
 - [Vars](vars.md)
