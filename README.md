@@ -14,7 +14,8 @@ Declarative shell scripting using Rust native bindings inspired by [Ansible](htt
 
 ## Getting Started & Documentation
 
-For installation and usage, see our [Documentation](https://rash.sh/docs/rash/master/getting-started.html#quickstart).
+For installation and usage, see our
+[Documentation](https://rash.sh/docs/rash/master/getting-started.html#quickstart).
 
 ## Why Rash
 
@@ -24,6 +25,8 @@ If you:
 
 - think that long bash scripts are difficult to maintain
 - love Ansible syntax to setup your environments
+
+Or use it for your local scripts!
 
 Then keep on reading.
 
