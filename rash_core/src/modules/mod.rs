@@ -188,3 +188,36 @@ where
     trace!("parse params: {:?}", yaml);
     serde_yaml::from_str(&get_string(yaml)?).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
+
+#[inline(always)]
+pub fn parse_if_json(v: Vec<String>) -> Vec<String> {
+    v.into_iter()
+        .map(|s| serde_json::from_str(&s).unwrap_or_else(|_| vec![s]))
+        .flatten()
+        .collect::<Vec<String>>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_if_json() {
+        let vec_string = parse_if_json(vec![
+            r#"["yea", "foo", "boo"]"#.to_string(),
+            r#"["fuu", "buu"]"#.to_string(),
+            "yuu".to_string(),
+        ]);
+        assert_eq!(
+            vec_string,
+            vec![
+                "yea".to_string(),
+                "foo".to_string(),
+                "boo".to_string(),
+                "fuu".to_string(),
+                "buu".to_string(),
+                "yuu".to_string()
+            ]
+        )
+    }
+}
