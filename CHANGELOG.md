@@ -1,5 +1,16 @@
 # rash changes
 
+## [v1.4.0](https://github.com/rash-sh/rash/tree/v1.4.0) (2021-12-22)
+
+### Added
+
+* Add find module
+
+### Fixed
+
+* Fix `rash.dir` as absolute according with docs
+* Fix publish packages to crates.io
+
 ## [v1.3.1](https://github.com/rash-sh/rash/tree/v1.3.1) (2021-12-19)
 
 ### Added
