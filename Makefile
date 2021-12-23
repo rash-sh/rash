@@ -67,6 +67,17 @@ test:	## run tests
 test: lint
 	cargo test
 
+.PHONY: test-examples
+test-examples:	## run examples and check exit code
+	@for example in $$(find examples -not -path 'examples/envar-api-gateway/*' -name '*.rh'); do \
+		echo $$example; \
+		$$example || exit 1; \
+	done
+	@echo
+	@echo
+	@echo
+	@echo all good!
+
 .PHONY: mdbook-rash
 mdbook-rash:	## install mdbook_rash to create rash_book
 	cd mdbook_rash && \
