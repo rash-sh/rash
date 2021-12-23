@@ -79,7 +79,7 @@ jobs:
     - name: Run examples
       run: |
         cp target/debug/rash /usr/local/bin/rash
-        for example in $(find examples -not -path 'examples/envar-api-gateway/*' -name '*.rh'); do echo $example; $example || exit 1;done
+        make test-examples
 
     - name: Extract crate information
       shell: bash
