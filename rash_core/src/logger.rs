@@ -98,7 +98,7 @@ where
             .map(format_change)
             .collect::<Vec<String>>()
             .join("");
-        info!(target: "diff", "{}", diff_str)
+        print!("{}", diff_str);
     }
 }
 

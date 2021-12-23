@@ -1,0 +1,30 @@
+#!/usr/bin/env -S rash --diff
+---
+- name: random file
+  copy:
+    content: |
+      foo
+      boo
+      wqeqqwe
+      sdasdas asdas
+      jwkq
+    dest: "/tmp/random"
+    mode: "400"
+
+- name: update random file
+  copy:
+    content: |
+      asdsadas
+      foo
+      boo
+      sdasdas FUU
+      sdasdas
+      jwkq
+    dest: "/tmp/random"
+    mode: "400"
+
+- name: remove all the random stuff
+  file:
+    state: absent
+    path: /tmp/random
+
