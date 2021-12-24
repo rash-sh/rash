@@ -1,5 +1,11 @@
 # rash changes
 
+## [v1.4.1](https://github.com/rash-sh/rash/tree/v1.4.1) (2021-12-24)
+
+### Fixed
+
+* Fix log with print in normal diff
+
 ## [v1.4.0](https://github.com/rash-sh/rash/tree/v1.4.0) (2021-12-22)
 
 ### Added
