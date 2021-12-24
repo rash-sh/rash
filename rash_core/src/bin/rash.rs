@@ -1,10 +1,12 @@
 use rash_core::context::Context;
+use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
-use rash_core::task::read_file;
+use rash_core::task::parse_file;
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
+use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
 
@@ -84,14 +86,29 @@ fn main() {
     trace!("start logger");
     trace!("{:?}", &opts);
     let script_path = Path::new(&opts.script_file);
-    match read_file(script_path.to_path_buf(), opts.check) {
+    trace!("reading tasks from: {:?}", script_path);
+    let main_file = match read_to_string(script_path.to_path_buf()) {
+        Ok(s) => s,
+        Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
+    };
+
+    let args: Vec<&str> = opts._args.iter().map(|s| &**s).collect();
+    let mut new_vars = match docopt::parse(&main_file, &args) {
+        Ok(v) => v,
+        Err(e) => match e.kind() {
+            ErrorKind::GracefulExit => {
+                info!("{}", e);
+                return;
+            }
+            _ => return crash_error(e),
+        },
+    };
+
+    match parse_file(&main_file, opts.check) {
         Ok(tasks) => match env::load(opts.environment) {
-            Ok(vars) => {
-                let mut new_vars = vars;
-                match Builtins::new(
-                    opts._args.iter().map(|s| &**s).collect::<Vec<&str>>(),
-                    script_path,
-                ) {
+            Ok(env_vars) => {
+                new_vars.extend(env_vars);
+                match Builtins::new(args, script_path) {
                     Ok(builtins) => new_vars.insert("rash", &builtins),
                     Err(e) => crash_error(e),
                 };

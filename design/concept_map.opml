@@ -106,7 +106,7 @@
         <outline text="verbosity" _icon="progress_100"/>
         <outline text="script-file" _icon="progress_100"/>
       </outline>
-      <outline text="integrated documentation" _icon="book"/>
+      <outline text="integrated documentation" _icon="book;progress_100"/>
       <outline text="integrated testing tool" _icon="lock"/>
       <outline text="repository" _icon="lightbulb" _note="&lt;div&gt;Repository of entrypoints.rh or custom scripts&lt;/div&gt;&lt;div&gt;**initially could be a repo of examples&lt;br /&gt;&lt;/div&gt;"/>
       <outline text="linter" _icon="warning"/>

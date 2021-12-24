@@ -10,9 +10,6 @@ use crate::vars::Vars;
 
 use rash_derive::FieldNames;
 
-use std::fs;
-use std::path::PathBuf;
-
 use yaml_rust::{Yaml, YamlLoader};
 
 /// Main structure at definition level which prepares [`Module`] executions.
@@ -285,12 +282,8 @@ impl Task {
     }
 }
 
-pub fn read_file(tasks_file_path: PathBuf, check: bool) -> Result<Tasks> {
-    trace!("reading tasks from: {:?}", tasks_file_path);
-    let tasks_file =
-        fs::read_to_string(tasks_file_path).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-    let docs = YamlLoader::load_from_str(&tasks_file)?;
+pub fn parse_file(tasks_file: &str, check: bool) -> Result<Tasks> {
+    let docs = YamlLoader::load_from_str(tasks_file)?;
     let yaml = docs.first().ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
@@ -323,10 +316,7 @@ mod tests {
     use crate::vars;
 
     use std::collections::HashMap;
-    use std::fs::File;
-    use std::io::Write;
 
-    use tempfile::tempdir;
     use tera::Context;
     use yaml_rust::YamlLoader;
 
@@ -668,13 +658,7 @@ mod tests {
 
     #[test]
     fn test_read_tasks() {
-        let dir = tempdir().unwrap();
-
-        let file_path = dir.path().join("entrypoint.rh");
-        let mut file = File::create(file_path.clone()).unwrap();
-        writeln!(
-            file,
-            r#"
+        let file = r#"
         #!/bin/rash
         - name: task 1
           command:
@@ -682,10 +666,9 @@ mod tests {
 
         - name: task 2
           command: boo
-        "#
-        )
-        .unwrap();
-        let tasks = read_file(file_path, false).unwrap();
+        "#;
+
+        let tasks = parse_file(file, false).unwrap();
         assert_eq!(tasks.len(), 2);
 
         let s0 = r#"
