@@ -42,6 +42,8 @@ struct Custom {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum ErrorKind {
+    /// Program finish gracefully returning 0
+    GracefulExit,
     /// An entity was not found, often a module.
     NotFound,
     /// Data is invalid, often fail to render Tera.
@@ -59,6 +61,7 @@ pub enum ErrorKind {
 impl ErrorKind {
     pub fn as_str(self) -> &'static str {
         match self {
+            ErrorKind::GracefulExit => "program finish gracefully",
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
             ErrorKind::IOError => "I/O error",

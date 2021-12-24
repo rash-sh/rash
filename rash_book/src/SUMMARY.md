@@ -11,5 +11,6 @@
   - [Runtime](runtime.md)
     - [Lookups](lookups.md)
     - [Filters](filters.md)
+- [Command-line interfaces](docopt.md)
 - [Roadmap](roadmap.md)
 - [Contributing](contributing.md)

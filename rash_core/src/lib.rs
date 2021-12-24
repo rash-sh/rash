@@ -1,4 +1,5 @@
 pub mod context;
+pub mod docopt;
 pub mod error;
 pub mod logger;
 pub mod modules;
@@ -20,34 +21,22 @@ mod tests {
 
     use context::Context;
     use error::ErrorKind;
-    use task::read_file;
+    use task::parse_file;
     use vars::env;
-
-    use std::fs::File;
-    use std::io::Write;
-    use tempfile::tempdir;
 
     #[test]
     fn test_command_ls() {
-        let dir = tempdir().unwrap();
-
-        let file_path = dir.path().join("entrypoint.rh");
-        let mut file = File::create(file_path.clone()).unwrap();
-        writeln!(
-            file,
-            r#"
+        let file = r#"
         #!/bin/rash
         - name: test ls
           command: ls
 
         - command:
             cmd: ls /
-        "#
-        )
-        .unwrap();
+        "#;
 
         let context = Context::new(
-            read_file(file_path, false).unwrap(),
+            parse_file(&file, false).unwrap(),
             env::load(vec![]).unwrap(),
         );
         let context_error = Context::exec(context).unwrap_err();
