@@ -20,7 +20,7 @@
 ///     mode: "0400"
 /// ```
 /// ANCHOR_END: examples
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff_files;
 use crate::modules::{parse_params, ModuleResult};
 use crate::utils::parse_octal;
@@ -29,7 +29,7 @@ use crate::vars::Vars;
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::fs::{set_permissions, File, OpenOptions};
+use std::fs::{metadata, set_permissions, File, OpenOptions, Permissions};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::io::{BufReader, Write};
@@ -52,10 +52,12 @@ pub struct Params {
     /// The absolute path where the file should be copied to.
     pub dest: String,
     /// Permissions of the destination file or directory.
+    /// The mode may also be the special string `preserve`.
+    /// `preserve` means that the file will be given the same permissions as the source file.
     pub mode: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Input {
@@ -73,6 +75,25 @@ impl Params {
             _ => None,
         }
     }
+}
+
+fn change_permissions(
+    dest: &str,
+    dest_permissions: Permissions,
+    mode: u32,
+    check_mode: bool,
+) -> Result<bool> {
+    let mut dest_permissions_copy = dest_permissions;
+
+    if dest_permissions_copy.mode() != mode {
+        if !check_mode {
+            trace!("changing mode: {:o}", &mode);
+            dest_permissions_copy.set_mode(mode);
+            set_permissions(&dest, dest_permissions_copy)?;
+        }
+        return Ok(true);
+    };
+    Ok(false)
 }
 
 pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
@@ -94,11 +115,11 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let mut buf_reader = BufReader::new(&read_file);
     let mut content = String::new();
     buf_reader.read_to_string(&mut content)?;
-    let metadata = read_file.metadata()?;
-    let mut permissions = metadata.permissions();
+    let dest_metadata = read_file.metadata()?;
+    let dest_permissions = dest_metadata.permissions();
     let mut changed = false;
 
-    let desired_content = match params.input {
+    let desired_content = match params.input.clone() {
         Input::Content(s) => s,
         Input::Src(src) => {
             let file = File::open(&src)?;
@@ -114,10 +135,10 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
         if !check_mode {
             trace!("changing content: {:?}", &desired_content);
-            if permissions.readonly() {
-                let mut p = permissions.clone();
+            if dest_permissions.readonly() {
+                let mut p = dest_permissions.clone();
                 // enable write
-                p.set_mode(permissions.mode() | 0o200);
+                p.set_mode(dest_permissions.mode() | 0o200);
                 set_permissions(&params.dest, p)?;
             }
 
@@ -126,28 +147,38 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
             file.write_all(desired_content.as_bytes())?;
             file.set_len(desired_content.len() as u64)?;
 
-            if permissions.readonly() {
-                set_permissions(&params.dest, permissions.clone())?;
+            if dest_permissions.readonly() {
+                set_permissions(&params.dest, dest_permissions.clone())?;
             }
         }
 
         changed = true;
     };
 
-    let mode = match params.mode {
-        Some(s) => parse_octal(&s)?,
-        None => parse_octal("0644")?,
-    };
-
-    // & 0o7777 to remove lead 100: 100644 -> 644
-    let original_mode = permissions.mode() & 0o7777;
-    if original_mode != mode {
-        if !check_mode {
-            trace!("changing mode: {:o}", &mode);
-            permissions.set_mode(mode);
-            set_permissions(&params.dest, permissions)?;
+    match params.mode.as_deref() {
+        Some("preserve") => match params.input {
+            Input::Src(src) => {
+                let src_metadata = metadata(&src)?;
+                let src_permissions = src_metadata.permissions();
+                changed = change_permissions(
+                    &params.dest,
+                    dest_permissions,
+                    src_permissions.mode(),
+                    check_mode,
+                )?;
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "preserve cannot be used in with content",
+                ))
+            }
+        },
+        Some(s) => {
+            let mode = parse_octal(s)?;
+            changed = change_permissions(&params.dest, dest_permissions, mode, check_mode)?;
         }
-        changed = true;
+        None => (),
     };
 
     Ok(ModuleResult {
@@ -341,6 +372,52 @@ mod tests {
             ModuleResult {
                 changed: false,
                 output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_file_preserve() {
+        let src_dir = tempdir().unwrap();
+        let dest_dir = tempdir().unwrap();
+
+        let file_src_path = src_dir.path().join("preserve.txt");
+        let file_dest_path = dest_dir.path().join("preserve.txt");
+        let mut file = File::create(file_src_path.clone()).unwrap();
+        writeln!(file, "test").unwrap();
+
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o604);
+        set_permissions(&file_src_path, permissions).unwrap();
+
+        let output = copy_file(
+            Params {
+                input: Input::Src(file_src_path.to_str().unwrap().to_string()),
+                dest: file_dest_path.to_str().unwrap().to_string(),
+                mode: Some("preserve".to_string()),
+            },
+            false,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_dest_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "test\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o604)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_dest_path.to_str().unwrap().to_string()),
                 extra: None,
             }
         );
