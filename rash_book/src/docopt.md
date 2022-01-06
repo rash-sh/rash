@@ -8,14 +8,14 @@ weight: 7000
 `rash` has an integrated command-line parser based in the documentation of your script.
 
 This is an ad-hoc implementation based in [Docopt](http://docopt.org/). The main idea
-behind it is that you just write the documentation of your script and Rash
-automatically parses arguments based on it.
+behind is to write the documentation and `rash` automatically parses arguments based on it.
+
 E.g.:
 
 ```yaml
 #!/usr/bin/env rash
 #
-#  Copy files from source to dest dir
+# Copy files from source to dest dir
 #
 # Usage: copy.rh <source>... <dest>
 #
@@ -53,8 +53,9 @@ sequence of characters delimited by either whitespace, one of `[]()|` characters
 ### [optional elements]
 
 Elements (arguments, commands) enclosed with square brackets `[]` are marked to be
-optional. It does not matter if elements are enclosed in the same or different pairs of brackets,
-e.g.:
+optional. It does not matter if elements are enclosed in the same or different pairs of brackets.
+
+E.g.:
 
 ```
 Usage: my_program [command <argument>]
