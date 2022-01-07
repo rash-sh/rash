@@ -29,21 +29,14 @@ lazy_static! {
 pub fn render_string(s: &str, vars: &Vars) -> Result<String> {
     let mut tera = TERA.clone();
     trace!("rendering {:?}", &s);
-    tera.render_str(s, vars).map_err(|e| match e.source() {
-        Some(source_e) => match source_e.source() {
-            Some(source_source_e) => match source_source_e.source() {
-                Some(source_source_source_e) => {
-                    if source_source_source_e.to_string() == "Not defined" {
-                        error::Error::new(error::ErrorKind::OmitParam, "Param is omitted")
-                    } else {
-                        error::Error::new(error::ErrorKind::InvalidData, e)
-                    }
-                }
-                _ => error::Error::new(error::ErrorKind::InvalidData, e),
-            },
+    tera.render_str(s, vars).map_err(|e| {
+        let f = |e: &dyn StdError| -> Option<bool> {
+            Some(e.source()?.source()?.source()?.to_string() == "Not defined")
+        };
+        match f(&e) {
+            Some(true) => error::Error::new(error::ErrorKind::OmitParam, "Param is omitted"),
             _ => error::Error::new(error::ErrorKind::InvalidData, e),
-        },
-        _ => error::Error::new(error::ErrorKind::InvalidData, e),
+        }
     })
 }
 
