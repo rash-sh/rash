@@ -5,7 +5,7 @@
 - [Getting Started](getting-started.md)
 - [Installation](installation.md)
 - [Tasks](tasks.md)
-- [Module Index](module_index.md)
+- [Modules](modules.md)
 - [Vars](vars.md)
   - [Builtins](builtins.md)
   - [Runtime](runtime.md)
