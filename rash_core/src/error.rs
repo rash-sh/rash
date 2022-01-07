@@ -50,6 +50,8 @@ pub enum ErrorKind {
     InvalidData,
     /// I/O error propagation
     IOError,
+    /// Omit module parameter
+    OmitParam,
     /// Generic failure during subprocess execution.
     SubprocessFail,
     /// Task stack is empty
@@ -65,6 +67,7 @@ impl ErrorKind {
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
             ErrorKind::IOError => "I/O error",
+            ErrorKind::OmitParam => "omit param",
             ErrorKind::SubprocessFail => "subprocess fail",
             ErrorKind::EmptyTaskStack => "task stack is empty",
             ErrorKind::Other => "other os error",

@@ -80,10 +80,11 @@ impl Task {
             Some(hash) => match hash
                 .clone()
                 .iter()
-                .map(|t| match &t.1.clone().as_str() {
+                .filter_map(|t| match &t.1.clone().as_str() {
                     Some(s) => match render_string(s, &vars) {
-                        Ok(s) => Ok((t.0.clone(), Yaml::String(s))),
-                        Err(e) => Err(e),
+                        Ok(s) => Some(Ok((t.0.clone(), Yaml::String(s)))),
+                        Err(e) if e.kind() == ErrorKind::OmitParam => None,
+                        Err(e) => Some(Err(e)),
                     },
                     None => match t.1.clone().as_vec() {
                         Some(x) => match x
@@ -104,10 +105,10 @@ impl Task {
                             })
                             .collect::<Result<Vec<Yaml>>>()
                         {
-                            Ok(rendered_vec) => Ok((t.0.clone(), Yaml::Array(rendered_vec))),
-                            Err(e) => Err(e),
+                            Ok(rendered_vec) => Some(Ok((t.0.clone(), Yaml::Array(rendered_vec)))),
+                            Err(e) => Some(Err(e)),
                         },
-                        None => Ok((t.0.clone(), t.1.clone())),
+                        None => Some(Ok((t.0.clone(), t.1.clone()))),
                     },
                 })
                 .collect::<Result<_>>()
