@@ -9,7 +9,6 @@ pub mod vars;
 
 #[macro_use]
 extern crate lazy_static;
-extern crate libc;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -36,7 +35,7 @@ mod tests {
         "#;
 
         let context = Context::new(
-            parse_file(&file, false).unwrap(),
+            parse_file(&file, &task::GlobalParams::default()).unwrap(),
             env::load(vec![]).unwrap(),
         );
         let context_error = Context::exec(context).unwrap_err();

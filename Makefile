@@ -80,8 +80,7 @@ test-examples:	## run examples and check exit code
 
 .PHONY: mdbook-rash
 mdbook-rash:	## install mdbook_rash to create rash_book
-	cd mdbook_rash && \
-	cargo install --path .
+	cargo install --locked --path mdbook_rash
 
 .PHONY: book
 book:	## create rash_book under rash_book/rash-sh.github.io

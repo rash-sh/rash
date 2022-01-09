@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{is_module, MODULES};
-use crate::task::Task;
+use crate::task::{GlobalParams, Task};
 
 use std::collections::HashSet;
 
@@ -82,11 +82,20 @@ impl TaskValid {
         }
     }
 
-    pub fn get_task(&self, check_mode: bool) -> Result<Task> {
+    pub fn get_task(&self, global_params: &GlobalParams) -> Result<Task> {
         let module_name: &str = &self.get_module_name()?;
         Ok(Task {
+            r#become: match global_params.r#become {
+                true => true,
+                false => self.attrs["become"].as_bool().unwrap_or(false),
+            },
+            become_user: match self.attrs["become_user"].as_str() {
+                Some(s) => s,
+                None => global_params.become_user,
+            }
+            .to_string(),
             changed_when: self.parse_array(&self.attrs["changed_when"]),
-            check_mode: match check_mode {
+            check_mode: match global_params.check_mode {
                 true => true,
                 false => self.attrs["check_mode"].as_bool().unwrap_or(false),
             },
