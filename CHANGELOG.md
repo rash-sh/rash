@@ -1,5 +1,18 @@
 # rash changes
 
+## [v1.5.0](https://github.com/rash-sh/rash/tree/v1.5.0) (2022-01-09)
+
+### Added
+
+* Add become (#220)
+* Add `omit()` for omitting parameters programmatically (#70)
+* Add preserve mode to copy module (#214)
+* Add docopt to `rash` files (#212)
+
+### Fixed
+
+* Format mode in diff as octal in File module
+
 ## [v1.4.1](https://github.com/rash-sh/rash/tree/v1.4.1) (2021-12-24)
 
 ### Fixed
