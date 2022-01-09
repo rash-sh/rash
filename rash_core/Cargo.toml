@@ -1,6 +1,6 @@
 [package]
 name = "rash_core"
-version = "1.4.1"
+version = "1.5.0"
 description = "Declarative shell scripting using Rust native bindings"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2021"
@@ -21,7 +21,7 @@ path = "src/bin/rash.rs"
 docs = ["rash_derive/docs", "schemars"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "1.4.1" }
+rash_derive = { path = "../rash_derive", version = "1.5.0" }
 byte-unit = "4.0"
 console = "0.14.0"
 clap = { version = "3.0.5", features = ["std", "color", "derive", "cargo"]}
