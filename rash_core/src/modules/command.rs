@@ -34,48 +34,49 @@ use exec as exec_command;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
+#[cfg(feature = "docs")]
+use strum_macros::{Display, EnumString};
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
-    /// The command to run.
-    cmd: Option<String>,
-    /// Passes the command arguments as a list rather than a string.
-    /// Only the string or the list form can be provided, not both.
-    argv: Option<Vec<String>>,
+    #[serde(flatten)]
+    pub required: Required,
     /// Execute command as PID 1.
     /// Note: from this point on, your rash script execution is transferred to the command
-    transfer_pid_1: Option<bool>,
+    pub transfer_pid_1: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum Required {
+    /// The command to run.
+    Cmd(String),
+    /// Passes the command arguments as a list rather than a string.
+    /// Only the string or the list form can be provided, not both.
+    Argv(Vec<String>),
 }
 
 pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let params: Params = match optional_params.as_str() {
         Some(s) => Params {
-            cmd: Some(s.to_string()),
-            argv: None,
+            required: Required::Cmd(s.to_string()),
             transfer_pid_1: None,
         },
         None => parse_params(optional_params)?,
     };
 
-    if params.cmd.is_none() & params.argv.is_none() {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "argv or cmd must be defined",
-        ));
-    }
-
     match params.transfer_pid_1 {
         Some(true) => {
-            let args_vec = match params.cmd {
-                Some(s) => s
+            let args_vec = match params.required {
+                Required::Cmd(s) => s
                     .split_whitespace()
                     .map(String::from)
                     .collect::<Vec<String>>(),
-                // safe unwrap: verify in parse_params
-                None => params.argv.unwrap(),
+                Required::Argv(x) => x,
             };
             let mut args = args_vec.iter();
 
@@ -88,24 +89,24 @@ pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(Mod
             Err(Error::new(ErrorKind::SubprocessFail, error))
         }
         None | Some(false) => {
-            let output = if params.cmd.is_some() {
-                Command::new("/bin/sh")
+            let output = match params.required {
+                Required::Cmd(cmd) => Command::new("/bin/sh")
                     // safe unwrap: verified
-                    .args(vec!["-c", &params.cmd.unwrap()])
+                    .args(vec!["-c", &cmd])
                     .output()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
-            } else {
-                // safe unwrap: verify in parse_params
-                let argv = params.argv.unwrap();
-                let mut args = argv.iter();
-                let program = args.next().ok_or_else(|| {
-                    Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args))
-                })?;
+                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?,
+                Required::Argv(argv) => {
+                    // safe unwrap: verify in parse_params
+                    let mut args = argv.iter();
+                    let program = args.next().ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args))
+                    })?;
 
-                Command::new(program)
-                    .args(args)
-                    .output()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                    Command::new(program)
+                        .args(args)
+                        .output()
+                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                }
             };
 
             trace!("exec - output: {:?}", output);
@@ -161,11 +162,25 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                cmd: Some("ls".to_string()),
-                argv: None,
+                required: Required::Cmd("ls".to_string()),
                 transfer_pid_1: Some(false),
             }
         );
+    }
+
+    #[test]
+    fn test_parse_params_without_cmd_or_argv() {
+        let yaml = YamlLoader::load_from_str(
+            r#"
+        transfer_pid_1: false
+        "#,
+        )
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
