@@ -2,7 +2,7 @@ use rash_core::context::Context;
 use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
-use rash_core::task::parse_file;
+use rash_core::task::{parse_file, GlobalParams};
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
@@ -36,7 +36,13 @@ where
     version = crate_version!(),
     author = crate_authors!("\n"),
 )]
-struct Opts {
+struct Args {
+    /// run operations with become (does not imply password prompting)
+    #[clap(short, long)]
+    r#become: bool,
+    /// run operations as this user (just works with become enabled)
+    #[clap(short='u', long, default_value=GlobalParams::default().become_user)]
+    become_user: String,
     /// Execute in dry-run mode without modifications
     #[clap(short, long)]
     check: bool,
@@ -44,6 +50,7 @@ struct Opts {
     #[clap(short, long)]
     diff: bool,
     /// Set environment variables (Example: KEY=VALUE)
+    /// It can be accessed from builtin `{{ env }}`. E.g.: `{{ env.USER }}`
     #[clap(short, long, multiple_occurrences = true, parse(try_from_str = parse_key_val), number_of_values = 1)]
     environment: Vec<(String, String)>,
     /// Verbose mode (-vv for more)
@@ -51,9 +58,12 @@ struct Opts {
     verbose: u8,
     /// Script file to be executed
     script_file: String,
-    /// Additional args to be accessible from builtin `{{ rash.args }}` as list of strings
+    /// Additional args to be accessible rash scripts.
+    ///
+    /// It can be accessed from builtin `{{ rash.args }}` as list of strings or if usage is defined
+    /// they will be parsed and added as variables too. For more information check rash_book.
     #[clap(multiple_occurrences = true, takes_value = true, number_of_values = 1)]
-    _args: Vec<String>,
+    script_args: Vec<String>,
 }
 
 /// End the program with failure, printing [`Error`] and returning code associated if exists.
@@ -67,9 +77,9 @@ fn crash_error(e: Error) {
 }
 
 fn main() {
-    let opts: Opts = Opts::parse();
+    let args: Args = Args::parse();
 
-    let verbose = if opts.verbose == 0 {
+    let verbose = if args.verbose == 0 {
         match std::env::var("RASH_LOG_LEVEL") {
             Ok(s) => match s.as_ref() {
                 "DEBUG" => 1,
@@ -79,21 +89,21 @@ fn main() {
             _ => 0,
         }
     } else {
-        opts.verbose
+        args.verbose
     };
 
-    logger::setup_logging(verbose, opts.diff).expect("failed to initialize logging.");
+    logger::setup_logging(verbose, args.diff).expect("failed to initialize logging.");
     trace!("start logger");
-    trace!("{:?}", &opts);
-    let script_path = Path::new(&opts.script_file);
+    trace!("{:?}", &args);
+    let script_path = Path::new(&args.script_file);
     trace!("reading tasks from: {:?}", script_path);
     let main_file = match read_to_string(script_path.to_path_buf()) {
         Ok(s) => s,
         Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
     };
 
-    let args: Vec<&str> = opts._args.iter().map(|s| &**s).collect();
-    let mut new_vars = match docopt::parse(&main_file, &args) {
+    let script_args: Vec<&str> = args.script_args.iter().map(|s| &**s).collect();
+    let mut new_vars = match docopt::parse(&main_file, &script_args) {
         Ok(v) => v,
         Err(e) => match e.kind() {
             ErrorKind::GracefulExit => {
@@ -104,11 +114,17 @@ fn main() {
         },
     };
 
-    match parse_file(&main_file, opts.check) {
-        Ok(tasks) => match env::load(opts.environment) {
+    let global_params = GlobalParams {
+        r#become: args.r#become,
+        become_user: &args.become_user,
+        check_mode: args.check,
+    };
+
+    match parse_file(&main_file, &global_params) {
+        Ok(tasks) => match env::load(args.environment) {
             Ok(env_vars) => {
                 new_vars.extend(env_vars);
-                match Builtins::new(args, script_path) {
+                match Builtins::new(script_args, script_path) {
                     Ok(builtins) => new_vars.insert("rash", &builtins),
                     Err(e) => crash_error(e),
                 };

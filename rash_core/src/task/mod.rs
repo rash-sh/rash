@@ -10,7 +10,32 @@ use crate::vars::Vars;
 
 use rash_derive::FieldNames;
 
+use std::process::exit;
+use std::result::Result as StdResult;
+
+use ipc_channel::ipc::IpcReceiver;
+use ipc_channel::ipc::{self, IpcSender};
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
+use serde_error::Error as SerdeError;
 use yaml_rust::{Yaml, YamlLoader};
+
+/// Parameters that can be set globally
+pub struct GlobalParams<'a> {
+    pub r#become: bool,
+    pub become_user: &'a str,
+    pub check_mode: bool,
+}
+
+impl Default for GlobalParams<'_> {
+    fn default() -> Self {
+        GlobalParams {
+            r#become: Default::default(),
+            become_user: "root",
+            check_mode: Default::default(),
+        }
+    }
+}
 
 /// Main structure at definition level which prepares [`Module`] executions.
 ///
@@ -21,6 +46,10 @@ use yaml_rust::{Yaml, YamlLoader};
 #[derive(Debug, Clone, PartialEq, FieldNames)]
 // ANCHOR: task
 pub struct Task {
+    /// run operations with become (does not imply password prompting).
+    r#become: bool,
+    /// run operations as this user (just works with become enabled).
+    become_user: String,
     /// Run task in dry-run mode without modifications.
     check_mode: bool,
     /// Module could be any [`Module`] accessible by its name.
@@ -31,6 +60,7 @@ pub struct Task {
     ///
     /// [`Module::exec`]: ../modules/struct.Module.html#method.exec
     params: Yaml,
+    /// Template expression passed directly without {{ }};
     /// Overwrite changed field in [`ModuleResult`].
     ///
     /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
@@ -39,7 +69,7 @@ pub struct Task {
     ignore_errors: Option<bool>,
     /// Task name.
     name: Option<String>,
-    /// `loop` field receives a Template (with {{ }}) or a list to iterate over it.
+    /// `loop` receives a Template (with {{ }}) or a list to iterate over it.
     r#loop: Option<Yaml>,
     /// Variable name to store [`ModuleResult`].
     ///
@@ -64,9 +94,11 @@ impl Task {
     ///
     /// [`Task`]: struct.Task.html
     /// [`Yaml`]: ../../yaml_rust/struct.Yaml.html
-    pub fn new(yaml: &Yaml, check: bool) -> Result<Self> {
+    pub fn new(yaml: &Yaml, global_params: &GlobalParams) -> Result<Self> {
         trace!("new task: {:?}", yaml);
-        TaskNew::from(yaml).validate_attrs()?.get_task(check)
+        TaskNew::from(yaml)
+            .validate_attrs()?
+            .get_task(global_params)
     }
 
     #[inline(always)]
@@ -177,39 +209,161 @@ impl Task {
         }
     }
 
+    fn exec_module_rendered_with_user(
+        &self,
+        rendered_params: &Yaml,
+        vars: &Vars,
+        user: User,
+    ) -> Result<Vars> {
+        match setgid(user.gid) {
+            Ok(_) => match setuid(user.uid) {
+                Ok(_) => self.exec_module_rendered(rendered_params, vars),
+                Err(_) => Err(Error::new(
+                    ErrorKind::Other,
+                    format!("gid cannot be changed to {}", user.gid),
+                )),
+            },
+            Err(_) => Err(Error::new(
+                ErrorKind::Other,
+                format!("uid cannot be changed to {}", user.uid),
+            )),
+        }
+    }
+
+    fn exec_module_rendered(&self, rendered_params: &Yaml, vars: &Vars) -> Result<Vars> {
+        match self
+            .module
+            .exec(rendered_params.clone(), vars.clone(), self.check_mode)
+        {
+            Ok((result, result_vars)) => {
+                info!(target: if self.is_changed(&result, &result_vars)? {"changed"} else { "ok"},
+                    "{}",
+                    result.get_output().unwrap_or_else(
+                        || format!("{:?}", rendered_params)
+                    )
+                );
+                let mut new_vars = result_vars;
+                if self.register.is_some() {
+                    let register = self.register.as_ref().unwrap();
+                    trace!("register {:?} in {:?}", &result, register);
+                    new_vars.insert(register, &result);
+                }
+                Ok(new_vars)
+            }
+            Err(e) => match self.ignore_errors {
+                Some(is_true) => {
+                    if is_true {
+                        info!(target: "ignoring", "{}", e);
+                        Ok(vars.clone())
+                    } else {
+                        Err(e)
+                    }
+                }
+                None => Err(e),
+            },
+        }
+    }
+
     fn exec_module(&self, vars: Vars) -> Result<Vars> {
         if self.is_exec(&vars)? {
             let rendered_params = self.render_params(vars.clone())?;
-            match self
-                .module
-                .exec(rendered_params.clone(), vars.clone(), self.check_mode)
-            {
-                Ok((result, result_vars)) => {
-                    info!(target: if self.is_changed(&result, &result_vars)? {"changed"} else { "ok"},
-                        "{}",
-                        result.get_output().unwrap_or_else(
-                            || format!("{:?}", rendered_params)
-                        )
-                    );
-                    let mut new_vars = result_vars;
-                    if self.register.is_some() {
-                        let register = self.register.as_ref().unwrap();
-                        trace!("register {:?} in {:?}", &result, register);
-                        new_vars.insert(register, &result);
-                    }
-                    Ok(new_vars)
-                }
-                Err(e) => match self.ignore_errors {
-                    Some(is_true) => {
-                        if is_true {
-                            info!(target: "ignoring", "{}", e);
-                            Ok(vars)
-                        } else {
-                            Err(e)
+
+            match self.r#become {
+                true => {
+                    let user = match User::from_name(&self.become_user)
+                        .map_err(|e| Error::new(ErrorKind::Other, e))?
+                    {
+                        Some(user) => Ok(user),
+                        None => match self.become_user.parse::<u32>().map(Uid::from_raw) {
+                            Ok(uid) => match User::from_uid(uid)
+                                .map_err(|e| Error::new(ErrorKind::Other, e))?
+                            {
+                                Some(user) => Ok(user),
+                                None => Err(Error::new(
+                                    ErrorKind::NotFound,
+                                    format!("user: {} not found", &self.become_user),
+                                )),
+                            },
+                            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+                        },
+                    }?;
+
+                    if user.uid != Uid::current() {
+                        if self.module.get_name() == "command"
+                            && rendered_params["transfer_pid_1"].as_bool().unwrap_or(false)
+                        {
+                            return self.exec_module_rendered_with_user(
+                                &rendered_params,
+                                &vars,
+                                user,
+                            );
                         }
+
+                        #[allow(clippy::type_complexity)]
+                        let (tx, rx): (
+                            IpcSender<StdResult<String, SerdeError>>,
+                            IpcReceiver<StdResult<String, SerdeError>>,
+                        ) = ipc::channel().unwrap();
+
+                        match unsafe { fork() } {
+                            Ok(ForkResult::Child) => {
+                                trace!("change uid to: {}", user.uid);
+                                trace!("change gid to: {}", user.gid);
+                                let result = self.exec_module_rendered_with_user(
+                                    &rendered_params,
+                                    &vars,
+                                    user,
+                                );
+
+                                trace!("send result: {:?}", result);
+                                tx.send(
+                                    result
+                                        .map(|x| x.into_json().to_string())
+                                        .map_err(|e| SerdeError::new(&e)),
+                                )
+                                .unwrap_or_else(|e| {
+                                    error!("child failed to send result: {}", e);
+                                    exit(1)
+                                });
+                                exit(0);
+                            }
+                            Ok(ForkResult::Parent { child, .. }) => {
+                                let _ = match waitpid(child, None) {
+                                    Ok(WaitStatus::Exited(_, 0)) => Ok(()),
+                                    Ok(WaitStatus::Exited(_, exit_code)) => Err(Error::new(
+                                        ErrorKind::SubprocessFail,
+                                        format!("child failed with exit_code {}", exit_code),
+                                    )),
+                                    Err(e) => Err(Error::new(ErrorKind::Other, e)),
+                                    _ => Err(Error::new(
+                                        ErrorKind::SubprocessFail,
+                                        format!("child {} unknown status", child),
+                                    )),
+                                }?;
+                                rx.recv()
+                                    .unwrap_or_else(|e| {
+                                        Err(SerdeError::new(&Error::new(
+                                            ErrorKind::Other,
+                                            // ipc::IpcError doesn't implement std::error:Error
+                                            format!("{:?}", e),
+                                        )))
+                                    })
+                                    .map(|x| {
+                                        // safe unwrap: this value comes from vars.into_json()
+                                        tera::Context::from_value(serde_json::from_str(&x).unwrap())
+                                            // safe unwrap: json is object because comes from
+                                            // child tera::Context
+                                            .unwrap()
+                                    })
+                                    .map_err(|e| Error::new(ErrorKind::Other, e))
+                            }
+                            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+                        }
+                    } else {
+                        self.exec_module_rendered(&rendered_params, &vars)
                     }
-                    None => Err(e),
-                },
+                }
+                false => self.exec_module_rendered(&rendered_params, &vars),
             }
         } else {
             info!(target: "skipping", "");
@@ -266,7 +420,9 @@ impl Task {
     #[cfg(test)]
     pub fn test_example() -> Self {
         Task {
-            check_mode: false,
+            r#become: GlobalParams::default().r#become,
+            become_user: GlobalParams::default().become_user.to_string(),
+            check_mode: GlobalParams::default().check_mode,
             module: Module::test_example(),
             params: YamlLoader::load_from_str("cmd: ls")
                 .unwrap()
@@ -283,7 +439,18 @@ impl Task {
     }
 }
 
-pub fn parse_file(tasks_file: &str, check: bool) -> Result<Tasks> {
+#[cfg(test)]
+impl From<&Yaml> for Task {
+    fn from(yaml: &Yaml) -> Self {
+        TaskNew::from(yaml)
+            .validate_attrs()
+            .unwrap()
+            .get_task(&GlobalParams::default())
+            .unwrap()
+    }
+}
+
+pub fn parse_file(tasks_file: &str, global_params: &GlobalParams) -> Result<Tasks> {
     let docs = YamlLoader::load_from_str(tasks_file)?;
     let yaml = docs.first().ok_or_else(|| {
         Error::new(
@@ -294,19 +461,8 @@ pub fn parse_file(tasks_file: &str, check: bool) -> Result<Tasks> {
 
     yaml.clone()
         .into_iter()
-        .map(|task| Task::new(&task, check))
+        .map(|task| Task::new(&task, global_params))
         .collect::<Result<Tasks>>()
-}
-
-#[cfg(test)]
-impl From<&Yaml> for Task {
-    fn from(yaml: &Yaml) -> Self {
-        TaskNew::from(yaml)
-            .validate_attrs()
-            .unwrap()
-            .get_task(false)
-            .unwrap()
-    }
 }
 
 #[cfg(test)]
@@ -345,7 +501,7 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task_err = Task::new(yaml, false).unwrap_err();
+        let task_err = Task::new(yaml, &GlobalParams::default()).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
@@ -359,7 +515,7 @@ mod tests {
         .to_owned();
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
-        let task_err = Task::new(yaml, false).unwrap_err();
+        let task_err = Task::new(yaml, &GlobalParams::default()).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
@@ -669,7 +825,7 @@ mod tests {
           command: boo
         "#;
 
-        let tasks = parse_file(file, false).unwrap();
+        let tasks = parse_file(file, &GlobalParams::default()).unwrap();
         assert_eq!(tasks.len(), 2);
 
         let s0 = r#"

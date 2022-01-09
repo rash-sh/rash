@@ -3,7 +3,7 @@ use crate::error::{Error, ErrorKind, Result};
 use std::fs::canonicalize;
 use std::path::Path;
 
-use libc::{getgid, getuid};
+use nix::unistd::{getgid, getuid};
 use serde::Serialize;
 
 // ANCHOR: builtins
@@ -54,14 +54,6 @@ impl Builtins {
             })?
             .to_string();
 
-        let uid: u32;
-        let gid: u32;
-
-        unsafe {
-            uid = getuid();
-            gid = getgid();
-        }
-
         Ok(Builtins {
             args: args.into_iter().map(String::from).collect(),
             dir: if dir.is_empty() { ".".to_string() } else { dir },
@@ -74,7 +66,10 @@ impl Builtins {
                     )
                 })?
                 .to_string(),
-            user: UserInfo { uid, gid },
+            user: UserInfo {
+                uid: u32::from(getuid()),
+                gid: u32::from(getgid()),
+            },
         })
     }
 }

@@ -1,5 +1,5 @@
 use std::convert::From;
-use std::error;
+use std::error::Error as StdError;
 use std::fmt;
 use std::io;
 use std::result;
@@ -28,7 +28,7 @@ enum Repr {
 #[derive(Debug)]
 struct Custom {
     kind: ErrorKind,
-    error: Box<dyn error::Error + Send + Sync>,
+    error: Box<dyn StdError + Send + Sync>,
 }
 
 /// A list specifying general categories of `rash` error.
@@ -36,9 +36,9 @@ struct Custom {
 /// This list is intended to grow over time and it is not recommended to
 /// exhaustively match against it.
 ///
-/// Use it with the [`error::Error`] type.
+/// Use it with the [`StdError`] type.
 ///
-/// [`error::Error`]: struct.Error.html
+/// [`StdError`]: struct.Error.html
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum ErrorKind {
@@ -165,12 +165,12 @@ impl Error {
     /// ```
     pub fn new<E>(kind: ErrorKind, error: E) -> Error
     where
-        E: Into<Box<dyn error::Error + Send + Sync>>,
+        E: Into<Box<dyn StdError + Send + Sync>>,
     {
         Self::_new(kind, error.into())
     }
 
-    fn _new(kind: ErrorKind, error: Box<dyn error::Error + Send + Sync>) -> Error {
+    fn _new(kind: ErrorKind, error: Box<dyn StdError + Send + Sync>) -> Error {
         Error {
             repr: Repr::Custom(Box::new(Custom { kind, error })),
         }
@@ -241,7 +241,7 @@ impl Error {
     ///
     /// print_error(&Error::new(ErrorKind::Other, "oh no!"));
     /// ```
-    pub fn get_ref(&self) -> Option<&(dyn error::Error + Send + Sync + 'static)> {
+    pub fn get_ref(&self) -> Option<&(dyn StdError + Send + Sync + 'static)> {
         match self.repr {
             Repr::Simple(..) => None,
             Repr::Custom(ref c) => Some(&*c.error),
@@ -303,7 +303,7 @@ impl Error {
     ///
     /// print_error(&change_error(Error::new(ErrorKind::Other, MyError::new())));
     /// ```
-    pub fn get_mut(&mut self) -> Option<&mut (dyn error::Error + Send + Sync + 'static)> {
+    pub fn get_mut(&mut self) -> Option<&mut (dyn StdError + Send + Sync + 'static)> {
         match self.repr {
             Repr::Simple(..) => None,
             Repr::Custom(ref mut c) => Some(&mut *c.error),
@@ -330,7 +330,7 @@ impl Error {
     ///
     /// print_error(Error::new(ErrorKind::Other, "oh no!"));
     /// ```
-    pub fn into_inner(self) -> Option<Box<dyn error::Error + Send + Sync>> {
+    pub fn into_inner(self) -> Option<Box<dyn StdError + Send + Sync>> {
         match self.repr {
             Repr::Simple(..) => None,
             Repr::Custom(c) => Some(c.error),
@@ -356,8 +356,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self.repr {
             Repr::Simple(..) => None,
             Repr::Custom(ref c) => c.error.source(),
@@ -367,8 +367,7 @@ impl error::Error for Error {
 
 #[cfg(test)]
 mod test {
-    use super::{Custom, Error, ErrorKind, Repr};
-    use std::error;
+    use super::*;
     use std::fmt;
 
     #[test]
@@ -409,7 +408,7 @@ mod test {
             }
         }
 
-        impl error::Error for TestError {}
+        impl StdError for TestError {}
 
         // we have to call all of these UFCS style right now since method
         // resolution won't implicitly drop the Send+Sync bounds

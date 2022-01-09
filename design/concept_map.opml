@@ -43,7 +43,7 @@
                   </outline>
                 </outline>
               </outline>
-              <outline text="when" _icon="help;progress_100;progress_50"/>
+              <outline text="when" _icon="help;progress_100"/>
               <outline text="loop" _icon="help;progress_50"/>
               <outline text="changed_when" _icon="help"/>
               <outline text="ignore_errors" _icon="help;progress_100"/>
@@ -51,7 +51,9 @@
               <outline text="register" _icon="help;progress_100"/>
               <outline text="variables" _icon="help"/>
               <outline text="become" _icon="help"/>
-              <outline text="check_mode" _icon="help"/>
+              <outline text="check_mode" _icon="help;progress_100"/>
+              <outline text="notify" _icon="help"/>
+              <outline text="tags" _icon="help"/>
             </outline>
           </outline>
         </outline>
