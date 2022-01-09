@@ -99,8 +99,8 @@ fn apply_permissions_if_necessary(
     match original_mode != octal_mode {
         true => {
             diff(
-                format!("mode: {}", &original_mode),
-                format!("mode: {}", &octal_mode),
+                format!("mode: {:o}", &original_mode),
+                format!("mode: {:o}", &octal_mode),
             );
             if !check_mode {
                 permissions.set_mode(octal_mode);
