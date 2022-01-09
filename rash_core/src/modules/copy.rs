@@ -38,8 +38,6 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-#[cfg(feature = "docs")]
-use strum_macros::{Display, EnumString};
 use tempfile::tempfile;
 use yaml_rust::Yaml;
 
@@ -58,7 +56,7 @@ pub struct Params {
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Input {
     /// When used instead of src, sets the contents of a file directly to the specified value.

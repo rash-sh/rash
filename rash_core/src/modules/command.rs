@@ -34,8 +34,6 @@ use exec as exec_command;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-#[cfg(feature = "docs")]
-use strum_macros::{Display, EnumString};
 use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -50,7 +48,7 @@ pub struct Params {
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Required {
     /// The command to run.

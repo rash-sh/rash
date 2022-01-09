@@ -69,6 +69,64 @@ fn format_schema(schema: &RootSchema) -> String {
         "Values",
         "Description"
     ]);
+
+    if let Some(subschema) = schema.clone().schema.subschemas {
+        if let Some(schema_objects) = subschema.one_of {
+            for schema in schema_objects {
+                let schema_object = schema.into_object();
+                let metadata = schema_object.metadata;
+                let description = match metadata {
+                    Some(x) => match x.description {
+                        Some(d) => d,
+                        None => "".to_string(),
+                    },
+                    None => "".to_string(),
+                };
+                for property in schema_object.object.unwrap().properties {
+                    let name = property.0;
+                    let schema_object = property.1.into_object();
+                    let value = match schema_object.enum_values {
+                        Some(x) => x
+                            .into_iter()
+                            .map(|i| {
+                                serde_yaml::to_value(i)
+                                    .unwrap()
+                                    .as_str()
+                                    .unwrap()
+                                    .to_owned()
+                            })
+                            .collect::<Vec<String>>()
+                            .join("<br>"),
+                        None => "".to_string(),
+                    };
+                    table.add_row(row![
+                        name,
+                        match required_values.contains(&name) {
+                            true => "true",
+                            false => "",
+                        },
+                        match schema_object.instance_type {
+                            Some(s) => {
+                                let t = match s {
+                                    SingleOrVec::Vec(v) => v[0],
+                                    SingleOrVec::Single(x) => *x,
+                                };
+                                serde_yaml::to_value(&t)
+                                    .unwrap()
+                                    .as_str()
+                                    .unwrap()
+                                    .to_owned()
+                            }
+                            None => "".to_string(),
+                        },
+                        value,
+                        description
+                    ]);
+                }
+            }
+        }
+    };
+
     for property in object_validation.properties.into_iter() {
         let name = property.0;
         let schema_object = property.1.into_object();
