@@ -2,6 +2,8 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
 use crate::vars::Vars;
 
+use std::collections::HashSet;
+
 use lazy_static;
 use regex::{Regex, RegexSet};
 use tera::Context;
@@ -25,7 +27,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         None => return Ok(vars),
     };
 
-    let expanded_usages = expand_usages(usages, args.len());
+    let expanded_usages = expand_usages(HashSet::from_iter(usages.iter().cloned()), args.len());
 
     let arg_kind_set = RegexSet::new(&[
         format!(r"^{}$", WORDS_REGEX),
@@ -62,6 +64,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })
         .collect::<Option<Vec<Vec<usize>>>>()
         .ok_or_else(|| {
+            trace!("{:?}", args);
+            trace!("{:?}", args_defs);
             Error::new(
                 ErrorKind::InvalidData,
                 format!("Invalid usage: {}", &help_msg),
@@ -101,7 +105,11 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                 })
                 .collect::<Option<Vec<Vars>>>()
         })
-        .ok_or_else(|| Error::new(ErrorKind::InvalidData, help_msg.clone()))?;
+        .ok_or_else(|| {
+            trace!("{:?}", args);
+            trace!("{:?}", args_defs);
+            Error::new(ErrorKind::InvalidData, help_msg.clone())
+        })?;
 
     let mut new_vars_json = vars.into_json();
     let _ = vars_vec
@@ -170,50 +178,81 @@ fn repeat_until_fill(usage: String, replace: &str, pattern: &str, args_len: usiz
     )
 }
 
-fn expand_usages(usages: Vec<String>, args_len: usize) -> Vec<String> {
-    let mut new_usages: Vec<String> = Vec::new();
+#[derive(Debug, Clone, Copy)]
+enum RegexMatch {
+    InnerParenthesis,
+    InnerBrackets,
+    PositionalRepeatable,
+}
+
+fn get_regex_match(usage: &str) -> Option<(RegexMatch, Vec<String>)> {
+    let matcher = &[
+        (
+            RegexMatch::InnerParenthesis,
+            RE_INNER_PARENTHESIS.captures(usage),
+        ),
+        (RegexMatch::InnerBrackets, RE_INNER_BRACKETS.captures(usage)),
+        (
+            RegexMatch::PositionalRepeatable,
+            RE_POSITIONAL_REPEATABLE.captures(usage),
+        ),
+    ];
+
+    matcher
+        .iter()
+        .filter_map(|x| {
+            x.1.as_ref().map(|cap| {
+                (
+                    x.0,
+                    cap.iter()
+                        .filter_map(|option_match| Some(option_match?.as_str().to_string()))
+                        .collect::<Vec<String>>(),
+                )
+            })
+        })
+        .min_by_key(|x| x.1[0].len())
+}
+
+fn expand_usages(usages: HashSet<String>, args_len: usize) -> HashSet<String> {
+    let mut new_usages: HashSet<String> = HashSet::new();
 
     usages
         .into_iter()
-        .for_each(|usage| match RE_INNER_PARENTHESIS.captures(&usage) {
-            Some(cap) => match cap.get(2) {
+        .for_each(|usage| match get_regex_match(&usage) {
+            Some((RegexMatch::InnerParenthesis, cap)) => match cap.get(2) {
                 // repeat sequence until fill usage
                 Some(_) => new_usages.extend(expand_usages(
-                    vec![repeat_until_fill(usage.clone(), &cap[0], &cap[1], args_len)],
+                    HashSet::from([repeat_until_fill(usage.clone(), &cap[0], &cap[1], args_len)]),
                     args_len,
                 )),
                 None => cap[1].split('|').for_each(|w| {
                     new_usages.extend(expand_usages(
-                        vec![usage.replace(&cap[0].to_string(), w.trim())],
+                        HashSet::from([usage.replacen(&cap[0].to_string(), w.trim(), 1)]),
                         args_len,
                     ))
                 }),
             },
-            None => match RE_INNER_BRACKETS.captures(&usage) {
-                Some(cap) => {
-                    new_usages.extend(expand_usages(
-                        vec![usage.replace(&cap[0].to_string(), &cap[1])],
-                        args_len,
-                    ));
-                    new_usages.extend(expand_usages(
-                        vec![usage
-                            .replace(&cap[0].to_string(), "")
-                            .split_whitespace()
-                            .collect::<Vec<_>>()
-                            .join(" ")],
-                        args_len,
-                    ));
-                }
-                None => match RE_POSITIONAL_REPEATABLE.captures(&usage) {
-                    Some(cap) => new_usages.push(repeat_until_fill(
-                        usage.clone(),
-                        &cap[0],
-                        &cap[1],
-                        args_len,
-                    )),
-                    None => new_usages.push(usage),
-                },
-            },
+            Some((RegexMatch::InnerBrackets, cap)) => {
+                new_usages.extend(expand_usages(
+                    HashSet::from([usage.replacen(&cap[0].to_string(), &cap[1], 1)]),
+                    args_len,
+                ));
+                new_usages.extend(expand_usages(
+                    HashSet::from([usage
+                        .replacen(&cap[0].to_string(), "", 1)
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ")]),
+                    args_len,
+                ));
+            }
+            Some((RegexMatch::PositionalRepeatable, cap)) => new_usages.extend(expand_usages(
+                HashSet::from([repeat_until_fill(usage.clone(), &cap[0], &cap[1], args_len)]),
+                args_len,
+            )),
+            None => {
+                new_usages.insert(usage);
+            }
         });
     new_usages
 }
@@ -533,54 +572,90 @@ Foo:
 
     #[test]
     fn test_expand_usages() {
-        let usages = vec!["foo ((a | b) (c | d))".to_string()];
+        let usages = HashSet::from(["foo ((a | b) (c | d))".to_string()]);
 
         let result = expand_usages(usages, 2);
         assert_eq!(
             result,
-            vec![
+            HashSet::from([
                 "foo a c".to_string(),
                 "foo a d".to_string(),
                 "foo b c".to_string(),
                 "foo b d".to_string(),
-            ]
+            ])
+        )
+    }
+
+    #[test]
+    fn test_expand_usages_all() {
+        let usages = HashSet::from(["foo [(-d | --no-deps)] [(-d | --no-deps)]".to_string()]);
+
+        let result = expand_usages(usages, 2);
+        assert_eq!(
+            result,
+            HashSet::from([
+                "foo".to_string(),
+                "foo -d".to_string(),
+                "foo --no-deps".to_string(),
+                "foo -d -d".to_string(),
+                "foo -d --no-deps".to_string(),
+                "foo --no-deps -d".to_string(),
+                "foo --no-deps --no-deps".to_string(),
+            ])
+        )
+    }
+
+    #[test]
+    fn test_expand_usages_all_bad() {
+        let usages = HashSet::from(["foo [(-d | --no-deps) (-d | --no-deps)]".to_string()]);
+
+        let result = expand_usages(usages, 2);
+        assert_eq!(
+            result,
+            HashSet::from([
+                "foo -d -d".to_string(),
+                "foo".to_string(),
+                "foo --no-deps --no-deps".to_string(),
+                "foo -d --no-deps".to_string(),
+                "foo --no-deps -d".to_string(),
+            ])
         )
     }
 
     #[test]
     fn test_expand_usages_tree() {
-        let usages = vec!["foo (a | b | c)".to_string()];
+        let usages = HashSet::from(["foo (a | b | c)".to_string()]);
 
         let result = expand_usages(usages, 1);
         assert_eq!(
             result,
-            vec![
+            HashSet::from([
                 "foo a".to_string(),
                 "foo b".to_string(),
                 "foo c".to_string(),
-            ]
+            ])
         )
     }
 
     #[test]
     fn test_expand_usages_optional() {
-        let usages = vec!["foo a [b] c".to_string()];
+        let usages = HashSet::from(["foo a [b] c".to_string()]);
 
         let result = expand_usages(usages, 1);
         assert_eq!(
             result,
-            vec!["foo a b c".to_string(), "foo a c".to_string(),]
+            HashSet::from(["foo a b c".to_string(), "foo a c".to_string(),])
         )
     }
 
     #[test]
     fn test_expand_usages_positional() {
-        let usages = vec!["foo (a <b> | c <d>)".to_string()];
+        let usages = HashSet::from(["foo (a <b> | c <d>)".to_string()]);
 
         let result = expand_usages(usages, 2);
         assert_eq!(
             result,
-            vec!["foo a <b>".to_string(), "foo c <d>".to_string(),]
+            HashSet::from(["foo a <b>".to_string(), "foo c <d>".to_string(),])
         )
     }
 
