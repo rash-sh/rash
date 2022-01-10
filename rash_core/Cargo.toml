@@ -24,7 +24,7 @@ docs = ["rash_derive/docs", "schemars"]
 rash_derive = { path = "../rash_derive", version = "1.5.0" }
 byte-unit = "4.0"
 console = "0.14.0"
-clap = { version = "3.0.5", features = ["std", "color", "derive", "cargo"]}
+clap = { version = "3.0.6", features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6", features = ["colored"] }
 ignore = "0.4"
