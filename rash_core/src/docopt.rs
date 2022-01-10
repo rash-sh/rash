@@ -80,8 +80,18 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, arg_def)| match args_kinds[usage_idx].get(idx) {
-                    // safe unwrap: all args_kinds were previously checked
-                    Some(0) => Some(Context::from_value(json!({arg_def: false})).unwrap()),
+                    Some(0) => Some(
+                        Context::from_value(
+                            match args_defs.iter().any(|args_def| {
+                                args_def.iter().filter(|&x| x == arg_def).count() > 1
+                            }) {
+                                true => json!({arg_def: 0}),
+                                false => json!({arg_def: false}),
+                            },
+                        )
+                        // safe unwrap: all args_kinds were previously checked
+                        .unwrap(),
+                    ),
                     _ => None,
                 })
                 .collect::<Vec<Vars>>()
@@ -99,7 +109,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
             args.iter()
                 .enumerate()
                 .map(|(idx, arg)| match args_kinds[usage_idx][idx] {
-                    0 => parse_required(arg, &args_def[idx]),
+                    0 => parse_required(arg, &args_def[idx], args_def),
                     1 => Some(parse_positional(arg, &args_def[idx])),
                     _ => unreachable!(),
                 })
@@ -257,9 +267,13 @@ fn expand_usages(usages: HashSet<String>, args_len: usize) -> HashSet<String> {
     new_usages
 }
 
-fn parse_required(arg: &str, def: &str) -> Option<Vars> {
+fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Vars> {
     if arg == def {
-        Some(Context::from_value(json!({arg: true})).unwrap())
+        if defs.iter().filter(|&x| *x == def).count() > 1 {
+            Some(Context::from_value(json!({arg: 1})).unwrap())
+        } else {
+            Some(Context::from_value(json!({arg: true})).unwrap())
+        }
     } else {
         None
     }
@@ -387,6 +401,30 @@ mod tests {
                 "install": true,
                 "update": false,
                 "package_filters": vec!["foo", "boo"],
+            }))
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn test_parse_repeatable_commands() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   foo [(a | b)] [(a | b)]
+#
+"#;
+
+        let args = vec!["a", "a"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "a": 2,
+                "b": 0,
             }))
             .unwrap()
         )
@@ -684,7 +722,7 @@ Foo:
         let arg_def = r"foo";
 
         let arg = "foo";
-        let result = parse_required(arg, &arg_def).unwrap();
+        let result = parse_required(arg, &arg_def, &[]).unwrap();
         assert_eq!(
             result,
             Context::from_value(json!({
@@ -699,7 +737,7 @@ Foo:
         let arg_def = r"foo";
 
         let arg = "boo";
-        let result = parse_required(arg, &arg_def);
+        let result = parse_required(arg, &arg_def, &[]);
         assert_eq!(result, None)
     }
 
