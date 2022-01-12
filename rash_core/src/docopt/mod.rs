@@ -1,3 +1,5 @@
+mod options;
+
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
 use crate::vars::Vars;
@@ -8,7 +10,7 @@ use lazy_static;
 use regex::{Regex, RegexSet};
 use tera::Context;
 
-const WORDS_REGEX: &str = r"[-a-zA-Z]+(?:[_\-][a-zA-Z]+)*";
+const WORDS_REGEX: &str = r"[a-z]+(?:[_\-][a-z]+)*";
 
 lazy_static! {
     static ref RE_INNER_PARENTHESIS: Regex = Regex::new(r"\(([^\(]+?)\)(\.\.\.)?").unwrap();
@@ -26,6 +28,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         Some(usages) => usages,
         None => return Ok(vars),
     };
+
+    //let _options = Options::parse(&help_msg);
 
     let expanded_usages = expand_usages(HashSet::from_iter(usages.iter().cloned()), args.len());
 
@@ -426,6 +430,211 @@ mod tests {
                 "a": 2,
                 "b": 0,
             }))
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn test_parse_options() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   naval_fate.py ship new <name>...
+#   naval_fate.py ship <name> move <x> <y> [--speed=<kn>]
+#   naval_fate.py ship shoot <x> <y>
+#   naval_fate.py mine (set|remove) <x> <y> [--moored|--drifting]
+#   naval_fate.py -h | --help
+#   naval_fate.py --version
+#
+# Options:
+#   -h --help     Show this screen.
+#   -v --version     Show version.
+#   --speed=<kn>  Speed in knots [default: 10].
+#   --moored      Moored (anchored) mine.
+#   --drifting    Drifting mine.
+"#;
+
+        let args = vec!["mine", "set", "10", "50", "--drifting"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "--drifting": true,
+                "--help": false,
+                "--moored": false,
+                "--speed": "10",
+                "--version": false,
+                "name": [],
+                "x": "10",
+                "y": "50",
+                "mine": true,
+                "move": false,
+                "new": false,
+                "remove": false,
+                "set": true,
+                "ship": false,
+                "shoot": false
+              }))
+            .unwrap()
+        );
+
+        let args = vec!["mine", "set", "10", "50", "--speed=50"];
+        let err = parse(file, &args).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::GracefulExit);
+
+        let args = vec!["ship", "foo", "move", "2", "3", "-s", "20"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "--drifting": false,
+                "--help": false,
+                "--moored": false,
+                "--speed": "20",
+                "--version": false,
+                "name": [
+                  "foo"
+                ],
+                "x": "2",
+                "y": "3",
+                "mine": false,
+                "move": true,
+                "new": false,
+                "remove": false,
+                "set": false,
+                "ship": true,
+                "shoot": false
+              }))
+            .unwrap()
+        );
+
+        let args = vec!["ship", "foo", "move", "2", "3", "-s20"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "--drifting": false,
+                "--help": false,
+                "--moored": false,
+                "--speed": "20",
+                "--version": false,
+                "name": [
+                  "foo"
+                ],
+                "x": "2",
+                "y": "3",
+                "mine": false,
+                "move": true,
+                "new": false,
+                "remove": false,
+                "set": false,
+                "ship": true,
+                "shoot": false
+              }))
+            .unwrap()
+        );
+
+        let args = vec!["ship", "foo", "move", "2", "3", "-s=20"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "--drifting": false,
+                "--help": false,
+                "--moored": false,
+                "--speed": "=20",
+                "--version": false,
+                "name": [
+                  "foo"
+                ],
+                "x": "2",
+                "y": "3",
+                "mine": false,
+                "move": true,
+                "new": false,
+                "remove": false,
+                "set": false,
+                "ship": true,
+                "shoot": false
+              }))
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_parse_option_unsorted() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: my_program.py [-hso FILE] [--quiet | --verbose] [INPUT ...]
+#
+# -h --help    show this
+# -s --sorted  sorted output
+# -o FILE      specify output file [default: ./test.txt]
+# --quiet      print less text
+# --verbose    print more text
+#
+"#;
+
+        let args = vec!["-o", "yea", "--sorted"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "--help": false,
+                "--quiet": false,
+                "--sorted": true,
+                "--verbose": false,
+                "-o": "yea",
+                "INPUT": []
+              }))
+            .unwrap()
+        )
+    }
+
+    #[test]
+    fn test_parse_option_placeholder() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [options] <port>
+#
+# Options:
+#   -h --help                show this help message and exit
+#   --version                show version and exit
+#   -n, --number N           use N as a number
+#   -t, --timeout TIMEOUT    set timeout TIMEOUT seconds
+#   --apply                  apply changes to database
+#   -q                       operate in quiet mode
+"#;
+
+        let args = vec!["-o", "yea", "--sorted"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "--apply": false,
+                "--help": false,
+                "--number": "10",
+                "--timeout": null,
+                "--version": false,
+                "-q": true,
+                "port": "443"
+              }))
             .unwrap()
         )
     }

@@ -1,0 +1,58 @@
+#!/usr/bin/env -S rash -vvv --
+#
+# Pacman binary mock for Pacman module tests.
+#
+# Usage:
+#   ./pacman.rh [(-d | --no-deps)] [(-d | --no-deps)]
+#
+- name: Print args
+  command: echo "{{ rash.args }}"
+
+
+# Handle options
+# - injected by default if not specified
+# - short and long is the same => replace short with long and merge if necessary
+# - initialize with default value if specified
+
+# Parse Options
+# Every line that starts with `-` or `--` (not counting spaces) is treated as an option
+#Options:
+#  --verbose   # GOOD
+#  -o FILE     # GOOD
+#Other: --bad  # BAD, line does not start with dash "-"
+# or
+# -h --help    show this
+# -s --sorted  sorted output
+# -o FILE      specify output file [default: ./test.txt]
+# --quiet      print less text
+# --verbose    print more text
+#
+# To specify that an option has an argument, put a word describing that argument after a
+# space (or equals "=" sign) as shown below.
+# Follow either <angular-brackets> or UPPER-CASE convention for options' arguments.
+# You can use a comma if you want to separate options. In the example below,
+# both lines are valid, however it is recommended to stick to a single style
+# -o FILE --output=FILE       # without comma, with "=" sign
+# -i <file>, --input <file>   # with comma, without "=" sign
+#
+# Use two spaces to separate options with their informal description.
+#--verbose MORE text.    # BAD, will be treated as if verbose
+#                        # option had an argument MORE, so use
+#                        # 2 spaces instead
+#-q        Quit.         # GOOD
+#-o FILE   Output file.  # GOOD
+#--stdout  Use stdout.   # GOOD, 2 spaces
+#
+# If you want to set a default value for an option with an argument, put it into the option's description, in the form [default: <the-default-value>].
+#--coefficient=K  The K coefficient [default: 2.95]
+#--output=FILE    Output file [default: test.txt]
+#--directory=DIR  Some directory [default: ./]
+
+
+# Options must be replaced per commands or command + positional arg. E.g.: --speed <kn> -> [--speed <asdasd>]
+# replace `=` per ` `??? it could cause problems with args containing `=`
+# Also support equal (when parsing commands)?: --speed=<kn> -> [--speed=<asdasd>]
+#
+# --speed=50
+# --speed 50
+#
