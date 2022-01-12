@@ -75,7 +75,6 @@ mod tests {
     fn test_render_string_omit() {
         let string = "{{ package_filters | default(value=omit()) }}";
         let e = render_string(string, &Vars::new()).unwrap_err();
-        dbg!(&e);
         assert_eq!(e.kind(), error::ErrorKind::OmitParam)
     }
 }

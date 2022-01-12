@@ -50,6 +50,40 @@ Program can have several patterns listed with various elements used to describe 
 Each of the elements and constructs is described below. We will use the word _word_ to describe a
 sequence of characters delimited by either whitespace, one of `[]()|` characters, or `...`.
 
+
+### <argument> ARGUMENT
+
+Words starting with "<", ending with ">" and upper-case words are interpreted as positional
+arguments.
+
+```
+Usage: my_program <host> <port>
+```
+
+### -o --option
+
+Words starting with one or two dashes (with exception of `-`, `--` by themselves) are interpreted
+as short (one-letter) or long options, respectively.
+
+- Short options can be `stacked` meaning that -abc is equivalent to -a -b -c.
+- Long options can have arguments specified after space or equal `=` sign:
+       `--input=ARG` is equivalent to `--input ARG`.
+- Short options can have arguments specified after optional space:
+    `-f FILE` is equivalent to `-fFILE`.
+
+**Note**: writing `--input ARG` (as opposed to `--input=ARG`) is ambiguous, meaning it is not
+possible to tell whether `ARG` is option's argument or a positional argument. In usage patterns
+this will be interpreted as an option with argument only if a description (covered below) for that
+option is provided. Otherwise it will be interpreted as an option and separate positional argument.
+
+There is the same ambiguity with the `-f FILE` and `-fFILE` notation. In the latter case it is not
+possible to tell whether it is a number of stacked short options, or an option with an argument.
+These notations will be interpreted as an option with argument only if a description for the option
+is provided.
+
+**Warning**: options should be passed to rash after `--` to be interpreted as script arguments.
+Other way it is to use them after another non option arg.
+
 ### [optional elements]
 
 Elements (arguments, commands) enclosed with square brackets `[]` are marked to be
@@ -160,7 +194,7 @@ Commands are parsed as fault by default and when are passed they will appear as 
 **Note**: `help` is a special case because if help is passed as argument, the program will show
 all documentation and after that exit 0.
 
-Positional arguments are parsed like this:
+Positional arguments, if exists, they are parsed like this:
 
 ```json
 {
@@ -168,3 +202,5 @@ Positional arguments are parsed like this:
     "repeating-argument": ["value1", "value2"...],
 }
 ```
+
+If they don't appear they will be omitted from vars.

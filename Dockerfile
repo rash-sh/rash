@@ -1,15 +1,16 @@
-ARG BASE_IMAGE=quickwit/cross-base:x86_64-unknown-linux-musl
+ARG BASE_IMAGE=rust:1.58.0
 FROM ${BASE_IMAGE} AS builder
 LABEL mantainer pando855@gmail.com
 
-ADD --chown=rust:rust . ./
-RUN cargo build --release
+WORKDIR /usr/src/rash
+COPY . .
+RUN cargo install cross \
+    && cross build --target=x86_64-unknown-linux-musl --release
 
 FROM scratch
 LABEL mantainer pando855@gmail.com
 
-COPY --from=builder \
-    /home/rust/src/target/x86_64-unknown-linux-musl/release/rash \
-    /bin/
+COPY --from=builder /usr/src/rash/target/release/rash /bin/rash
+
 ENTRYPOINT [ "/bin/rash" ]
 

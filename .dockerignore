@@ -11,3 +11,4 @@ target
 VERSION
 INSTALL.md
 CONTRIBUTING.md
+Dockerfile.*
