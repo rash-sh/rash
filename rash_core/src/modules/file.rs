@@ -178,7 +178,7 @@ fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
             Ok(meta) => {
                 if meta.is_file() {
                     diff("state: file\n", "state: absent\n");
-                    // add support for symlinks
+                    // add support for symlinks: API is stable now
                     // if meta.is_file() || meta.is_symlink() {
                     if !check_mode {
                         remove_file(&params.path)?;
