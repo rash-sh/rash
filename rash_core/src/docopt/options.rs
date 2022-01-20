@@ -1,4 +1,5 @@
 use crate::docopt::utils::{expand_brackets, split_keeping_separators};
+use crate::utils::merge_json;
 use crate::vars::Vars;
 
 use std::collections::HashSet;
@@ -206,34 +207,47 @@ impl Options {
         let value = match option_arg {
             OptionArg::WithParam { .. } => {
                 // safe unwrap: WithParams always has `=` in the representation
-                json!({ option_arg.get_simple_representation(): arg.split_once('=').unwrap().1 })
+                json!(arg.split_once('=').unwrap().1)
             }
-            OptionArg::Simple { .. } => json!({ option_arg.get_simple_representation(): true }),
+            OptionArg::Simple { .. } => json!(true),
         };
-        Some(Context::from_value(value).unwrap())
+        Some(
+            Context::from_value(json!(
+            { "options":
+                { option_arg.get_simple_representation().replace("-", ""): value
+                }
+            }))
+            .unwrap(),
+        )
     }
 
     pub fn initial_vars(&self) -> Vars {
-        let mut vars = Context::new();
+        let mut new_vars_json = json!({});
 
         self.clone()
             .into_iter()
             .map(|option_arg| {
-                Context::from_value(match option_arg.clone() {
+                let value = match option_arg.clone() {
                     OptionArg::Simple { .. } => {
-                        json!({option_arg.get_simple_representation(): false})
+                        json!(false)
                     }
-                    OptionArg::WithParam { default_value, .. } => if default_value.is_some() {
-                        json!({ option_arg.get_simple_representation(): default_value.unwrap() })
-                    } else {
-                        json!({ option_arg.get_simple_representation(): null })
+                    OptionArg::WithParam { default_value, .. } => {
+                        if default_value.is_some() {
+                            json!(default_value.unwrap())
+                        } else {
+                            json!(null)
+                        }
+                    }
+                };
+                json!(
+                { "options":
+                    { option_arg.get_simple_representation().replace("-", ""): value
                     }
                 })
-                // safe unwrap: all args_kinds were previously checked
-                .unwrap()
             })
-            .for_each(|x| vars.extend(x));
-        vars
+            .for_each(|x| merge_json(&mut new_vars_json, x));
+        // safe unwrap: new_vars_json is a json object
+        Context::from_value(new_vars_json).unwrap()
     }
 
     fn find(&self, arg_usage: &str) -> Option<OptionArg> {
@@ -538,7 +552,9 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
         assert_eq!(
             result,
             Context::from_value(json!({
-                "--help": true,
+                "options": {
+                    "help": true,
+                }
             }))
             .unwrap()
         )
@@ -577,7 +593,9 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
         assert_eq!(
             result,
             Context::from_value(json!({
-                "--sorted": true,
+                "options": {
+                    "sorted": true,
+                }
             }))
             .unwrap()
         );
@@ -589,7 +607,9 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
         assert_eq!(
             result,
             Context::from_value(json!({
-                "-o": "Fgwe=sad",
+                "options": {
+                    "o": "Fgwe=sad",
+                }
             }))
             .unwrap()
         );
@@ -601,7 +621,9 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
         assert_eq!(
             result,
             Context::from_value(json!({
-                "-o": "Fgwe=sad",
+                "options": {
+                    "o": "Fgwe=sad",
+                }
             }))
             .unwrap()
         );

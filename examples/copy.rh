@@ -1,0 +1,18 @@
+#!/usr/bin/env rash
+#
+# Copy files from source to dest dir
+#
+# Usage:
+#   copy.rh [options] <source>... <dest>
+#   copy.rh
+#
+# Options:
+#   -h --help    show this help message and exit
+#   --mode MODE  dest file permissions [default: 0644]
+
+- copy:
+    src: "{{ item }}"
+    dest: "{{ dest }}/{{ item | split(pat='/') | last }}"
+    mode: "{{ options.mode }}"
+  loop: "{{ source | default (value=[]) }}"
+  when: "source is defined"
