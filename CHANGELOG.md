@@ -1,6 +1,6 @@
 # rash changes
 
-## Unreleased
+## [v1.6.0](https://github.com/rash-sh/rash/tree/v1.6.0) (2022-01-20)
 
 ### Added
 
