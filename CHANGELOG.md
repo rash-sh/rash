@@ -1,5 +1,12 @@
 # rash changes
 
+## Unreleased
+
+### Added
+
+* Add parse options to docopt implementation (#232)
+* Use `cross` for musl docker image (#232)
+
 ## [v1.5.0](https://github.com/rash-sh/rash/tree/v1.5.0) (2022-01-09)
 
 ### Added

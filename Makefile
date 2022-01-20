@@ -1,4 +1,4 @@
-DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*')
+DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*' -not -name '*.dockerignore')
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
@@ -15,32 +15,6 @@ help:	## Show this help menu.
 	@echo ""
 	@@egrep -h "#[#]" $(MAKEFILE_LIST) | sed -e 's/\\$$//' | awk 'BEGIN {FS = "[:=].*?#[#] "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-
-.PHONY: build-images
-build-images:	## build images
-build-images:
-	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker build -f $$DOCKERFILE \
-			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
-			.; \
-	done;
-
-.PHONY: test-images
-test-images:	## test images
-test-images: build-images
-	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker run \
-			-v $(shell pwd)/examples:/examples:ro \
-			$(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
-			/examples/builtins.rh; \
-	done;
-
-.PHONY: push-images
-push-images:	## push images
-push-images: build-images
-	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'`;\
-	done;
 
 .PHONY: update-version
 update-version: ## update version from VERSION file in all Cargo.toml manifests
@@ -105,4 +79,42 @@ publish:	## publish crates
 		cd $$package; \
 		cargo publish; \
 		cd -; \
+	done;
+
+.PHONY: release-musl
+release-musl:	## generate statically linked binary
+	@if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
+		echo CARGO_TARGET_DIR should be relative in release-musl; \
+		exit 1; \
+	fi; \
+	cargo install cross
+	@cross build --target-dir $(shell pwd)/$(CARGO_TARGET_DIR)-musl \
+		--target=x86_64-unknown-linux-musl --release
+	@echo Released in $(CARGO_TARGET_DIR)-musl/x86_64-unknown-linux-musl/release/rash
+
+.PHONY: build-images
+build-images:	## build images
+build-images: release-musl
+	@for DOCKERFILE in $(DOCKERFILES);do \
+		docker build -f $$DOCKERFILE \
+			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
+			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			.; \
+	done;
+
+.PHONY: test-images
+test-images:	## test images
+test-images: build-images
+	@for DOCKERFILE in $(DOCKERFILES);do \
+		docker run \
+			-v $(shell pwd)/examples:/examples:ro \
+			$(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			/examples/builtins.rh; \
+	done;
+
+.PHONY: push-images
+push-images:	## push images
+push-images: build-images
+	@for DOCKERFILE in $(DOCKERFILES);do \
+		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'`;\
 	done;
