@@ -12,4 +12,3 @@ LABEL mantainer pando855@gmail.com
 COPY --from=builder /usr/src/rash/target/release/rash /bin/rash
 
 ENTRYPOINT [ "/bin/rash" ]
-

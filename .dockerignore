@@ -6,8 +6,8 @@ examples
 .gitignore
 LICENSE
 Makefile
-README.md
 target
+README.md
 VERSION
 INSTALL.md
 CONTRIBUTING.md
