@@ -69,9 +69,19 @@ tag:	## create a tag using version from VERSION file
 
 .PHONY: release
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
-	cargo build --frozen --release --target ${CARGO_TARGET}
-	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash
-	@echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash
+	@if [ "$(CARGO_TARGET)" = "x86_64-unknown-linux-musl" ]; then  \
+		if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
+			echo CARGO_TARGET_DIR should be relative in release-musl; \
+			exit 1; \
+		fi; \
+		cargo install cross; \
+		cross build --target-dir $(shell pwd)/$(CARGO_TARGET_DIR) \
+			--target=$(CARGO_TARGET) --release; \
+	else \
+	cargo build --frozen --release --target ${CARGO_TARGET}; \
+	fi
+	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash && \
+	echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash;
 
 .PHONY: publish
 publish:	## publish crates
@@ -81,20 +91,10 @@ publish:	## publish crates
 		cd -; \
 	done;
 
-.PHONY: release-musl
-release-musl:	## generate statically linked binary
-	@if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
-		echo CARGO_TARGET_DIR should be relative in release-musl; \
-		exit 1; \
-	fi; \
-	cargo install cross
-	@cross build --target-dir $(shell pwd)/$(CARGO_TARGET_DIR)-musl \
-		--target=x86_64-unknown-linux-musl --release
-	@echo Released in $(CARGO_TARGET_DIR)-musl/x86_64-unknown-linux-musl/release/rash
-
 .PHONY: build-images
 build-images:	## build images
-build-images: release-musl
+build-images: CARGO_TARGET=x86_64-unknown-linux-musl
+build-images: release
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
