@@ -12,5 +12,7 @@
     - [Lookups](lookups.md)
     - [Filters](filters.md)
 - [Command-line interfaces](docopt.md)
+  - [Syntax](syntax.md)
+  - [Parser](parser.md)
 - [Roadmap](roadmap.md)
 - [Contributing](contributing.md)

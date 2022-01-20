@@ -169,9 +169,16 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         .for_each(|x| merge_json(&mut new_vars_json, x));
     // safe unwrap: new_vars_json is a json object
     let new_vars = Context::from_value(new_vars_json).unwrap();
+
     match new_vars.get("help") {
         Some(json!(true)) => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
-        _ => Ok(new_vars),
+        _ => match new_vars.get("options") {
+            Some(options) => match options.get("help") {
+                Some(json!(true)) => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
+                _ => Ok(new_vars),
+            },
+            _ => Ok(new_vars),
+        },
     }
 }
 
@@ -573,11 +580,13 @@ mod tests {
             result,
             Context::from_value(json!(
             {
-                "--drifting": true,
-                "--help": false,
-                "--moored": false,
-                "--speed": "10",
-                "--version": false,
+                "options": {
+                    "drifting": true,
+                    "help": false,
+                    "moored": false,
+                    "speed": "10",
+                    "version": false,
+                },
                 "x": "10",
                 "y": "50",
                 "mine": true,
@@ -603,11 +612,13 @@ mod tests {
             result,
             Context::from_value(json!(
             {
-                "--drifting": false,
-                "--help": false,
-                "--moored": false,
-                "--speed": "20",
-                "--version": false,
+                "options": {
+                    "drifting": false,
+                    "help": false,
+                    "moored": false,
+                    "speed": "20",
+                    "version": false,
+                },
                 "name": [
                   "foo"
                 ],
@@ -631,11 +642,13 @@ mod tests {
             result,
             Context::from_value(json!(
             {
-                "--drifting": false,
-                "--help": false,
-                "--moored": false,
-                "--speed": "20",
-                "--version": false,
+                "options": {
+                    "drifting": false,
+                    "help": false,
+                    "moored": false,
+                    "speed": "20",
+                    "version": false,
+                },
                 "name": [
                   "foo"
                 ],
@@ -659,11 +672,13 @@ mod tests {
             result,
             Context::from_value(json!(
             {
-                "--drifting": false,
-                "--help": false,
-                "--moored": false,
-                "--speed": "20",
-                "--version": false,
+                "options": {
+                    "drifting": false,
+                    "help": false,
+                    "moored": false,
+                    "speed": "20",
+                    "version": false,
+                },
                 "name": [
                   "foo"
                 ],
@@ -703,11 +718,13 @@ mod tests {
             result,
             Context::from_value(json!(
             {
-                "--help": false,
-                "--quiet": false,
-                "--sorted": true,
-                "--verbose": false,
-                "-o": "yea",
+                "options": {
+                    "help": false,
+                    "quiet": false,
+                    "sorted": true,
+                    "verbose": false,
+                    "o": "yea",
+                },
               }))
             .unwrap()
         )
@@ -736,14 +753,16 @@ mod tests {
             result,
             Context::from_value(json!(
             {
-                "--apply": false,
-                "--help": false,
-                "--number": "10",
-                "--timeout": null,
-                "--version": false,
-                "-q": true,
+                "options": {
+                    "apply": false,
+                    "help": false,
+                    "number": "10",
+                    "timeout": null,
+                    "version": false,
+                   "q": true,
+                },
                 "port": "443"
-              }))
+            }))
             .unwrap()
         );
     }
@@ -759,6 +778,22 @@ mod tests {
 "#;
 
         let args = vec!["help"];
+        let err = parse(file, &args).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::GracefulExit)
+    }
+
+    #[test]
+    fn test_parse_print_help_as_option() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   ./dots [--help]
+#
+"#;
+
+        let args = vec!["--help"];
         let err = parse(file, &args).unwrap_err();
 
         assert_eq!(err.kind(), ErrorKind::GracefulExit)
