@@ -6,9 +6,10 @@ examples
 .gitignore
 LICENSE
 Makefile
-target
 README.md
 VERSION
 INSTALL.md
 CONTRIBUTING.md
 Dockerfile.*
+target
+!target/x86_64-unknown-linux-musl/release/rash

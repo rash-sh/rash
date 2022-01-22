@@ -17,7 +17,7 @@ The following tools are needed:
 You can build `rash` images with the binary inside by simply running the command below.
 
 ```bash
-make build-images
+make images
 ```
 
 Developers may often wish to make only one image or just test it in local.
@@ -25,7 +25,7 @@ You can do one of both:
 
 ```bash
 # docker image
-DOCKERFILES=Dockerfile make build-images
+DOCKERFILES=Dockerfile make images
 
 # binary
 make build
