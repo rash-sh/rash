@@ -2,6 +2,7 @@ DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*' -not -name '*.dock
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
+BOOK_DIR ?= ./
 CARGO_TARGET ?= x86_64-unknown-linux-gnu
 PKG_BASE_NAME ?= rash-${CARGO_TARGET}
 VERSION ?= master
@@ -59,7 +60,7 @@ mdbook-rash:	## install mdbook_rash to create rash_book
 .PHONY: book
 book:	## create rash_book under rash_book/rash-sh.github.io
 book:	mdbook-rash
-	MDBOOK_BUILD__BUILD_DIR=rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book
+	MDBOOK_BUILD__BUILD_DIR=$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book
 
 .PHONY: tag
 tag:	## create a tag using version from VERSION file
