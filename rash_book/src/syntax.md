@@ -1,10 +1,12 @@
 ---
 title: Syntax
 weight: 7100
+indent: true
 ---
 
 # Syntax  <!-- omit in toc -->
 
+{% raw %}
 - [Usage patterns](#usage-patterns)
 - [<argument> ARGUMENT](#argument-argument)
 - [-o --option](#-o---option)
@@ -12,6 +14,7 @@ weight: 7100
 - [(required elements)](#required-elements)
 - [element|another](#elementanother)
 - [element...](#element)
+{% endraw %}
 
 ## Usage patterns
 
@@ -36,7 +39,9 @@ Each of the elements and constructs is described below. We will use the word _wo
 sequence of characters delimited by either whitespace, one of `[]()|` characters, or `...`.
 
 
+{% raw %}
 ## <argument> ARGUMENT
+{% endraw %}
 
 Words starting with "<", ending with ">" and upper-case words are interpreted as positional
 arguments.

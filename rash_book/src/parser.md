@@ -1,6 +1,7 @@
 ---
 title: Parser
 weight: 7200
+indent: true
 ---
 
 # Parser
