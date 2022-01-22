@@ -6,16 +6,6 @@ indent: true
 
 # Syntax  <!-- omit in toc -->
 
-{% raw %}
-- [Usage patterns](#usage-patterns)
-- [<argument> ARGUMENT](#argument-argument)
-- [-o --option](#-o---option)
-- [[optional elements]](#optional-elements)
-- [(required elements)](#required-elements)
-- [element|another](#elementanother)
-- [element...](#element)
-{% endraw %}
-
 ## Usage patterns
 
 Text occurring between keyword usage: (case-insensitive) and a visibly empty line is interpreted as
@@ -38,10 +28,7 @@ Program can have several patterns listed with various elements used to describe 
 Each of the elements and constructs is described below. We will use the word _word_ to describe a
 sequence of characters delimited by either whitespace, one of `[]()|` characters, or `...`.
 
-
-{% raw %}
 ## <argument> ARGUMENT
-{% endraw %}
 
 Words starting with "<", ending with ">" and upper-case words are interpreted as positional
 arguments.
