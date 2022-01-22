@@ -71,7 +71,7 @@ tag:	## create a tag using version from VERSION file
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
 	@if [ "$(CARGO_TARGET)" = "x86_64-unknown-linux-musl" ]; then  \
 		if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
-			echo CARGO_TARGET_DIR should be relative in release-musl; \
+			echo CARGO_TARGET_DIR should be relative for musl; \
 			exit 1; \
 		fi; \
 		cargo install cross; \
@@ -91,10 +91,10 @@ publish:	## publish crates
 		cd -; \
 	done;
 
-.PHONY: build-images
-build-images:	## build images
-build-images: CARGO_TARGET=x86_64-unknown-linux-musl
-build-images: release
+.PHONY: images
+images:	## build images
+images: CARGO_TARGET=x86_64-unknown-linux-musl
+images: release
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
@@ -104,7 +104,7 @@ build-images: release
 
 .PHONY: test-images
 test-images:	## test images
-test-images: build-images
+test-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker run \
 			-v $(shell pwd)/examples:/examples:ro \
@@ -114,7 +114,7 @@ test-images: build-images
 
 .PHONY: push-images
 push-images:	## push images
-push-images: build-images
+push-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'`;\
 	done;

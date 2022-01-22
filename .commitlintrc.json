@@ -24,6 +24,7 @@
         "ci",
         "cli",
         "core",
+	"docker",
         "filter",
         "group",
         "tera",

@@ -24,7 +24,7 @@ jobs:
 
       - name: Run tests
         run: |
-          make build-images
+          make images
           make test-images
 
   push:
@@ -44,7 +44,7 @@ jobs:
           override: true
 
       - name: Build image
-        run: make build-images
+        run: make images
 
       - name: Log into registry
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
