@@ -1,5 +1,12 @@
 # rash changes
 
+## [v1.6.1](https://github.com/rash-sh/rash/tree/v1.6.1) (2022-01-22)
+
+### Fixed
+
+* Options variables are now accessible. (#236)
+* Update to Rust 1.58.1
+
 ## [v1.6.0](https://github.com/rash-sh/rash/tree/v1.6.0) (2022-01-20)
 
 ### Added
