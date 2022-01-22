@@ -759,7 +759,7 @@ dependencies = [
 
 [[package]]
 name = "mdbook_rash"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "chrono",
  "clap 2.34.0",
@@ -1108,7 +1108,7 @@ dependencies = [
 
 [[package]]
 name = "rash_core"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "byte-unit",
  "cargo-husky",
@@ -1142,7 +1142,7 @@ dependencies = [
 
 [[package]]
 name = "rash_derive"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "proc-macro2",
  "quote",
