@@ -290,7 +290,7 @@ impl Task {
 
                     if user.uid != Uid::current() {
                         if self.module.get_name() == "command"
-                            && rendered_params["transfer_pid_1"].as_bool().unwrap_or(false)
+                            && rendered_params["transfer_pid"].as_bool().unwrap_or(false)
                         {
                             return self.exec_module_rendered_with_user(
                                 &rendered_params,

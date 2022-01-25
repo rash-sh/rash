@@ -79,7 +79,7 @@ Declarative: `entrypoint.rh`
 
 - name: launch docker CMD
   command: {{ rash.argv }}
-  transfer_pid_1: yes
+  transfer_pid: yes
   env:
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
 ```
