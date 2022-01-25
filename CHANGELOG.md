@@ -1,5 +1,11 @@
 # rash changes
 
+## unreleased
+
+### Added
+
+* Add module debug (#241)
+
 ## [v1.6.1](https://github.com/rash-sh/rash/tree/v1.6.1) (2022-01-22)
 
 ### Fixed

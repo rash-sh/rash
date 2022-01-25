@@ -49,7 +49,7 @@ pub fn render_as_json(s: &str, vars: &Vars) -> Result<String> {
 pub fn is_render_string(s: &str, vars: &Vars) -> Result<bool> {
     match render_string(
         // tera v2 will fix this allowing ({})
-        &format!("{{% if {} | safe %}}true{{% else %}}false{{% endif %}}", s),
+        &format!("{{% if {s} | safe %}}true{{% else %}}false{{% endif %}}"),
         vars,
     )?
     .as_str()
