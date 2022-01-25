@@ -13,10 +13,10 @@
 
 - command:
     cmd: "echo done"
-    transfer_pid_1: true
+    transfer_pid: true
   when: env | get(key="MY_PASSWORD")
 
-- name: last command must send with transfer_pid_1 to let it as PID 1
+- name: last command must send with transfer_pid to let it as PID 1
   command:
     argv:
       - /usr/bin/env
@@ -24,4 +24,4 @@
       - -eMY_PASSWORD=supersecret
       - -eTITLE=finish execution
       - "{{ rash.path }}"
-    transfer_pid_1: true
+    transfer_pid: true

@@ -16,4 +16,4 @@
 
 - command:
     argv: [nginx, '-g', 'daemon off;']
-    transfer_pid_1: true
+    transfer_pid: true

@@ -2,15 +2,20 @@
 
 ## unreleased
 
+### To be removed in v1.9.0
+
+* Command module: `transfer_pid_1` (use `transfer_pid` instead)
+
 ### Added
 
+* Rename `transfer_pid_1` to `transfer_pid` in command module
 * Add module debug (#241)
 
 ## [v1.6.1](https://github.com/rash-sh/rash/tree/v1.6.1) (2022-01-22)
 
 ### Fixed
 
-* Options variables are now accessible. (#236)
+* Options variables are now accessible (#236)
 * Update to Rust 1.58.1
 
 ## [v1.6.0](https://github.com/rash-sh/rash/tree/v1.6.0) (2022-01-20)
