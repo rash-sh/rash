@@ -6,9 +6,9 @@
       - "1 == 1"
 
 - name: user "{{ env.USER }}" loves
-  command:
-    cmd: |
-      echo "My favorite browser is {{ env.BROWSER | split(pat="/") | last | capitalize }}"
+  debug:
+    msg: |
+      "My favorite browser is {{ env.BROWSER | split(pat="/") | last | capitalize }}"
   when: env | get(key="BROWSER")
 
 - command:

@@ -1,6 +1,7 @@
 mod assert;
 mod command;
 mod copy;
+mod debug;
 mod file;
 mod find;
 mod set_vars;
@@ -131,6 +132,15 @@ lazy_static! {
                     exec_fn: copy::exec,
                     #[cfg(feature = "docs")]
                     get_json_schema_fn: Some(copy::Params::get_json_schema),
+                },
+            ),
+            (
+                "debug",
+                Module {
+                    name: "debug",
+                    exec_fn: debug::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(debug::Params::get_json_schema),
                 },
             ),
             (
