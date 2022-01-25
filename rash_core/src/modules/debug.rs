@@ -50,9 +50,6 @@ pub enum Required {
     Msg(String),
     /// A variable name to debug.
     /// Mutually exclusive with the msg option.
-    /// Be aware that this option already runs in Tera context and has an implicit `{{ }}`
-    /// wrapping, so you should not be using Tera delimiters unless you are looking for double
-    /// interpolation.
     Var(String),
 }
 
