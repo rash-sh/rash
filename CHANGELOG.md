@@ -6,7 +6,6 @@
 
 * Command module: `transfer_pid_1` (use `transfer_pid` instead)
 
-
 ## [v1.7.0](https://github.com/rash-sh/rash/tree/v1.7.0) (2022-01-26)
 
 ### Added
