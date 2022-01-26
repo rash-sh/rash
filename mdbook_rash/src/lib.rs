@@ -191,7 +191,10 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
             indexes_vec.sort();
             let indexes_body = indexes_vec.join("\n");
 
-            for module in MODULES.clone().into_iter() {
+            let mut modules = MODULES.clone().into_iter().collect::<Vec<_>>();
+            modules.sort_by_key(|x| x.0);
+
+            for module in modules {
                 let mut new_section_number = ch.number.clone().unwrap();
                 new_section_number.push((ch.sub_items.len() + 1) as u32);
 
