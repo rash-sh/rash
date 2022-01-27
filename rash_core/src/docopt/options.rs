@@ -86,7 +86,11 @@ impl Options {
         let mut long: Option<String> = None;
         let mut is_with_param = false;
 
-        for w in option.replace(',', " ").replace('=', " ").split(' ') {
+        for w in option
+            .replace(",", " ")
+            .replace('=', " ")
+            .split_whitespace()
+        {
             if w.starts_with("--") {
                 long = Some(w.to_string());
             } else if w.starts_with('-') {

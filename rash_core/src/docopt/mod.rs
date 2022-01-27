@@ -83,8 +83,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })
         .collect::<Option<Vec<Vec<usize>>>>()
         .ok_or_else(|| {
-            trace!("{args:?}");
-            trace!("{args_defs:?}");
+            trace!("args: {args:?}");
+            trace!("args_defs: {args_defs:?}");
             Error::new(ErrorKind::InvalidData, format!("Invalid usage: {help_msg}"))
         })?;
 
@@ -157,8 +157,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                 .collect::<Option<Vec<Vars>>>()
         })
         .ok_or_else(|| {
-            trace!("{args:?}");
-            trace!("args_defs_expand_repeatable");
+            trace!("args: {args:?}");
+            trace!("args_defs_expand_repeatable: {args_defs_expand_repeatable:?}");
             Error::new(ErrorKind::InvalidData, help_msg.clone())
         })?;
 
