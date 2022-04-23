@@ -25,13 +25,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
     let options = options::Options::parse_doc(&help_msg, &usages);
     trace!("options: {options:?}");
 
-    let expanded_args = options.expand_args(
-        &args
-            .to_vec()
-            .into_iter()
-            .map(String::from)
-            .collect::<Vec<_>>(),
-    );
+    let expanded_args =
+        options.expand_args(&args.iter().copied().map(String::from).collect::<Vec<_>>());
 
     let usage_set = HashSet::from_iter(usages.iter().cloned());
 
@@ -190,7 +185,7 @@ fn parse_help(file: &str) -> String {
         .skip(1)
         .map_while(|line| re.captures(line))
         .filter(|cap| !cap[1].starts_with('!'))
-        .map(|cap| cap[1].to_string().replacen(" ", "", 1))
+        .map(|cap| cap[1].to_string().replacen(' ', "", 1))
         .chain(vec![
             "Note: Options must be preceded by `--`. If not you are passing options directly to rash.".to_string(),
             "For more information check rash options with `rash --help`.".to_string(),
