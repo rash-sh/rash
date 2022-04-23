@@ -1,4 +1,5 @@
 use crate::docopt::utils::{expand_brackets, split_keeping_separators};
+use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
 use crate::vars::Vars;
 
@@ -86,7 +87,11 @@ impl Options {
         let mut long: Option<String> = None;
         let mut is_with_param = false;
 
-        for w in option.replace(',', " ").replace('=', " ").split(' ') {
+        for w in option
+            .replace(',', " ")
+            .replace('=', " ")
+            .split_whitespace()
+        {
             if w.starts_with("--") {
                 long = Some(w.to_string());
             } else if w.starts_with('-') {
@@ -200,8 +205,8 @@ impl Options {
     pub fn parse(&self, arg: &str, def: &str) -> Option<Vars> {
         let option_arg = self.find(arg.split('=').next().unwrap())?;
         // check arg is in def
-        def.replace("{", "")
-            .replace("}", "")
+        def.replace('{', "")
+            .replace('}', "")
             .split('#')
             .find(|arg_def| &option_arg.get_representation() == arg_def)?;
         let value = match option_arg {
@@ -214,7 +219,7 @@ impl Options {
         Some(
             Context::from_value(json!(
             { "options":
-                { option_arg.get_simple_representation().replace("-", ""): value
+                { option_arg.get_simple_representation().replace('-', ""): value
                 }
             }))
             .unwrap(),
@@ -241,7 +246,7 @@ impl Options {
                 };
                 json!(
                 { "options":
-                    { option_arg.get_simple_representation().replace("-", ""): value
+                    { option_arg.get_simple_representation().replace('-', ""): value
                     }
                 })
             })
@@ -271,12 +276,13 @@ impl Options {
     }
 
     /// Replace options in args for standard docopt usage arguments
-    pub fn expand_args(&self, args: &[String]) -> Vec<String> {
+    pub fn expand_args(&self, args: &[String]) -> Result<Vec<String>> {
         let mut is_antepenultimate_with_param = false;
         args.iter()
             .flat_map(|arg| arg.split('='))
             .flat_map(|arg| {
                 if arg.starts_with('-') && !arg.starts_with("--") {
+                    let mut is_previously_added = false;
                     arg.chars()
                         // skip `-`
                         .skip(1)
@@ -294,9 +300,16 @@ impl Options {
                                                 .to_string(),
                                         )
                                     };
+                                    is_previously_added = true;
                                     result
                                 }
-                                None => vec![short],
+                                None => {
+                                    if is_previously_added {
+                                        vec![]
+                                    } else {
+                                        vec![short]
+                                    }
+                                }
                             }
                         })
                         .collect::<Vec<String>>()
@@ -316,18 +329,21 @@ impl Options {
                             match option_arg {
                                 OptionArg::WithParam { .. } => {
                                     is_antepenultimate_with_param = true;
-                                    Some(format!("{repr}={arg}"))
+                                    Some(Ok(format!("{repr}={arg}")))
                                 }
-                                OptionArg::Simple { .. } => Some(repr),
+                                OptionArg::Simple { .. } => Some(Ok(repr)),
                             }
                         }
-                        None => None,
+                        None => Some(Err(Error::new(
+                            ErrorKind::InvalidData,
+                            format!("Unknown option: {previous_arg}"),
+                        ))),
                     }
                 } else if is_antepenultimate_with_param {
                     is_antepenultimate_with_param = false;
                     None
                 } else {
-                    Some(previous_arg.to_string())
+                    Some(Ok(previous_arg.to_string()))
                 }
             })
             .collect()
@@ -339,40 +355,43 @@ impl Options {
         let represented_usages = usages
             .iter()
             .map(|usage| {
-                let expanded_usage = self.expand_args(
+                match self.expand_args(
                     &usage
                         .replace('|', " | ")
                         .split_whitespace()
                         .flat_map(|w| split_keeping_separators(w, &['[', ']', '(', ')']))
                         .collect::<Vec<_>>(),
-                );
-                Some(
-                    expanded_usage
-                        .iter()
-                        .map(|arg| {
-                            if arg.starts_with('-') {
-                                // safe unwrap: split always return at least one field
-                                if let Some(option_arg) = self.find(arg.split('=').next().unwrap())
-                                {
-                                    options_in_usage.push(option_arg.clone());
-                                    Some(option_arg.get_representation())
+                ) {
+                    Ok(expanded_usage) => Some(
+                        expanded_usage
+                            .iter()
+                            .map(|arg| {
+                                if arg.starts_with('-') {
+                                    // safe unwrap: split always return at least one field
+                                    if let Some(option_arg) =
+                                        self.find(arg.split('=').next().unwrap())
+                                    {
+                                        options_in_usage.push(option_arg.clone());
+                                        Some(option_arg.get_representation())
+                                    } else {
+                                        None
+                                    }
                                 } else {
-                                    None
+                                    Some(arg.to_string())
                                 }
-                            } else {
-                                Some(arg.to_string())
-                            }
-                        })
-                        .collect::<Option<Vec<String>>>()?
-                        .join(" ")
-                        .replace("[ ", "[")
-                        .replace(" ]", "]")
-                        .replace("( ", "(")
-                        .replace(" )", ")")
-                        .replace(" ...", "...")
-                        .replace(" |", "|")
-                        .replace("| ", "|"),
-                )
+                            })
+                            .collect::<Option<Vec<String>>>()?
+                            .join(" ")
+                            .replace("[ ", "[")
+                            .replace(" ]", "]")
+                            .replace("( ", "(")
+                            .replace(" )", ")")
+                            .replace(" ...", "...")
+                            .replace(" |", "|")
+                            .replace("| ", "|"),
+                    ),
+                    Err(_) => None,
+                }
             })
             .collect::<Option<HashSet<String>>>()?;
 
@@ -407,11 +426,11 @@ impl Options {
                     while let Some(bracket_group) = bracket_groups.next() {
                         let is_last = bracket_groups.peek().is_none();
                         let is_same_group_of_options = bracket_group.starts_with('-')
-                            && bracket_group.split_once("]").is_some()
+                            && bracket_group.split_once(']').is_some()
                             && !bracket_group.contains('|');
                         if bracket_group.starts_with('-')
                             && bracket_group.contains('|')
-                            && bracket_group.split_once("]").is_some()
+                            && bracket_group.split_once(']').is_some()
                         {
                             new_usage = new_usage
                                 .replace(
@@ -655,7 +674,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
         let args = vec!["-qo".to_string(), "yea".to_string(), "--sorted".to_string()];
 
-        let result = options.expand_args(&args);
+        let result = options.expand_args(&args).unwrap();
         assert_eq!(
             result,
             vec![
@@ -667,7 +686,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
         let args = vec!["-qo".to_string(), "yea".to_string(), "-s".to_string()];
 
-        let result = options.expand_args(&args);
+        let result = options.expand_args(&args).unwrap();
         assert_eq!(
             result,
             vec![
@@ -679,7 +698,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
         let args = vec!["-qoyea".to_string(), "-s".to_string()];
 
-        let result = options.expand_args(&args);
+        let result = options.expand_args(&args).unwrap();
         assert_eq!(
             result,
             vec![
@@ -691,12 +710,12 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
         let args = vec!["-sq".to_string()];
 
-        let result = options.expand_args(&args);
+        let result = options.expand_args(&args).unwrap();
         assert_eq!(result, vec!["--sorted".to_string(), "--quiet".to_string(),],);
 
         let args = vec!["-o=yea".to_string()];
 
-        let result = options.expand_args(&args);
+        let result = options.expand_args(&args).unwrap();
         assert_eq!(result, vec!["-o=yea".to_string()]);
     }
 

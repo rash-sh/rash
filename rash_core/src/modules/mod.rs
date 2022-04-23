@@ -1,6 +1,7 @@
 mod assert;
 mod command;
 mod copy;
+mod debug;
 mod file;
 mod find;
 mod set_vars;
@@ -134,6 +135,15 @@ lazy_static! {
                 },
             ),
             (
+                "debug",
+                Module {
+                    name: "debug",
+                    exec_fn: debug::exec,
+                    #[cfg(feature = "docs")]
+                    get_json_schema_fn: Some(debug::Params::get_json_schema),
+                },
+            ),
+            (
                 "file",
                 Module {
                     name: "file",
@@ -192,8 +202,7 @@ where
 #[inline(always)]
 pub fn parse_if_json(v: Vec<String>) -> Vec<String> {
     v.into_iter()
-        .map(|s| serde_json::from_str(&s).unwrap_or_else(|_| vec![s]))
-        .flatten()
+        .flat_map(|s| serde_json::from_str(&s).unwrap_or_else(|_| vec![s]))
         .collect::<Vec<String>>()
 }
 
