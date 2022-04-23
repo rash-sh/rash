@@ -97,7 +97,7 @@ fn main() {
     trace!("{:?}", &args);
     let script_path = Path::new(&args.script_file);
     trace!("reading tasks from: {:?}", script_path);
-    let main_file = match read_to_string(script_path.to_path_buf()) {
+    let main_file = match read_to_string(script_path) {
         Ok(s) => s,
         Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
     };
