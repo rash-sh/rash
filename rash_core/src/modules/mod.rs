@@ -202,8 +202,7 @@ where
 #[inline(always)]
 pub fn parse_if_json(v: Vec<String>) -> Vec<String> {
     v.into_iter()
-        .map(|s| serde_json::from_str(&s).unwrap_or_else(|_| vec![s]))
-        .flatten()
+        .flat_map(|s| serde_json::from_str(&s).unwrap_or_else(|_| vec![s]))
         .collect::<Vec<String>>()
 }
 

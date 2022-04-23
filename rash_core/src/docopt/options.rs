@@ -205,8 +205,8 @@ impl Options {
     pub fn parse(&self, arg: &str, def: &str) -> Option<Vars> {
         let option_arg = self.find(arg.split('=').next().unwrap())?;
         // check arg is in def
-        def.replace("{", "")
-            .replace("}", "")
+        def.replace('{', "")
+            .replace('}', "")
             .split('#')
             .find(|arg_def| &option_arg.get_representation() == arg_def)?;
         let value = match option_arg {
@@ -219,7 +219,7 @@ impl Options {
         Some(
             Context::from_value(json!(
             { "options":
-                { option_arg.get_simple_representation().replace("-", ""): value
+                { option_arg.get_simple_representation().replace('-', ""): value
                 }
             }))
             .unwrap(),
@@ -246,7 +246,7 @@ impl Options {
                 };
                 json!(
                 { "options":
-                    { option_arg.get_simple_representation().replace("-", ""): value
+                    { option_arg.get_simple_representation().replace('-', ""): value
                     }
                 })
             })
@@ -426,11 +426,11 @@ impl Options {
                     while let Some(bracket_group) = bracket_groups.next() {
                         let is_last = bracket_groups.peek().is_none();
                         let is_same_group_of_options = bracket_group.starts_with('-')
-                            && bracket_group.split_once("]").is_some()
+                            && bracket_group.split_once(']').is_some()
                             && !bracket_group.contains('|');
                         if bracket_group.starts_with('-')
                             && bracket_group.contains('|')
-                            && bracket_group.split_once("]").is_some()
+                            && bracket_group.split_once(']').is_some()
                         {
                             new_usage = new_usage
                                 .replace(
