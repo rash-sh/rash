@@ -26,7 +26,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
     trace!("options: {options:?}");
 
     let expanded_args =
-        options.expand_args(&args.iter().copied().map(String::from).collect::<Vec<_>>());
+        options.expand_args(&args.iter().copied().map(String::from).collect::<Vec<_>>())?;
 
     let usage_set = HashSet::from_iter(usages.iter().cloned());
 
@@ -78,8 +78,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })
         .collect::<Option<Vec<Vec<usize>>>>()
         .ok_or_else(|| {
-            trace!("{args:?}");
-            trace!("{args_defs:?}");
+            trace!("args: {args:?}");
+            trace!("args_defs: {args_defs:?}");
             Error::new(ErrorKind::InvalidData, format!("Invalid usage: {help_msg}"))
         })?;
 
@@ -152,8 +152,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                 .collect::<Option<Vec<Vars>>>()
         })
         .ok_or_else(|| {
-            trace!("{args:?}");
-            trace!("args_defs_expand_repeatable");
+            trace!("args: {args:?}");
+            trace!("args_defs_expand_repeatable: {args_defs_expand_repeatable:?}");
             Error::new(ErrorKind::InvalidData, help_msg.clone())
         })?;
 
@@ -493,6 +493,51 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_invalid_option() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   foo [-d]
+#
+"#;
+
+        let args = vec!["-a"];
+        let error = parse(file, &args).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+
+        let args = vec!["-ad"];
+        let error = parse(file, &args).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+
+        let args = vec!["-a", "-d"];
+        let error = parse(file, &args).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_parse_valid_option() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   foo [-d]
+"#;
+
+        let args = vec!["-d"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            Context::from_value(json!({
+                "options": {
+                    "d": true,
+                }
+            }))
+            .unwrap()
+        )
+    }
+
+    #[test]
     fn test_parse_repeatable() {
         let file = r#"
 #!/usr/bin/env rash
@@ -689,6 +734,10 @@ mod tests {
               }))
             .unwrap()
         );
+
+        let args = vec!["ship", "foo", "move", "2", "3", "-s20", "-x"];
+        let error = parse(file, &args).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]

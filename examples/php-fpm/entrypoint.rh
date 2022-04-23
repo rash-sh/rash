@@ -15,5 +15,5 @@
 - name: "Run php-fpm"
   command:
     cmd: "echo fake-php-fpm"
-    transfer_pid_1: true
+    transfer_pid: true
 

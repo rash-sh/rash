@@ -26,6 +26,7 @@ curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
     | grep browser_download_url \
     | grep $(uname -m) \
     | grep $(uname | tr '[:upper:]' '[:lower:]') \
+    | grep -v musl \
     | cut -d '"' -f 4 \
     | xargs curl -s -L \
     | sudo tar xvz -C /usr/local/bin

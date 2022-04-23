@@ -18,7 +18,7 @@
 ///     argv:
 ///       - echo
 ///       - "Hellow World"
-///     transfer_pid_1: true
+///     transfer_pid: true
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
@@ -42,9 +42,12 @@ use yaml_rust::Yaml;
 pub struct Params {
     #[serde(flatten)]
     pub required: Required,
-    /// Execute command as PID 1.
+    /// [DEPRECATED] Execute command as PID 1.
     /// Note: from this point on, your rash script execution is transferred to the command
     pub transfer_pid_1: Option<bool>,
+    /// Execute command as PID 1.
+    /// Note: from this point on, your rash script execution is transferred to the command
+    pub transfer_pid: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -58,82 +61,96 @@ pub enum Required {
     Argv(Vec<String>),
 }
 
+fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Vars)> {
+    let args_vec = match params.required {
+        Required::Cmd(s) => s
+            .split_whitespace()
+            .map(String::from)
+            .collect::<Vec<String>>(),
+        Required::Argv(x) => x,
+    };
+    let mut args = args_vec.iter();
+
+    let program = args
+        .next()
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args)))?;
+    let error = exec_command::Command::new(program)
+        .args(&args.clone().collect::<Vec<_>>())
+        .exec();
+    Err(Error::new(ErrorKind::SubprocessFail, error))
+}
+
 pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let params: Params = match optional_params.as_str() {
         Some(s) => Params {
             required: Required::Cmd(s.to_string()),
             transfer_pid_1: None,
+            transfer_pid: None,
         },
         None => parse_params(optional_params)?,
     };
 
-    match params.transfer_pid_1 {
+    match params.transfer_pid {
         Some(true) => {
-            let args_vec = match params.required {
-                Required::Cmd(s) => s
-                    .split_whitespace()
-                    .map(String::from)
-                    .collect::<Vec<String>>(),
-                Required::Argv(x) => x,
-            };
-            let mut args = args_vec.iter();
-
-            let program = args.next().ok_or_else(|| {
-                Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args))
-            })?;
-            let error = exec_command::Command::new(program)
-                .args(&args.clone().collect::<Vec<_>>())
-                .exec();
-            Err(Error::new(ErrorKind::SubprocessFail, error))
+            warn!("transfer_pid_1 option will be removed in 1.9.0");
+            exec_transferring_pid(params)
         }
         None | Some(false) => {
-            let output = match params.required {
-                Required::Cmd(cmd) => Command::new("/bin/sh")
-                    // safe unwrap: verified
-                    .args(vec!["-c", &cmd])
-                    .output()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?,
-                Required::Argv(argv) => {
-                    // safe unwrap: verify in parse_params
-                    let mut args = argv.iter();
-                    let program = args.next().ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args))
-                    })?;
+            match params.transfer_pid {
+                Some(true) => exec_transferring_pid(params),
+                None | Some(false) => {
+                    let output = match params.required {
+                        Required::Cmd(cmd) => Command::new("/bin/sh")
+                            // safe unwrap: verified
+                            .args(vec!["-c", &cmd])
+                            .output()
+                            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?,
+                        Required::Argv(argv) => {
+                            // safe unwrap: verify in parse_params
+                            let mut args = argv.iter();
+                            let program = args.next().ok_or_else(|| {
+                                Error::new(
+                                    ErrorKind::InvalidData,
+                                    format!("{:?} invalid cmd", args),
+                                )
+                            })?;
 
-                    Command::new(program)
-                        .args(args)
-                        .output()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                            Command::new(program)
+                                .args(args)
+                                .output()
+                                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                        }
+                    };
+
+                    trace!("exec - output: {:?}", output);
+                    let stderr = String::from_utf8(output.stderr)
+                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                    if !output.status.success() {
+                        return Err(Error::new(ErrorKind::InvalidData, stderr));
+                    }
+                    let output_string = String::from_utf8(output.stdout)
+                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                    let module_output = if output_string.is_empty() {
+                        None
+                    } else {
+                        Some(output_string)
+                    };
+
+                    Ok((
+                        ModuleResult {
+                            changed: true,
+                            output: module_output,
+                            extra: Some(json!({
+                                "rc": output.status.code(),
+                                "stderr": stderr,
+                            })),
+                        },
+                        vars,
+                    ))
                 }
-            };
-
-            trace!("exec - output: {:?}", output);
-            let stderr = String::from_utf8(output.stderr)
-                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-            if !output.status.success() {
-                return Err(Error::new(ErrorKind::InvalidData, stderr));
             }
-            let output_string = String::from_utf8(output.stdout)
-                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-            let module_output = if output_string.is_empty() {
-                None
-            } else {
-                Some(output_string)
-            };
-
-            Ok((
-                ModuleResult {
-                    changed: true,
-                    output: module_output,
-                    extra: Some(json!({
-                        "rc": output.status.code(),
-                        "stderr": stderr,
-                    })),
-                },
-                vars,
-            ))
         }
     }
 }
@@ -149,7 +166,7 @@ mod tests {
         let yaml = YamlLoader::load_from_str(
             r#"
         cmd: "ls"
-        transfer_pid_1: false
+        transfer_pid: false
         "#,
         )
         .unwrap()
@@ -161,7 +178,8 @@ mod tests {
             params,
             Params {
                 required: Required::Cmd("ls".to_string()),
-                transfer_pid_1: Some(false),
+                transfer_pid_1: None,
+                transfer_pid: Some(false),
             }
         );
     }
@@ -170,7 +188,7 @@ mod tests {
     fn test_parse_params_without_cmd_or_argv() {
         let yaml = YamlLoader::load_from_str(
             r#"
-        transfer_pid_1: false
+        transfer_pid: false
         "#,
         )
         .unwrap()
@@ -187,7 +205,7 @@ mod tests {
             r#"
         cmd: "ls"
         yea: boo
-        transfer_pid_1: false
+        transfer_pid: false
         "#,
         )
         .unwrap()
