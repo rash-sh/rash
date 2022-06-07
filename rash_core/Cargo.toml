@@ -30,7 +30,7 @@ fern = { version = "0.6", features = ["colored"] }
 ignore = "0.4"
 # when memfd don't require nightly we coulld add it
 # ipc-channel = { version = "0.15", features = ["memfd"] }
-ipc-channel = "0.15"
+ipc-channel = "0.16"
 itertools = "0.10"
 lazy_static = "1.4.0"
 log = "0.4"
