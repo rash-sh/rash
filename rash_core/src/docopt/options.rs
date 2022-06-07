@@ -88,7 +88,7 @@ impl Options {
         let mut is_with_param = false;
 
         for w in option
-            .replace(",", " ")
+            .replace(',', " ")
             .replace('=', " ")
             .split_whitespace()
         {
