@@ -6,6 +6,17 @@
 
 * Command module: `transfer_pid_1` (use `transfer_pid` instead)
 
+## [v1.7.1](https://github.com/rash-sh/rash/tree/v1.7.1) (2022-06-13)
+
+### Fixed
+
+* Update Debian image to bullseye and Rust to 1.61.0
+* Bumps [regex](https://github.com/rust-lang/regex) from 1.5.4 to 1.5.5.
+  * [Release notes](https://github.com/rust-lang/regex/releases)
+  * [Changelog](https://github.com/rust-lang/regex/blob/master/CHANGELOG.md)
+  * [Commits](https://github.com/rust-lang/regex/compare/1.5.4...1.5.5)
+* Update ipc-channel to 0.16 and run `cargo update`
+
 ## [v1.7.0](https://github.com/rash-sh/rash/tree/v1.7.0) (2022-01-26)
 
 ### Added
