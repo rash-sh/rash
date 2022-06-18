@@ -7,7 +7,7 @@
       2,
       "always",
       [
-	      "build",
+        "build",
         "feat",
         "fix",
         "docs",
@@ -25,8 +25,8 @@
         "ci",
         "cli",
         "core",
-	      "deps",
-	      "docker",
+        "deps",
+        "docker",
         "filter",
         "group",
         "tera",
@@ -39,8 +39,10 @@
     "subject-case": [
       2,
       "always",
-      ["sentence-case",
-         "lower-case"]
+      [
+        "sentence-case",
+        "lower-case"
+      ]
     ],
     "body-leading-blank": [
       2,
