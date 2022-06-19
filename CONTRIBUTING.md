@@ -100,7 +100,7 @@ Resolves: #{issue.id}
 ```
 
 You can find what values area could take see
-[rash/.commitlintrc.json](https://github.com/rash-sh/rash-sh.github.io/blob/master/.commitlintrc.json).
+[rash/.commitlintrc.json](https://github.com/rash-sh/rash/blob/master/.commitlintrc.json).
 
 The first line is the subject and should be no longer than 70 characters. The
 second line is always blank, and other lines should be wrapped at 80 characters.
