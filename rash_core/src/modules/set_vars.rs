@@ -23,18 +23,26 @@
 /// ```yaml
 /// - set_vars:
 ///     foo: boo
+///     buu:
+///       - 1
+///       - 2
+///       - 3
+///     zoo:
+///       suu: yea
 ///
-/// - assert
+/// - assert:
 ///     that:
 ///       - foo == 'boo'
+///       - buu[2] == 3
+///       - zoo.suu == 'yea'
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::ModuleResult;
+use crate::utils::get_serde_yaml;
 use crate::vars::Vars;
 
-use serde_yaml::Value;
-use yaml_rust::{Yaml, YamlEmitter};
+use yaml_rust::Yaml;
 
 pub fn exec(params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let mut new_vars = vars;
@@ -50,14 +58,6 @@ pub fn exec(params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
         .iter()
         .map(|hash_map| {
-            let mut yaml_str = String::new();
-            let mut emitter = YamlEmitter::new(&mut yaml_str);
-            emitter
-                .dump(hash_map.1)
-                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-            let yaml: Value = serde_yaml::from_str(&yaml_str)
-                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
             new_vars.insert(
                 hash_map.0.as_str().ok_or_else(|| {
                     Error::new(
@@ -65,7 +65,7 @@ pub fn exec(params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult
                         format!("{:?} is not a valid string", &hash_map.0),
                     )
                 })?,
-                &yaml,
+                &get_serde_yaml(hash_map.1)?,
             );
             Ok(())
         })

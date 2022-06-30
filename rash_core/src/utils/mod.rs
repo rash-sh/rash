@@ -2,6 +2,7 @@ pub mod tera;
 
 use crate::error::{Error, ErrorKind, Result};
 
+use serde_yaml::Value;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 pub fn parse_octal(s: &str) -> Result<u32> {
@@ -28,6 +29,15 @@ pub fn get_string(yaml: Yaml) -> Result<String> {
         .dump(&yaml)
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     Ok(yaml_str)
+}
+
+pub fn get_serde_yaml(yaml: &Yaml) -> Result<Value> {
+    let mut yaml_str = String::new();
+    let mut emitter = YamlEmitter::new(&mut yaml_str);
+    emitter
+        .dump(yaml)
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    serde_yaml::from_str(&yaml_str).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 pub fn merge_json(a: &mut serde_json::Value, b: serde_json::Value) {

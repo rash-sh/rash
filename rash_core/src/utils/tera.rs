@@ -1,5 +1,5 @@
 use crate::error;
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::vars::Vars;
 
 use std::collections::HashMap;
@@ -7,6 +7,7 @@ use std::error::Error as StdError;
 
 use serde_json::value::Value;
 use tera::Tera;
+use yaml_rust::Yaml;
 
 fn omit(_: &HashMap<String, Value>) -> tera::Result<Value> {
     Err(tera::Error::call_filter(
@@ -23,6 +24,30 @@ fn init_tera() -> Tera {
 
 lazy_static! {
     static ref TERA: Tera = init_tera();
+}
+
+#[inline(always)]
+pub fn render(yaml: Yaml, vars: &Vars) -> Result<Yaml> {
+    match yaml {
+        Yaml::String(s) => Ok(Yaml::String(render_string(&s, vars)?)),
+        Yaml::Real(x) => Ok(Yaml::Real(x)),
+        Yaml::Integer(_) => Ok(yaml),
+        Yaml::Boolean(_) => Ok(yaml),
+        Yaml::Array(v) => Ok(Yaml::Array(
+            v.iter()
+                .map(|x| render(x.clone(), vars))
+                .collect::<Result<Vec<_>>>()?,
+        )),
+        Yaml::Hash(x) => Ok(Yaml::Hash(
+            x.iter()
+                .map(|t| render((*t.1).clone(), vars).map(|yaml| ((*t.0).clone(), yaml)))
+                .collect::<Result<_>>()?,
+        )),
+        _ => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("{yaml:?} is not a valid render value"),
+        )),
+    }
 }
 
 #[inline(always)]
@@ -62,6 +87,15 @@ pub fn is_render_string(s: &str, vars: &Vars) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_render() {
+        let r_yaml = render(Yaml::Integer(1).clone(), &Vars::new()).unwrap();
+        assert_eq!(r_yaml, Yaml::Integer(1));
+
+        let r_yaml = render(Yaml::String("yea".to_string()).clone(), &Vars::new()).unwrap();
+        assert_eq!(r_yaml, Yaml::String("yea".to_string()));
+    }
 
     #[test]
     fn test_is_render_string() {

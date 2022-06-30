@@ -4,8 +4,8 @@ mod valid;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
-use crate::utils::get_yaml;
-use crate::utils::tera::{is_render_string, render_as_json, render_string};
+use crate::utils::tera::{is_render_string, render, render_as_json, render_string};
+use crate::utils::{get_serde_yaml, get_yaml};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
@@ -121,20 +121,7 @@ impl Task {
                     None => match t.1.clone().as_vec() {
                         Some(x) => match x
                             .iter()
-                            .map(|yaml| match yaml.as_str() {
-                                Some(s) => Ok(s.to_string()),
-                                None => Err(Error::new(
-                                    ErrorKind::InvalidData,
-                                    format!("{:?} invalid string", yaml),
-                                )),
-                            })
-                            .map(|result_s| match result_s {
-                                Ok(s) => match render_string(&s, &vars) {
-                                    Ok(rendered_s) => Ok(Yaml::String(rendered_s)),
-                                    Err(e) => Err(e),
-                                },
-                                Err(e) => Err(e),
-                            })
+                            .map(|yaml| render(yaml.clone(), &vars))
                             .collect::<Result<Vec<Yaml>>>()
                         {
                             Ok(rendered_vec) => Some(Ok((t.0.clone(), Yaml::Array(rendered_vec)))),
@@ -169,31 +156,24 @@ impl Task {
         }
     }
 
-    fn get_iterator(yaml: &Yaml, vars: Vars) -> Result<Vec<String>> {
+    fn get_iterator(yaml: &Yaml, vars: Vars) -> Result<Vec<Yaml>> {
         match yaml.as_vec() {
             Some(v) => Ok(v
                 .iter()
-                .map(|item| match item.clone() {
-                    Yaml::Real(s) | Yaml::String(s) => Ok(render_string(&s, &vars)?),
-                    Yaml::Integer(x) => Ok(render_string(&x.to_string(), &vars)?),
-                    _ => Err(Error::new(
-                        ErrorKind::InvalidData,
-                        format!("{:?} is not a valid string", item),
-                    )),
-                })
-                .collect::<Result<Vec<String>>>()?),
+                .map(|item| render(item.clone(), &vars))
+                .collect::<Result<Vec<Yaml>>>()?),
             None => Err(Error::new(ErrorKind::NotFound, "loop is not iterable")),
         }
     }
 
-    fn render_iterator(&self, vars: Vars) -> Result<Vec<String>> {
+    fn render_iterator(&self, vars: Vars) -> Result<Vec<Yaml>> {
         // safe unwrap, previous verification self.r#loop.is_some()
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
                 let yaml = get_yaml(&render_as_json(s, &vars)?)?;
                 match yaml.as_str() {
-                    Some(s) => Ok(vec![s.to_string()]),
+                    Some(_) => Ok(vec![yaml]),
                     None => Task::get_iterator(&yaml, vars),
                 }
             }
@@ -382,7 +362,7 @@ impl Task {
         if self.r#loop.is_some() {
             let mut new_vars = vars.clone();
             for item in self.render_iterator(vars)?.into_iter() {
-                new_vars.insert("item", &item);
+                new_vars.insert("item", &get_serde_yaml(&item)?);
                 new_vars = self.exec_module(new_vars.clone())?;
             }
             Ok(new_vars)
@@ -621,7 +601,10 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.render_iterator(vars).unwrap(), vec!["1", "2", "3"]);
+        assert_eq!(
+            task.render_iterator(vars).unwrap(),
+            vec![Yaml::Integer(1), Yaml::Integer(2), Yaml::Integer(3)]
+        );
     }
 
     #[test]
@@ -771,7 +754,7 @@ mod tests {
         let task = Task::from(yaml);
         let result = task.exec(vars).unwrap();
         let mut expected = Context::new();
-        expected.insert("item", "3");
+        expected.insert("item", &json!(3));
         assert_eq!(result, expected);
     }
 
@@ -786,7 +769,10 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.render_iterator(vars).unwrap(), vec!["0", "1", "2"]);
+        assert_eq!(
+            task.render_iterator(vars).unwrap(),
+            vec![Yaml::Integer(0), Yaml::Integer(1), Yaml::Integer(2)]
+        );
     }
 
     #[test]
@@ -802,7 +788,10 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.render_iterator(vars).unwrap(), vec!["test", "2"]);
+        assert_eq!(
+            task.render_iterator(vars).unwrap(),
+            vec![Yaml::String("test".to_string()), Yaml::Integer(2)]
+        );
     }
 
     #[test]
