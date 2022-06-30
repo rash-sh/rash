@@ -1,0 +1,13 @@
+#!/usr/bin/env rash
+
+- command: "echo {{ item[0] }} {{ item[1] }}"
+  loop:
+    - ["foo", "boo"]
+    - ["fuu", "buu"]
+
+- command: "{{ item.command }} {{ item.path }}"
+  loop:
+    - path: /tmp
+      command: ls
+    - path: /home
+      command: df
