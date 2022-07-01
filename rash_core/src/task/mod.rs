@@ -308,7 +308,7 @@ impl Task {
                                 exit(0);
                             }
                             Ok(ForkResult::Parent { child, .. }) => {
-                                let _ = match waitpid(child, None) {
+                                match waitpid(child, None) {
                                     Ok(WaitStatus::Exited(_, 0)) => Ok(()),
                                     Ok(WaitStatus::Exited(_, exit_code)) => Err(Error::new(
                                         ErrorKind::SubprocessFail,
