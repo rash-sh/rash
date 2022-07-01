@@ -109,11 +109,10 @@ jobs:
     - name: Get Changelog Entry
       if: startsWith(github.ref, 'refs/tags/')
       id: changelog_reader
-      uses: mindsers/changelog-reader-action@v2
+      uses: mindsers/changelog-reader-action@v2.0.0
       with:
         version: v${{ env.PROJECT_VERSION }}
         path: ./CHANGELOG.md
-        validation_level: warn
 
     - name: Publish
       uses: softprops/action-gh-release@v1
