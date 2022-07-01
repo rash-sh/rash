@@ -104,7 +104,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
 
     // init vars
     vars.extend(options.initial_vars());
-    let _ = args_defs_expand_repeatable
+    args_defs_expand_repeatable
         .iter()
         .enumerate()
         .flat_map(|(usage_idx, args_def)| {
@@ -158,7 +158,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })?;
 
     let mut new_vars_json = vars.into_json();
-    let _ = vars_vec
+    vars_vec
         .into_iter()
         .map(|x| x.into_json())
         .for_each(|x| merge_json(&mut new_vars_json, x));
