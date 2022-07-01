@@ -1,6 +1,6 @@
 # rash changes
 
-## unreleased
+## [Unreleased]
 
 ### To be removed in v1.9.0
 

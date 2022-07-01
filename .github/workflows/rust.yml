@@ -113,6 +113,7 @@ jobs:
       with:
         version: v${{ env.PROJECT_VERSION }}
         path: ./CHANGELOG.md
+        validation_level: warn
 
     - name: Publish
       uses: softprops/action-gh-release@v1
