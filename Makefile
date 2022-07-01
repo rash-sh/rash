@@ -69,17 +69,18 @@ tag:	## create a tag using version from VERSION file
 	git push origin v$${PROJECT_VERSION}
 
 .PHONY: release
+release: CARGO_USE_CROSS = $(IMAGES_CARGO_USE_CROSS)
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
-	@if [ "$(CARGO_TARGET)" = "x86_64-unknown-linux-musl" ]; then  \
+	@if [ "$(CARGO_USE_CROSS)" = "true" ]; then  \
 		if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
-			echo CARGO_TARGET_DIR should be relative for musl; \
+			echo CARGO_TARGET_DIR should be relative for cross compiling; \
 			exit 1; \
 		fi; \
 		cargo install cross; \
 		cross build --target-dir $(shell pwd)/$(CARGO_TARGET_DIR) \
 			--target=$(CARGO_TARGET) --release; \
 	else \
-	cargo build --frozen --release --target ${CARGO_TARGET}; \
+		cargo build --frozen --release --target ${CARGO_TARGET}; \
 	fi
 	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash && \
 	echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash;
@@ -95,6 +96,7 @@ publish:	## publish crates
 .PHONY: images
 images:	## build images
 images: CARGO_TARGET=x86_64-unknown-linux-musl
+images: IMAGES_CARGO_USE_CROSS=true
 images: release
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker build -f $$DOCKERFILE \
