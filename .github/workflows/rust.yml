@@ -50,13 +50,14 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { os: ubuntu-latest, target: arm-unknown-linux-gnueabihf, use-cross: true }
-          - { os: ubuntu-latest, target: arm-unknown-linux-musleabihf, use-cross: true }
-          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, use-cross: true }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, container: quay.io/pypa/manylinux2014_x86_64}
+          - { os: ubuntu-20.04, target: arm-unknown-linux-musleabihf, use-cross: true }
+          - { os: ubuntu-20.04, target: arm-unknown-linux-gnueabihf, use-cross: true }
+          - { os: ubuntu-20.04, target: aarch64-unknown-linux-musl, use-cross: true }
+          - { os: ubuntu-20.04, target: aarch64-unknown-linux-gnu, use-cross: true }
+          - { os: ubuntu-20.04, target: x86_64-unknown-linux-musl, use-cross: true }
+          - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu, container: quay.io/pypa/manylinux2014_x86_64}
           - { os: macos-10.15, target: x86_64-apple-darwin}
-    name: ${{ matrix.job.target }} (${{ matrix.job.os }})
+    name: (${{ matrix.job.os }}) ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     # Use a container with GLIBC 2.17, make build compatible until that version
     container: ${{ matrix.job.container }}
@@ -84,12 +85,14 @@ jobs:
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
+        use-cross: ${{ matrix.job.use-cross }}
         command: test
-        args: --locked
+        args: --locked --target=${{ matrix.job.target }}
 
     - name: Run examples
+      if: ${{ matrix.job.use-cross != true }}
       run: |
-        cp target/debug/rash /usr/local/bin/rash
+        cp target/${{ matrix.job.target }}/debug/rash /usr/local/bin/rash
         make test-examples
 
     - name: Extract crate information
