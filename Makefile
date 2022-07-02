@@ -69,7 +69,7 @@ tag:	## create a tag using version from VERSION file
 	git push origin v$${PROJECT_VERSION}
 
 .PHONY: release
-release: CARGO_USE_CROSS = $(IMAGES_CARGO_USE_CROSS)
+release: CARGO_USE_CROSS ?= $(IMAGES_CARGO_USE_CROSS)
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
 	@if [ "$(CARGO_USE_CROSS)" = "true" ]; then  \
 		if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
@@ -82,7 +82,7 @@ release:	## generate $(PKG_BASE_NAME).tar.gz with binary
 	else \
 		cargo build --frozen --release --target ${CARGO_TARGET}; \
 	fi
-	tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash && \
+	@tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash && \
 	echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash;
 
 .PHONY: publish
