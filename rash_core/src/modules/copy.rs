@@ -592,7 +592,7 @@ mod tests {
         .unwrap();
 
         let file_metadata = metadata(&file_path);
-        assert_eq!(file_metadata.is_err(), true);
+        assert!(file_metadata.is_err());
         assert_eq!(
             output,
             ModuleResult {

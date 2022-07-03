@@ -46,7 +46,7 @@ mod tests {
 
     use std::env;
 
-    pub fn run_test_with_envar(envar: (&str, &str), test_fn: fn()) -> () {
+    pub fn run_test_with_envar(envar: (&str, &str), test_fn: fn()) {
         env::set_var(&envar.0, &envar.1);
         test_fn();
         env::remove_var(&envar.0);

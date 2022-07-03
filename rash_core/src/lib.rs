@@ -35,12 +35,12 @@ mod tests {
         "#;
 
         let context = Context::new(
-            parse_file(&file, &task::GlobalParams::default()).unwrap(),
+            parse_file(file, &task::GlobalParams::default()).unwrap(),
             env::load(vec![]).unwrap(),
         );
         let context_error = Context::exec(context).unwrap_err();
 
-        let _ = match context_error.kind() {
+        match context_error.kind() {
             ErrorKind::EmptyTaskStack => (),
             _ => panic!("{}", context_error),
         };

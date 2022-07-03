@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_get_yaml() {
-        let yaml = get_yaml(&"foo: boo").unwrap();
+        let yaml = get_yaml("foo: boo").unwrap();
         assert_eq!(yaml["foo"].as_str().unwrap(), "boo")
     }
 
