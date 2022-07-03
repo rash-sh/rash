@@ -43,7 +43,39 @@ jobs:
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+          args: --locked --all-targets --all-features
+
+  min_version:
+    name: Minimum supported rust version
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Extract min supported rust version
+      shell: bash
+      run: |
+        echo "MIN_SUPPORTED_RUST_VERSION=$(sed -n 's/^msrv = "\(.*\)"/\1/p' clippy.toml | head -n1)" >> $GITHUB_ENV
+
+    - name: Install rust toolchain (v${{ env.MIN_SUPPORTED_RUST_VERSION }})
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ env.MIN_SUPPORTED_RUST_VERSION }}
+        default: true
+        components: clippy
+        profile: minimal
+
+    - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: --locked --all-targets --all-features
+
+    - name: Run tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --locked
 
   build:
     strategy:

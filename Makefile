@@ -34,7 +34,7 @@ build:
 .PHONY: lint
 lint:	## lint code
 lint:
-	cargo clippy -- -D warnings
+	cargo clippy --locked --all-targets --all-features -- -D warnings
 	cargo fmt -- --check
 
 .PHONY: test
