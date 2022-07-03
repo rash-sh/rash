@@ -120,13 +120,8 @@ test-images: images
 push-images:	## push images
 push-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
-		unset DOCKER_EXTRA_ARGS; \
-		if [ $$DOCKERFILE = "Dockerfile" ];then \
-			DOCKER_EXTRA_ARGS="--platform linux/arm64/v8,linux/amd64"; \
-		fi; \
 		docker buildx build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
-			$$DOCKER_EXTRA_ARGS \
 			--push \
 			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/Dockerfile//' | tr '.' '-'` \
 			.; \
