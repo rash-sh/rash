@@ -1,0 +1,18 @@
+#!/bin/rash
+#
+# Pacman binary mock for Pacman module tests.
+#
+# Usage:
+#   ./pacman.rh [--help]
+#   ./pacman.rh [-d]...
+#
+# Options:
+#  -d, --nodeps  Skips dependency version checks. Package names are still checked. Normally, pacman will always check a package’s dependency fields to ensure
+#                that all dependencies are installed and there are no package conflicts in the system. Specify this option twice to skip all dependency
+#                checks.
+#  --help
+#
+- name: Print args
+  debug:
+    var: __tera_context
+

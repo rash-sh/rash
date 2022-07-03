@@ -99,8 +99,9 @@ images: CARGO_TARGET=x86_64-unknown-linux-musl
 images: IMAGES_CARGO_USE_CROSS=true
 images: release
 	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker build -f $$DOCKERFILE \
+		docker buildx build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
+			--load \
 			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
 			.; \
 	done;
@@ -119,5 +120,13 @@ test-images: images
 push-images:	## push images
 push-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
-		docker push $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'`;\
+		if [ $$DOCKERFILE == "./Dockerfile" ];then \
+			DOCKER_EXTRA_ARGS="--platform linux/arm/v7,linux/arm64/v8,linux/amd64"; \
+		fi; \
+		docker buildx build -f $$DOCKERFILE \
+			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
+			$$DOCKER_EXTRA_ARGS \
+			--push \
+			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			.; \
 	done;
