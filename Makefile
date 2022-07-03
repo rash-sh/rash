@@ -1,4 +1,4 @@
-DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*' -not -name '*.dockerignore')
+DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*' -execdir basename '{}' ';')
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
@@ -102,7 +102,7 @@ images: release
 		docker buildx build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
 			--load \
-			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/Dockerfile//' | tr '.' '-'` \
 			.; \
 	done;
 
@@ -112,7 +112,7 @@ test-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker run \
 			-v $(shell pwd)/examples:/examples:ro \
-			$(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			$(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/Dockerfile//' | tr '.' '-'` \
 			/examples/builtins.rh; \
 	done;
 
@@ -120,13 +120,14 @@ test-images: images
 push-images:	## push images
 push-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
-		if [ $$DOCKERFILE == "./Dockerfile" ];then \
-			DOCKER_EXTRA_ARGS="--platform linux/arm/v7,linux/arm64/v8,linux/amd64"; \
+		unset DOCKER_EXTRA_ARGS; \
+		if [ $$DOCKERFILE = "Dockerfile" ];then \
+			DOCKER_EXTRA_ARGS="--platform linux/arm64/v8,linux/amd64"; \
 		fi; \
 		docker buildx build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
 			$$DOCKER_EXTRA_ARGS \
 			--push \
-			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/\.\/Dockerfile//' | tr '.' '-'` \
+			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/Dockerfile//' | tr '.' '-'` \
 			.; \
 	done;
