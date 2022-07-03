@@ -2,7 +2,7 @@
 
 set -e
 
-echo '+cargo clippy -- -D warnings'
-cargo clippy -- -D warnings
+echo '+cargo clippy --locked --all-targets --all-features -- -D warnings'
+cargo clippy --locked --all-targets --all-features -- -D warnings
 echo '+cargo fmt -- --check'
 cargo fmt -- --check
