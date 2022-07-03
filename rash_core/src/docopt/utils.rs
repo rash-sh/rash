@@ -194,7 +194,7 @@ mod tests {
 
         let result: Vec<String> = usage
             .split_whitespace()
-            .flat_map(|w| split_keeping_separators(&w, &['[', ']']))
+            .flat_map(|w| split_keeping_separators(w, &['[', ']']))
             .collect();
 
         assert_eq!(

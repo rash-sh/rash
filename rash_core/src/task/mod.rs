@@ -510,7 +510,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(&vars).unwrap(), true);
+        assert!(task.is_exec(&vars).unwrap());
     }
 
     #[test]
@@ -524,7 +524,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(&vars).unwrap(), false);
+        assert!(!task.is_exec(&vars).unwrap());
     }
 
     #[test]
@@ -538,7 +538,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(&vars).unwrap(), false);
+        assert!(!task.is_exec(&vars).unwrap());
     }
 
     #[test]
@@ -552,7 +552,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(&vars).unwrap(), false);
+        assert!(!task.is_exec(&vars).unwrap());
     }
 
     #[test]
@@ -568,7 +568,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(&vars).unwrap(), true);
+        assert!(task.is_exec(&vars).unwrap());
     }
 
     #[test]
@@ -584,7 +584,7 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(task.is_exec(&vars).unwrap(), false);
+        assert!(!task.is_exec(&vars).unwrap());
     }
 
     #[test]
@@ -618,11 +618,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-            true
-        );
+        assert!(task
+            .is_changed(&ModuleResult::new(false, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]
@@ -636,11 +634,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-            true
-        );
+        assert!(task
+            .is_changed(&ModuleResult::new(false, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]
@@ -654,11 +650,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(true, None, None), &vars)
-                .unwrap(),
-            false
-        );
+        assert!(!task
+            .is_changed(&ModuleResult::new(true, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]
@@ -672,11 +666,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-            false
-        );
+        assert!(!task
+            .is_changed(&ModuleResult::new(false, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]
@@ -690,11 +682,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-            false
-        );
+        assert!(!task
+            .is_changed(&ModuleResult::new(false, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]
@@ -710,11 +700,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-            true
-        );
+        assert!(task
+            .is_changed(&ModuleResult::new(false, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]
@@ -730,11 +718,9 @@ mod tests {
         let out = YamlLoader::load_from_str(&s).unwrap();
         let yaml = out.first().unwrap();
         let task = Task::from(yaml);
-        assert_eq!(
-            task.is_changed(&ModuleResult::new(true, None, None), &vars)
-                .unwrap(),
-            false
-        );
+        assert!(!task
+            .is_changed(&ModuleResult::new(true, None, None), &vars)
+            .unwrap(),);
     }
 
     #[test]

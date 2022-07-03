@@ -377,13 +377,13 @@ paths:
         let dir = tempdir().unwrap();
 
         let subdir_path1 = dir.path().join("subdir1");
-        let _ = create_dir(subdir_path1.clone()).unwrap();
+        create_dir(subdir_path1.clone()).unwrap();
 
         let subdir_path2 = dir.path().join("subdir2");
-        let _ = create_dir(subdir_path2.clone()).unwrap();
+        create_dir(subdir_path2.clone()).unwrap();
 
         let subdir_path3 = dir.path().join("subdir3");
-        let _ = create_dir(subdir_path3.clone()).unwrap();
+        create_dir(subdir_path3.clone()).unwrap();
 
         let output = find(Params {
             paths: vec![
@@ -437,7 +437,7 @@ paths:
         let dir = tempdir().unwrap();
 
         let dir_path = dir.path().join("yea");
-        let _ = create_dir(dir_path.clone()).unwrap();
+        create_dir(dir_path.clone()).unwrap();
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
@@ -491,10 +491,10 @@ paths:
         let dir = tempdir().unwrap();
 
         let ignore_path = dir.path().join(".ignore");
-        let mut ignore_file = File::create(ignore_path.clone()).unwrap();
+        let mut ignore_file = File::create(ignore_path).unwrap();
         writeln!(ignore_file, "ignored_file").unwrap();
         let file_path = dir.path().join("ignored_file");
-        let _ = File::create(file_path.clone()).unwrap();
+        let _ = File::create(file_path).unwrap();
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
@@ -553,7 +553,7 @@ paths:
         let dir = tempdir().unwrap();
 
         let ignore_path = dir.path().join(".ignore");
-        let mut ignore_file = File::create(ignore_path.clone()).unwrap();
+        let mut ignore_file = File::create(ignore_path).unwrap();
         writeln!(ignore_file, "ignored_file").unwrap();
         let file_path = dir.path().join("ignored_file");
         let _ = File::create(file_path.clone()).unwrap();
@@ -584,7 +584,7 @@ paths:
         let mut ignore_file = File::create(ignore_path.clone()).unwrap();
         writeln!(ignore_file, "ignored_file").unwrap();
         let file_path = dir.path().join("ignored_file");
-        let _ = File::create(file_path.clone()).unwrap();
+        let _ = File::create(file_path).unwrap();
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_string()],
@@ -608,10 +608,10 @@ paths:
     fn test_find_directories_exclude() {
         let dir = tempdir().unwrap();
         let parent_path = dir.path().join("foo");
-        let _ = create_dir(parent_path.clone()).unwrap();
+        create_dir(parent_path.clone()).unwrap();
 
         let dir_path = parent_path.join("boo");
-        let _ = create_dir(dir_path.clone()).unwrap();
+        create_dir(dir_path.clone()).unwrap();
 
         let output = find(Params {
             paths: vec![parent_path.to_str().unwrap().to_string()],
@@ -635,10 +635,10 @@ paths:
     fn test_find_directories_exclude_from_json() {
         let dir = tempdir().unwrap();
         let parent_path = dir.path().join("foo");
-        let _ = create_dir(parent_path.clone()).unwrap();
+        create_dir(parent_path.clone()).unwrap();
 
         let dir_path = parent_path.join("boo");
-        let _ = create_dir(dir_path.clone()).unwrap();
+        create_dir(dir_path).unwrap();
 
         let output = find(Params {
             paths: vec![parent_path.to_str().unwrap().to_string()],
@@ -663,7 +663,7 @@ paths:
     fn test_find_patterns() {
         let dir = tempdir().unwrap();
         let file1_path = dir.path().join("file1.txt");
-        let _ = File::create(file1_path.clone()).unwrap();
+        let _ = File::create(file1_path).unwrap();
         let file2_path = dir.path().join("file2.log");
         let _ = File::create(file2_path.clone()).unwrap();
 
@@ -689,7 +689,7 @@ paths:
     fn test_find_patterns_from_json() {
         let dir = tempdir().unwrap();
         let file1_path = dir.path().join("file1.txt");
-        let _ = File::create(file1_path.clone()).unwrap();
+        let _ = File::create(file1_path).unwrap();
         let file2_path = dir.path().join("file2.log");
         let _ = File::create(file2_path.clone()).unwrap();
         let file3_path = dir.path().join("file3.log");
@@ -729,10 +729,10 @@ paths:
     fn test_find_directories_patterns() {
         let dir = tempdir().unwrap();
         let parent_path = dir.path().join("foo");
-        let _ = create_dir(parent_path.clone()).unwrap();
+        create_dir(parent_path.clone()).unwrap();
 
         let dir_path = parent_path.join("boo");
-        let _ = create_dir(dir_path.clone()).unwrap();
+        create_dir(dir_path).unwrap();
 
         let output = find(Params {
             paths: vec![parent_path.to_str().unwrap().to_string()],

@@ -498,7 +498,7 @@ mod tests {
 
         let dir_metadata = metadata(&dir_path).unwrap();
         let dir_permissions = dir_metadata.permissions();
-        assert_eq!(dir_metadata.is_file(), true);
+        assert!(dir_metadata.is_file());
         assert_eq!(
             format!("{:o}", dir_permissions.mode() & 0o7777),
             format!("{:o}", 0o644)
@@ -530,7 +530,7 @@ mod tests {
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
-        assert_eq!(dir_metadata.is_err(), true);
+        assert!(dir_metadata.is_err());
         assert_eq!(
             output,
             ModuleResult {
@@ -560,7 +560,7 @@ mod tests {
         .unwrap();
         let parent_metadata = metadata(&parent_path).unwrap();
         let parent_permissions = parent_metadata.permissions();
-        assert_eq!(parent_metadata.is_dir(), true);
+        assert!(parent_metadata.is_dir());
         assert_eq!(
             format!("{:o}", parent_permissions.mode() & 0o7777),
             format!("{:o}", 0o750)
@@ -568,7 +568,7 @@ mod tests {
 
         let dir_metadata = metadata(&dir_path).unwrap();
         let dir_permissions = dir_metadata.permissions();
-        assert_eq!(dir_metadata.is_dir(), true);
+        assert!(dir_metadata.is_dir());
         assert_eq!(
             format!("{:o}", dir_permissions.mode() & 0o7777),
             format!("{:o}", 0o750)
@@ -604,8 +604,8 @@ mod tests {
 
         let parent_metadata = metadata(&parent_path);
         let dir_metadata = metadata(&dir_path);
-        assert_eq!(parent_metadata.is_err(), true);
-        assert_eq!(dir_metadata.is_err(), true);
+        assert!(parent_metadata.is_err());
+        assert!(dir_metadata.is_err());
 
         assert_eq!(
             output,
@@ -639,7 +639,7 @@ mod tests {
 
         let file_metadata = metadata(&file_path).unwrap();
         let permissions = file_metadata.permissions();
-        assert_eq!(file_metadata.is_file(), true);
+        assert!(file_metadata.is_file());
         assert_eq!(
             format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o604)
@@ -677,7 +677,7 @@ mod tests {
 
         let file_metadata = metadata(&file_path).unwrap();
         let permissions = file_metadata.permissions();
-        assert_eq!(file_metadata.is_file(), true);
+        assert!(file_metadata.is_file());
         assert_eq!(
             format!("{:o}", permissions.mode() & 0o7777),
             format!("{:o}", 0o400)
@@ -714,7 +714,7 @@ mod tests {
         .unwrap();
 
         let file_metadata = metadata(&file_path);
-        assert_eq!(file_metadata.is_err(), true);
+        assert!(file_metadata.is_err());
 
         assert_eq!(
             output,
@@ -747,7 +747,7 @@ mod tests {
         .unwrap();
 
         let file_metadata = metadata(&file_path);
-        assert_eq!(file_metadata.is_ok(), true);
+        assert!(file_metadata.is_ok());
 
         assert_eq!(
             output,
@@ -781,7 +781,7 @@ mod tests {
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
-        assert_eq!(dir_metadata.is_err(), true);
+        assert!(dir_metadata.is_err());
 
         assert_eq!(
             output,
@@ -815,7 +815,7 @@ mod tests {
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
-        assert_eq!(dir_metadata.is_ok(), true);
+        assert!(dir_metadata.is_ok());
 
         assert_eq!(
             output,
@@ -851,7 +851,7 @@ mod tests {
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
-        assert_eq!(dir_metadata.is_err(), true);
+        assert!(dir_metadata.is_err());
 
         assert_eq!(
             output,
@@ -887,7 +887,7 @@ mod tests {
         .unwrap();
 
         let dir_metadata = metadata(&dir_path);
-        assert_eq!(dir_metadata.is_ok(), true);
+        assert!(dir_metadata.is_ok());
 
         assert_eq!(
             output,

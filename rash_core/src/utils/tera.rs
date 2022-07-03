@@ -93,16 +93,16 @@ mod tests {
         let r_yaml = render(Yaml::Integer(1).clone(), &Vars::new()).unwrap();
         assert_eq!(r_yaml, Yaml::Integer(1));
 
-        let r_yaml = render(Yaml::String("yea".to_string()).clone(), &Vars::new()).unwrap();
+        let r_yaml = render(Yaml::String("yea".to_string()), &Vars::new()).unwrap();
         assert_eq!(r_yaml, Yaml::String("yea".to_string()));
     }
 
     #[test]
     fn test_is_render_string() {
         let r_true = is_render_string("true", &Vars::new()).unwrap();
-        assert_eq!(r_true, true);
+        assert!(r_true);
         let r_false = is_render_string("false", &Vars::new()).unwrap();
-        assert_eq!(r_false, false);
+        assert!(!r_false);
     }
 
     #[test]

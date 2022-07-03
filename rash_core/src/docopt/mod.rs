@@ -1180,7 +1180,7 @@ Foo:
         let arg_def = r"foo";
 
         let arg = "foo";
-        let result = parse_required(arg, &arg_def, &[]).unwrap();
+        let result = parse_required(arg, arg_def, &[]).unwrap();
         assert_eq!(
             result,
             Context::from_value(json!({
@@ -1195,7 +1195,7 @@ Foo:
         let arg_def = r"foo";
 
         let arg = "boo";
-        let result = parse_required(arg, &arg_def, &[]);
+        let result = parse_required(arg, arg_def, &[]);
         assert_eq!(result, None)
     }
 
@@ -1204,7 +1204,7 @@ Foo:
         let arg_def = r"<foo>";
 
         let arg = "boo";
-        let result = parse_positional(arg, &arg_def);
+        let result = parse_positional(arg, arg_def);
         assert_eq!(
             result,
             Context::from_value(json!({
@@ -1219,7 +1219,7 @@ Foo:
         let arg_def = r"<foo>+";
 
         let arg = "boo";
-        let result = parse_positional(arg, &arg_def);
+        let result = parse_positional(arg, arg_def);
         assert_eq!(
             result,
             Context::from_value(json!({
