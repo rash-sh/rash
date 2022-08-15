@@ -6,6 +6,12 @@
 
 * Command module: `transfer_pid_1` (use `transfer_pid` instead)
 
+## [v1.8.1](https://github.com/rash-sh/rash/tree/v1.8.1) (2022-08-15)
+
+### Fixed
+
+* Fix multi-word variable repr for options in docopt (#273)
+
 ## [v1.8.0](https://github.com/rash-sh/rash/tree/v1.8.0) (2022-06-30)
 
 ### Added
