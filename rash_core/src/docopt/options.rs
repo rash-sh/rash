@@ -53,6 +53,12 @@ impl OptionArg {
         .unwrap()
     }
 
+    pub fn get_key_representation(&self) -> String {
+        self.get_simple_representation()
+            .replacen('-', "", 2)
+            .replace('-', "_")
+    }
+
     pub fn get_representation(&self) -> String {
         let repr = self.get_simple_representation();
         match self {
@@ -219,7 +225,7 @@ impl Options {
         Some(
             Context::from_value(json!(
             { "options":
-                { option_arg.get_simple_representation().replace('-', ""): value
+                { option_arg.get_key_representation(): value
                 }
             }))
             .unwrap(),
@@ -246,10 +252,7 @@ impl Options {
                 };
                 json!(
                 { "options":
-                    { option_arg
-                        .get_simple_representation()
-                        .replacen('-', "", 2)
-                        .replace('-', "_"): value
+                    { option_arg.get_key_representation(): value
                     }
                 })
             })
