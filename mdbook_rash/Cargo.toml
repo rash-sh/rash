@@ -1,6 +1,6 @@
 [package]
 name = "mdbook_rash"
-version = "1.8.1"
+version = "1.8.2"
 description = "Binary to create doc from `rash` code"
 authors = ["Pando85 <pando855@gmail.com>"]
 edition = "2018"
@@ -15,7 +15,7 @@ path = "src/bin/mdbook-rash.rs"
 doc = false
 
 [dependencies]
-rash_core = { path = "../rash_core", features = ["docs"], version = "1.8.1" }
+rash_core = { path = "../rash_core", features = ["docs"], version = "1.8.2" }
 schemars = "0.8"
 clap = "2"
 chrono = "0.4"
