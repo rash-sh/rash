@@ -777,6 +777,37 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_option_multi_word() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: multi_word.py [options]
+#
+# Options
+#   -h --help    show this
+#   --dry-run    run without modifications
+#   --fast-run   run using max CPU cores
+#
+"#;
+
+        let args = vec!["--fast-run"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "options": {
+                    "dry_run": false,
+                    "fast_run": true,
+                    "help": false,
+                },
+              }))
+            .unwrap()
+        )
+    }
+
+    #[test]
     fn test_parse_option_placeholder() {
         let file = r#"
 #!/usr/bin/env rash
