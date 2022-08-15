@@ -246,7 +246,10 @@ impl Options {
                 };
                 json!(
                 { "options":
-                    { option_arg.get_simple_representation().replace('-', ""): value
+                    { option_arg
+                        .get_simple_representation()
+                        .replacen('-', "", 2)
+                        .replace('-', "_"): value
                     }
                 })
             })

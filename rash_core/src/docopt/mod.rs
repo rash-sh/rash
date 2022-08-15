@@ -752,6 +752,7 @@ mod tests {
 # -o FILE      specify output file [default: ./test.txt]
 # --quiet      print less text
 # --verbose    print more text
+# --dry-run    run without modifications
 #
 "#;
 
@@ -763,6 +764,7 @@ mod tests {
             Context::from_value(json!(
             {
                 "options": {
+                    "dry_run": false,
                     "help": false,
                     "quiet": false,
                     "sorted": true,
