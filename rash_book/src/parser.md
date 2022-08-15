@@ -14,6 +14,7 @@ Commands are parsed as `false` by default and when are passed they will appear a
 {
     "options": {
         "apply": false,
+        "dry_run": false,
         "help": false,
         "number": "10",
         "timeout": null,
