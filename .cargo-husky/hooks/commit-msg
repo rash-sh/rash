@@ -11,3 +11,20 @@ echo "Running commit lint on $1..."
 echo "You can find detailed information about commit message format here:"
 echo "  https://github.com/rash-sh/rash/blob/master/CONTRIBUTING.md#commit-messages"
 docker run --volume "${root_dir}:/app" --rm gtramontina/commitlint:8.3.5 -e "$1"
+
+NAME=$(git config user.name)
+EMAIL=$(git config user.email)
+
+if [ -z "$NAME" ]; then
+    echo "empty git config user.name"
+    exit 1
+fi
+
+if [ -z "$EMAIL" ]; then
+    echo "empty git config user.email"
+    exit 1
+fi
+
+git interpret-trailers --if-exists doNothing --trailer \
+    "Signed-off-by: $NAME <$EMAIL>" \
+    --in-place "$1"
