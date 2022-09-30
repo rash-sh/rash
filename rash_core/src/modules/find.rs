@@ -44,9 +44,10 @@ use regex::RegexSet;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_with::{serde_as, OneOrMany};
+use serde_yaml::value;
+use serde_yaml::Value;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
-use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
@@ -244,11 +245,11 @@ fn find(params: Params) -> Result<ModuleResult> {
     Ok(ModuleResult {
         changed: false,
         output: None,
-        extra: Some(json!(result)),
+        extra: Some(value::to_value(json!(result))?),
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((find(parse_params(optional_params)?)?, vars))
 }
 
@@ -260,22 +261,18 @@ mod tests {
     use std::io::Write;
 
     use tempfile::tempdir;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn test_parse_params() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-paths: /var/log
-recurse: false
-file_type: directory
-excludes: 'nginx,mysql'
-        "#,
+            paths: /var/log
+            recurse: false
+            file_type: directory
+            excludes: 'nginx,mysql'
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -291,15 +288,12 @@ excludes: 'nginx,mysql'
 
     #[test]
     fn test_parse_params_default() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-paths: /var/log
-        "#,
+            paths: /var/log
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -312,33 +306,27 @@ paths: /var/log
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-paths: /var/log
-yea: boo
-        "#,
+            paths: /var/log
+            yea: boo
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_parse_params_one_or_many() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-paths:
-  - /foo
-  - /boo
-        "#,
+            paths:
+              - /foo
+              - /boo
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -367,7 +355,9 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![file_path.to_str().unwrap().to_string()])),
+                extra: Some(
+                    value::to_value(json!(vec![file_path.to_str().unwrap().to_string()])).unwrap()
+                ),
             }
         );
     }
@@ -404,7 +394,7 @@ paths:
         let mut finds = output
             .extra
             .unwrap()
-            .as_array()
+            .as_sequence()
             .unwrap()
             .iter()
             .map(|x| x.as_str().unwrap().to_string())
@@ -451,10 +441,13 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![
-                    dir.path().to_str().unwrap().to_string(),
-                    dir_path.to_str().unwrap().to_string(),
-                ])),
+                extra: Some(
+                    value::to_value(json!(vec![
+                        dir.path().to_str().unwrap().to_string(),
+                        dir_path.to_str().unwrap().to_string(),
+                    ]))
+                    .unwrap()
+                ),
             }
         );
     }
@@ -481,7 +474,9 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![file_path.to_str().unwrap().to_string()])),
+                extra: Some(
+                    value::to_value(json!(vec![file_path.to_str().unwrap().to_string()])).unwrap()
+                ),
             }
         );
     }
@@ -508,7 +503,7 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(result)),
+                extra: Some(value::to_value(json!(result)).unwrap()),
             }
         );
     }
@@ -533,7 +528,7 @@ paths:
         let mut finds = output
             .extra
             .unwrap()
-            .as_array()
+            .as_sequence()
             .unwrap()
             .iter()
             .map(|x| x.as_str().unwrap().to_string())
@@ -571,7 +566,9 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![file_path.to_str().unwrap().to_string(),])),
+                extra: Some(
+                    value::to_value(json!(vec![file_path.to_str().unwrap().to_string(),])).unwrap()
+                ),
             }
         );
     }
@@ -599,7 +596,10 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![ignore_path.to_str().unwrap().to_string(),])),
+                extra: Some(
+                    value::to_value(json!(vec![ignore_path.to_str().unwrap().to_string(),]))
+                        .unwrap()
+                ),
             }
         );
     }
@@ -626,7 +626,9 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![dir_path.to_str().unwrap().to_string(),])),
+                extra: Some(
+                    value::to_value(json!(vec![dir_path.to_str().unwrap().to_string(),])).unwrap()
+                ),
             }
         );
     }
@@ -654,7 +656,7 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(result)),
+                extra: Some(value::to_value(json!(result)).unwrap()),
             }
         );
     }
@@ -680,7 +682,10 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![file2_path.to_str().unwrap().to_string(),])),
+                extra: Some(
+                    value::to_value(json!(vec![file2_path.to_str().unwrap().to_string(),]))
+                        .unwrap()
+                ),
             }
         );
     }
@@ -709,7 +714,7 @@ paths:
         let mut finds = output
             .extra
             .unwrap()
-            .as_array()
+            .as_sequence()
             .unwrap()
             .iter()
             .map(|x| x.as_str().unwrap().to_string())
@@ -747,7 +752,10 @@ paths:
             ModuleResult {
                 changed: false,
                 output: None,
-                extra: Some(json!(vec![parent_path.to_str().unwrap().to_string(),])),
+                extra: Some(
+                    value::to_value(json!(vec![parent_path.to_str().unwrap().to_string(),]))
+                        .unwrap()
+                ),
             }
         );
     }

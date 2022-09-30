@@ -39,37 +39,37 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::ModuleResult;
-use crate::utils::get_serde_yaml;
 use crate::vars::Vars;
 
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
-pub fn exec(params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let mut new_vars = vars;
 
-    params
-        .as_hash()
-        .ok_or_else(|| {
-            Error::new(
+    match params {
+        Value::Mapping(map) => {
+            map.iter()
+                .map(|hash_map| {
+                    new_vars.insert(
+                        hash_map.0.as_str().ok_or_else(|| {
+                            Error::new(
+                                ErrorKind::InvalidData,
+                                format!("{:?} is not a valid string", &hash_map.0),
+                            )
+                        })?,
+                        hash_map.1,
+                    );
+                    Ok(())
+                })
+                .collect::<Result<Vec<_>>>()?;
+        }
+        _ => {
+            return Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("{:?} must be a dict", &params),
-            )
-        })
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
-        .iter()
-        .map(|hash_map| {
-            new_vars.insert(
-                hash_map.0.as_str().ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        format!("{:?} is not a valid string", &hash_map.0),
-                    )
-                })?,
-                &get_serde_yaml(hash_map.1)?,
-            );
-            Ok(())
-        })
-        .collect::<Result<Vec<_>>>()?;
+            ));
+        }
+    }
 
     Ok((
         ModuleResult {

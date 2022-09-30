@@ -38,8 +38,8 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
+use serde_yaml::Value;
 use tempfile::tempfile;
-use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -186,7 +186,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((copy_file(parse_params(optional_params)?, check_mode)?, vars))
 }
 
@@ -201,21 +201,17 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use tempfile::tempdir;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn test_parse_params() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        content: "boo"
-        dest: "/tmp/buu.txt"
-        mode: "0600"
-        "#,
+            content: "boo"
+            dest: "/tmp/buu.txt"
+            mode: "0600"
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -229,40 +225,34 @@ mod tests {
 
     #[test]
     fn test_parse_params_mode_int() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        content: "boo"
-        dest: "/tmp/buu.txt"
-        mode: 0600
-        "#,
+            content: "boo"
+            dest: "/tmp/buu.txt"
+            mode: 0600
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
             Params {
                 input: Input::Content("boo".to_string()),
                 dest: "/tmp/buu.txt".to_string(),
-                mode: Some("600".to_string()),
+                mode: Some("0600".to_string()),
             }
         );
     }
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        content: "boo"
-        dest: "/tmp/buu.txt"
-        "#,
+            content: "boo"
+            dest: "/tmp/buu.txt"
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -276,16 +266,13 @@ mod tests {
 
     #[test]
     fn test_parse_params_src_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        src: "/tmp/a"
-        dest: "/tmp/buu.txt"
-        "#,
+            src: "/tmp/a"
+            dest: "/tmp/buu.txt"
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -299,34 +286,28 @@ mod tests {
 
     #[test]
     fn test_parse_params_content_and_src() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        content: "boo"
-        src: "/tmp/a"
-        dest: "/tmp/buu.txt"
-        "#,
+            content: "boo"
+            src: "/tmp/a"
+            dest: "/tmp/buu.txt"
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        random: "boo"
-        src: "/tmp/a"
-        dest: "/tmp/buu.txt"
-        "#,
+            random: "boo"
+            src: "/tmp/a"
+            dest: "/tmp/buu.txt"
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }

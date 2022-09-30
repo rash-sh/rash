@@ -3,16 +3,16 @@ use crate::modules::is_module;
 use crate::task::valid::TaskValid;
 use crate::task::Task;
 
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 /// TaskNew is a new task without a verified Yaml
 #[derive(Debug)]
 pub struct TaskNew {
-    proto_attrs: Yaml,
+    proto_attrs: Value,
 }
 
-impl From<&Yaml> for TaskNew {
-    fn from(yaml: &Yaml) -> Self {
+impl From<&Value> for TaskNew {
+    fn from(yaml: &Value) -> Self {
         TaskNew {
             proto_attrs: yaml.clone(),
         }
@@ -22,26 +22,27 @@ impl From<&Yaml> for TaskNew {
 impl TaskNew {
     /// Validate all `proto_attrs` which can be represented as String and are task fields or modules
     pub fn validate_attrs(&self) -> Result<TaskValid> {
-        let attrs_hash = self.proto_attrs.clone().into_hash().ok_or_else(|| {
+        let proto_attrs_copy = self.proto_attrs.clone();
+        let attrs_map = proto_attrs_copy.as_mapping().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidData,
-                format!("Task is not a dict {:?}", self.proto_attrs),
+                format!("Task is not a mapping {:?}", self.proto_attrs),
             )
         })?;
-        let attrs_vec = attrs_hash
+        let attrs_seq = attrs_map
             .iter()
             .map(|(key, _)| {
-                key.as_str().ok_or_else(|| {
+                key.clone().as_str().map(String::from).ok_or_else(|| {
                     Error::new(
                         ErrorKind::InvalidData,
-                        format!("Key is not valid in {:?}", self.proto_attrs),
+                        format!("{:?} is not valid in {:?}", key, self.proto_attrs),
                     )
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        if !attrs_vec
+        if !attrs_seq
             .into_iter()
-            .all(|key| is_module(key) || Task::is_attr(key))
+            .all(|key| is_module(&key) || Task::is_attr(&key))
         {
             return Err(Error::new(
                 ErrorKind::InvalidData,

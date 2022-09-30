@@ -28,13 +28,13 @@ mod tests {
     #[test]
     fn test_command_ls() {
         let file = r#"
-        #!/bin/rash
-        - name: test ls
-          command: ls
+            #!/bin/rash
+            - name: test ls
+              command: ls
 
-        - command:
-            cmd: ls /
-        "#;
+            - command:
+                cmd: ls /
+            "#;
 
         let context = Context::new(
             parse_file(file, &task::GlobalParams::default()).unwrap(),
