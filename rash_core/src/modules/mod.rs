@@ -8,7 +8,6 @@ mod set_vars;
 mod template;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::utils::get_string;
 use crate::vars::Vars;
 
 use std::collections::HashMap;
@@ -16,8 +15,7 @@ use std::collections::HashMap;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 /// Return values of a [`Module`] execution.
 ///
@@ -63,7 +61,7 @@ impl ModuleResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     name: &'static str,
-    exec_fn: fn(Yaml, Vars, bool) -> Result<(ModuleResult, Vars)>,
+    exec_fn: fn(Value, Vars, bool) -> Result<(ModuleResult, Vars)>,
     #[cfg(feature = "docs")]
     get_json_schema_fn: Option<fn() -> RootSchema>,
 }
@@ -75,7 +73,12 @@ impl Module {
     }
 
     /// Execute `self.exec_fn`.
-    pub fn exec(&self, params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
+    pub fn exec(
+        &self,
+        params: Value,
+        vars: Vars,
+        check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
         (self.exec_fn)(params, vars, check_mode)
     }
 
@@ -191,12 +194,12 @@ pub fn is_module(module: &str) -> bool {
 }
 
 #[inline(always)]
-pub fn parse_params<P>(yaml: Yaml) -> Result<P>
+pub fn parse_params<P>(yaml: Value) -> Result<P>
 where
     for<'a> P: Deserialize<'a>,
 {
     trace!("parse params: {:?}", yaml);
-    serde_yaml::from_str(&get_string(yaml)?).map_err(|e| Error::new(ErrorKind::InvalidData, e))
+    serde_yaml::from_value(yaml).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 #[inline(always)]

@@ -2,9 +2,6 @@ pub mod tera;
 
 use crate::error::{Error, ErrorKind, Result};
 
-use serde_yaml::Value;
-use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
-
 pub fn parse_octal(s: &str) -> Result<u32> {
     match s.len() {
         3 => u32::from_str_radix(s, 8).map_err(|e| Error::new(ErrorKind::InvalidData, e)),
@@ -15,29 +12,6 @@ pub fn parse_octal(s: &str) -> Result<u32> {
             format!("{} cannot be parsed to octal", s),
         )),
     }
-}
-
-pub fn get_yaml(s: &str) -> Result<Yaml> {
-    let doc = YamlLoader::load_from_str(s).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-    Ok(doc.first().unwrap().clone())
-}
-
-pub fn get_string(yaml: Yaml) -> Result<String> {
-    let mut yaml_str = String::new();
-    let mut emitter = YamlEmitter::new(&mut yaml_str);
-    emitter
-        .dump(&yaml)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-    Ok(yaml_str)
-}
-
-pub fn get_serde_yaml(yaml: &Yaml) -> Result<Value> {
-    let mut yaml_str = String::new();
-    let mut emitter = YamlEmitter::new(&mut yaml_str);
-    emitter
-        .dump(yaml)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-    serde_yaml::from_str(&yaml_str).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 pub fn merge_json(a: &mut serde_json::Value, b: serde_json::Value) {
@@ -74,35 +48,5 @@ mod tests {
         assert_eq!(parse_octal("0444").unwrap(), 0o444);
         assert_eq!(parse_octal("600").unwrap(), 0o600);
         assert_eq!(parse_octal("0600").unwrap(), 0o600);
-    }
-
-    #[test]
-    fn test_get_yaml() {
-        let yaml = get_yaml("foo: boo").unwrap();
-        assert_eq!(yaml["foo"].as_str().unwrap(), "boo")
-    }
-
-    #[test]
-    fn test_get_string() {
-        let yaml = YamlLoader::load_from_str(
-            r#"
-            path: /yea
-            state: file
-            mode: "0644"
-        "#,
-        )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
-        let yaml_string = get_string(yaml).unwrap();
-        assert_eq!(
-            yaml_string,
-            r#"---
-path: /yea
-state: file
-mode: "0644""#
-                .to_string()
-        )
     }
 }

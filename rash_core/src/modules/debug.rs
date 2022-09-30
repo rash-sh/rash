@@ -33,7 +33,8 @@ use rash_derive::DocJsonSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
+
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
@@ -66,7 +67,7 @@ fn debug(params: Params, vars: &Vars) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((debug(parse_params(optional_params)?, &vars)?, vars))
 }
 
@@ -74,19 +75,14 @@ pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(Mod
 mod tests {
     use super::*;
 
-    use yaml_rust::YamlLoader;
-
     #[test]
     fn test_parse_params() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-msg: foo boo
-        "#,
+            msg: foo boo
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -98,15 +94,12 @@ msg: foo boo
 
     #[test]
     fn test_parse_params_default() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-var: rash.args
-        "#,
+            var: rash.args
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,

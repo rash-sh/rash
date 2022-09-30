@@ -636,7 +636,7 @@ mod tests {
                 "set": true,
                 "ship": false,
                 "shoot": false
-              }))
+            }))
             .unwrap()
         );
 
@@ -660,7 +660,7 @@ mod tests {
                     "version": false,
                 },
                 "name": [
-                  "foo"
+                    "foo"
                 ],
                 "x": "2",
                 "y": "3",
@@ -671,7 +671,7 @@ mod tests {
                 "set": false,
                 "ship": true,
                 "shoot": false
-              }))
+            }))
             .unwrap()
         );
 
@@ -690,7 +690,7 @@ mod tests {
                     "version": false,
                 },
                 "name": [
-                  "foo"
+                    "foo"
                 ],
                 "x": "2",
                 "y": "3",
@@ -701,7 +701,7 @@ mod tests {
                 "set": false,
                 "ship": true,
                 "shoot": false
-              }))
+            }))
             .unwrap()
         );
 
@@ -720,7 +720,7 @@ mod tests {
                     "version": false,
                 },
                 "name": [
-                  "foo"
+                    "foo"
                 ],
                 "x": "2",
                 "y": "3",
@@ -731,7 +731,7 @@ mod tests {
                 "set": false,
                 "ship": true,
                 "shoot": false
-              }))
+            }))
             .unwrap()
         );
 
@@ -771,7 +771,7 @@ mod tests {
                     "verbose": false,
                     "o": "yea",
                 },
-              }))
+            }))
             .unwrap()
         )
     }
@@ -802,7 +802,7 @@ mod tests {
                     "fast_run": true,
                     "help": false,
                 },
-              }))
+            }))
             .unwrap()
         )
     }
@@ -836,7 +836,7 @@ mod tests {
                     "number": "10",
                     "timeout": null,
                     "version": false,
-                   "q": true,
+                    "q": true,
                 },
                 "port": "443"
             }))

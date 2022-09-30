@@ -42,9 +42,9 @@ use std::path::Path;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
+use serde_yaml::Value;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
-use yaml_rust::Yaml;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -307,7 +307,7 @@ fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     }
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((
         define_file(parse_params(optional_params)?, check_mode)?,
         vars,
@@ -322,21 +322,17 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use tempfile::tempdir;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn test_parse_params() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
             path: /yea
             state: file
             mode: "0644"
-        "#,
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -350,32 +346,26 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_path() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
             mode: "0644"
             state: file
-        "#,
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
             path: foo
             state: directory
-        "#,
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -389,33 +379,27 @@ mod tests {
 
     #[test]
     fn test_parse_params_invalid_mode() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
             mode:
               yea: boo
             path: foo
             state: directory
-        "#,
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_parse_params_no_state() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
             path: foo
         "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,

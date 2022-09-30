@@ -5,11 +5,10 @@ use crate::vars::Vars;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 
-use serde_json::value::Value;
+use serde_yaml::value::Value;
 use tera::Tera;
-use yaml_rust::Yaml;
 
-fn omit(_: &HashMap<String, Value>) -> tera::Result<Value> {
+fn omit(_: &HashMap<String, serde_json::value::Value>) -> tera::Result<serde_json::value::Value> {
     Err(tera::Error::call_filter(
         "omit",
         tera::Error::msg("Not defined"),
@@ -27,25 +26,24 @@ lazy_static! {
 }
 
 #[inline(always)]
-pub fn render(yaml: Yaml, vars: &Vars) -> Result<Yaml> {
-    match yaml {
-        Yaml::String(s) => Ok(Yaml::String(render_string(&s, vars)?)),
-        Yaml::Real(x) => Ok(Yaml::Real(x)),
-        Yaml::Integer(_) => Ok(yaml),
-        Yaml::Boolean(_) => Ok(yaml),
-        Yaml::Array(v) => Ok(Yaml::Array(
+pub fn render(value: Value, vars: &Vars) -> Result<Value> {
+    match value {
+        Value::String(s) => Ok(Value::String(render_string(&s, vars)?)),
+        Value::Number(_) => Ok(value),
+        Value::Bool(_) => Ok(value),
+        Value::Sequence(v) => Ok(Value::Sequence(
             v.iter()
                 .map(|x| render(x.clone(), vars))
                 .collect::<Result<Vec<_>>>()?,
         )),
-        Yaml::Hash(x) => Ok(Yaml::Hash(
+        Value::Mapping(x) => Ok(Value::Mapping(
             x.iter()
-                .map(|t| render((*t.1).clone(), vars).map(|yaml| ((*t.0).clone(), yaml)))
+                .map(|t| render((*t.1).clone(), vars).map(|value| ((*t.0).clone(), value)))
                 .collect::<Result<_>>()?,
         )),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
-            format!("{yaml:?} is not a valid render value"),
+            format!("{value:?} is not a valid render value"),
         )),
     }
 }
@@ -90,11 +88,11 @@ mod tests {
 
     #[test]
     fn test_render() {
-        let r_yaml = render(Yaml::Integer(1).clone(), &Vars::new()).unwrap();
-        assert_eq!(r_yaml, Yaml::Integer(1));
+        let r_yaml = render(Value::from(1), &Vars::new()).unwrap();
+        assert_eq!(r_yaml, Value::from(1));
 
-        let r_yaml = render(Yaml::String("yea".to_string()), &Vars::new()).unwrap();
-        assert_eq!(r_yaml, Yaml::String("yea".to_string()));
+        let r_yaml = render(Value::from("yea"), &Vars::new()).unwrap();
+        assert_eq!(r_yaml, Value::from("yea"));
     }
 
     #[test]

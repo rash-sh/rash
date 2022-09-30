@@ -32,7 +32,7 @@ use rash_derive::DocJsonSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -65,7 +65,7 @@ fn verify_conditions(params: Params, vars: &Vars) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     Ok((
         verify_conditions(parse_params(optional_params)?, &vars)?,
         vars,
@@ -76,20 +76,15 @@ pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(Mod
 mod tests {
     use super::*;
 
-    use yaml_rust::YamlLoader;
-
     #[test]
     fn test_parse_params() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        that:
-          - 1 == 1
-        "#,
+            that:
+              - 1 == 1
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -101,17 +96,14 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        that:
-          - 1 == 1
-        yea: boo
-        "#,
+            that:
+              - 1 == 1
+            yea: boo
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }

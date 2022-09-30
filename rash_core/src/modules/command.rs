@@ -34,7 +34,8 @@ use exec as exec_command;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use yaml_rust::Yaml;
+use serde_yaml::value;
+use serde_yaml::Value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -80,7 +81,7 @@ fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Vars)> {
     Err(Error::new(ErrorKind::SubprocessFail, error))
 }
 
-pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
     let params: Params = match optional_params.as_str() {
         Some(s) => Params {
             required: Required::Cmd(s.to_string()),
@@ -138,14 +139,16 @@ pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(Mod
                         Some(output_string)
                     };
 
+                    let extra = Some(value::to_value(json!({
+                        "rc": output.status.code(),
+                        "stderr": stderr,
+                    }))?);
+
                     Ok((
                         ModuleResult {
                             changed: true,
                             output: module_output,
-                            extra: Some(json!({
-                                "rc": output.status.code(),
-                                "stderr": stderr,
-                            })),
+                            extra,
                         },
                         vars,
                     ))
@@ -159,20 +162,15 @@ pub fn exec(optional_params: Yaml, vars: Vars, _check_mode: bool) -> Result<(Mod
 mod tests {
     use super::*;
 
-    use yaml_rust::YamlLoader;
-
     #[test]
     fn test_parse_params() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        cmd: "ls"
-        transfer_pid: false
-        "#,
+            cmd: "ls"
+            transfer_pid: false
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params,
@@ -186,32 +184,26 @@ mod tests {
 
     #[test]
     fn test_parse_params_without_cmd_or_argv() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        transfer_pid: false
-        "#,
+            transfer_pid: false
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml = YamlLoader::load_from_str(
+        let yaml: Value = serde_yaml::from_str(
             r#"
-        cmd: "ls"
-        yea: boo
-        transfer_pid: false
-        "#,
+            cmd: "ls"
+            yea: boo
+            transfer_pid: false
+            "#,
         )
-        .unwrap()
-        .first()
-        .unwrap()
-        .clone();
+        .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }

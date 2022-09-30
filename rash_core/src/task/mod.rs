@@ -5,7 +5,6 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 use crate::utils::tera::{is_render_string, render, render_as_json, render_string};
-use crate::utils::{get_serde_yaml, get_yaml};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
@@ -18,7 +17,7 @@ use ipc_channel::ipc::{self, IpcSender};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
 use serde_error::Error as SerdeError;
-use yaml_rust::{Yaml, YamlLoader};
+use serde_yaml::Value;
 
 /// Parameters that can be set globally
 pub struct GlobalParams<'a> {
@@ -59,7 +58,7 @@ pub struct Task {
     /// Params are module execution params passed to [`Module::exec`].
     ///
     /// [`Module::exec`]: ../modules/struct.Module.html#method.exec
-    params: Yaml,
+    params: Value,
     /// Template expression passed directly without {{ }};
     /// Overwrite changed field in [`ModuleResult`].
     ///
@@ -70,7 +69,7 @@ pub struct Task {
     /// Task name.
     name: Option<String>,
     /// `loop` receives a Template (with {{ }}) or a list to iterate over it.
-    r#loop: Option<Yaml>,
+    r#loop: Option<Value>,
     /// Variable name to store [`ModuleResult`].
     ///
     /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
@@ -86,15 +85,15 @@ pub struct Task {
 pub type Tasks = Vec<Task>;
 
 impl Task {
-    /// Create a new Task from [`Yaml`].
+    /// Create a new Task from [`Value`].
     /// Enforcing all key values are valid using TaskNew and TaskValid internal states.
     ///
     /// All final values must be convertible to String and all keys must contain one module and
     /// [`Task`] fields.
     ///
     /// [`Task`]: struct.Task.html
-    /// [`Yaml`]: ../../yaml_rust/struct.Yaml.html
-    pub fn new(yaml: &Yaml, global_params: &GlobalParams) -> Result<Self> {
+    /// [`Value`]: ../../serde_yaml/enum.Value.html
+    pub fn new(yaml: &Value, global_params: &GlobalParams) -> Result<Self> {
         trace!("new task: {:?}", yaml);
         TaskNew::from(yaml)
             .validate_attrs()?
@@ -106,45 +105,38 @@ impl Task {
         Self::get_field_names().contains(attr)
     }
 
-    fn render_params(&self, vars: Vars) -> Result<Yaml> {
+    fn render_params(&self, vars: Vars) -> Result<Value> {
         let original_params = self.params.clone();
-        match original_params.as_hash() {
-            Some(hash) => match hash
-                .clone()
+        match original_params {
+            Value::Mapping(map) => match map
                 .iter()
-                .filter_map(|t| match &t.1.clone().as_str() {
-                    Some(s) => match render_string(s, &vars) {
-                        Ok(s) => Some(Ok((t.0.clone(), Yaml::String(s)))),
+                .filter_map(|t| match t.1 {
+                    Value::String(s) => match render_string(s, &vars) {
+                        Ok(s) => Some(Ok((t.0.clone(), Value::String(s)))),
                         Err(e) if e.kind() == ErrorKind::OmitParam => None,
                         Err(e) => Some(Err(e)),
                     },
-                    None => match t.1.clone().as_vec() {
-                        Some(x) => match x
-                            .iter()
-                            .map(|yaml| render(yaml.clone(), &vars))
-                            .collect::<Result<Vec<Yaml>>>()
-                        {
-                            Ok(rendered_vec) => Some(Ok((t.0.clone(), Yaml::Array(rendered_vec)))),
-                            Err(e) => Some(Err(e)),
-                        },
-                        None => Some(Ok((t.0.clone(), t.1.clone()))),
+                    Value::Sequence(x) => match x
+                        .iter()
+                        .map(|value| render(value.clone(), &vars))
+                        .collect::<Result<Vec<Value>>>()
+                    {
+                        Ok(rendered_vec) => Some(Ok((t.0.clone(), Value::Sequence(rendered_vec)))),
+                        Err(e) => Some(Err(e)),
                     },
+                    _ => Some(Ok((t.0.clone(), t.1.clone()))),
                 })
                 .collect::<Result<_>>()
             {
-                Ok(hash) => Ok(Yaml::Hash(hash)),
+                Ok(map) => Ok(Value::Mapping(map)),
                 Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
             },
 
-            None => Ok(Yaml::String(render_string(
-                original_params.as_str().ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        format!("{:?} must be a string", original_params),
-                    )
-                })?,
-                &vars,
-            )?)),
+            Value::String(s) => Ok(Value::String(render_string(&s, &vars)?)),
+            _ => Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("{:?} must be a mapping or  a string", original_params),
+            )),
         }
     }
 
@@ -156,25 +148,25 @@ impl Task {
         }
     }
 
-    fn get_iterator(yaml: &Yaml, vars: Vars) -> Result<Vec<Yaml>> {
-        match yaml.as_vec() {
+    fn get_iterator(value: &Value, vars: Vars) -> Result<Vec<Value>> {
+        match value.as_sequence() {
             Some(v) => Ok(v
                 .iter()
                 .map(|item| render(item.clone(), &vars))
-                .collect::<Result<Vec<Yaml>>>()?),
+                .collect::<Result<Vec<Value>>>()?),
             None => Err(Error::new(ErrorKind::NotFound, "loop is not iterable")),
         }
     }
 
-    fn render_iterator(&self, vars: Vars) -> Result<Vec<Yaml>> {
+    fn render_iterator(&self, vars: Vars) -> Result<Vec<Value>> {
         // safe unwrap, previous verification self.r#loop.is_some()
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
-                let yaml = get_yaml(&render_as_json(s, &vars)?)?;
-                match yaml.as_str() {
-                    Some(_) => Ok(vec![yaml]),
-                    None => Task::get_iterator(&yaml, vars),
+                let value: Value = serde_yaml::from_str(&render_as_json(s, &vars)?)?;
+                match value.as_str() {
+                    Some(_) => Ok(vec![value]),
+                    None => Task::get_iterator(&value, vars),
                 }
             }
             None => Task::get_iterator(&loop_some, vars),
@@ -191,7 +183,7 @@ impl Task {
 
     fn exec_module_rendered_with_user(
         &self,
-        rendered_params: &Yaml,
+        rendered_params: &Value,
         vars: &Vars,
         user: User,
     ) -> Result<Vars> {
@@ -210,7 +202,7 @@ impl Task {
         }
     }
 
-    fn exec_module_rendered(&self, rendered_params: &Yaml, vars: &Vars) -> Result<Vars> {
+    fn exec_module_rendered(&self, rendered_params: &Value, vars: &Vars) -> Result<Vars> {
         match self
             .module
             .exec(rendered_params.clone(), vars.clone(), self.check_mode)
@@ -250,14 +242,10 @@ impl Task {
 
             match self.r#become {
                 true => {
-                    let user = match User::from_name(&self.become_user)
-                        .map_err(|e| Error::new(ErrorKind::Other, e))?
-                    {
+                    let user = match User::from_name(&self.become_user)? {
                         Some(user) => Ok(user),
                         None => match self.become_user.parse::<u32>().map(Uid::from_raw) {
-                            Ok(uid) => match User::from_uid(uid)
-                                .map_err(|e| Error::new(ErrorKind::Other, e))?
-                            {
+                            Ok(uid) => match User::from_uid(uid)? {
                                 Some(user) => Ok(user),
                                 None => Err(Error::new(
                                     ErrorKind::NotFound,
@@ -362,7 +350,7 @@ impl Task {
         if self.r#loop.is_some() {
             let mut new_vars = vars.clone();
             for item in self.render_iterator(vars)?.into_iter() {
-                new_vars.insert("item", &get_serde_yaml(&item)?);
+                new_vars.insert("item", &item);
                 new_vars = self.exec_module(new_vars.clone())?;
             }
             Ok(new_vars)
@@ -404,11 +392,7 @@ impl Task {
             become_user: GlobalParams::default().become_user.to_string(),
             check_mode: GlobalParams::default().check_mode,
             module: Module::test_example(),
-            params: YamlLoader::load_from_str("cmd: ls")
-                .unwrap()
-                .first()
-                .unwrap()
-                .clone(),
+            params: serde_yaml::from_str("cmd: ls").unwrap(),
             changed_when: None,
             ignore_errors: None,
             name: None,
@@ -420,9 +404,9 @@ impl Task {
 }
 
 #[cfg(test)]
-impl From<&Yaml> for Task {
-    fn from(yaml: &Yaml) -> Self {
-        TaskNew::from(yaml)
+impl From<Value> for Task {
+    fn from(value: Value) -> Self {
+        TaskNew::from(&value)
             .validate_attrs()
             .unwrap()
             .get_task(&GlobalParams::default())
@@ -431,15 +415,8 @@ impl From<&Yaml> for Task {
 }
 
 pub fn parse_file(tasks_file: &str, global_params: &GlobalParams) -> Result<Tasks> {
-    let docs = YamlLoader::load_from_str(tasks_file)?;
-    let yaml = docs.first().ok_or_else(|| {
-        Error::new(
-            ErrorKind::InvalidData,
-            format!("Docs not contain yaml: {:?}", docs),
-        )
-    })?;
-
-    yaml.clone()
+    let tasks: Vec<Value> = serde_yaml::from_str(tasks_file)?;
+    tasks
         .into_iter()
         .map(|task| Task::new(&task, global_params))
         .collect::<Result<Tasks>>()
@@ -455,17 +432,15 @@ mod tests {
     use std::collections::HashMap;
 
     use tera::Context;
-    use yaml_rust::YamlLoader;
 
     #[test]
     fn test_from_yaml() {
         let s: String = r#"
-        name: 'Test task'
-        command: 'example'
-        "#
+            name: 'Test task'
+            command: 'example'
+            "#
         .to_owned();
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
 
         assert_eq!(task.name.unwrap(), "Test task");
@@ -475,40 +450,37 @@ mod tests {
     #[test]
     fn test_from_yaml_no_module() {
         let s = r#"
-        name: 'Test task'
-        no_module: 'example'
-        "#
+            name: 'Test task'
+            no_module: 'example'
+            "#
         .to_owned();
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
-        let task_err = Task::new(yaml, &GlobalParams::default()).unwrap_err();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
+        let task_err = Task::new(&yaml, &GlobalParams::default()).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_from_yaml_invalid_attr() {
         let s = r#"
-        name: 'Test task'
-        command: 'example'
-        invalid_attr: 'foo'
-        "#
+            name: 'Test task'
+            command: 'example'
+            invalid_attr: 'foo'
+            "#
         .to_owned();
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
-        let task_err = Task::new(yaml, &GlobalParams::default()).unwrap_err();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
+        let task_err = Task::new(&yaml, &GlobalParams::default()).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
     fn test_is_exec() {
         let s: String = r#"
-        when: "boo == 'test'"
-        command: 'example'
-        "#
+            when: "boo == 'test'"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
     }
@@ -516,13 +488,12 @@ mod tests {
     #[test]
     fn test_is_exec_parsed_bool() {
         let s: String = r#"
-        when: "boo | bool"
-        command: 'example'
-        "#
+            when: "boo | bool"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "false")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -530,13 +501,12 @@ mod tests {
     #[test]
     fn test_is_exec_false() {
         let s: String = r#"
-        when: "boo != 'test'"
-        command: 'example'
-        "#
+            when: "boo != 'test'"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -544,13 +514,12 @@ mod tests {
     #[test]
     fn test_is_exec_bool_false() {
         let s: String = r#"
-        when: false
-        command: 'example'
-        "#
+            when: false
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -558,15 +527,14 @@ mod tests {
     #[test]
     fn test_is_exec_array() {
         let s: String = r#"
-        when:
-          - true
-          - "boo == 'test'"
-        command: 'example'
-        "#
+            when:
+              - true
+              - "boo == 'test'"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
     }
@@ -574,15 +542,14 @@ mod tests {
     #[test]
     fn test_is_exec_array_one_false() {
         let s: String = r#"
-        when:
-          - false
-          - "boo == 'test'"
-        command: 'example'
-        "#
+            when:
+              - false
+              - "boo == 'test'"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -590,33 +557,31 @@ mod tests {
     #[test]
     fn test_render_iterator() {
         let s: String = r#"
-        command: 'example'
-        loop:
-          - 1
-          - 2
-          - 3
-        "#
+            command: 'example'
+            loop:
+              - 1
+              - 2
+              - 3
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
             task.render_iterator(vars).unwrap(),
-            vec![Yaml::Integer(1), Yaml::Integer(2), Yaml::Integer(3)]
+            vec![Value::from(1), Value::from(2), Value::from(3)]
         );
     }
 
     #[test]
     fn test_is_changed() {
         let s: String = r#"
-        changed_when: "boo == 'test'"
-        command: 'example'
-        "#
+            changed_when: "boo == 'test'"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
             .is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -626,13 +591,12 @@ mod tests {
     #[test]
     fn test_is_changed_bool_true() {
         let s: String = r#"
-        changed_when: true
-        command: 'example'
-        "#
+            changed_when: true
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
             .is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -642,13 +606,12 @@ mod tests {
     #[test]
     fn test_is_changed_bool_false() {
         let s: String = r#"
-        changed_when: false
-        command: 'example'
-        "#
+            changed_when: false
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
             .is_changed(&ModuleResult::new(true, None, None), &vars)
@@ -658,13 +621,12 @@ mod tests {
     #[test]
     fn test_is_changed_string_false() {
         let s: String = r#"
-        changed_when: "false"
-        command: 'example'
-        "#
+            changed_when: "false"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
             .is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -674,13 +636,12 @@ mod tests {
     #[test]
     fn test_is_changed_false() {
         let s: String = r#"
-        changed_when: "boo != 'test'"
-        command: 'example'
-        "#
+            changed_when: "boo != 'test'"
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
             .is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -690,15 +651,14 @@ mod tests {
     #[test]
     fn test_is_changed_array() {
         let s: String = r#"
-        changed_when:
-          - "boo == 'test'"
-          - true
-        command: 'example'
-        "#
+            changed_when:
+              - "boo == 'test'"
+              - true
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
             .is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -708,15 +668,14 @@ mod tests {
     #[test]
     fn test_is_changed_array_false() {
         let s: String = r#"
-        changed_when:
-          - "boo == 'test'"
-          - false
-        command: 'example'
-        "#
+            changed_when:
+              - "boo == 'test'"
+              - false
+            command: 'example'
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
             .is_changed(&ModuleResult::new(true, None, None), &vars)
@@ -726,17 +685,16 @@ mod tests {
     #[test]
     fn test_when_in_loop() {
         let s: String = r#"
-        command: echo 'example'
-        loop:
-          - 1
-          - 2
-          - 3
-        when: item == 1
-        "#
+            command: echo 'example'
+            loop:
+              - 1
+              - 2
+              - 3
+            when: item == 1
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         let result = task.exec(vars).unwrap();
         let mut expected = Context::new();
@@ -747,36 +705,34 @@ mod tests {
     #[test]
     fn test_render_iterator_var() {
         let s: String = r#"
-        command: 'example'
-        loop: "{{ range(end=3) }}"
-        "#
+            command: 'example'
+            loop: "{{ range(end=3) }}"
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
             task.render_iterator(vars).unwrap(),
-            vec![Yaml::Integer(0), Yaml::Integer(1), Yaml::Integer(2)]
+            vec![Value::from(0), Value::from(1), Value::from(2)]
         );
     }
 
     #[test]
     fn test_render_iterator_list_with_vars() {
         let s: String = r#"
-        command: 'example'
-        loop:
-          - "{{ boo }}"
-          - 2
-        "#
+            command: 'example'
+            loop:
+              - "{{ boo }}"
+              - 2
+            "#
         .to_owned();
         let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-        let out = YamlLoader::load_from_str(&s).unwrap();
-        let yaml = out.first().unwrap();
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
             task.render_iterator(vars).unwrap(),
-            vec![Yaml::String("test".to_string()), Yaml::Integer(2)]
+            vec![Value::from("test"), Value::from(2)]
         );
     }
 
@@ -791,48 +747,48 @@ mod tests {
     #[test]
     fn test_read_tasks() {
         let file = r#"
-        #!/bin/rash
-        - name: task 1
-          command:
-            foo: boo
+            #!/bin/rash
+            - name: task 1
+              command:
+                foo: boo
 
-        - name: task 2
-          command: boo
-        "#;
+            - name: task 2
+              command: boo
+            "#;
 
         let tasks = parse_file(file, &GlobalParams::default()).unwrap();
         assert_eq!(tasks.len(), 2);
 
         let s0 = r#"
-        name: task 1
-        command:
-          foo: boo
-        "#
+            name: task 1
+            command:
+              foo: boo
+            "#
         .to_owned();
-        let yaml = get_yaml(&s0).unwrap();
-        let task_0 = Task::from(&yaml);
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task_0 = Task::from(yaml);
         assert_eq!(tasks[0], task_0);
 
         let s1 = r#"
-        name: task 2
-        command: boo
-        "#
+            name: task 2
+            command: boo
+            "#
         .to_owned();
-        let yaml = get_yaml(&s1).unwrap();
-        let task_1 = Task::from(&yaml);
+        let yaml: Value = serde_yaml::from_str(&s1).unwrap();
+        let task_1 = Task::from(yaml);
         assert_eq!(tasks[1], task_1);
     }
 
     #[test]
     fn test_render_params() {
         let s0 = r#"
-        name: task 1
-        command:
-          cmd: ls {{ directory }}
-        "#
+            name: task 1
+            command:
+              cmd: ls {{ directory }}
+            "#
         .to_owned();
-        let yaml = get_yaml(&s0).unwrap();
-        let task = Task::from(&yaml);
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
         let vars = Vars::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
@@ -849,12 +805,12 @@ mod tests {
     #[test]
     fn test_render_params_no_hash_map() {
         let s0 = r#"
-        name: task 1
-        command: ls {{ directory }}
-        "#
+            name: task 1
+            command: ls {{ directory }}
+            "#
         .to_owned();
-        let yaml = get_yaml(&s0).unwrap();
-        let task = Task::from(&yaml);
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
         let vars = Vars::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()

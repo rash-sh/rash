@@ -4,16 +4,16 @@ use crate::task::{GlobalParams, Task};
 
 use std::collections::HashSet;
 
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 /// TaskValid is a ProtoTask with verified attrs (one module and valid attrs)
 #[derive(Debug)]
 pub struct TaskValid {
-    attrs: Yaml,
+    attrs: Value,
 }
 
 impl TaskValid {
-    pub fn new(attrs: &Yaml) -> Self {
+    pub fn new(attrs: &Value) -> Self {
         TaskValid {
             attrs: attrs.clone(),
         }
@@ -23,7 +23,7 @@ impl TaskValid {
         self.attrs
             .clone()
             // safe unwrap: validated attr
-            .into_hash()
+            .as_mapping()
             .unwrap()
             .iter()
             // safe unwrap: validated attr
@@ -56,8 +56,8 @@ impl TaskValid {
             })
     }
 
-    fn parse_array(&'_ self, attr: &Yaml) -> Option<String> {
-        match attr.as_vec() {
+    fn parse_array(&'_ self, attr: &Value) -> Option<String> {
+        match attr.as_sequence() {
             Some(v) => Some(
                 v.iter()
                     .map(|x| self.parse_bool_or_string(x))
@@ -72,7 +72,7 @@ impl TaskValid {
         }
     }
 
-    fn parse_bool_or_string(&'_ self, attr: &Yaml) -> Option<String> {
+    fn parse_bool_or_string(&'_ self, attr: &Value) -> Option<String> {
         match attr.as_bool() {
             Some(x) => match x {
                 true => Some("true".to_string()),
@@ -111,11 +111,7 @@ impl TaskValid {
             params: self.attrs[module_name].clone(),
             name: self.attrs["name"].as_str().map(String::from),
             ignore_errors: self.attrs["ignore_errors"].as_bool(),
-            r#loop: if self.attrs["loop"].is_badvalue() {
-                None
-            } else {
-                Some(self.attrs["loop"].clone())
-            },
+            r#loop: self.attrs.get("loop").map(|_| self.attrs["loop"].clone()),
             register: self.attrs["register"].as_str().map(String::from),
             when: self.parse_array(&self.attrs["when"]),
         })
