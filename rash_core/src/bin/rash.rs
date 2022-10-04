@@ -10,7 +10,7 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
 
-use clap::{crate_authors, crate_description, crate_version, Parser};
+use clap::{crate_authors, crate_description, crate_version, ArgAction, Parser};
 
 #[macro_use]
 extern crate log;
@@ -30,7 +30,7 @@ where
 }
 
 #[derive(Parser, Debug)]
-#[clap(
+#[command(
     name="rash",
     about = crate_description!(),
     version = crate_version!(),
@@ -38,23 +38,23 @@ where
 )]
 struct Args {
     /// run operations with become (does not imply password prompting)
-    #[clap(short, long)]
+    #[arg(short, long)]
     r#become: bool,
     /// run operations as this user (just works with become enabled)
-    #[clap(short='u', long, default_value=GlobalParams::default().become_user)]
+    #[arg(short='u', long, default_value=GlobalParams::default().become_user)]
     become_user: String,
     /// Execute in dry-run mode without modifications
-    #[clap(short, long)]
+    #[arg(short, long)]
     check: bool,
     /// Show the differences
-    #[clap(short, long)]
+    #[arg(short, long)]
     diff: bool,
     /// Set environment variables (Example: KEY=VALUE)
     /// It can be accessed from builtin `{{ env }}`. E.g.: `{{ env.USER }}`
-    #[clap(short, long, multiple_occurrences = true, parse(try_from_str = parse_key_val), number_of_values = 1)]
+    #[arg(short, long, action = ArgAction::Append, value_parser = parse_key_val::<String, String>, num_args = 1)]
     environment: Vec<(String, String)>,
     /// Verbose mode (-vv for more)
-    #[clap(short, long, parse(from_occurrences))]
+    #[arg(short, long, action = ArgAction::Count)]
     verbose: u8,
     /// Script file to be executed
     script_file: String,
@@ -62,7 +62,7 @@ struct Args {
     ///
     /// It can be accessed from builtin `{{ rash.args }}` as list of strings or if usage is defined
     /// they will be parsed and added as variables too. For more information check rash_book.
-    #[clap(multiple_occurrences = true, takes_value = true, number_of_values = 1)]
+    #[arg(action = ArgAction::Append, num_args = 1)]
     script_args: Vec<String>,
 }
 
@@ -141,4 +141,10 @@ fn main() {
         },
         Err(e) => crash_error(e),
     }
+}
+
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Args::command().debug_assert()
 }
