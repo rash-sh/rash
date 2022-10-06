@@ -1,4 +1,4 @@
-#!/usr/bin/env rash
+#!/usr/bin/env -S rash --
 #
 # Copy files from source to dest dir
 #
