@@ -104,6 +104,10 @@ jobs:
         esac
 
     - uses: Swatinem/rust-cache@v1
+      with:
+        # not reuse cache between different targets:
+        # https://github.com/cross-rs/cross/issues/39#issuecomment-270684223
+        key: ${{ matrix.job.target }}
 
     - name: Install Rust toolchain
       uses: actions-rs/toolchain@v1
