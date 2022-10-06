@@ -22,7 +22,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         None => return Ok(vars),
     };
 
-    let options = options::Options::parse_doc(&help_msg, &usages);
+    let options = options::Options::parse_doc(&help_msg, &usages)?;
     trace!("options: {options:?}");
 
     let expanded_args =
@@ -105,6 +105,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
     // init vars
     vars.extend(options.initial_vars());
     args_defs_expand_repeatable
+        .clone()
         .iter()
         .enumerate()
         .flat_map(|(usage_idx, args_def)| {
@@ -585,6 +586,72 @@ mod tests {
             }))
             .unwrap()
         )
+    }
+
+    #[test]
+    fn test_parse_repeatable_option() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [-d]...
+#
+"#;
+
+        let args = vec![];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "options": {
+                    "d": 0,
+                },
+            }))
+            .unwrap()
+        );
+
+        let args = vec!["-d"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "options": {
+                    "d": 1,
+                },
+            }))
+            .unwrap()
+        );
+
+        let args = vec!["-dd"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "options": {
+                    "d": 2,
+                },
+            }))
+            .unwrap()
+        );
+
+        let args = vec!["-d", "-d"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "options": {
+                    "d": 2,
+                },
+            }))
+            .unwrap()
+        );
     }
 
     #[test]

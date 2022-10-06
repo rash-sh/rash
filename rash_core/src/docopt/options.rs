@@ -15,9 +15,13 @@ lazy_static! {
     static ref RE_DEFAULT_VALUE: Regex = Regex::new(r"\[default: (.*)\]").unwrap();
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum OptionArg {
     Simple {
+        short: Option<String>,
+        long: Option<String>,
+    },
+    Repeatable {
         short: Option<String>,
         long: Option<String>,
     },
@@ -32,6 +36,7 @@ impl OptionArg {
     pub fn get_short(&self) -> Option<String> {
         match self {
             OptionArg::Simple { short, .. } => short.clone(),
+            OptionArg::Repeatable { short, .. } => short.clone(),
             OptionArg::WithParam { short, .. } => short.clone(),
         }
     }
@@ -39,18 +44,17 @@ impl OptionArg {
     pub fn get_long(&self) -> Option<String> {
         match self {
             OptionArg::Simple { long, .. } => long.clone(),
+            OptionArg::Repeatable { long, .. } => long.clone(),
             OptionArg::WithParam { long, .. } => long.clone(),
         }
     }
 
     pub fn get_simple_representation(&self) -> String {
-        if self.get_long().is_some() {
-            self.get_long()
-        } else {
-            self.get_short()
+        match self.get_long() {
+            Some(s) => s,
             // safe unwrap: if it long is None, short should be Some
+            None => self.get_short().unwrap(),
         }
-        .unwrap()
     }
 
     pub fn get_key_representation(&self) -> String {
@@ -63,24 +67,95 @@ impl OptionArg {
         let repr = self.get_simple_representation();
         match self {
             OptionArg::Simple { .. } => repr,
+            OptionArg::Repeatable { .. } => repr,
             OptionArg::WithParam { .. } => format!("{repr}=<{repr}>"),
+        }
+    }
+
+    pub fn merge(&self, option: &Self) -> Result<Self> {
+        if option == self {
+            return Ok(self.clone());
+        }
+
+        let compare_attr = |a: Option<String>, b: Option<String>| -> Result<Option<String>> {
+            match (a, b) {
+                (Some(x), Some(y)) => {
+                    if x != y {
+                        Err(Error::new(
+                            ErrorKind::InvalidData,
+                            format!("Not mergeable options: {} {}", x, y),
+                        ))
+                    } else {
+                        Ok(Some(x))
+                    }
+                }
+                (None, Some(y)) => Ok(Some(y)),
+                (Some(x), None) => Ok(Some(x)),
+                (None, None) => Ok(None),
+            }
+        };
+
+        let long = compare_attr(self.get_long(), option.get_long())?;
+        let short = compare_attr(self.get_short(), option.get_short())?;
+
+        // compare types
+        match (self, option) {
+            (OptionArg::Simple { .. }, OptionArg::Simple { .. }) => {
+                Ok(OptionArg::Simple { short, long })
+            }
+            (OptionArg::Simple { .. }, OptionArg::Repeatable { .. }) => {
+                Ok(OptionArg::Repeatable { short, long })
+            }
+            (OptionArg::Simple { .. }, OptionArg::WithParam { default_value, .. }) => {
+                Ok(OptionArg::WithParam {
+                    short,
+                    long,
+                    default_value: default_value.clone(),
+                })
+            }
+            (OptionArg::Repeatable { .. }, OptionArg::Simple { .. }) => {
+                Ok(OptionArg::Repeatable { short, long })
+            }
+            (OptionArg::Repeatable { .. }, OptionArg::Repeatable { .. }) => {
+                Ok(OptionArg::Repeatable { short, long })
+            }
+            (OptionArg::Repeatable { .. }, OptionArg::WithParam { .. })
+            | (OptionArg::WithParam { .. }, OptionArg::Repeatable { .. }) => Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Not mergeable options: {:?} {:?}", self, option),
+            )),
+            (OptionArg::WithParam { default_value, .. }, OptionArg::Simple { .. }) => {
+                Ok(OptionArg::WithParam {
+                    short,
+                    long,
+                    default_value: default_value.clone(),
+                })
+            }
+            (
+                OptionArg::WithParam { default_value, .. },
+                OptionArg::WithParam {
+                    default_value: option_default_value,
+                    ..
+                },
+            ) => Ok(OptionArg::WithParam {
+                short,
+                long,
+                default_value: compare_attr(default_value.clone(), option_default_value.clone())?,
+            }),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options(Vec<OptionArg>);
-
-impl IntoIterator for Options {
-    type Item = OptionArg;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
+pub struct Options {
+    hash_set: HashSet<OptionArg>,
 }
 
 impl Options {
+    fn new(hash_set: HashSet<OptionArg>) -> Self {
+        Options { hash_set }
+    }
+
     fn get_option_arg(option_line: &str) -> OptionArg {
         let (option, description) =
             if let Some((option, description)) = option_line.split_once("  ") {
@@ -91,21 +166,26 @@ impl Options {
 
         let mut short: Option<String> = None;
         let mut long: Option<String> = None;
+        let mut is_repeatable = false;
         let mut is_with_param = false;
 
         for w in option
             .replace(',', " ")
             .replace('=', " ")
+            .replace('.', " repeatable ")
             .split_whitespace()
         {
             if w.starts_with("--") {
                 long = Some(w.to_string());
             } else if w.starts_with('-') {
                 short = Some(w.to_string());
+            } else if w == "repeatable" {
+                is_repeatable = true;
             } else {
                 is_with_param = true;
             }
         }
+
         if is_with_param {
             let default_value = if let Some(cap) = RE_DEFAULT_VALUE.captures(description) {
                 cap.get(1).map(|x| x.as_str().to_string())
@@ -117,95 +197,138 @@ impl Options {
                 long,
                 default_value,
             }
+        } else if is_repeatable {
+            OptionArg::Repeatable { short, long }
         } else {
             OptionArg::Simple { short, long }
         }
     }
 
-    pub fn parse_doc(doc: &str, usages: &[String]) -> Self {
-        let description_options = doc
-            .split('\n')
-            .into_iter()
-            .filter_map(|line| {
-                let trimed = line.trim_start();
-                if trimed.starts_with('-') {
-                    Some(trimed)
-                } else {
-                    None
-                }
-            })
-            .map(Self::get_option_arg)
-            .collect::<Vec<OptionArg>>();
-        Options(if !description_options.is_empty() {
-            description_options
-        } else {
-            usages
-                .iter()
-                .flat_map(|usage| {
-                    usage
-                        .replace('|', " | ")
-                        .replace('[', " [ ")
-                        .replace(']', " ] ")
-                        .replace('<', " < ")
-                        .replace('>', " > ")
-                        .split_whitespace()
-                        // skip arg 0 (script name)
-                        .skip(1)
-                        .flat_map(|arg| {
-                            let is_option = arg.starts_with('-');
-                            if is_option && !arg.starts_with("--") {
-                                let mut is_end_args_in_chars = false;
-                                arg.chars()
-                                    // skip `-`
-                                    .skip(1)
-                                    .filter_map(|arg_char| {
-                                        if arg_char.is_lowercase() {
-                                            Some(format!("-{arg_char}"))
-                                        } else if !is_end_args_in_chars {
-                                            // return full word
-                                            is_end_args_in_chars = true;
-                                            let param = arg
-                                                .split_at(arg.find(arg_char).unwrap() + 1)
-                                                .1
-                                                .to_string();
-                                            if param.chars().all(char::is_uppercase) {
-                                                Some(
-                                                    arg.split_at(arg.find(arg_char).unwrap() + 1)
-                                                        .1
-                                                        .to_string(),
-                                                )
-                                            } else {
-                                                None
-                                            }
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect::<Vec<String>>()
-                            } else if is_option {
-                                vec![arg.to_string()]
-                            } else {
-                                vec![]
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .iter()
-                        .circular_tuple_windows()
-                        .filter_map(|(previous_arg, arg)| {
-                            let is_previous_option = previous_arg.starts_with('-');
-                            let is_option = arg.starts_with('-');
-                            if is_previous_option && is_option {
-                                Some(Self::get_option_arg(previous_arg))
-                            } else if is_previous_option && !is_option {
-                                Some(Self::get_option_arg(&format!("{previous_arg}={arg}")))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>()
+    fn find(&self, arg_usage: &str) -> Option<OptionArg> {
+        if arg_usage.starts_with("--") {
+            self.hash_set
+                .clone()
+                .into_iter()
+                .find_map(|option_arg| match option_arg.get_long() {
+                    Some(long) if long == arg_usage => Some(option_arg),
+                    _ => None,
                 })
-                .collect::<Vec<_>>()
-        })
+        } else if arg_usage.starts_with('-') {
+            self.hash_set
+                .clone()
+                .into_iter()
+                .find_map(|option_arg| match option_arg.get_short() {
+                    Some(short) if short == arg_usage => Some(option_arg),
+                    _ => None,
+                })
+        } else {
+            None
+        }
+    }
+
+    fn extend(&mut self, options: Options) -> Result<Self> {
+        options.hash_set.iter().try_for_each(|option| {
+            match self.find(&option.get_simple_representation()) {
+                Some(duplicated_option) => {
+                    if option != &duplicated_option {
+                        self.hash_set.remove(&duplicated_option);
+                        self.hash_set.insert(duplicated_option.merge(option)?);
+                    }
+                }
+                None => {
+                    self.hash_set.insert(option.clone());
+                }
+            };
+            Ok::<(), Error>(())
+        })?;
+        Ok(self.clone())
+    }
+
+    pub fn parse_doc(doc: &str, usages: &[String]) -> Result<Self> {
+        let mut description_options = Options::new(
+            doc.split('\n')
+                .into_iter()
+                .filter_map(|line| {
+                    let trimmed = line.trim_start();
+                    if trimmed.starts_with('-') {
+                        Some(trimmed)
+                    } else {
+                        None
+                    }
+                })
+                .map(Self::get_option_arg)
+                .collect::<HashSet<OptionArg>>(),
+        );
+        let usage_options = usages
+            .iter()
+            .flat_map(|usage| {
+                usage
+                    .clone()
+                    .replace('|', " | ")
+                    .replace('[', " [ ")
+                    //mark repeatable options
+                    .replace("]...", ". ] ")
+                    .replace(']', " ] ")
+                    .replace('<', " < ")
+                    .replace('>', " > ")
+                    .split_whitespace()
+                    // skip arg 0 (script name)
+                    .skip(1)
+                    .flat_map(|arg| {
+                        let is_option = arg.starts_with('-');
+                        if is_option && !arg.starts_with("--") {
+                            let mut is_end_args_in_chars = false;
+                            arg.chars()
+                                // skip `-`
+                                .skip(1)
+                                .filter_map(|arg_char| {
+                                    if is_end_args_in_chars {
+                                        None
+                                    } else {
+                                        match description_options.find(&format!("-{arg_char}")) {
+                                            Some(OptionArg::WithParam { .. }) => {
+                                                is_end_args_in_chars = true;
+                                                Some(format!("-{arg_char}={arg_char}"))
+                                            }
+                                            _ => {
+                                                // repeatable options
+                                                if arg_char == '.' {
+                                                    Some(arg_char.to_string())
+                                                } else {
+                                                    Some(format!("-{arg_char}"))
+                                                }
+                                            }
+                                        }
+                                    }
+                                })
+                                .collect::<Vec<String>>()
+                        } else if is_option {
+                            vec![arg.to_string()]
+                        } else {
+                            vec![]
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .circular_tuple_windows()
+                    .filter_map(|(previous_arg, arg)| {
+                        let is_previous_option = previous_arg.starts_with('-');
+                        let is_option = arg.starts_with('-');
+                        if is_previous_option && is_option {
+                            Some(Self::get_option_arg(previous_arg))
+                        } else if is_previous_option && (arg == ".") {
+                            Some(Self::get_option_arg(&format!("{previous_arg}.")))
+                        } else if is_previous_option && !is_option {
+                            Some(Self::get_option_arg(&format!("{previous_arg}={arg}")))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<HashSet<_>>();
+
+        description_options.extend(Options::new(usage_options))
     }
 
     pub fn parse(&self, arg: &str, def: &str) -> Option<Vars> {
@@ -220,6 +343,7 @@ impl Options {
                 // safe unwrap: WithParams always has `=` in the representation
                 json!(arg.split_once('=').unwrap().1)
             }
+            OptionArg::Repeatable { .. } => json!(1),
             OptionArg::Simple { .. } => json!(true),
         };
         Some(
@@ -235,12 +359,16 @@ impl Options {
     pub fn initial_vars(&self) -> Vars {
         let mut new_vars_json = json!({});
 
-        self.clone()
+        self.hash_set
+            .clone()
             .into_iter()
             .map(|option_arg| {
                 let value = match option_arg.clone() {
                     OptionArg::Simple { .. } => {
                         json!(false)
+                    }
+                    OptionArg::Repeatable { .. } => {
+                        json!(0)
                     }
                     OptionArg::WithParam { default_value, .. } => {
                         if default_value.is_some() {
@@ -259,26 +387,6 @@ impl Options {
             .for_each(|x| merge_json(&mut new_vars_json, x));
         // safe unwrap: new_vars_json is a json object
         Context::from_value(new_vars_json).unwrap()
-    }
-
-    fn find(&self, arg_usage: &str) -> Option<OptionArg> {
-        if arg_usage.starts_with("--") {
-            self.clone()
-                .into_iter()
-                .find_map(|option_arg| match option_arg.get_long() {
-                    Some(long) if long == arg_usage => Some(option_arg),
-                    _ => None,
-                })
-        } else if arg_usage.starts_with('-') {
-            self.clone()
-                .into_iter()
-                .find_map(|option_arg| match option_arg.get_short() {
-                    Some(short) if short == arg_usage => Some(option_arg),
-                    _ => None,
-                })
-        } else {
-            None
-        }
     }
 
     /// Replace options in args for standard docopt usage arguments
@@ -337,7 +445,9 @@ impl Options {
                                     is_antepenultimate_with_param = true;
                                     Some(Ok(format!("{repr}={arg}")))
                                 }
-                                OptionArg::Simple { .. } => Some(Ok(repr)),
+                                OptionArg::Simple { .. } | OptionArg::Repeatable { .. } => {
+                                    Some(Ok(repr))
+                                }
                             }
                         }
                         None => Some(Err(Error::new(
@@ -404,6 +514,7 @@ impl Options {
         let replaced_options_usages = represented_usages.iter().map(|usage| {
             if usage.contains(OPTIONS_MARK) {
                 let remaining_options: Vec<_> = self
+                    .hash_set
                     .clone()
                     .into_iter()
                     .filter(|o| !options_in_usage.contains(o))
@@ -483,21 +594,25 @@ mod tests {
 
     #[test]
     fn test_options_parse_doc() {
-        let file = r#"
-Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
+        let usage = "my_program.py [-hsoFILE] [--repeatable]... [--quiet | --verbose] [INPUT ...]";
+        let file = format!(
+            r#"
+Usage: {usage}
 
--h --help    show this
--s --sorted  sorted output
--o FILE      specify output file [default: ./test.txt]
---quiet      print less text
---verbose    print more text
-"#;
+-h --help        show this
+-s --sorted      sorted output
+-o FILE          specify output file [default: ./test.txt]
+-r --repeatable  can be repeated. E.g.: -rr
+--quiet          print less text
+--verbose        print more text
+"#
+        );
 
-        let result = Options::parse_doc(file, &["".to_string()]);
+        let result = Options::parse_doc(&file, &[usage.to_string()]).unwrap();
 
         assert_eq!(
             result,
-            Options(vec![
+            Options::new(HashSet::from([
                 OptionArg::Simple {
                     short: Some("-h".to_string()),
                     long: Some("--help".to_string()),
@@ -511,6 +626,10 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                     long: None,
                     default_value: Some("./test.txt".to_string()),
                 },
+                OptionArg::Repeatable {
+                    short: Some("-r".to_string()),
+                    long: Some("--repeatable".to_string()),
+                },
                 OptionArg::Simple {
                     short: None,
                     long: Some("--quiet".to_string()),
@@ -519,7 +638,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                     short: None,
                     long: Some("--verbose".to_string()),
                 },
-            ])
+            ]))
         )
     }
 
@@ -532,11 +651,11 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 "#
         );
 
-        let result = Options::parse_doc(&file, &[usage.to_string()]);
+        let result = Options::parse_doc(&file, &[usage.to_string()]).unwrap();
 
         assert_eq!(
             result,
-            Options(vec![
+            Options::new(HashSet::from([
                 OptionArg::Simple {
                     short: Some("-h".to_string()),
                     long: None,
@@ -545,29 +664,64 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                     short: Some("-s".to_string()),
                     long: None,
                 },
-                OptionArg::WithParam {
+                OptionArg::Simple {
                     short: Some("-o".to_string()),
                     long: None,
-                    default_value: None,
                 },
                 OptionArg::Simple {
-                    short: None,
-                    long: Some("--quiet".to_string()),
+                    short: Some("-F".to_string()),
+                    long: None,
+                },
+                OptionArg::Simple {
+                    short: Some("-I".to_string()),
+                    long: None,
+                },
+                OptionArg::Simple {
+                    short: Some("-L".to_string()),
+                    long: None,
+                },
+                OptionArg::Simple {
+                    short: Some("-E".to_string()),
+                    long: None,
                 },
                 OptionArg::Simple {
                     short: None,
                     long: Some("--verbose".to_string()),
                 },
-            ])
+                OptionArg::Simple {
+                    short: None,
+                    long: Some("--quiet".to_string()),
+                },
+            ]))
+        )
+    }
+
+    #[test]
+    fn test_options_parse_repeatable_argument() {
+        let usage = "my_program.py [--repeatable]...";
+        let file = format!(
+            r#"
+{usage}
+"#
+        );
+
+        let result = Options::parse_doc(&file, &[usage.to_string()]).unwrap();
+
+        assert_eq!(
+            result,
+            Options::new(HashSet::from([OptionArg::Repeatable {
+                short: None,
+                long: Some("--repeatable".to_string()),
+            },]))
         )
     }
 
     #[test]
     fn test_options_parse() {
-        let options = Options(vec![OptionArg::Simple {
+        let options = Options::new(HashSet::from([OptionArg::Simple {
             short: Some("-h".to_string()),
             long: Some("--help".to_string()),
-        }]);
+        }]));
 
         let arg_def = r"--help";
 
@@ -587,7 +741,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
     #[test]
     fn test_options_parse_multiple() {
-        let options = Options(vec![
+        let options = Options::new(HashSet::from([
             OptionArg::Simple {
                 short: Some("-h".to_string()),
                 long: Some("--help".to_string()),
@@ -609,7 +763,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                 short: None,
                 long: Some("--verbose".to_string()),
             },
-        ]);
+        ]));
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";
         let arg = "--sorted";
@@ -662,7 +816,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
     #[test]
     fn test_options_expand_args() {
-        let options = Options(vec![
+        let options = Options::new(HashSet::from([
             OptionArg::WithParam {
                 short: Some("-o".to_string()),
                 long: None,
@@ -676,7 +830,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                 short: Some("-q".to_string()),
                 long: Some("--quiet".to_string()),
             },
-        ]);
+        ]));
 
         let args = vec!["-qo".to_string(), "yea".to_string(), "--sorted".to_string()];
 
@@ -727,7 +881,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
     #[test]
     fn test_options_extend_usage() {
-        let options = Options(vec![
+        let options = Options::new(HashSet::from([
             OptionArg::Simple {
                 short: Some("-h".to_string()),
                 long: Some("--help".to_string()),
@@ -740,7 +894,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                 short: Some("-q".to_string()),
                 long: Some("--quiet".to_string()),
             },
-        ]);
+        ]));
 
         let usages = HashSet::from(["foo a [-h]".to_string(), "foo b [-qsh]".to_string()]);
 
@@ -757,10 +911,10 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
     #[test]
     fn test_options_extend_simple() {
-        let options = Options(vec![OptionArg::Simple {
+        let options = Options::new(HashSet::from([OptionArg::Simple {
             short: Some("-h".to_string()),
             long: Some("--help".to_string()),
-        }]);
+        }]));
 
         let usages = HashSet::from(["foo --help".to_string()]);
 
@@ -771,7 +925,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
 
     #[test]
     fn test_options_extend_usage_with_params() {
-        let options = Options(vec![
+        let options = Options::new(HashSet::from([
             OptionArg::WithParam {
                 short: Some("-o".to_string()),
                 long: None,
@@ -785,21 +939,29 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                 short: Some("-q".to_string()),
                 long: Some("--quiet".to_string()),
             },
-        ]);
+        ]));
 
         let usages = HashSet::from(["foo a [options] <ARG>".to_string()]);
 
         let result = options.extend_usages(usages).unwrap();
-
+        // extract options from usage and create hashSet to compare
+        // because we cannot ensure order here
+        let s = result
+            .iter()
+            .next()
+            .unwrap()
+            .replace("foo a {", "")
+            .replace("}... <ARG>", "");
+        let result_options: HashSet<&str> = s.split('#').collect();
         assert_eq!(
-            result,
-            HashSet::from(["foo a {-o=<-o>#--sorted#--quiet}... <ARG>".to_string()])
+            result_options,
+            HashSet::from(["-o=<-o>", "--sorted", "--quiet"])
         )
     }
 
     #[test]
     fn test_options_extend_usage_with_params_and_or() {
-        let options = Options(vec![
+        let options = Options::new(HashSet::from([
             OptionArg::WithParam {
                 short: Some("-o".to_string()),
                 long: None,
@@ -813,7 +975,7 @@ Usage: my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]
                 short: Some("-q".to_string()),
                 long: Some("--quiet".to_string()),
             },
-        ]);
+        ]));
 
         let usages = HashSet::from(["foo [-o FILE] [--sorted | --quiet]".to_string()]);
 
