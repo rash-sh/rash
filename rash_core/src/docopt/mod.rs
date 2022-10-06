@@ -187,7 +187,7 @@ fn parse_help(file: &str) -> String {
         .filter(|cap| !cap[1].starts_with('!'))
         .map(|cap| cap[1].to_string().replacen(' ', "", 1))
         .chain(vec![
-            "Note: Options must be preceded by `--`. If not you are passing options directly to rash.".to_string(),
+            "Note: Options must be preceded by `--`. If not, you are passing options directly to rash.".to_string(),
             "For more information check rash options with `rash --help`.".to_string(),
             "".to_string(),
         ])
@@ -895,7 +895,7 @@ Usage:
   cp <source> <dest>
   cp <source>... <dest>
 
-Note: Options must be preceded by `--`. If not you are passing options directly to rash.
+Note: Options must be preceded by `--`. If not, you are passing options directly to rash.
 For more information check rash options with `rash --help`.
 "#
         )
@@ -964,7 +964,7 @@ Subcommands:
   update    Get files from host.
   help      Show this screen.
 
-Note: Options must be preceded by `--`. If not you are passing options directly to rash.
+Note: Options must be preceded by `--`. If not, you are passing options directly to rash.
 For more information check rash options with `rash --help`.
 "#
         )

@@ -1,4 +1,4 @@
-#!/bin/rash
+#!/usr/bin/env -S rash --
 #
 # Pacman binary mock for Pacman module tests.
 #
