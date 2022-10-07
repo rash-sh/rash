@@ -77,6 +77,11 @@ jobs:
         command: test
         args: --locked
 
+    - name: Run examples
+      run: |
+        cp target/debug/rash /usr/local/bin/rash
+        make test-examples
+
   build:
     strategy:
       fail-fast: false
@@ -118,12 +123,6 @@ jobs:
         use-cross: ${{ matrix.job.use-cross }}
         command: test
         args: --locked --target=${{ matrix.job.target }}
-
-    - name: Run examples
-      if: ${{ matrix.job.use-cross != true }}
-      run: |
-        cp target/${{ matrix.job.target }}/debug/rash /usr/local/bin/rash
-        make test-examples
 
     - name: Extract crate information
       shell: bash
