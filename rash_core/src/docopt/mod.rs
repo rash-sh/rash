@@ -146,7 +146,15 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                     // order matters
                     0 => parse_required(arg, &args_def[idx], args_def),
                     // order matters
-                    1 => Some(parse_positional(arg, &args_def[idx])),
+                    1 => {
+                        if arg == "--help" || arg == "-h" {
+                            options.parse(arg, arg)
+                        } else if arg.starts_with("--") {
+                            None
+                        } else {
+                            Some(parse_positional(arg, &args_def[idx]))
+                        }
+                    }
                     2 => options.parse(arg, &args_def[idx]),
                     _ => unreachable!(),
                 })
@@ -934,6 +942,22 @@ mod tests {
 #
 # Usage:
 #   ./dots [--help]
+#
+"#;
+
+        let args = vec!["--help"];
+        let err = parse(file, &args).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::GracefulExit)
+    }
+
+    #[test]
+    fn test_parse_print_help_as_option_with_positional_argument() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   ./dots [--help] <foo>
 #
 "#;
 
