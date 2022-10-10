@@ -5,4 +5,20 @@ members = [
     "mdbook_rash",
 ]
 
+[workspace.package]
+version = "1.8.2"
+authors = ["Pando85 <pando855@gmail.com>"]
+rust-version = "1.61.0"
+edition = "2021"
+license-file = "../LICENSE"
+homepage = "https://rash.sh"
+repository = "https://github.com/rash-sh/rash"
+readme = "../README.md"
 
+[workspace.dependencies]
+lazy_static = "1.4.0"
+log = "0.4"
+regex = "1.5"
+schemars = "0.8"
+serde_json = "1.0"
+serde_yaml = "0.9"

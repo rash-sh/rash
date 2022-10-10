@@ -17,15 +17,6 @@ help:	## Show this help menu.
 	@@egrep -h "#[#]" $(MAKEFILE_LIST) | sed -e 's/\\$$//' | awk 'BEGIN {FS = "[:=].*?#[#] "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-.PHONY: update-version
-update-version: ## update version from VERSION file in all Cargo.toml manifests
-update-version: */Cargo.toml
-	@VERSION=$$(cat VERSION); \
-	sed -i "0,/^version\ \= .*$$/{s//version = \"$$VERSION\"/}" */Cargo.toml && \
-	sed -i -E "s/^(rash\_.*version\s=\s)\"(.*)\"/\1\"$$VERSION\"/gm" */Cargo.toml && \
-	cargo update -p rash_core -p rash_derive && \
-	echo updated to version "$$(cat VERSION)" cargo files
-
 .PHONY: build
 build:	## compile rash
 build:
@@ -64,7 +55,7 @@ book:	mdbook-rash
 
 .PHONY: tag
 tag:	## create a tag using version from VERSION file
-	PROJECT_VERSION=$$(cat VERSION); \
+	PROJECT_VERSION=$$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1); \
 	git tag -s v$${PROJECT_VERSION}  -m "v$${PROJECT_VERSION}" && \
 	git push origin v$${PROJECT_VERSION}
 

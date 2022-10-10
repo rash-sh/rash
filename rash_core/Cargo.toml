@@ -1,13 +1,13 @@
 [package]
 name = "rash_core"
-version = "1.8.2"
 description = "Declarative shell scripting using Rust native bindings"
-authors = ["Pando85 <pando855@gmail.com>"]
-edition = "2021"
-license-file = "../LICENSE"
-homepage = "https://rash.sh"
-repository = "https://github.com/rash-sh/rash"
-readme = "../README.md"
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lib]
 name = "rash_core"
@@ -21,10 +21,16 @@ path = "src/bin/rash.rs"
 docs = ["rash_derive/docs", "schemars"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "1.8.2" }
+rash_derive = { path = "../rash_derive" }
+lazy_static.workspace = true
+log.workspace = true
+regex.workspace = true
+schemars = { workspace = true, optional = true }
+serde_json.workspace = true
+serde_yaml.workspace = true
 byte-unit = "4.0"
 console = "0.15.0"
-clap = { version = "4.0.10", features = ["std", "color", "derive", "cargo"]}
+clap = { version = "4.0", features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6", features = ["colored"] }
 ignore = "0.4"
@@ -32,15 +38,10 @@ ignore = "0.4"
 # ipc-channel = { version = "0.15", features = ["memfd"] }
 ipc-channel = "0.16"
 itertools = "0.10"
-lazy_static = "1.4.0"
-log = "0.4"
 nix = "0.24"
-regex = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 serde-error = "0.1"
 serde_with = "1.11"
-serde_json = "1.0"
-serde_yaml = "0.9"
 similar = { version = "2.1", features = ["inline"] }
 strum = "0.23"
 strum_macros = "0.23"
@@ -48,7 +49,6 @@ tempfile = "3"
 tera = { version = "1", default-features = false }
 term_size = "1.0.0-beta.2"
 users = "0.11"
-schemars = { version = "0.8", optional = true }
 
 [dev-dependencies.cargo-husky]
 version = "1"

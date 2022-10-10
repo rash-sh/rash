@@ -55,7 +55,7 @@ jobs:
     - name: Extract min supported rust version
       shell: bash
       run: |
-        echo "MIN_SUPPORTED_RUST_VERSION=$(sed -n 's/^msrv = "\(.*\)"/\1/p' clippy.toml | head -n1)" >> $GITHUB_ENV
+        echo "MIN_SUPPORTED_RUST_VERSION=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
 
     - name: Install rust toolchain (v${{ env.MIN_SUPPORTED_RUST_VERSION }})
       uses: actions-rs/toolchain@v1
