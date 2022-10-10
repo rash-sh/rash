@@ -22,6 +22,7 @@
       2,
       "always",
       [
+        "build",
         "ci",
         "cli",
         "core",
