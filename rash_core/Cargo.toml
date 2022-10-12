@@ -42,6 +42,7 @@ nix = { version = "0.27", features =  ["process", "user"] }
 serde = { version = "1.0", features = ["derive"] }
 serde-error = "0.1"
 serde_with = "3.3"
+shlex = "1.2"
 similar = { version = "2.2", features = ["inline"] }
 strum = "0.25"
 strum_macros = "0.25"

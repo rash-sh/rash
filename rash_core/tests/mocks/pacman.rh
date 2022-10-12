@@ -1,18 +1,339 @@
-#!/usr/bin/env -S rash --
+#!/usr/bin/env -S rash --output raw --
 #
 # Pacman binary mock for Pacman module tests.
 #
 # Usage:
-#   ./pacman.rh [--help]
-#   ./pacman.rh [-d]...
+#   ./pacman.rh [options] [<targets>]...
 #
 # Options:
-#  -d, --nodeps  Skips dependency version checks. Package names are still checked. Normally, pacman will always check a package’s dependency fields to ensure
-#                that all dependencies are installed and there are no package conflicts in the system. Specify this option twice to skip all dependency
-#                checks.
-#  --help
+#  -D, --database       Operate on the package database.
+#  -Q, --query          Query the package database.
+#  -R, --remove         Remove package(s) from the system.
+#  -S, --sync           Synchronize packages.
+#  -T, --deptest        Check dependencies.
+#  -U, --upgrade        Upgrade or add package(s) to the system and install the required
+#                       dependencies from sync repositories.
+#  -F, --files          Query the files database.
+#  -V, --version        Display version and exit.
+#  -h, --help           Display syntax for the given operation.
 #
-- name: Print args
+#  -b, --dbpath <path>  set an alternate database location
+#  -c, --clean          remove old packages from cache directory (-cc for all)
+#  -d, --nodeps         skip dependency version checks (-dd to skip all checks)
+#  -g, --groups         view all members of a package group
+#                       (-gg to view all groups and members)
+#  -i, --info           view package information (-ii for extended information)
+#  -l, --list <repo>    view a list of packages in a repo
+#  -p, --print          print the targets instead of performing the operation
+#  -q, --quiet          show less information for query and search
+#  -r, --root <path>    set an alternate installation root
+#  -s, --search <regex> search remote repositories for matching strings
+#  -u, --sysupgrade     upgrade installed packages (-uu enables downgrades)
+#  -v, --verbose        be verbose
+#  -w, --downloadonly   download packages but do not install/upgrade anything
+#  -y, --refresh        download fresh package databases from the server
+#                       (-yy to force a refresh even if up to date)
+#      --arch <arch>    set an alternate architecture
+#      --asdeps         install packages as non-explicitly installed
+#      --asexplicit     install packages as explicitly installed
+#      --assume-installed <package=version>
+#                       add a virtual package to satisfy dependencies
+#      --cachedir <dir> set an alternate package cache location
+#      --color <when>   colourise the output
+#      --config <path>  set an alternate configuration file
+#      --confirm        always ask for confirmation
+#      --dbonly         only modify database entries, not package files
+#      --debug          display debug messages
+#      --disable-download-timeout
+#                       use relaxed timeouts for download
+#      --gpgdir <path>  set an alternate home directory for GnuPG
+#      --hookdir <dir>  set an alternate hook location
+#      --ignore <pkg>   ignore a package upgrade (can be used more than once)
+#      --ignoregroup <grp>
+#                       ignore a group upgrade (can be used more than once)
+#      --logfile <path> set an alternate log file
+#      --needed         do not reinstall up to date packages
+#      --noconfirm      do not ask for any confirmation
+#      --noprogressbar  do not show a progress bar when downloading files
+#      --noscriptlet    do not execute the install scriptlet if one exists
+#      --overwrite <glob>
+#                       overwrite conflicting files (can be used more than once)
+#      --print-format <string>
+#                       specify how the targets should be printed
+#      --sysroot        operate on a mounted guest system (root-only)
+#
+#      -e, --explicit   list packages explicitly installed [filter]
+#      -u, --upgrades   list outdated packages [filter]
+- name: Install packages from local/URL
   debug:
-    var: __tera_context
+    msg: |-
+      loading packages...
+      resolving dependencies...
+      looking for conflicting packages...
 
+      Packages (1) {{ targets | join(sep=' ') }}
+
+      Total Installed Size:  21.73 MiB
+      Net Upgrade Size:       0.00 MiB
+
+      :: Proceed with installation? [Y/n]
+      checking keyring...
+      checking package integrity...
+      loading package files...
+      checking for file conflicts...
+      checking available disk space...
+      :: Processing package changes...
+      {% for package in targets -%}
+      installing {{ package }} ...
+      {% endfor -%}
+      :: Running post-transaction hooks...
+      (1/2) Arming ConditionNeedsUpdate...
+      (2/2) Updating the desktop file MIME type cache...
+  when:
+    - options.upgrade
+    - options.noconfirm
+    - targets is defined and targets | length > 0
+
+- name: Install
+  debug:
+    msg: |-
+      resolving dependencies...
+      looking for conflicting packages...
+
+      Packages (1) {{ targets | join(sep=' ') }}
+
+      Total Installed Size:  21.73 MiB
+      Net Upgrade Size:       0.00 MiB
+
+      :: Proceed with installation? [Y/n]
+      checking keyring...
+      checking package integrity...
+      loading package files...
+      checking for file conflicts...
+      checking available disk space...
+      :: Processing package changes...
+      {% for package in targets -%}
+      installing {{ package }} ...
+      {% endfor -%}
+      :: Running post-transaction hooks...
+      (1/2) Arming ConditionNeedsUpdate...
+      (2/2) Updating the desktop file MIME type cache...
+  when:
+    - options.sync
+    - options.noconfirm
+    - targets is defined and targets | length > 0
+    - not options.print_format
+
+- name: Install
+  debug:
+    msg: "{{ item }}"
+  loop: "{{ targets | default (value=[]) }}"
+  vars:
+    a: "{{ options.upgrade or options.sync }}"
+  when:
+    - a == "true"
+    - options.noconfirm
+    - options.print_format == "%n"
+
+- name: Upgrade all packages
+  debug:
+    msg: |-
+      :: Starting full system upgrade...
+       there is nothing to do
+  when:
+    - options.sync
+    - options.sysupgrade
+    - options.quiet
+    - options.noconfirm
+    - targets is undefined
+
+- name: Remove package
+  debug:
+    msg: |-
+      checking dependencies...
+
+      Packages (1) {{ targets | join(sep=' ') }}
+
+      Total Removed Size:  21.73 MiB
+
+      :: Do you want to remove these packages? [Y/n]
+      :: Processing package changes...
+      {% for package in targets -%}
+      removing {{ package }} ...
+      {% endfor -%}
+      :: Running post-transaction hooks...
+      (1/2) Arming ConditionNeedsUpdate...
+      (2/2) Updating the desktop file MIME type cache...
+  when:
+    - options.remove
+    - options.noconfirm
+    - not options.print_format
+    - targets is defined and targets | length > 0
+
+- name: Remove package
+  debug:
+    msg: |
+      {% for package in targets -%}
+      {{ package }}-7.12.17-.1
+      {% endfor -%}
+  when:
+    - options.remove
+    - options.noconfirm
+    - options.print_format == "%n-%v"
+    - targets is defined and targets | length > 0
+
+- name: List database
+  debug:
+    msg: |-
+      core acl 2.3.1-3 [installed]
+      core amd-ucode 20230810.7be2766d-1
+      core archlinux-keyring 20230821-2 [installed]
+      core argon2 20190702-5 [installed]
+      core attr 2.5.1-3 [installed]
+      core audit 3.1.2-1 [installed]
+      core autoconf 2.71-4 [installed]
+      core automake 1.16.5-2 [installed]
+      core b43-fwcutter 019-4 [installed]
+      core base 3-2 [installed]
+  when:
+    - options.sync
+    - options.list
+    - targets is undefined
+
+- name: Refresh database
+  debug:
+    msg: |-
+      :: Synchronising package databases...
+       core is up to date
+       extra                                                               8.6 MiB  25.3 MiB/s 00:00 [########################################################] 100%
+       community is up to date
+       multilib is up to date
+  when:
+    - options.sync
+    - options.refresh
+    - targets is undefined
+
+- name: Packages to set reason
+  debug:
+    msg: "{{ item }}: install reason has been set to 'dependency installed'"
+  loop: "{{ targets | default (value=[]) }}"
+  when:
+    - options.database
+    - options.asdeps
+
+- name: Packages to set reason
+  debug:
+    msg: "{{ item }}: install reason has been set to 'explicity installed'"
+  loop: "{{ targets | default (value=[]) }}"
+  when:
+    - options.database
+    - options.asexplicit
+
+- name: Install without targets
+  command:
+    argv:
+      - bash
+      - -c
+      - 'echo "error: no targets specified (use -h for help)" && exit 1'
+    transfer_pid: true
+  # workaround until tera v2
+  vars:
+    a: "{{ options.upgrade or options.sync or options.remove or options.database }}"
+    b: "{{ targets is undefined or targets | length == 0 }}"
+  when:
+    - a == "true" and b == "true"
+    - not options.sysupgrade and not options.list
+
+- name: List outdated packages
+  command: exit 1
+  when:
+    - options.query
+    - options.upgrades
+
+- name: List packages explicitly installed
+  debug:
+    msg: |-
+      linux-firmware 20230810.7be2766d-1
+      linux61 6.1.53-1
+      linux61-nvidia 535.104.05-8
+      linux61-zfs 2.1.12-25
+  when:
+    - options.query
+    - options.explicit
+    - not options.quiet
+    - not options.groups
+    - not options.upgrades
+    - not options.deps
+
+- name: List packages explicitly installed quiet
+  debug:
+    msg: |-
+      linux-firmware
+      linux61
+      linux61-nvidia
+      linux61-zfs
+  when:
+    - options.query
+    - options.explicit
+    - options.quiet
+
+- name: List packages installed
+  debug:
+    msg: |-
+      linux-api-headers 6.4-1
+      linux-firmware 20230810.7be2766d-1
+      linux-firmware-whence 20230810.7be2766d-1
+      linux61 6.1.53-1
+      linux61-nvidia 535.104.05-8
+      linux61-zfs 2.1.12-25
+  when:
+    - options.query
+    - not options.quiet
+    - not options.explicit
+    - not options.deps
+
+- name: List packages installed quiet
+  debug:
+    msg: |-
+      linux-api-headers
+      linux-firmware
+      linux-firmware-whence
+      linux61
+      linux61-nvidia
+      linux61-zfs
+  when:
+    - options.query
+    - options.quiet
+    - not options.explicit
+    - not options.deps
+
+- name: List packages installed by groups
+  debug:
+    msg: |-
+      linux61-extramodules linux61-nvidia
+      linux61-extramodules linux61-zfs
+  when:
+    - options.query
+    - options.groups
+    - not options.explicit
+    - not options.deps
+
+- name: List packages upgradeables
+  debug:
+    msg: ""
+  when:
+    - options.query
+    - options.upgrades
+    - not options.groups
+    - not options.explicit
+    - not options.deps
+
+- name: List packages installed as dependencies
+  debug:
+    msg: |-
+      linux-api-headers 6.4-1
+      linux-firmware-whence 20230810.7be2766d-1
+  when:
+    - options.query
+    - options.deps
+    - not options.explicit

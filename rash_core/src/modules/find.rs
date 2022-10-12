@@ -30,6 +30,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::utils::default_false;
 use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
 use crate::vars::Vars;
 
@@ -47,12 +48,11 @@ use schemars::schema::RootSchema;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_with::{serde_as, OneOrMany};
-use serde_yaml::value;
-use serde_yaml::Value;
+use serde_yaml::{value, Value};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
-#[derive(Debug, Default, PartialEq, Deserialize)]
+#[derive(Default, Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
 enum FileType {
@@ -65,10 +65,6 @@ enum FileType {
 
 fn default_file_type() -> Option<FileType> {
     Some(FileType::default())
-}
-
-fn default_false() -> Option<bool> {
-    Some(false)
 }
 
 #[serde_as]
@@ -84,15 +80,15 @@ pub struct Params {
     #[serde(default)]
     excludes: Option<Vec<String>>,
     /// Type of file to select.
-    /// **[default: file]**
+    /// **[default: `"file"`]**
     #[serde(default = "default_file_type")]
     file_type: Option<FileType>,
     /// Set this to true to follow symlinks
-    /// **[default: false]**
+    /// **[default: `false`]**
     #[serde(default = "default_false")]
     follow: Option<bool>,
     /// Set this to yes to include hidden files, otherwise they will be ignored.
-    /// **[default: false]**
+    /// **[default: `false`]**
     #[serde(default = "default_false")]
     hidden: Option<bool>,
     /// The patterns restrict the list of files to be returned to those whose basenames
@@ -102,7 +98,7 @@ pub struct Params {
     #[serde(default)]
     patterns: Option<Vec<String>>,
     /// If target is a directory, recursively descend into the directory looking for files.
-    /// **[default: false]**
+    /// **[default: `false`]**
     #[serde(default = "default_false")]
     recurse: Option<bool>,
     /// Select files whose size is less than the specified size.
@@ -112,11 +108,11 @@ pub struct Params {
     size: Option<String>,
 }
 
+#[cfg(test)]
 impl Default for Params {
     fn default() -> Self {
-        let paths: Vec<String> = Vec::new();
         Params {
-            paths,
+            paths: Vec::new(),
             excludes: None,
             file_type: Some(FileType::default()),
             follow: Some(false),

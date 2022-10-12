@@ -14,7 +14,7 @@
 - debug:
     var: "find_result.extra"
 
-- name: "save password to multiple files"
+- name: save password to multiple files
   copy:
     content: "{{ env.MY_PASSWORD }}"
     dest: "/tmp/MY_PASSWORD_FILE_{{ file_name }}"
