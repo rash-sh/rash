@@ -20,7 +20,6 @@
 ///
 /// - file:
 ///     path: /yea
-///     state: present
 ///     mode: 0644
 /// ```
 /// ANCHOR_END: examples
@@ -63,7 +62,7 @@ pub struct Params {
     /// If _file_, even with other options (such as mode), the file will be modified if it exists but
     ///  will NOT be created if it does not exist.
     /// If _touch_, an empty file will be created if the file does not exist.
-    /// **[default: file]**
+    /// **[default: `"file"`]**
     state: Option<State>,
 }
 

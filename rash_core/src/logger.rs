@@ -32,6 +32,36 @@ fn get_terminal_width() -> usize {
     term_size::dimensions().map(|(w, _)| w).unwrap_or(80)
 }
 
+/// Print iterator.
+fn print_diff<T>(iter: T, prefix: &str, style: &Style)
+where
+    T: IntoIterator,
+    T::Item: fmt::Display,
+{
+    if log_enabled!(target: "diff", log::Level::Info) {
+        iter.into_iter()
+            .for_each(|x| println!("{}{}", style.apply_to(prefix), style.apply_to(x)));
+    };
+}
+
+/// Print add iterator.
+pub fn add<T>(iter: T)
+where
+    T: IntoIterator,
+    T::Item: fmt::Display,
+{
+    print_diff(iter, "+ ", &Style::new().green());
+}
+
+/// Print remove iterator.
+pub fn remove<T>(iter: T)
+where
+    T: IntoIterator,
+    T::Item: fmt::Display,
+{
+    print_diff(iter, "- ", &Style::new().red());
+}
+
 /// Print formatted diff for files.
 pub fn diff_files<T, U>(original: T, modified: U)
 where
@@ -162,23 +192,8 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
     ))
 }
 
-fn raw_log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
-    out.finish(format_args!(
-        "{color_line}{message}\x1B[0m",
-        color_line = format_args!(
-            "\x1B[{}m",
-            match (record.level(), record.target()) {
-                (log::Level::Error, _) => Color::Red,
-                (log::Level::Warn, _) => Color::Magenta,
-                (log::Level::Info, _) => Color::White,
-                (log::Level::Debug, _) => Color::BrightBlue,
-                (log::Level::Trace, "error") => Color::Red,
-                (log::Level::Trace, _) => Color::BrightBlack,
-            }
-            .to_fg_str()
-        ),
-        message = &message,
-    ))
+fn raw_log_format(out: FormatCallback, message: &fmt::Arguments, _record: &log::Record) {
+    out.finish(format_args!("{message}"))
 }
 
 /// Setup logging according to the specified verbosity.

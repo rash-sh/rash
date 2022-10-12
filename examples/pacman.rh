@@ -1,0 +1,15 @@
+#!/usr/bin/env rash
+- name: test pacman module
+  pacman:
+    executable: "{{ rash.dir }}/../rash_core/tests/mocks/pacman.rh"
+    upgrade: true
+    force: true
+    name:
+      - rustup
+      - bpftrace
+      - linux61-zfs
+    state: sync
+  register: packages
+
+- debug:
+    msg: "{{ packages.extra | json_encode }}"

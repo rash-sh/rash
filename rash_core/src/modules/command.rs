@@ -157,19 +157,17 @@ impl Module for Command {
                         .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
 
                     trace!("exec - output: {:?}", output);
-                    let stderr = String::from_utf8(output.stderr)
-                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+                    let stderr = String::from_utf8_lossy(&output.stderr);
 
                     if !output.status.success() {
                         return Err(Error::new(ErrorKind::InvalidData, stderr));
                     }
-                    let output_string = String::from_utf8(output.stdout)
-                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+                    let output_string = String::from_utf8_lossy(&output.stdout);
 
                     let module_output = if output_string.is_empty() {
                         None
                     } else {
-                        Some(output_string)
+                        Some(output_string.into_owned())
                     };
 
                     let extra = Some(value::to_value(json!({

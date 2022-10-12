@@ -4,8 +4,10 @@ mod copy;
 mod debug;
 mod file;
 mod find;
+mod pacman;
 mod set_vars;
 mod template;
+mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::assert::Assert;
@@ -14,6 +16,7 @@ use crate::modules::copy::Copy;
 use crate::modules::debug::Debug;
 use crate::modules::file::File;
 use crate::modules::find::Find;
+use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
 use crate::modules::template::Template;
 use crate::vars::Vars;
@@ -85,6 +88,7 @@ lazy_static! {
             (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
             (File.get_name(), Box::new(File) as Box<dyn Module>),
             (Find.get_name(), Box::new(Find) as Box<dyn Module>),
+            (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
             (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
             (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         ]
