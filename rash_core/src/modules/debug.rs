@@ -20,6 +20,9 @@
 ///
 /// - debug:
 ///     var: rash.user.gid
+///
+/// - debug:
+///     var: __tera_context
 /// ```
 /// ANCHOR_END: examples
 use crate::error::Result;

@@ -6,14 +6,19 @@
       - "rash.path == ''"
   ignore_errors: true
 
-- command: ls examples
-  register: ls_result
+- find:
+    paths: "{{ rash.dir }}"
+    file_type: file
+  register: find_result
+
+- debug:
+    var: "find_result.extra"
 
 - name: "save password to multiple files"
   copy:
     content: "{{ env.MY_PASSWORD }}"
-    dest: "/tmp/MY_PASSWORD_FILE_{{ item }}"
+    dest: "/tmp/MY_PASSWORD_FILE_{{ item | split(pat='/') | last }}"
     mode: "400"
-  loop: "{{ ls_result.output | split(pat='\n') }}"
+  loop: "{{ find_result.extra }}"
   when: env | get(key="MY_PASSWORD")
   register: save_passwords_result
