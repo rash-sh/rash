@@ -19,6 +19,10 @@
 ///       - echo
 ///       - "Hellow World"
 ///     transfer_pid: true
+///
+/// - command: ls examples
+///   register: ls_result
+///
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};

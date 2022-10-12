@@ -19,7 +19,8 @@
 ///     file_type: file
 ///   register: find_result
 ///
-/// - command: echo "{{ find_result.extra }}"
+/// - debug:
+///     var: "find_result.extra"
 ///
 /// - find:
 ///     paths: /var/log
@@ -86,12 +87,15 @@ pub struct Params {
     #[serde(default)]
     excludes: Option<Vec<String>>,
     /// Type of file to select.
+    /// **[default: file]**
     #[serde(default = "default_file_type")]
     file_type: Option<FileType>,
     /// Set this to true to follow symlinks
+    /// **[default: false]**
     #[serde(default = "default_false")]
     follow: Option<bool>,
     /// Set this to yes to include hidden files, otherwise they will be ignored.
+    /// **[default: false]**
     #[serde(default = "default_false")]
     hidden: Option<bool>,
     /// The patterns restrict the list of files to be returned to those whose basenames
@@ -101,6 +105,7 @@ pub struct Params {
     #[serde(default)]
     patterns: Option<Vec<String>>,
     /// If target is a directory, recursively descend into the directory looking for files.
+    /// **[default: false]**
     #[serde(default = "default_false")]
     recurse: Option<bool>,
     /// Select files whose size is less than the specified size.

@@ -2,7 +2,7 @@ DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*' -execdir basename 
 IMAGE_NAME ?= rustagainshell/rash
 IMAGE_VERSION ?= latest
 
-BOOK_DIR ?= ./
+BOOK_DIR ?= .
 CARGO_TARGET ?= x86_64-unknown-linux-gnu
 PKG_BASE_NAME ?= rash-${CARGO_TARGET}
 VERSION ?= master
