@@ -4,7 +4,7 @@ use std::io::Write;
 use std::process;
 
 use chrono::Local;
-use clap::{crate_description, crate_version, App, Arg, ArgMatches, SubCommand};
+use clap::{crate_authors, crate_description, crate_version, Arg, ArgMatches, Command};
 use env_logger::Builder;
 use log::LevelFilter;
 use mdbook::errors::Error;
@@ -13,14 +13,14 @@ use mdbook::preprocess::CmdPreprocessor;
 #[macro_use]
 extern crate log;
 
-pub fn make_app() -> App<'static, 'static> {
-    App::new("mdbook-rash")
+pub fn make_app() -> Command {
+    Command::new("mdbook-rash")
         .about(crate_description!())
         .version(crate_version!())
-        .author("Pando85 <pando855@gmail.com>")
+        .author(crate_authors!())
         .subcommand(
-            SubCommand::with_name("supports")
-                .arg(Arg::with_name("renderer").required(true))
+            Command::new("supports")
+                .arg(Arg::new("renderer").required(true))
                 .about("Check whether a renderer is supported by this preprocessor"),
         )
 }
@@ -72,7 +72,7 @@ fn handle_preprocessing() -> Result<(), Error> {
     if calling_ver != library_ver {
         error!(
             "Warning: The mdbook-rash plugin was built against version {} of mdbook, \
-             but we're being called from version {}",
+            but we're being called from version {}",
             mdbook::MDBOOK_VERSION,
             ctx.mdbook_version
         );
@@ -84,9 +84,11 @@ fn handle_preprocessing() -> Result<(), Error> {
 }
 
 fn handle_supports(sub_args: &ArgMatches) -> ! {
-    let renderer = sub_args.value_of("renderer").expect("Required argument");
+    let renderer = sub_args
+        .get_one::<String>("renderer")
+        .expect("Required argument");
 
-    if mdbook_rash::SUPPORTED_RENDERER.contains(&renderer) {
+    if mdbook_rash::SUPPORTED_RENDERER.contains(&renderer.as_str()) {
         process::exit(0);
     } else {
         process::exit(1);

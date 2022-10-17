@@ -30,7 +30,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 byte-unit = "4.0"
 console = "0.15.0"
-clap = { version = "4.0", features = ["std", "color", "derive", "cargo"]}
+clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6", features = ["colored"] }
 ignore = "0.4"
