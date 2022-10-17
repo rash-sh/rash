@@ -22,6 +22,7 @@
       2,
       "always",
       [
+        "book",
         "build",
         "ci",
         "cli",

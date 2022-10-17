@@ -12,7 +12,7 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
-pub static SUPPORTED_RENDERER: &[&str] = &["html", "markdown"];
+pub static SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
 lazy_static! {
     static ref RE: Regex = Regex::new(
