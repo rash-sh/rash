@@ -129,7 +129,7 @@ impl Task {
                 .collect::<Result<_>>()
             {
                 Ok(map) => Ok(Value::Mapping(map)),
-                Err(e) => Err(Error::new(ErrorKind::InvalidData, e)),
+                Err(e) => Err(e),
             },
 
             Value::String(s) => Ok(Value::String(render_string(&s, &vars)?)),

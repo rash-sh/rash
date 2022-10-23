@@ -6,6 +6,7 @@ use std::result;
 
 use nix::Error as NixError;
 use serde_yaml::Error as YamlError;
+use tera::Error as TeraError;
 
 /// A specialized type `rash` operations.
 pub type Result<T> = result::Result<T, Error>;
@@ -57,6 +58,8 @@ pub enum ErrorKind {
     SubprocessFail,
     /// Task stack is empty
     EmptyTaskStack,
+    /// Tera failed to render template
+    TeraRenderError,
     /// Any `rash` error not part of this list.
     Other,
 }
@@ -71,6 +74,7 @@ impl ErrorKind {
             ErrorKind::OmitParam => "omit param",
             ErrorKind::SubprocessFail => "subprocess fail",
             ErrorKind::EmptyTaskStack => "task stack is empty",
+            ErrorKind::TeraRenderError => "Tera failed to render template",
             ErrorKind::Other => "other os error",
         }
     }
@@ -128,7 +132,7 @@ impl From<io::Error> for Error {
 }
 
 impl From<YamlError> for Error {
-    /// Converts an YamlError into an [`Error`].
+    /// Converts a serde_yaml::Error into an [`Error`].
     ///
     /// This conversion allocates a new error with a custom representation of serde_yaml error.
     ///
@@ -146,7 +150,7 @@ impl From<YamlError> for Error {
 }
 
 impl From<NixError> for Error {
-    /// Converts an NixError into an [`Error`].
+    /// Converts a nix::Error into an [`Error`].
     ///
     /// This conversion allocates a new error with a custom representation of nix error.
     ///
@@ -157,6 +161,24 @@ impl From<NixError> for Error {
         Error {
             repr: Repr::Custom(Box::new(Custom {
                 kind: ErrorKind::Other,
+                error: Box::new(error),
+            })),
+        }
+    }
+}
+
+impl From<TeraError> for Error {
+    /// Converts an tera::Error into an [`Error`].
+    ///
+    /// This conversion allocates a new error with a custom representation of Tera error.
+    ///
+    ///
+    /// [`Error`]: ../error/struct.Error.html
+    #[inline]
+    fn from(error: TeraError) -> Error {
+        Error {
+            repr: Repr::Custom(Box::new(Custom {
+                kind: ErrorKind::TeraRenderError,
                 error: Box::new(error),
             })),
         }

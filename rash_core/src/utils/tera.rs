@@ -58,7 +58,7 @@ pub fn render_string(s: &str, vars: &Vars) -> Result<String> {
         };
         match f(&e) {
             Some(true) => error::Error::new(error::ErrorKind::OmitParam, "Param is omitted"),
-            _ => error::Error::new(error::ErrorKind::InvalidData, e),
+            _ => error::Error::from(e),
         }
     })
 }
