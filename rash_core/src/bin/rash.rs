@@ -6,6 +6,7 @@ use rash_core::task::{parse_file, GlobalParams};
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
+use std::error::Error as StdError;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
@@ -66,14 +67,28 @@ struct Args {
     script_args: Vec<String>,
 }
 
+/// Trace all errors recursively
+fn trace_all(e: &dyn StdError) {
+    trace!(target: "error", "{}", e);
+    if let Some(source_error) = e.source() {
+        trace_all(source_error)
+    }
+}
+
 /// End the program with failure, printing [`Error`] and returning code associated if exists.
 /// By default fail with `exit(1)`
 ///
 /// [`Error`]: ../rash_core/error/struct.Error.html
 fn crash_error(e: Error) {
     error!("{}", e);
-    trace!(target: "error", "{:?}", e);
-    exit(e.raw_os_error().unwrap_or(1))
+    let exit_code = e.raw_os_error().unwrap_or(1);
+
+    if let Some(inner_error) = e.into_inner() {
+        if let Some(source_error) = inner_error.source() {
+            trace_all(source_error)
+        }
+    }
+    exit(exit_code)
 }
 
 fn main() {
