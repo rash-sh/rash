@@ -2,10 +2,6 @@
 
 ## [Unreleased]
 
-### To be removed in v1.9.0
-
-* Command module: `transfer_pid_1` (use `transfer_pid` instead)
-
 ## [v1.8.2](https://github.com/rash-sh/rash/tree/v1.8.2) (2022-08-15)
 
 ### Fixed

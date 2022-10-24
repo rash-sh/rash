@@ -47,9 +47,6 @@ use serde_yaml::Value;
 pub struct Params {
     #[serde(flatten)]
     pub required: Required,
-    /// [DEPRECATED] Execute command as PID 1.
-    /// Note: from this point on, your rash script execution is transferred to the command
-    pub transfer_pid_1: Option<bool>,
     /// Execute command as PID 1.
     /// Note: from this point on, your rash script execution is transferred to the command
     pub transfer_pid: Option<bool>,
@@ -89,17 +86,13 @@ pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(Mo
     let params: Params = match optional_params.as_str() {
         Some(s) => Params {
             required: Required::Cmd(s.to_string()),
-            transfer_pid_1: None,
             transfer_pid: None,
         },
         None => parse_params(optional_params)?,
     };
 
     match params.transfer_pid {
-        Some(true) => {
-            warn!("transfer_pid_1 option will be removed in 1.9.0");
-            exec_transferring_pid(params)
-        }
+        Some(true) => exec_transferring_pid(params),
         None | Some(false) => {
             match params.transfer_pid {
                 Some(true) => exec_transferring_pid(params),
@@ -180,7 +173,6 @@ mod tests {
             params,
             Params {
                 required: Required::Cmd("ls".to_string()),
-                transfer_pid_1: None,
                 transfer_pid: Some(false),
             }
         );
