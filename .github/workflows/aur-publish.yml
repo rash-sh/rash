@@ -15,7 +15,7 @@ jobs:
       shell: bash
       run: |
         echo "PROJECT_NAME=rash" >> $GITHUB_ENV
-        echo "PROJECT_VERSION=$(cat VERSION)" >> $GITHUB_ENV
+        echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
         echo "PROJECT_DESCRIPTION=$(sed -n 's/^description = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
         echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
 
