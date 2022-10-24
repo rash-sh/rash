@@ -83,7 +83,8 @@ fn change_permissions(
 ) -> Result<bool> {
     let mut dest_permissions_copy = dest_permissions;
 
-    if dest_permissions_copy.mode() != mode {
+    // & 0o7777 to remove lead 100: 100644 -> 644
+    if dest_permissions_copy.mode() & 0o7777 != mode & 0o7777 {
         if !check_mode {
             trace!("changing mode: {:o}", &mode);
             dest_permissions_copy.set_mode(mode);
@@ -106,7 +107,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 .create(true)
                 .open(&params.dest)
         } else {
-            // TODO: avoid this logic. Hint: remove tempfile from dependencies if not used anywhere
+            // TODO: avoid this logic.
             tempfile()
         }
     })?;
@@ -158,7 +159,8 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
             Input::Src(src) => {
                 let src_metadata = metadata(&src)?;
                 let src_permissions = src_metadata.permissions();
-                changed = change_permissions(
+
+                changed |= change_permissions(
                     &params.dest,
                     dest_permissions,
                     src_permissions.mode(),
@@ -174,7 +176,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
         },
         Some(s) => {
             let mode = parse_octal(s)?;
-            changed = change_permissions(&params.dest, dest_permissions, mode, check_mode)?;
+            changed |= change_permissions(&params.dest, dest_permissions, mode, check_mode)?;
         }
         None => (),
     };
@@ -396,6 +398,59 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
+                output: Some(file_dest_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_file_preserve_with_st_mode_no_change() {
+        let src_dir = tempdir().unwrap();
+        let dest_dir = tempdir().unwrap();
+
+        let file_src_path = src_dir.path().join("preserve.txt");
+        let file_dest_path = dest_dir.path().join("preserve.txt");
+        let mut file = File::create(file_src_path.clone()).unwrap();
+        writeln!(file, "test").unwrap();
+
+        let mut dest_file = File::create(file_dest_path.clone()).unwrap();
+        writeln!(dest_file, "test").unwrap();
+
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o100604);
+        set_permissions(&file_src_path, permissions).unwrap();
+
+        let mut permissions = dest_file.metadata().unwrap().permissions();
+        permissions.set_mode(0o100604);
+        set_permissions(&file_dest_path, permissions).unwrap();
+
+        let output = copy_file(
+            Params {
+                input: Input::Src(file_src_path.to_str().unwrap().to_string()),
+                dest: file_dest_path.to_str().unwrap().to_string(),
+                mode: Some("preserve".to_string()),
+            },
+            false,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_dest_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "test\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o604)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
                 output: Some(file_dest_path.to_str().unwrap().to_string()),
                 extra: None,
             }
@@ -709,6 +764,50 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
+                output: Some(file_path.to_str().unwrap().to_string()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    // st_mode: https://linux.die.net/man/2/stat
+    // bits in octal indicating S_ISREG (if is a file: 100). E.g.: 100644
+    fn test_copy_file_read_only_no_change_permissions_check_ignore_st_mode() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("read_only.txt");
+        let mut file = File::create(file_path.clone()).unwrap();
+        writeln!(file, "zoo").unwrap();
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o100400);
+        set_permissions(&file_path, permissions).unwrap();
+
+        let output = copy_file(
+            Params {
+                input: Input::Content("zoo\n".to_string()),
+                dest: file_path.to_str().unwrap().to_string(),
+                mode: Some("0400".to_string()),
+            },
+            false,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        assert_eq!(contents, "zoo\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
                 output: Some(file_path.to_str().unwrap().to_string()),
                 extra: None,
             }

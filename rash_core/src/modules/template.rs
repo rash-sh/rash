@@ -29,6 +29,8 @@ use crate::vars::Vars;
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
+use std::fs::metadata;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 #[cfg(feature = "docs")]
@@ -47,6 +49,8 @@ pub struct Params {
     /// Absolute path where the file should be rendered to.
     dest: String,
     /// Permissions of the destination file or directory.
+    /// The mode may also be the special string `preserve`.
+    /// `preserve` means that the file will be given the same permissions as the source file.
     mode: Option<String>,
 }
 
@@ -54,13 +58,23 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     let mut tera = Tera::default();
     tera.add_template_file(Path::new(&params.src), None)
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    let mode = match params.mode.as_deref() {
+        Some("preserve") => {
+            let src_metadata = metadata(&params.src)?;
+            let src_permissions = src_metadata.permissions();
+            // & 0o7777 to remove lead 100: 100644 -> 644
+            Some(format!("{:o}", src_permissions.mode() & 0o7777))
+        }
+        _ => params.mode,
+    };
+
     Ok(CopyParams {
         input: Input::Content(
             tera.render(&params.src, &vars)
                 .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
         ),
         dest: params.dest.clone(),
-        mode: params.mode,
+        mode,
     })
 }
 
@@ -80,7 +94,7 @@ mod tests {
 
     use crate::vars;
 
-    use std::fs::File;
+    use std::fs::{set_permissions, File};
     use std::io::Write;
 
     use tempfile::tempdir;
@@ -183,5 +197,47 @@ mod tests {
         .unwrap();
 
         assert_eq!(copy_params.get_content().unwrap(), "test\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o644)
+        );
+    }
+
+    #[test]
+    fn test_render_content_with_preserve() {
+        let dir = tempdir().unwrap();
+
+        let file_path = dir.path().join("template.j2");
+        let mut file = File::create(file_path.clone()).unwrap();
+        #[allow(clippy::write_literal)]
+        writeln!(file, "{}", "{{ boo }}").unwrap();
+
+        let mut permissions = file.metadata().unwrap().permissions();
+        permissions.set_mode(0o604);
+        set_permissions(&file_path, permissions).unwrap();
+
+        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+
+        let copy_params = render_content(
+            Params {
+                src: file_path.to_str().unwrap().to_owned(),
+                dest: "/tmp/buu.txt".to_string(),
+                mode: Some("preserve".to_string()),
+            },
+            vars,
+        )
+        .unwrap();
+
+        assert_eq!(copy_params.get_content().unwrap(), "test\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o604)
+        );
     }
 }
