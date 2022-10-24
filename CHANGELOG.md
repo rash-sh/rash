@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [v1.8.3](https://github.com/rash-sh/rash/tree/v1.8.3) (2022-10-24)
+
+### Fixed
+
+* cli: Support repeated arguments in docopt (#281)
+* cli: Help not ignored when positional required in docopt (#283)
+* cli: Improve tera error handling and add a trace all verbose option (#287)
+* docs: Add default values and fix examples (#285)
+
 ## [v1.8.2](https://github.com/rash-sh/rash/tree/v1.8.2) (2022-08-15)
 
 ### Fixed
