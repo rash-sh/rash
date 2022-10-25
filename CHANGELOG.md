@@ -12,7 +12,7 @@
 
 * ci: Read version from `Cargo.toml`
 
-## [v1.8.3](https://github.com/rash-sh/rash/tree/v1.8.3) (2022-10-24)
+## [v1.8.3](https://github.com/rash-sh/rash/tree/v1.8.3) (2022-10-24) [YANKED]
 
 ### Fixed
 

@@ -17,6 +17,14 @@ help:	## Show this help menu.
 	@@egrep -h "#[#]" $(MAKEFILE_LIST) | sed -e 's/\\$$//' | awk 'BEGIN {FS = "[:=].*?#[#] "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
+.PHONY: update-version
+update-version: ## update version from VERSION file in all Cargo.toml manifests
+update-version: */Cargo.toml
+	@VERSION=$$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1); \
+	sed -i -E "s/^(rash\_.*version\s=\s)\"(.*)\"/\1\"$$VERSION\"/gm" */Cargo.toml && \
+	cargo update -p rash_core -p rash_derive && \
+	echo updated to version "$$" cargo files
+
 .PHONY: build
 build:	## compile rash
 build:
