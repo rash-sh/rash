@@ -8,14 +8,14 @@
       "always",
       [
         "build",
+        "docs",
         "feat",
         "fix",
-        "docs",
-        "style",
         "refactor",
-        "test",
         "release",
-        "revert"
+        "revert",
+        "style",
+        "test"
       ]
     ],
     "scope-enum": [

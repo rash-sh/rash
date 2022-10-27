@@ -9,6 +9,8 @@ VERSION ?= master
 
 CARGO_TARGET_DIR ?= target
 
+PROJECT_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+
 .DEFAULT: help
 .PHONY: help
 help:	## Show this help menu.
@@ -61,11 +63,14 @@ book:	## create rash_book under rash_book/rash-sh.github.io
 book:	mdbook-rash
 	MDBOOK_BUILD__BUILD_DIR=$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book
 
+.PHONY: update-changelog
+update-changelog:	## automatically update changelog based on commits
+	git cliff -t v$(PROJECT_VERSION) -u -p CHANGELOG.md
+
 .PHONY: tag
 tag:	## create a tag using version from VERSION file
-	PROJECT_VERSION=$$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1); \
-	git tag -s v$${PROJECT_VERSION}  -m "v$${PROJECT_VERSION}" && \
-	git push origin v$${PROJECT_VERSION}
+	git tag -s v$(PROJECT_VERSION)  -m "v$(PROJECT_VERSION)" && \
+	git push origin v$(PROJECT_VERSION)
 
 .PHONY: release
 release: CARGO_USE_CROSS ?= $(IMAGES_CARGO_USE_CROSS)
