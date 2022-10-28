@@ -334,7 +334,7 @@ impl Task {
                 false => self.exec_module_rendered(&rendered_params, &vars),
             }
         } else {
-            info!(target: "skipping", "");
+            debug!("skipping");
             Ok(vars)
         }
     }
