@@ -26,7 +26,7 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
 
@@ -34,11 +34,14 @@ use crate::vars::Vars;
 use rash_derive::DocJsonSchema;
 
 use std::fs::{
-    create_dir_all, metadata, remove_dir_all, remove_file, set_permissions, File, Metadata,
+    create_dir_all, metadata, remove_dir_all, remove_file, set_permissions, File as StdFile,
+    Metadata,
 };
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -271,7 +274,7 @@ fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
                         diff("state: absent\n", "state: file\n");
 
                         if !check_mode {
-                            let file = File::create(&params.path)?;
+                            let file = StdFile::create(&params.path)?;
                             let mut permissions = file.metadata()?.permissions();
                             permissions.set_mode(octal_mode);
                             set_permissions(&params.path, permissions)?;
@@ -294,7 +297,7 @@ fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 Err(_not_exists) => {
                     diff("state: absent\n", "state: file\n");
                     if !check_mode {
-                        File::create(&params.path)?;
+                        StdFile::create(&params.path)?;
                     }
 
                     Ok(ModuleResult {
@@ -308,11 +311,30 @@ fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     }
 }
 
-pub fn exec(optional_params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    Ok((
-        define_file(parse_params(optional_params)?, check_mode)?,
-        vars,
-    ))
+#[derive(Debug)]
+pub struct File;
+
+impl Module for File {
+    fn get_name(&self) -> &str {
+        "file"
+    }
+
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        Ok((
+            define_file(parse_params(optional_params)?, check_mode)?,
+            vars,
+        ))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
+    }
 }
 
 #[cfg(test)]
@@ -417,7 +439,7 @@ mod tests {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("no_change");
-        let file = File::create(file_path.clone()).unwrap();
+        let file = StdFile::create(file_path.clone()).unwrap();
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
@@ -607,7 +629,7 @@ mod tests {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("modify_permissions");
-        let file = File::create(file_path.clone()).unwrap();
+        let file = StdFile::create(file_path.clone()).unwrap();
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
@@ -645,7 +667,7 @@ mod tests {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("modify_permissions");
-        let file = File::create(file_path.clone()).unwrap();
+        let file = StdFile::create(file_path.clone()).unwrap();
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
@@ -683,7 +705,7 @@ mod tests {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("remove_file");
-        let file = File::create(file_path.clone()).unwrap();
+        let file = StdFile::create(file_path.clone()).unwrap();
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
@@ -716,7 +738,7 @@ mod tests {
         let dir = tempdir().unwrap();
 
         let file_path = dir.path().join("remove_file");
-        let file = File::create(file_path.clone()).unwrap();
+        let file = StdFile::create(file_path.clone()).unwrap();
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o400);
         set_permissions(&file_path, permissions).unwrap();
@@ -819,7 +841,7 @@ mod tests {
         let dir_path = dir.path().join("remove_directory_and_subdirectories");
         create_dir(&dir_path).unwrap();
         create_dir(&dir_path.join("one_dir")).unwrap();
-        File::create(&dir_path.join("one_file")).unwrap();
+        StdFile::create(&dir_path.join("one_file")).unwrap();
         let dir_metadata = metadata(&dir_path).unwrap();
         let mut permissions = dir_metadata.permissions();
         permissions.set_mode(0o700);
@@ -855,7 +877,7 @@ mod tests {
         let dir_path = dir.path().join("remove_directory_and_subdirectories");
         create_dir(&dir_path).unwrap();
         create_dir(&dir_path.join("one_dir")).unwrap();
-        File::create(&dir_path.join("one_file")).unwrap();
+        StdFile::create(&dir_path.join("one_file")).unwrap();
         let dir_metadata = metadata(&dir_path).unwrap();
         let mut permissions = dir_metadata.permissions();
         permissions.set_mode(0o700);

@@ -84,6 +84,7 @@ impl TaskValid {
 
     pub fn get_task(&self, global_params: &GlobalParams) -> Result<Task> {
         let module_name: &str = &self.get_module_name()?;
+
         Ok(Task {
             r#become: match global_params.r#become {
                 true => true,
@@ -99,15 +100,13 @@ impl TaskValid {
                 true => true,
                 false => self.attrs["check_mode"].as_bool().unwrap_or(false),
             },
-            module: MODULES
-                .get::<str>(module_name)
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::NotFound,
-                        format!("Module not found in modules: {:?}", MODULES.keys()),
-                    )
-                })?
-                .clone(),
+            // &dyn Module from &Box<dyn Module>
+            module: &**MODULES.get::<str>(module_name).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::NotFound,
+                    format!("Module not found in modules: {:?}", MODULES.keys()),
+                )
+            })?,
             params: self.attrs[module_name].clone(),
             name: self.attrs["name"].as_str().map(String::from),
             ignore_errors: self.attrs["ignore_errors"].as_bool(),

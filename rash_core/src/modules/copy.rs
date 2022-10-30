@@ -22,7 +22,7 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff_files;
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::parse_octal;
 use crate::vars::Vars;
 
@@ -35,6 +35,8 @@ use std::io::SeekFrom;
 use std::io::{BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -188,8 +190,27 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    Ok((copy_file(parse_params(optional_params)?, check_mode)?, vars))
+#[derive(Debug)]
+pub struct Copy;
+
+impl Module for Copy {
+    fn get_name(&self) -> &str {
+        "copy"
+    }
+
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        Ok((copy_file(parse_params(optional_params)?, check_mode)?, vars))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
+    }
 }
 
 #[cfg(test)]

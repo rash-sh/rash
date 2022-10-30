@@ -5,12 +5,6 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::task::Tasks;
 use crate::vars::Vars;
 
-#[cfg(test)]
-use crate::task::Task;
-
-#[cfg(test)]
-use crate::vars;
-
 /// Main data structure in `rash`.
 /// It contents all [`task::Tasks`] with their [`vars::Vars`] to be executed
 ///
@@ -66,13 +60,5 @@ impl Context {
     pub fn exec(context: Self) -> Result<Self> {
         // https://prev.rust-lang.org/en-US/faq.html#does-rust-do-tail-call-optimization
         Self::exec(context.exec_task()?)
-    }
-
-    #[cfg(test)]
-    pub fn test_example() -> Self {
-        Context {
-            tasks: vec![Task::test_example()],
-            vars: vars::from_iter(vec![].into_iter()),
-        }
     }
 }

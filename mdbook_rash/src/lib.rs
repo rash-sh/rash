@@ -184,14 +184,13 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
     for capture in captures.iter() {
         if capture.2 == "include_module_index" {
             let mut indexes_vec = MODULES
-                .clone()
-                .into_iter()
+                .iter()
                 .map(|(name, _)| format!("- [{}](./{}.html)", &name, &name))
                 .collect::<Vec<String>>();
             indexes_vec.sort();
             let indexes_body = indexes_vec.join("\n");
 
-            let mut modules = MODULES.clone().into_iter().collect::<Vec<_>>();
+            let mut modules = MODULES.iter().collect::<Vec<_>>();
             modules.sort_by_key(|x| x.0);
 
             for module in modules {

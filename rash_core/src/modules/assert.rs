@@ -22,13 +22,15 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::tera::is_render_string;
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -44,6 +46,7 @@ pub struct Params {
 }
 
 fn verify_conditions(params: Params, vars: &Vars) -> Result<ModuleResult> {
+    // TODO: replace with try_for_each?
     let _ = params
         .that
         .iter()
@@ -65,11 +68,30 @@ fn verify_conditions(params: Params, vars: &Vars) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    Ok((
-        verify_conditions(parse_params(optional_params)?, &vars)?,
-        vars,
-    ))
+#[derive(Debug)]
+pub struct Assert;
+
+impl Module for Assert {
+    fn get_name(&self) -> &str {
+        "assert"
+    }
+
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        _check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        Ok((
+            verify_conditions(parse_params(optional_params)?, &vars)?,
+            vars,
+        ))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
+    }
 }
 
 #[cfg(test)]

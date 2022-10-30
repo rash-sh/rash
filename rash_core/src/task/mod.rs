@@ -41,8 +41,8 @@ impl Default for GlobalParams<'_> {
 /// It implements a state machine using Rust Generics to enforce well done definitions.
 /// Inspired by [Kanidm Entries](https://fy.blackhats.net.au/blog/html/2019/04/13/using_rust_generics_to_enforce_db_record_state.html).
 ///
-/// [`Module`]: ../modules/struct.Module.html
-#[derive(Debug, Clone, PartialEq, FieldNames)]
+/// [`Module`]: ../modules/trait.Module.html
+#[derive(Debug, Clone, FieldNames)]
 // ANCHOR: task
 pub struct Task {
     /// run operations with become (does not imply password prompting).
@@ -53,11 +53,11 @@ pub struct Task {
     check_mode: bool,
     /// Module could be any [`Module`] accessible by its name.
     ///
-    /// [`Module`]: ../modules/struct.Module.html
-    module: Module,
+    /// [`Module`]: ../modules/trait.Module.html
+    module: &'static dyn Module,
     /// Params are module execution params passed to [`Module::exec`].
     ///
-    /// [`Module::exec`]: ../modules/struct.Module.html#method.exec
+    /// [`Module::exec`]: ../modules/trait.Module.html#method.exec
     params: Value,
     /// Template expression passed directly without {{ }};
     /// Overwrite changed field in [`ModuleResult`].
@@ -341,7 +341,7 @@ impl Task {
 
     /// Execute [`Module`] rendering `self.params` with [`Vars`].
     ///
-    /// [`Module`]: ../modules/struct.Module.html
+    /// [`Module`]: ../modules/trait.Module.html
     /// [`Vars`]: ../vars/struct.Vars.html
     pub fn exec(&self, vars: Vars) -> Result<Vars> {
         debug!("Module: {}", self.module.get_name());
@@ -380,26 +380,9 @@ impl Task {
 
     /// Return [`Module`].
     ///
-    /// [`Module`]: ../modules/struct.Module.html
-    pub fn get_module(&self) -> Module {
-        self.module.clone()
-    }
-
-    #[cfg(test)]
-    pub fn test_example() -> Self {
-        Task {
-            r#become: GlobalParams::default().r#become,
-            become_user: GlobalParams::default().become_user.to_string(),
-            check_mode: GlobalParams::default().check_mode,
-            module: Module::test_example(),
-            params: serde_yaml::from_str("cmd: ls").unwrap(),
-            changed_when: None,
-            ignore_errors: None,
-            name: None,
-            r#loop: None,
-            register: None,
-            when: None,
-        }
+    /// [`Module`]: ../modules/trait.Module.html
+    pub fn get_module(&self) -> &dyn Module {
+        self.module
     }
 }
 
@@ -426,7 +409,6 @@ pub fn parse_file(tasks_file: &str, global_params: &GlobalParams) -> Result<Task
 mod tests {
     use super::*;
 
-    use crate::modules::MODULES;
     use crate::vars;
 
     use std::collections::HashMap;
@@ -444,7 +426,7 @@ mod tests {
         let task = Task::from(yaml);
 
         assert_eq!(task.name.unwrap(), "Test task");
-        assert_eq!(&task.module, MODULES.get("command").unwrap());
+        assert_eq!(&task.module.get_name(), &"command");
     }
 
     #[test]
@@ -738,7 +720,14 @@ mod tests {
 
     #[test]
     fn test_task_execute() {
-        let task = Task::test_example();
+        let s0 = r#"
+            name: task 1
+            command: echo foo
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+
         let vars = vars::from_iter(vec![].into_iter());
         let result = task.exec(vars.clone()).unwrap();
         assert_eq!(result, vars);
@@ -767,7 +756,10 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task_0 = Task::from(yaml);
-        assert_eq!(tasks[0], task_0);
+
+        assert_eq!(tasks[0].name, task_0.name);
+        assert_eq!(tasks[0].params, task_0.params);
+        assert_eq!(tasks[0].module.get_name(), task_0.module.get_name());
 
         let s1 = r#"
             name: task 2
@@ -776,7 +768,9 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s1).unwrap();
         let task_1 = Task::from(yaml);
-        assert_eq!(tasks[1], task_1);
+        assert_eq!(tasks[1].name, task_1.name);
+        assert_eq!(tasks[1].params, task_1.params);
+        assert_eq!(tasks[1].module.get_name(), task_1.module.get_name());
     }
 
     #[test]

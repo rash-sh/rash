@@ -30,7 +30,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_if_json, parse_params, ModuleResult};
+use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
@@ -41,6 +41,8 @@ use std::path::Path;
 use byte_unit::Byte;
 use ignore::WalkBuilder;
 use regex::RegexSet;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -254,8 +256,27 @@ fn find(params: Params) -> Result<ModuleResult> {
     })
 }
 
-pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    Ok((find(parse_params(optional_params)?)?, vars))
+#[derive(Debug)]
+pub struct Find;
+
+impl Module for Find {
+    fn get_name(&self) -> &str {
+        "find"
+    }
+
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        _check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        Ok((find(parse_params(optional_params)?)?, vars))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
+    }
 }
 
 #[cfg(test)]
