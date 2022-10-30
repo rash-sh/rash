@@ -38,45 +38,61 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::ModuleResult;
+use crate::modules::{Module, ModuleResult};
 use crate::vars::Vars;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde_yaml::Value;
 
-pub fn exec(params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    let mut new_vars = vars;
+#[derive(Debug)]
+pub struct SetVars;
 
-    match params {
-        Value::Mapping(map) => {
-            map.iter()
-                .map(|hash_map| {
-                    new_vars.insert(
-                        hash_map.0.as_str().ok_or_else(|| {
-                            Error::new(
-                                ErrorKind::InvalidData,
-                                format!("{:?} is not a valid string", &hash_map.0),
-                            )
-                        })?,
-                        hash_map.1,
-                    );
-                    Ok(())
-                })
-                .collect::<Result<Vec<_>>>()?;
-        }
-        _ => {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("{:?} must be a dict", &params),
-            ));
-        }
+impl Module for SetVars {
+    fn get_name(&self) -> &str {
+        "set_vars"
     }
 
-    Ok((
-        ModuleResult {
-            changed: false,
-            output: None,
-            extra: None,
-        },
-        new_vars,
-    ))
+    fn exec(&self, params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+        let mut new_vars = vars;
+
+        match params {
+            Value::Mapping(map) => {
+                map.iter()
+                    .map(|hash_map| {
+                        new_vars.insert(
+                            hash_map.0.as_str().ok_or_else(|| {
+                                Error::new(
+                                    ErrorKind::InvalidData,
+                                    format!("{:?} is not a valid string", &hash_map.0),
+                                )
+                            })?,
+                            hash_map.1,
+                        );
+                        Ok(())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("{:?} must be a dict", &params),
+                ));
+            }
+        }
+
+        Ok((
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: None,
+            },
+            new_vars,
+        ))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        None
+    }
 }

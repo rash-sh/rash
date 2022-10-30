@@ -8,6 +8,14 @@ mod set_vars;
 mod template;
 
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::assert::Assert;
+use crate::modules::command::Command;
+use crate::modules::copy::Copy;
+use crate::modules::debug::Debug;
+use crate::modules::file::File;
+use crate::modules::find::Find;
+use crate::modules::set_vars::SetVars;
+use crate::modules::template::Template;
 use crate::vars::Vars;
 
 use std::collections::HashMap;
@@ -19,7 +27,7 @@ use serde_yaml::Value;
 
 /// Return values of a [`Module`] execution.
 ///
-/// [`Module`]: struct.Module.html
+/// [`Module`]: trait.Module.html
 #[derive(Clone, Debug, PartialEq, Serialize)]
 // ANCHOR: module_result
 pub struct ModuleResult {
@@ -57,134 +65,31 @@ impl ModuleResult {
     }
 }
 
-/// Basic execution structure. Build with module name and module exec function.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Module {
-    name: &'static str,
-    exec_fn: fn(Value, Vars, bool) -> Result<(ModuleResult, Vars)>,
-    #[cfg(feature = "docs")]
-    get_json_schema_fn: Option<fn() -> RootSchema>,
-}
-
-impl Module {
+pub trait Module: Send + Sync + std::fmt::Debug {
     /// Return name.
-    pub fn get_name(&self) -> &str {
-        self.name
-    }
+    fn get_name(&self) -> &str;
 
-    /// Execute `self.exec_fn`.
-    pub fn exec(
-        &self,
-        params: Value,
-        vars: Vars,
-        check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
-        (self.exec_fn)(params, vars, check_mode)
-    }
+    /// Execute module
+    fn exec(&self, params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)>;
 
     #[cfg(feature = "docs")]
-    pub fn get_json_schema(&self) -> Option<RootSchema> {
-        self.get_json_schema_fn.map(|f| (f)())
-    }
-
-    #[cfg(test)]
-    pub fn test_example() -> Self {
-        Module {
-            name: "test",
-            exec_fn: |_, _, _| {
-                Ok((
-                    ModuleResult {
-                        changed: true,
-                        extra: None,
-                        output: None,
-                    },
-                    Vars::new(),
-                ))
-            },
-            #[cfg(feature = "docs")]
-            get_json_schema_fn: None,
-        }
-    }
+    fn get_json_schema(&self) -> Option<RootSchema>;
 }
 
 lazy_static! {
-    pub static ref MODULES: HashMap<&'static str, Module> = {
+    pub static ref MODULES: HashMap<&'static str, Box<dyn Module>> = {
         vec![
-            (
-                "assert",
-                Module {
-                    name: "assert",
-                    exec_fn: assert::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(assert::Params::get_json_schema),
-                },
-            ),
-            (
-                "command",
-                Module {
-                    name: "command",
-                    exec_fn: command::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(command::Params::get_json_schema),
-                },
-            ),
-            (
-                "copy",
-                Module {
-                    name: "copy",
-                    exec_fn: copy::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(copy::Params::get_json_schema),
-                },
-            ),
-            (
-                "debug",
-                Module {
-                    name: "debug",
-                    exec_fn: debug::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(debug::Params::get_json_schema),
-                },
-            ),
-            (
-                "file",
-                Module {
-                    name: "file",
-                    exec_fn: file::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(file::Params::get_json_schema),
-                },
-            ),
-            (
-                "find",
-                Module {
-                    name: "find",
-                    exec_fn: find::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(find::Params::get_json_schema),
-                },
-            ),
-            (
-                "set_vars",
-                Module {
-                    name: "set_vars",
-                    exec_fn: set_vars::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: None,
-                },
-            ),
-            (
-                "template",
-                Module {
-                    name: "template",
-                    exec_fn: template::exec,
-                    #[cfg(feature = "docs")]
-                    get_json_schema_fn: Some(template::Params::get_json_schema),
-                },
-            ),
+            (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
+            (Command.get_name(), Box::new(Command) as Box<dyn Module>),
+            (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
+            (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
+            (File.get_name(), Box::new(File) as Box<dyn Module>),
+            (Find.get_name(), Box::new(Find) as Box<dyn Module>),
+            (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
+            (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         ]
         .into_iter()
-        .collect::<HashMap<&'static str, Module>>()
+        .collect()
     };
 }
 

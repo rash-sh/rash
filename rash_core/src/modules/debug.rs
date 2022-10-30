@@ -26,13 +26,15 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::Result;
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::tera::render_string;
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -69,9 +71,27 @@ fn debug(params: Params, vars: &Vars) -> Result<ModuleResult> {
         extra: None,
     })
 }
+#[derive(Debug)]
+pub struct Debug;
 
-pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    Ok((debug(parse_params(optional_params)?, &vars)?, vars))
+impl Module for Debug {
+    fn get_name(&self) -> &str {
+        "debug"
+    }
+
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        _check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        Ok((debug(parse_params(optional_params)?, &vars)?, vars))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
+    }
 }
 
 #[cfg(test)]

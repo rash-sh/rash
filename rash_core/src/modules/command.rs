@@ -26,15 +26,17 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_params, Module, ModuleResult};
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::process::Command;
+use std::process::Command as StdCommand;
 
 use exec as exec_command;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -85,80 +87,99 @@ fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Vars)> {
     Err(Error::new(ErrorKind::SubprocessFail, error))
 }
 
-pub fn exec(optional_params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    let params: Params = match optional_params.as_str() {
-        Some(s) => Params {
-            required: Required::Cmd(s.to_string()),
-            transfer_pid_1: None,
-            transfer_pid: None,
-        },
-        None => parse_params(optional_params)?,
-    };
+#[derive(Debug)]
+pub struct Command;
 
-    match params.transfer_pid {
-        Some(true) => {
-            warn!("transfer_pid_1 option will be removed in 1.9.0");
-            exec_transferring_pid(params)
-        }
-        None | Some(false) => {
-            match params.transfer_pid {
-                Some(true) => exec_transferring_pid(params),
-                None | Some(false) => {
-                    let output = match params.required {
-                        Required::Cmd(cmd) => Command::new("/bin/sh")
-                            // safe unwrap: verified
-                            .args(vec!["-c", &cmd])
-                            .output()
-                            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?,
-                        Required::Argv(argv) => {
-                            // safe unwrap: verify in parse_params
-                            let mut args = argv.iter();
-                            let program = args.next().ok_or_else(|| {
-                                Error::new(
-                                    ErrorKind::InvalidData,
-                                    format!("{:?} invalid cmd", args),
-                                )
-                            })?;
+impl Module for Command {
+    fn get_name(&self) -> &str {
+        "command"
+    }
 
-                            Command::new(program)
-                                .args(args)
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        _check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        let params: Params = match optional_params.as_str() {
+            Some(s) => Params {
+                required: Required::Cmd(s.to_string()),
+                transfer_pid_1: None,
+                transfer_pid: None,
+            },
+            None => parse_params(optional_params)?,
+        };
+
+        match params.transfer_pid {
+            Some(true) => {
+                warn!("transfer_pid_1 option will be removed in 1.9.0");
+                exec_transferring_pid(params)
+            }
+            None | Some(false) => {
+                match params.transfer_pid {
+                    Some(true) => exec_transferring_pid(params),
+                    None | Some(false) => {
+                        let output = match params.required {
+                            Required::Cmd(cmd) => StdCommand::new("/bin/sh")
+                                // safe unwrap: verified
+                                .args(vec!["-c", &cmd])
                                 .output()
-                                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?,
+                            Required::Argv(argv) => {
+                                // safe unwrap: verify in parse_params
+                                let mut args = argv.iter();
+                                let program = args.next().ok_or_else(|| {
+                                    Error::new(
+                                        ErrorKind::InvalidData,
+                                        format!("{:?} invalid cmd", args),
+                                    )
+                                })?;
+
+                                StdCommand::new(program)
+                                    .args(args)
+                                    .output()
+                                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                            }
+                        };
+
+                        trace!("exec - output: {:?}", output);
+                        let stderr = String::from_utf8(output.stderr)
+                            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                        if !output.status.success() {
+                            return Err(Error::new(ErrorKind::InvalidData, stderr));
                         }
-                    };
+                        let output_string = String::from_utf8(output.stdout)
+                            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
-                    trace!("exec - output: {:?}", output);
-                    let stderr = String::from_utf8(output.stderr)
-                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+                        let module_output = if output_string.is_empty() {
+                            None
+                        } else {
+                            Some(output_string)
+                        };
 
-                    if !output.status.success() {
-                        return Err(Error::new(ErrorKind::InvalidData, stderr));
+                        let extra = Some(value::to_value(json!({
+                            "rc": output.status.code(),
+                            "stderr": stderr,
+                        }))?);
+
+                        Ok((
+                            ModuleResult {
+                                changed: true,
+                                output: module_output,
+                                extra,
+                            },
+                            vars,
+                        ))
                     }
-                    let output_string = String::from_utf8(output.stdout)
-                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-                    let module_output = if output_string.is_empty() {
-                        None
-                    } else {
-                        Some(output_string)
-                    };
-
-                    let extra = Some(value::to_value(json!({
-                        "rc": output.status.code(),
-                        "stderr": stderr,
-                    }))?);
-
-                    Ok((
-                        ModuleResult {
-                            changed: true,
-                            output: module_output,
-                            extra,
-                        },
-                        vars,
-                    ))
                 }
             }
         }
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
     }
 }
 

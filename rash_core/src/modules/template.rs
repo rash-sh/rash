@@ -23,7 +23,7 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::copy::copy_file;
 use crate::modules::copy::{Input, Params as CopyParams};
-use crate::modules::{parse_params, ModuleResult};
+use crate::modules::{parse_params, Module, ModuleResult};
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
@@ -33,6 +33,8 @@ use std::fs::metadata;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -78,14 +80,33 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     })
 }
 
-pub fn exec(optional_params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)> {
-    Ok((
-        copy_file(
-            render_content(parse_params(optional_params)?, vars.clone())?,
-            check_mode,
-        )?,
-        vars,
-    ))
+#[derive(Debug)]
+pub struct Template;
+
+impl Module for Template {
+    fn get_name(&self) -> &str {
+        "template"
+    }
+
+    fn exec(
+        &self,
+        optional_params: Value,
+        vars: Vars,
+        check_mode: bool,
+    ) -> Result<(ModuleResult, Vars)> {
+        Ok((
+            copy_file(
+                render_content(parse_params(optional_params)?, vars.clone())?,
+                check_mode,
+            )?,
+            vars,
+        ))
+    }
+
+    #[cfg(feature = "docs")]
+    fn get_json_schema(&self) -> Option<RootSchema> {
+        Some(Params::get_json_schema())
+    }
 }
 
 #[cfg(test)]
