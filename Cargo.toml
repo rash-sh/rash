@@ -10,10 +10,10 @@ version = "1.8.4"
 authors = ["Pando85 <pando855@gmail.com>"]
 rust-version = "1.66"
 edition = "2021"
-license-file = "../LICENSE"
+license-file = "LICENSE"
 homepage = "https://rash.sh"
 repository = "https://github.com/rash-sh/rash"
-readme = "../README.md"
+readme = "README.md"
 
 [workspace.dependencies]
 clap = "4.0"
