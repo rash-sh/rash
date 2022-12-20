@@ -13,7 +13,7 @@ PROJECT_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head
 
 .DEFAULT: help
 .PHONY: help
-help:	## Show this help menu.
+help:	## show this help menu.
 	@echo "Usage: make [TARGET ...]"
 	@echo ""
 	@@egrep -h "#[#]" $(MAKEFILE_LIST) | sed -e 's/\\$$//' | awk 'BEGIN {FS = "[:=].*?#[#] "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -124,8 +124,14 @@ test-images: images
 push-images:	## push images
 push-images: images
 	@for DOCKERFILE in $(DOCKERFILES);do \
+		if [ "$$DOCKERFILE" = "Dockerfile" ]; then \
+			DOCKER_EXTRA_ARGS="--platform linux/amd64,linux/arm64"; \
+		else \
+			DOCKER_EXTRA_ARGS=""; \
+		fi; \
 		docker buildx build -f $$DOCKERFILE \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
+			$$DOCKER_EXTRA_ARGS \
 			--push \
 			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/Dockerfile//' | tr '.' '-'` \
 			.; \
