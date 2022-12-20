@@ -23,7 +23,6 @@
       "always",
       [
         "book",
-        "build",
         "ci",
         "cli",
         "core",
