@@ -1,10 +1,39 @@
-# rash changes
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### To be removed in v1.9.0
 
 * Command module: `transfer_pid_1` (use `transfer_pid` instead)
+
+## [v1.8.5](https://github.com/rash-sh/rash/tree/v1.8.5) - 2022-12-20
+
+### Added
+
+* Add `git-cliff` to update CHANGELOG automatically
+
+### Build
+
+* Upgrade to Rust 1.66 and fix new clippy warnings
+* Add arm64 docker images
+
+### Documentation
+
+* Fix build status badget
+
+### Fixed
+
+* ci: Add local versions in dependencies
+* cli: Change skipping log to debug
+
+### Refactor
+
+* module: Implement trait Module
 
 ## [v1.8.4](https://github.com/rash-sh/rash/tree/v1.8.4) (2022-10-24)
 
