@@ -27,15 +27,15 @@ body = """
         {% raw %}  {% endraw %}- **BREAKING**: {{commit.breaking_description}}
         {%- endif -%}
     {%- endfor -%}
-    {%- for commit in commits %}
-        {%- if commit.scope -%}
-        {% else -%}
+    {% for commit in commits %}
+        {%- if commit.scope %}
+        {%- else %}
             * {{ commit.message | upper_first }}
-            {% if commit.breaking -%}
+            {%- if commit.breaking %}
             {% raw %}  {% endraw %}- **BREAKING**: {{commit.breaking_description}}
-            {% endif -%}
-        {% endif -%}
-    {% endfor -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- endfor -%}
     {% raw %}\n{% endraw %}\
 {% endfor %}\n
 """
