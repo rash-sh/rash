@@ -90,7 +90,7 @@ fn change_permissions(
         if !check_mode {
             trace!("changing mode: {:o}", &mode);
             dest_permissions_copy.set_mode(mode);
-            set_permissions(&dest, dest_permissions_copy)?;
+            set_permissions(dest, dest_permissions_copy)?;
         }
         return Ok(true);
     };
@@ -123,7 +123,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let desired_content = match params.input.clone() {
         Input::Content(s) => s,
         Input::Src(src) => {
-            let file = File::open(&src)?;
+            let file = File::open(src)?;
             let mut buf_reader = BufReader::new(file);
             let mut contents = String::new();
             buf_reader.read_to_string(&mut contents)?;
@@ -159,7 +159,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     match params.mode.as_deref() {
         Some("preserve") => match params.input {
             Input::Src(src) => {
-                let src_metadata = metadata(&src)?;
+                let src_metadata = metadata(src)?;
                 let src_permissions = src_metadata.permissions();
 
                 changed |= change_permissions(

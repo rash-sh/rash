@@ -170,8 +170,7 @@ impl Options {
         let mut is_with_param = false;
 
         for w in option
-            .replace(',', " ")
-            .replace('=', " ")
+            .replace([',', '='], " ")
             .replace('.', " repeatable ")
             .split_whitespace()
         {
@@ -334,8 +333,7 @@ impl Options {
     pub fn parse(&self, arg: &str, def: &str) -> Option<Vars> {
         let option_arg = self.find(arg.split('=').next().unwrap())?;
         // check arg is in def
-        def.replace('{', "")
-            .replace('}', "")
+        def.replace(['{', '}'], "")
             .split('#')
             .find(|arg_def| &option_arg.get_representation() == arg_def)?;
         let value = match option_arg {
@@ -554,10 +552,7 @@ impl Options {
                                     &format!("[{bracket_group}"),
                                     &format!(
                                         "{{{}}}",
-                                        bracket_group
-                                            .replace('[', "")
-                                            .replace(']', "")
-                                            .replace('|', "#")
+                                        bracket_group.replace(['[', ']'], "").replace('|', "#")
                                     ),
                                 )
                                 .replace(" }", "} ")
