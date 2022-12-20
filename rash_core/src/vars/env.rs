@@ -36,7 +36,7 @@ impl From<env::Vars> for Env {
 pub fn load(envars: Vec<(String, String)>) -> Result<Vars> {
     trace!("{:?}", envars);
     envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
-    Context::from_serialize(&Env::from(env::vars()))
+    Context::from_serialize(Env::from(env::vars()))
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
@@ -47,9 +47,9 @@ mod tests {
     use std::env;
 
     pub fn run_test_with_envar(envar: (&str, &str), test_fn: fn()) {
-        env::set_var(&envar.0, &envar.1);
+        env::set_var(envar.0, envar.1);
         test_fn();
-        env::remove_var(&envar.0);
+        env::remove_var(envar.0);
     }
 
     #[test]

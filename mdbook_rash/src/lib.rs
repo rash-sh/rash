@@ -111,7 +111,7 @@ fn format_schema(schema: &RootSchema) -> String {
                                     SingleOrVec::Vec(v) => v[0],
                                     SingleOrVec::Single(x) => *x,
                                 };
-                                serde_yaml::to_value(&t)
+                                serde_yaml::to_value(t)
                                     .unwrap()
                                     .as_str()
                                     .unwrap()
@@ -165,7 +165,7 @@ fn format_schema(schema: &RootSchema) -> String {
                         SingleOrVec::Vec(v) => v[0],
                         SingleOrVec::Single(x) => *x,
                     };
-                    serde_yaml::to_value(&t)
+                    serde_yaml::to_value(t)
                         .unwrap()
                         .as_str()
                         .unwrap()

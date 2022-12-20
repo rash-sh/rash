@@ -143,10 +143,10 @@ fn apply_permissions_recursively(octal_mode: u32, path: &Path, until: &Path) -> 
     match path == until {
         true => Ok(()),
         false => {
-            let meta = metadata(&path)?;
+            let meta = metadata(path)?;
             let mut permissions = meta.permissions();
             permissions.set_mode(octal_mode);
-            set_permissions(&path, permissions)?;
+            set_permissions(path, permissions)?;
             apply_permissions_recursively(
                 octal_mode,
                 path.parent().ok_or_else(|| {
@@ -840,8 +840,8 @@ mod tests {
 
         let dir_path = dir.path().join("remove_directory_and_subdirectories");
         create_dir(&dir_path).unwrap();
-        create_dir(&dir_path.join("one_dir")).unwrap();
-        StdFile::create(&dir_path.join("one_file")).unwrap();
+        create_dir(dir_path.join("one_dir")).unwrap();
+        StdFile::create(dir_path.join("one_file")).unwrap();
         let dir_metadata = metadata(&dir_path).unwrap();
         let mut permissions = dir_metadata.permissions();
         permissions.set_mode(0o700);
@@ -876,8 +876,8 @@ mod tests {
 
         let dir_path = dir.path().join("remove_directory_and_subdirectories");
         create_dir(&dir_path).unwrap();
-        create_dir(&dir_path.join("one_dir")).unwrap();
-        StdFile::create(&dir_path.join("one_file")).unwrap();
+        create_dir(dir_path.join("one_dir")).unwrap();
+        StdFile::create(dir_path.join("one_file")).unwrap();
         let dir_metadata = metadata(&dir_path).unwrap();
         let mut permissions = dir_metadata.permissions();
         permissions.set_mode(0o700);

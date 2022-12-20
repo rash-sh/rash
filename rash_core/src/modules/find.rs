@@ -138,8 +138,7 @@ fn get_regex_set(v: Option<Vec<String>>) -> Result<Option<RegexSet>> {
         Some(x) => {
             if !x.is_empty() {
                 Ok(Some(
-                    RegexSet::new(&parse_if_json(x))
-                        .map_err(|e| Error::new(ErrorKind::Other, e))?,
+                    RegexSet::new(parse_if_json(x)).map_err(|e| Error::new(ErrorKind::Other, e))?,
                 ))
             } else {
                 Ok(None)
@@ -171,7 +170,7 @@ fn find(params: Params) -> Result<ModuleResult> {
     if let Some(s) = params.size {
         walk_builder.max_filesize(Some(
             u64::try_from(
-                Byte::from_str(&s)
+                Byte::from_str(s)
                     .map_err(|_| {
                         Error::new(
                             ErrorKind::InvalidData,

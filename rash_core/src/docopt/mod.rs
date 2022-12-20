@@ -41,7 +41,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
     let expanded_usages = expand_usages(extended_usages, expanded_args.len(), opts_len);
     trace!("expanded usages: {expanded_usages:?}");
 
-    let arg_kind_set = RegexSet::new(&[
+    let arg_kind_set = RegexSet::new([
         format!(r"^{WORDS_REGEX}\+?$"),
         format!(r"^<{WORDS_REGEX}>|{WORDS_UPPERCASE_REGEX}\+?$"),
         // options: must be between `{}`
