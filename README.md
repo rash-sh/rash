@@ -2,7 +2,7 @@
 
 # rash
 
-![Build status](https://img.shields.io/github/workflow/status/rash-sh/rash/Rust/master)
+![Build status](https://img.shields.io/github/actions/workflow/status/rash-sh/rash/rust.yml?branch=master)
 [![Rash Docker image](https://img.shields.io/docker/image-size/rustagainshell/rash?sort=semver)](https://cloud.docker.com/repository/docker/rustagainshell/rash)
 [![Documentation](https://docs.rs/rash_core/badge.svg)](https://docs.rs/rash_core)
 [![crates.io](https://img.shields.io/crates/v/rash_core)](https://crates.io/crates/rash_core)
