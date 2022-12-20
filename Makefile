@@ -25,7 +25,7 @@ update-version: */Cargo.toml
 	@VERSION=$$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1); \
 	sed -i -E "s/^(rash\_.*version\s=\s)\"(.*)\"/\1\"$$VERSION\"/gm" */Cargo.toml && \
 	cargo update -p rash_core -p rash_derive && \
-	echo updated to version "$$" cargo files
+	echo updated to version "$$VERSION" cargo files
 
 .PHONY: build
 build:	## compile rash
