@@ -41,9 +41,18 @@ struct UserInfo {
 
 impl Builtins {
     pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {
-        let parent_path = path
+        let parent_path_original = path
             .parent()
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "Script parent dir not found"))?;
+
+        let parent_path = if parent_path_original.to_str() == Some("") {
+            Path::new(".")
+        } else {
+            parent_path_original
+        };
+
+        trace!("parent_path: {parent_path:?}");
+
         let dir = canonicalize(parent_path)?
             .to_str()
             .ok_or_else(|| {
@@ -53,6 +62,8 @@ impl Builtins {
                 )
             })?
             .to_string();
+
+        trace!("dir: {dir:?}");
 
         Ok(Builtins {
             args: args.into_iter().map(String::from).collect(),
