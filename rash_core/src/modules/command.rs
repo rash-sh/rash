@@ -120,11 +120,14 @@ impl Module for Command {
                     Some(true) => exec_transferring_pid(params),
                     None | Some(false) => {
                         let output = match params.required {
-                            Required::Cmd(cmd) => StdCommand::new("/bin/sh")
-                                // safe unwrap: verified
-                                .args(vec!["-c", &cmd])
-                                .output()
-                                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?,
+                            Required::Cmd(cmd) => {
+                                trace!("exec - /bin/sh -c '{cmd:?}'");
+                                StdCommand::new("/bin/sh")
+                                    // safe unwrap: verified
+                                    .args(vec!["-c", &cmd])
+                                    .output()
+                                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+                            }
                             Required::Argv(argv) => {
                                 // safe unwrap: verify in parse_params
                                 let mut args = argv.iter();
@@ -134,7 +137,7 @@ impl Module for Command {
                                         format!("{:?} invalid cmd", args),
                                     )
                                 })?;
-
+                                trace!("exec - '{argv:?}'");
                                 StdCommand::new(program)
                                     .args(args)
                                     .output()
