@@ -435,7 +435,7 @@ mod test {
                 } \
             } \
          }";
-        assert_eq!(format!("{:?}", err), expected);
+        assert_eq!(format!("{err:?}"), expected);
     }
 
     #[test]

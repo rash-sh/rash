@@ -69,7 +69,7 @@ where
 
 fn format_change<T: similar::DiffableStr + ?Sized>(change: Change<&T>) -> String {
     match change.tag() {
-        ChangeTag::Equal => format!("\x1B[0m  {}", change),
+        ChangeTag::Equal => format!("\x1B[0m  {change}"),
         ChangeTag::Delete => format!(
             "\x1B[{color}m- {s}\x1B[0m",
             color = Color::Red.to_fg_str(),
@@ -98,7 +98,7 @@ where
             .map(format_change)
             .collect::<Vec<String>>()
             .join("");
-        print!("{}", diff_str);
+        print!("{diff_str}");
     }
 }
 

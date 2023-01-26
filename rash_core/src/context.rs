@@ -32,7 +32,7 @@ impl Context {
         if self.tasks.is_empty() {
             return Err(Error::new(
                 ErrorKind::EmptyTaskStack,
-                format!("No more tasks in context stack: {:?}", self),
+                format!("No more tasks in context stack: {self:?}"),
             ));
         }
 

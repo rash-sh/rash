@@ -9,7 +9,7 @@ pub fn parse_octal(s: &str) -> Result<u32> {
             .map_err(|e| Error::new(ErrorKind::InvalidData, e)),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
-            format!("{} cannot be parsed to octal", s),
+            format!("{s} cannot be parsed to octal"),
         )),
     }
 }

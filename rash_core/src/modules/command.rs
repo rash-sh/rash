@@ -80,7 +80,7 @@ fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Vars)> {
 
     let program = args
         .next()
-        .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{:?} invalid cmd", args)))?;
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{args:?} invalid cmd")))?;
     let error = exec_command::Command::new(program)
         .args(&args.clone().collect::<Vec<_>>())
         .exec();
@@ -134,7 +134,7 @@ impl Module for Command {
                                 let program = args.next().ok_or_else(|| {
                                     Error::new(
                                         ErrorKind::InvalidData,
-                                        format!("{:?} invalid cmd", args),
+                                        format!("{args:?} invalid cmd"),
                                     )
                                 })?;
                                 trace!("exec - '{argv:?}'");

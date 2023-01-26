@@ -83,7 +83,7 @@ impl OptionArg {
                     if x != y {
                         Err(Error::new(
                             ErrorKind::InvalidData,
-                            format!("Not mergeable options: {} {}", x, y),
+                            format!("Not mergeable options: {x} {y}"),
                         ))
                     } else {
                         Ok(Some(x))
@@ -122,7 +122,7 @@ impl OptionArg {
             (OptionArg::Repeatable { .. }, OptionArg::WithParam { .. })
             | (OptionArg::WithParam { .. }, OptionArg::Repeatable { .. }) => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Not mergeable options: {:?} {:?}", self, option),
+                format!("Not mergeable options: {self:?} {option:?}"),
             )),
             (OptionArg::WithParam { default_value, .. }, OptionArg::Simple { .. }) => {
                 Ok(OptionArg::WithParam {

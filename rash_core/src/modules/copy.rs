@@ -31,7 +31,7 @@ use rash_derive::DocJsonSchema;
 
 use std::fs::{metadata, set_permissions, File, OpenOptions, Permissions};
 use std::io::prelude::*;
-use std::io::SeekFrom;
+
 use std::io::{BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 
@@ -144,7 +144,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
             }
 
             let mut file = OpenOptions::new().write(true).open(&params.dest)?;
-            file.seek(SeekFrom::Start(0))?;
+            file.rewind()?;
             file.write_all(desired_content.as_bytes())?;
             file.set_len(desired_content.len() as u64)?;
 
