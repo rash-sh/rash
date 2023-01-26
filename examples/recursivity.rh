@@ -12,7 +12,8 @@
   when: env | get(key="BROWSER")
 
 - command:
-    cmd: "echo done"
+    cmd: "pwd"
+    chdir: "{{ env.HOME }}"
     transfer_pid: true
   when: env | get(key="MY_PASSWORD")
 
