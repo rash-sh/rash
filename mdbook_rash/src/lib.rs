@@ -177,7 +177,7 @@ fn format_schema(schema: &RootSchema) -> String {
             description
         ]);
     }
-    format!("{}", table)
+    format!("{table}")
 }
 
 fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chapter) {
@@ -202,7 +202,7 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
 
                 let parameters = match schema {
                     Some(s) => format_schema(&s),
-                    None => format!("{{$include_doc {{{{#include ../../rash_core/src/modules/{}.rs:parameters}}}}}}", name)
+                    None => format!("{{$include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:parameters}}}}}}")
                 };
 
                 let content_header = format!(

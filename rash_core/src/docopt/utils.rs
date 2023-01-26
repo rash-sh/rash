@@ -62,11 +62,11 @@ pub fn expand_brackets(s: &str) -> String {
                             // <-o>, if - and then <, same group
                             .map(|(w, next)| {
                                 if w.starts_with("<-") {
-                                    format!("{}]", w)
+                                    format!("{w}]")
                                 } else if next.starts_with("<-") {
-                                    format!("[{}", w)
+                                    format!("[{w}")
                                 } else {
-                                    format!("[{}]", w)
+                                    format!("[{w}]")
                                 }
                             })
                             .collect::<Vec<String>>()

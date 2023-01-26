@@ -135,7 +135,7 @@ impl Task {
             Value::String(s) => Ok(Value::String(render_string(&s, &vars)?)),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("{:?} must be a mapping or  a string", original_params),
+                format!("{original_params:?} must be a mapping or  a string"),
             )),
         }
     }
@@ -211,7 +211,7 @@ impl Task {
                 info!(target: if self.is_changed(&result, &result_vars)? {"changed"} else { "ok"},
                     "{}",
                     result.get_output().unwrap_or_else(
-                        || format!("{:?}", rendered_params)
+                        || format!("{rendered_params:?}")
                     )
                 );
                 let mut new_vars = result_vars;
@@ -300,12 +300,12 @@ impl Task {
                                     Ok(WaitStatus::Exited(_, 0)) => Ok(()),
                                     Ok(WaitStatus::Exited(_, exit_code)) => Err(Error::new(
                                         ErrorKind::SubprocessFail,
-                                        format!("child failed with exit_code {}", exit_code),
+                                        format!("child failed with exit_code {exit_code}"),
                                     )),
                                     Err(e) => Err(Error::new(ErrorKind::Other, e)),
                                     _ => Err(Error::new(
                                         ErrorKind::SubprocessFail,
-                                        format!("child {} unknown status", child),
+                                        format!("child {child} unknown status"),
                                     )),
                                 }?;
                                 rx.recv()
@@ -313,7 +313,7 @@ impl Task {
                                         Err(SerdeError::new(&Error::new(
                                             ErrorKind::Other,
                                             // ipc::IpcError doesn't implement std::error:Error
-                                            format!("{:?}", e),
+                                            format!("{e:?}"),
                                         )))
                                     })
                                     .map(|x| {

@@ -230,7 +230,7 @@ fn find(params: Params) -> Result<ModuleResult> {
             Some(s) => Ok(s.to_string()),
             None => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Path `{:?}` cannot be represented as UTF-8", dir_entry),
+                format!("Path `{dir_entry:?}` cannot be represented as UTF-8"),
             )),
         })
         .collect::<Result<Vec<_>>>()?

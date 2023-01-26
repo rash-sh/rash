@@ -41,7 +41,7 @@ impl TaskValid {
         if module_names.len() > 1 {
             return Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Multiple modules found in task: {:?}", self),
+                format!("Multiple modules found in task: {self:?}"),
             ));
         };
         module_names
@@ -51,7 +51,7 @@ impl TaskValid {
             .ok_or_else(|| {
                 Error::new(
                     ErrorKind::NotFound,
-                    format!("Not module found in task: {:?}", self),
+                    format!("Not module found in task: {self:?}"),
                 )
             })
     }
