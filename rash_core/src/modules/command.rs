@@ -23,6 +23,11 @@
 /// - command: ls examples
 ///   register: ls_result
 ///
+/// - command:
+///     cmd: ls .
+///     chdir: examples
+///   register: ls_result
+///
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
@@ -32,6 +37,8 @@ use crate::vars::Vars;
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
+use std::env::set_current_dir;
+use std::path::Path;
 use std::process::Command as StdCommand;
 
 use exec as exec_command;
@@ -47,6 +54,8 @@ use serde_yaml::Value;
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
+    /// Change into this directory before running the command.
+    pub chdir: Option<String>,
     #[serde(flatten)]
     pub required: Required,
     /// [DEPRECATED] Execute command as PID 1.
@@ -78,6 +87,10 @@ fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Vars)> {
     };
     let mut args = args_vec.iter();
 
+    if let Some(s) = params.chdir {
+        set_current_dir(Path::new(&s)).map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
+    };
+
     let program = args
         .next()
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{args:?} invalid cmd")))?;
@@ -103,6 +116,7 @@ impl Module for Command {
     ) -> Result<(ModuleResult, Vars)> {
         let params: Params = match optional_params.as_str() {
             Some(s) => Params {
+                chdir: None,
                 required: Required::Cmd(s.to_string()),
                 transfer_pid_1: None,
                 transfer_pid: None,
@@ -115,68 +129,71 @@ impl Module for Command {
                 warn!("transfer_pid_1 option will be removed in 1.9.0");
                 exec_transferring_pid(params)
             }
-            None | Some(false) => {
-                match params.transfer_pid {
-                    Some(true) => exec_transferring_pid(params),
-                    None | Some(false) => {
-                        let output = match params.required {
-                            Required::Cmd(cmd) => {
-                                trace!("exec - /bin/sh -c '{cmd:?}'");
-                                StdCommand::new("/bin/sh")
-                                    // safe unwrap: verified
-                                    .args(vec!["-c", &cmd])
-                                    .output()
-                                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
-                            }
-                            Required::Argv(argv) => {
-                                // safe unwrap: verify in parse_params
-                                let mut args = argv.iter();
-                                let program = args.next().ok_or_else(|| {
-                                    Error::new(
-                                        ErrorKind::InvalidData,
-                                        format!("{args:?} invalid cmd"),
-                                    )
-                                })?;
-                                trace!("exec - '{argv:?}'");
-                                StdCommand::new(program)
-                                    .args(args)
-                                    .output()
-                                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
-                            }
-                        };
-
-                        trace!("exec - output: {:?}", output);
-                        let stderr = String::from_utf8(output.stderr)
-                            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-                        if !output.status.success() {
-                            return Err(Error::new(ErrorKind::InvalidData, stderr));
+            None | Some(false) => match params.transfer_pid {
+                Some(true) => exec_transferring_pid(params),
+                None | Some(false) => {
+                    let mut cmd = match params.required.clone() {
+                        Required::Cmd(cmd) => {
+                            trace!("exec - /bin/sh -c '{cmd:?}'");
+                            StdCommand::new("/bin/sh")
                         }
-                        let output_string = String::from_utf8(output.stdout)
-                            .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+                        Required::Argv(argv) => {
+                            let program = argv.first().ok_or_else(|| {
+                                Error::new(ErrorKind::InvalidData, format!("{argv:?} invalid cmd"))
+                            })?;
+                            trace!("exec - '{argv:?}'");
+                            StdCommand::new(program)
+                        }
+                    };
 
-                        let module_output = if output_string.is_empty() {
-                            None
-                        } else {
-                            Some(output_string)
-                        };
+                    let cmd_args = match params.required {
+                        Required::Cmd(s) => cmd.args(vec!["-c", &s]),
+                        Required::Argv(argv) => {
+                            let args = argv.iter().skip(1);
+                            cmd.args(args)
+                        }
+                    };
 
-                        let extra = Some(value::to_value(json!({
-                            "rc": output.status.code(),
-                            "stderr": stderr,
-                        }))?);
+                    let cmd_chdir = match params.chdir {
+                        Some(s) => cmd_args.current_dir(Path::new(&s)),
+                        None => cmd_args,
+                    };
 
-                        Ok((
-                            ModuleResult {
-                                changed: true,
-                                output: module_output,
-                                extra,
-                            },
-                            vars,
-                        ))
+                    let output = cmd_chdir
+                        .output()
+                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+
+                    trace!("exec - output: {:?}", output);
+                    let stderr = String::from_utf8(output.stderr)
+                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                    if !output.status.success() {
+                        return Err(Error::new(ErrorKind::InvalidData, stderr));
                     }
+                    let output_string = String::from_utf8(output.stdout)
+                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                    let module_output = if output_string.is_empty() {
+                        None
+                    } else {
+                        Some(output_string)
+                    };
+
+                    let extra = Some(value::to_value(json!({
+                        "rc": output.status.code(),
+                        "stderr": stderr,
+                    }))?);
+
+                    Ok((
+                        ModuleResult {
+                            changed: true,
+                            output: module_output,
+                            extra,
+                        },
+                        vars,
+                    ))
                 }
-            }
+            },
         }
     }
 
@@ -203,6 +220,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
+                chdir: None,
                 required: Required::Cmd("ls".to_string()),
                 transfer_pid_1: None,
                 transfer_pid: Some(false),
