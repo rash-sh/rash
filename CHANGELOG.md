@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Command module: `transfer_pid_1` (use `transfer_pid` instead)
 
+## [v1.8.6](https://github.com/rash-sh/rash/tree/v1.8.6) - 2023-01-27
+
+### Added
+
+* module: Support `chdir` in command module
+
+### Build
+
+* book: Update mdbook to 0.4.25
+* deps: Bump prettytable-rs from 0.8.0 to 0.10.0
+* Upgrade to Rust 1.67 and fix new clippy warnings
+
+### Fixed
+
+* ci: Remove build scope from commitlintrc
+* core: Set up to current dir parent path when empty
+* module: Add trace for command exec
+
 ## [v1.8.5](https://github.com/rash-sh/rash/tree/v1.8.5) - 2022-12-20
 
 ### Added
