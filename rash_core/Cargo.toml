@@ -21,7 +21,7 @@ path = "src/bin/rash.rs"
 docs = ["rash_derive/docs", "schemars"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "1.8.5" }
+rash_derive = { path = "../rash_derive", version = "1.8.6" }
 lazy_static.workspace = true
 log.workspace = true
 regex.workspace = true
