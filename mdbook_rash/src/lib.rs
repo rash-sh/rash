@@ -3,7 +3,7 @@ use rash_core::modules::MODULES;
 use mdbook::book::{Book, BookItem, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{LinkPreprocessor, Preprocessor, PreprocessorContext};
-use prettytable::{cell, format, row, Table};
+use prettytable::{format, row, Table};
 use regex::{Match, Regex};
 use schemars::schema::{RootSchema, SingleOrVec};
 
@@ -185,7 +185,7 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
         if capture.2 == "include_module_index" {
             let mut indexes_vec = MODULES
                 .iter()
-                .map(|(name, _)| format!("- [{}](./{}.html)", &name, &name))
+                .map(|(name, _)| format!("- [{name}](./{name}.html)"))
                 .collect::<Vec<String>>();
             indexes_vec.sort();
             let indexes_body = indexes_vec.join("\n");
