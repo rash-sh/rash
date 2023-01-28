@@ -112,6 +112,7 @@ impl TaskValid {
             ignore_errors: self.attrs["ignore_errors"].as_bool(),
             r#loop: self.attrs.get("loop").map(|_| self.attrs["loop"].clone()),
             register: self.attrs["register"].as_str().map(String::from),
+            vars: self.attrs.get("vars").map(|_| self.attrs["vars"].clone()),
             when: self.parse_array(&self.attrs["when"]),
         })
     }

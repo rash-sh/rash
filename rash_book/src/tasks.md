@@ -23,8 +23,9 @@ Tasks admit the following optional keys:
 | changed_when | string | Template expression passed directly without `{{ }}`; Overwrite change status |
 | ignore_errors | string | Template expression passed directly without `{{ }}`; if true errors are ignored |
 | name | string | Task name |
-| loop | string | `loop` receives a Template (with `{{ }}`) or a list to iterate over it |
+| loop | array | `loop` receives a Template (with `{{ }}`) or a list to iterate over it |
 | register | string | Variable name to store module result |
+| vars | map | Define variables in task scope. Does not support own reference variables. |
 | when | string | Template expression passed directly without {{ }}; if false skip task execution |
 
 ### Registering variables

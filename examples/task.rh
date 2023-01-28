@@ -17,8 +17,10 @@
 - name: "save password to multiple files"
   copy:
     content: "{{ env.MY_PASSWORD }}"
-    dest: "/tmp/MY_PASSWORD_FILE_{{ item | split(pat='/') | last }}"
+    dest: "/tmp/MY_PASSWORD_FILE_{{ file_name }}"
     mode: "400"
+  vars:
+    file_name: "{{ item | split(pat='/') | last }}"
   loop: "{{ find_result.extra }}"
   when: env | get(key="MY_PASSWORD")
   register: save_passwords_result
