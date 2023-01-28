@@ -74,6 +74,8 @@ pub struct Task {
     ///
     /// [`ModuleResult`]: ../modules/struct.ModuleResult.html
     register: Option<String>,
+    /// Variables definition with task scope.
+    vars: Option<Value>,
     /// Template expression passed directly without {{ }}; if false skip task execution.
     when: Option<String>,
 }
@@ -106,19 +108,28 @@ impl Task {
     }
 
     fn render_params(&self, vars: Vars) -> Result<Value> {
+        let extended_vars = match self.vars.clone() {
+            Some(v) => {
+                let mut e_vars = vars.clone();
+                e_vars.extend(Vars::from_serialize(render(v, &vars)?)?);
+                e_vars
+            }
+            None => vars,
+        };
+
         let original_params = self.params.clone();
         match original_params {
             Value::Mapping(map) => match map
                 .iter()
                 .filter_map(|t| match t.1 {
-                    Value::String(s) => match render_string(s, &vars) {
+                    Value::String(s) => match render_string(s, &extended_vars) {
                         Ok(s) => Some(Ok((t.0.clone(), Value::String(s)))),
                         Err(e) if e.kind() == ErrorKind::OmitParam => None,
                         Err(e) => Some(Err(e)),
                     },
                     Value::Sequence(x) => match x
                         .iter()
-                        .map(|value| render(value.clone(), &vars))
+                        .map(|value| render(value.clone(), &extended_vars))
                         .collect::<Result<Vec<Value>>>()
                     {
                         Ok(rendered_vec) => Some(Ok((t.0.clone(), Value::Sequence(rendered_vec)))),
@@ -132,10 +143,10 @@ impl Task {
                 Err(e) => Err(e),
             },
 
-            Value::String(s) => Ok(Value::String(render_string(&s, &vars)?)),
+            Value::String(s) => Ok(Value::String(render_string(&s, &extended_vars)?)),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("{original_params:?} must be a mapping or  a string"),
+                format!("{original_params:?} must be a mapping or a string"),
             )),
         }
     }
@@ -794,6 +805,93 @@ mod tests {
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
+    }
+
+    #[test]
+    fn test_render_params_with_vars() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: ls {{ foo }}
+            vars:
+              foo: boo
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = Vars::from_value(json!({})).unwrap();
+
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
+    }
+
+    #[test]
+    fn test_render_params_with_render_vars() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: ls {{ foo }}
+            vars:
+              foo: '{{ directory }}'
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = Vars::from_serialize(
+            [("directory", "boo"), ("xuu", "zoo")]
+                .iter()
+                .cloned()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(),
+        )
+        .unwrap();
+
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
+    }
+
+    #[test]
+    fn test_render_params_with_concat_render_vars() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: ls {{ foo }}
+            vars:
+              boo: '{{ directory }}'
+              foo: '{{ boo }}'
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = Vars::from_serialize(
+            [("directory", "boo"), ("xuu", "zoo")]
+                .iter()
+                .cloned()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(),
+        )
+        .unwrap();
+
+        let rendered_params_err = task.render_params(vars).unwrap_err();
+        assert_eq!(rendered_params_err.kind(), ErrorKind::TeraRenderError);
+    }
+
+    #[test]
+    fn test_render_params_with_vars_array_not_valid() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: ls {{ foo }}
+            vars:
+              - foo: boo
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = Vars::from_value(json!({})).unwrap();
+
+        let rendered_params_err = task.render_params(vars).unwrap_err();
+        assert_eq!(rendered_params_err.kind(), ErrorKind::TeraRenderError);
     }
 
     #[test]
