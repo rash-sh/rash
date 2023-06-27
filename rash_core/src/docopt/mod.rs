@@ -189,7 +189,6 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
 fn parse_help(file: &str) -> String {
     let re = Regex::new(r"#(.*)").unwrap();
     file.split('\n')
-        .into_iter()
         // skip first empty line cause split
         .skip(1)
         .map_while(|line| re.captures(line))

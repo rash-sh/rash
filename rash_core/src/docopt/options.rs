@@ -246,7 +246,6 @@ impl Options {
     pub fn parse_doc(doc: &str, usages: &[String]) -> Result<Self> {
         let mut description_options = Options::new(
             doc.split('\n')
-                .into_iter()
                 .filter_map(|line| {
                     let trimmed = line.trim_start();
                     if trimmed.starts_with('-') {

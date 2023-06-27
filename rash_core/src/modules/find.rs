@@ -55,17 +55,13 @@ use strum_macros::{Display, EnumString};
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 enum FileType {
     Any,
     Directory,
+    #[default]
     File,
     Link,
-}
-
-impl Default for FileType {
-    fn default() -> Self {
-        FileType::File
-    }
 }
 
 fn default_file_type() -> Option<FileType> {
@@ -206,7 +202,6 @@ fn find(params: Params) -> Result<ModuleResult> {
         .git_ignore(!params.hidden.unwrap())
         .git_exclude(!params.hidden.unwrap())
         .build()
-        .into_iter()
         .map(|dir_entry| dir_entry.map_err(|e| Error::new(ErrorKind::Other, e)))
         .collect::<Result<Vec<_>>>()?
         .into_iter()
