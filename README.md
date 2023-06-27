@@ -19,7 +19,7 @@ For installation and usage, see our
 
 ## Why Rash
 
-Manage your docker entrypoints in a declarative style.
+Manage your scripts in a declarative style.
 
 If you:
 
@@ -85,6 +85,35 @@ Declarative: `entrypoint.rh`
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
 ```
 
+### Docopts
+
+(docopt)[http://docopt.org/] implementation included:
+
+- Easy to define interfaces for command-line app.
+- Automatically generate a parser from doc.
+
+Example:
+
+```yaml
+#!/usr/bin/env -S rash --
+#
+# Copy files from source to dest dir
+#
+# Usage:
+#   copy.rh [options] <source>... <dest>
+#   copy.rh
+#
+# Options:
+#   -h --help    show this help message and exit
+#   --mode MODE  dest file permissions [default: 0644]
+
+- copy:
+    src: "{{ item }}"
+    dest: "{{ dest }}/{{ item | split(pat='/') | last }}"
+    mode: "{{ options.mode }}"
+  loop: "{{ source | default (value=[]) }}"
+```
+
 ### Lightness
 
 All you need to run Rash is a Linux kernel!
@@ -93,9 +122,4 @@ You can use it in your favorite IoT chips running Linux or in containers from sc
 
 ## Status
 
-Stable API with few modules. It will be growing, stay tuned.
-
-## Who is using `rash`
-
-- A production ready [php-fpm](https://github.com/dcarrillo/docker-phpfpm) docker image
-- [hs110 prometheus exporter](https://github.com/sdelrio/hs110-prometheus-exporter)
+Stable API with few modules.

@@ -1,0 +1,85 @@
+#!/usr/bin/env -S rash --diff
+#
+# dots easy manage of your dotfiles.
+# Usage:
+#   ./dots (install|update|help) <package_filters>...
+#
+# Arguments:
+#   package_filters   List of regex matching packages wanted.
+#
+# Options:
+#   -c,--check  dry-run mode
+#
+# Example:
+#   ./dots install --check '.*zsh.*'
+#
+# Subcommands:
+#   install      Copy files to host.
+#   update    Get files from host.
+#   help         Show this screen.
+#
+- name: set vars
+  set_vars:
+    dotfiles_dir: "{{ rash.dir }}/dotfiles"
+    templates_pattern: ".*\\.j2"
+
+- name: find dotfiles to copy
+  find:
+    paths: "{{ dotfiles_dir }}"
+    hidden: true
+    patterns: "{{ package_filters | default(value=omit()) | json_encode() }}"
+    excludes: "{{ templates_pattern }}"
+    recurse: true
+  changed_when: false
+  register: dotfiles
+
+- name: find dotfiles to render
+  find:
+    paths: "{{ dotfiles_dir }}"
+    hidden: true
+    patterns: "{{ templates_pattern }}"
+    recurse: true
+  changed_when: false
+  register: dotfile_templates
+  when: package_filters is not defined
+
+- name: find dotfiles directories to create dir structure
+  find:
+    paths: "{{ dotfiles_dir }}"
+    hidden: true
+    recurse: true
+    excludes: dotfiles
+    file_type: directory
+  changed_when: false
+  register: dotfiles_dirs
+
+- name: create dotfiles directories
+  file:
+    path: "{{ item | replace(from=dotfiles_dir, to=env.HOME) }}"
+    state: "directory"
+  loop: "{{ dotfiles_dirs.extra }}"
+  when: install
+
+- name: copy dotfiles
+  copy:
+    src: "{{ item }}"
+    dest: "{{ item | replace(from=dotfiles_dir, to=env.HOME) }}"
+    mode: preserve
+  loop: "{{ dotfiles.extra }}"
+  when: install
+
+- name: render dotfiles templates
+  template:
+    src: "{{ item }}"
+    dest: "{{ item | replace(from=dotfiles_dir, to=env.HOME) | replace(from='.j2', to='') }}"
+    mode: preserve
+  loop: "{{ dotfile_templates.extra | default(value=[]) }}"
+  when: install
+
+- name: update dotfiles
+  copy:
+    src: "{{ item | replace(from=dotfiles_dir, to=env.HOME) }}"
+    dest: "{{ item }}"
+    mode: preserve
+  loop: "{{ dotfiles.extra }}"
+  when: update
