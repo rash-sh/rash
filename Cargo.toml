@@ -8,7 +8,7 @@ members = [
 [workspace.package]
 version = "1.8.6"
 authors = ["Pando85 <pando855@gmail.com>"]
-rust-version = "1.67"
+rust-version = "1.70"
 edition = "2021"
 license-file = "LICENSE"
 homepage = "https://rash.sh"
