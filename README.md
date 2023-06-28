@@ -87,7 +87,7 @@ Declarative: `entrypoint.rh`
 
 ### Docopts
 
-(docopt)[http://docopt.org/] implementation included:
+[docopt](http://docopt.org/) implementation included:
 
 - Easy to define interfaces for command-line app.
 - Automatically generate a parser from doc.
