@@ -88,15 +88,15 @@ jobs:
       fail-fast: false
       matrix:
         job:
+          # cross minimum glibc version is 2.32
           - { os: ubuntu-22.04, target: arm-unknown-linux-gnueabihf, use-cross: true }
           - { os: ubuntu-22.04, target: aarch64-unknown-linux-gnu, use-cross: true }
           - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, use-cross: true }
-          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, container: quay.io/pypa/manylinux2014_x86_64}
+          # use ubuntu 20.04 to keep minimum glibc version to 2.31
+          - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu}
           - { os: macos-12, target: x86_64-apple-darwin}
     name: (${{ matrix.job.os }}) ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
-    # Use a container with GLIBC 2.17, make build compatible until that version
-    container: ${{ matrix.job.container }}
     steps:
     - name: Checkout source code
       uses: actions/checkout@v3
