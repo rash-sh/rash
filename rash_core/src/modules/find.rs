@@ -52,10 +52,9 @@ use serde_yaml::Value;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Default, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
-#[derive(Default)]
 enum FileType {
     Any,
     Directory,
