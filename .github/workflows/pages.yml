@@ -16,7 +16,7 @@ jobs:
 
       - name: Install stable toolchain
         id: toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
 
       - run: rustup override set ${{steps.toolchain.outputs.name}}
       - run: rustup component add rustfmt
