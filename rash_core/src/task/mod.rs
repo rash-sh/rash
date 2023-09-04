@@ -253,17 +253,22 @@ impl Task {
 
             match self.r#become {
                 true => {
-                    let user = match User::from_name(&self.become_user)? {
+                    let user_not_found_error = || {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!("User {:?} not found.", self.become_user),
+                        )
+                    };
+                    let user = match User::from_name(&self.become_user)
+                        .map_err(|_| user_not_found_error())?
+                    {
                         Some(user) => Ok(user),
                         None => match self.become_user.parse::<u32>().map(Uid::from_raw) {
                             Ok(uid) => match User::from_uid(uid)? {
                                 Some(user) => Ok(user),
-                                None => Err(Error::new(
-                                    ErrorKind::NotFound,
-                                    format!("user: {} not found", &self.become_user),
-                                )),
+                                None => Err(user_not_found_error()),
                             },
-                            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+                            Err(_) => Err(user_not_found_error()),
                         },
                     }?;
 
