@@ -29,7 +29,7 @@ schemars = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_yaml.workspace = true
 byte-unit = "4.0"
-console = "0.15.0"
+console = "0.15.7"
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6", features = ["colored"] }
@@ -41,8 +41,8 @@ itertools = "0.10"
 nix = "0.24"
 serde = { version = "1.0", features = ["derive"] }
 serde-error = "0.1"
-serde_with = "1.11"
-similar = { version = "2.1", features = ["inline"] }
+serde_with = "1.14"
+similar = { version = "2.2", features = ["inline"] }
 strum = "0.23"
 strum_macros = "0.23"
 tempfile = "3"

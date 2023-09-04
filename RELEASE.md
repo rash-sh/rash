@@ -5,3 +5,13 @@
 - Update `CHANGELOG.md` with `make update-changelog`.
 - Merge PR.
 - Tag version in master branch: `make tag`.
+
+## Upgrade dependencies
+
+Requirements:
+
+- `cargo-edit`: `cargo install cargo-edit`
+
+Upgrade dependencies:
+
+- `cargo upgrade` or `cargo upgrade --incompatible`
