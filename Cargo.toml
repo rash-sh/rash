@@ -4,6 +4,8 @@ members = [
     "rash_derive",
     "mdbook_rash",
 ]
+resolver = "2"
+
 
 [workspace.package]
 version = "1.8.6"
