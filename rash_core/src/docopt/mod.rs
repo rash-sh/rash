@@ -30,6 +30,11 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
 
     let usage_set = HashSet::from_iter(usages.iter().cloned());
 
+    let opts = expanded_args
+        .iter()
+        .filter(|x| x.starts_with('-'))
+        .map(std::ops::Deref::deref)
+        .collect::<Vec<_>>();
     let extended_usages = options.extend_usages(usage_set).ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
@@ -37,8 +42,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         )
     })?;
 
-    let opts_len = expanded_args.iter().filter(|x| x.starts_with('-')).count();
-    let expanded_usages = expand_usages(extended_usages, expanded_args.len(), opts_len);
+    let expanded_usages = expand_usages(extended_usages, expanded_args.len(), &opts);
     trace!("expanded usages: {expanded_usages:?}");
 
     let arg_kind_set = RegexSet::new([
@@ -264,10 +268,21 @@ fn repeat_until_fill(
     }
 }
 
-fn expand_usages(usages: HashSet<String>, args_len: usize, opts_len: usize) -> HashSet<String> {
+fn is_usage(possible_usage: &str, opts: &Vec<&str>) -> bool {
+    let possible_usage_opts = possible_usage
+        .split(' ')
+        .filter(|x| !x.contains(['(', '[', ']', ')']))
+        .filter(|x| x.starts_with('-'))
+        .collect::<Vec<_>>();
+
+    possible_usage_opts.len() <= opts.len() && possible_usage_opts.iter().all(|x| opts.contains(x))
+}
+
+fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> HashSet<String> {
     let mut new_usages = HashSet::new();
     let mut usages_iter: Box<dyn Iterator<Item = String>> = Box::new(usages.into_iter());
 
+    let opts_len = opts.len();
     loop {
         if let Some(usage) = usages_iter.next() {
             match get_smallest_regex_match(&usage.clone()) {
@@ -284,25 +299,24 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts_len: usize) -> H
                             .split('|')
                             .map(|w| usage.clone().replacen(&cap[0].to_string(), w.trim(), 1))
                             .collect();
-                        usages_iter = Box::new(usages_iter.chain(splitted.into_iter()))
+                        usages_iter = Box::new(usages_iter.chain(splitted))
                     }
                 },
                 Some((RegexMatch::InnerBrackets, cap)) => {
                     usages_iter = Box::new(
-                        usages_iter
-                            .chain(std::iter::once(usage.replacen(
-                                &cap[0].to_string(),
-                                &cap[1],
-                                1,
-                            )))
-                            .chain(std::iter::once(
-                                usage
-                                    .replacen(&cap[0].to_string(), "", 1)
-                                    .split_whitespace()
-                                    .collect::<Vec<_>>()
-                                    .join(" "),
-                            )),
+                        usages_iter.chain(std::iter::once(
+                            usage
+                                .replacen(&cap[0].to_string(), "", 1)
+                                .split_whitespace()
+                                .collect::<Vec<_>>()
+                                .join(" "),
+                        )),
                     );
+                    let possible_usage = usage.replacen(&cap[0].to_string(), &cap[1], 1);
+
+                    if is_usage(&possible_usage, opts) {
+                        usages_iter = Box::new(usages_iter.chain(std::iter::once(possible_usage)));
+                    }
                 }
                 Some((RegexMatch::Repeatable, cap)) => {
                     let repeated_usage =
@@ -1132,7 +1146,7 @@ Foo:
     fn test_expand_usages() {
         let usages = HashSet::from(["foo ((a | b) (c | d))".to_string()]);
 
-        let result = expand_usages(usages, 2, 0);
+        let result = expand_usages(usages, 2, &vec![]);
         assert_eq!(
             result,
             HashSet::from([
@@ -1148,7 +1162,7 @@ Foo:
     fn test_expand_usages_or() {
         let usages = HashSet::from(["foo -h | --help".to_string()]);
 
-        let result = expand_usages(usages, 2, 1);
+        let result = expand_usages(usages, 2, &vec!["--help"]);
         assert_eq!(
             result,
             HashSet::from(["foo -h".to_string(), "foo --help".to_string(),])
@@ -1159,7 +1173,7 @@ Foo:
     fn test_expand_usages_or_without_space() {
         let usages = HashSet::from(["foo -h|--help".to_string()]);
 
-        let result = expand_usages(usages, 2, 1);
+        let result = expand_usages(usages, 2, &vec!["--help"]);
         assert_eq!(
             result,
             HashSet::from(["foo -h".to_string(), "foo --help".to_string(),])
@@ -1170,16 +1184,12 @@ Foo:
     fn test_expand_usages_all() {
         let usages = HashSet::from(["foo [(-d | --no-deps)] [(-d | --no-deps)]".to_string()]);
 
-        let result = expand_usages(usages, 2, 2);
+        let result = expand_usages(usages, 2, &vec!["--no-deps", "--no-deps"]);
         assert_eq!(
             result,
             HashSet::from([
                 "foo".to_string(),
-                "foo -d".to_string(),
                 "foo --no-deps".to_string(),
-                "foo -d -d".to_string(),
-                "foo -d --no-deps".to_string(),
-                "foo --no-deps -d".to_string(),
                 "foo --no-deps --no-deps".to_string(),
             ])
         )
@@ -1189,16 +1199,10 @@ Foo:
     fn test_expand_usages_all_bad() {
         let usages = HashSet::from(["foo [(-d | --no-deps) (-d | --no-deps)]".to_string()]);
 
-        let result = expand_usages(usages, 2, 2);
+        let result = expand_usages(usages, 2, &vec!["--no-deps", "--no-deps"]);
         assert_eq!(
             result,
-            HashSet::from([
-                "foo -d -d".to_string(),
-                "foo".to_string(),
-                "foo --no-deps --no-deps".to_string(),
-                "foo -d --no-deps".to_string(),
-                "foo --no-deps -d".to_string(),
-            ])
+            HashSet::from(["foo".to_string(), "foo --no-deps --no-deps".to_string(),])
         )
     }
 
@@ -1206,7 +1210,7 @@ Foo:
     fn test_expand_usages_tree() {
         let usages = HashSet::from(["foo (a | b | c)".to_string()]);
 
-        let result = expand_usages(usages, 1, 0);
+        let result = expand_usages(usages, 1, &vec![]);
         assert_eq!(
             result,
             HashSet::from([
@@ -1221,7 +1225,7 @@ Foo:
     fn test_expand_usages_optional() {
         let usages = HashSet::from(["foo a [b] c".to_string()]);
 
-        let result = expand_usages(usages, 3, 0);
+        let result = expand_usages(usages, 3, &vec![]);
         assert_eq!(
             result,
             HashSet::from(["foo a b c".to_string(), "foo a c".to_string(),])
@@ -1232,7 +1236,7 @@ Foo:
     fn test_expand_usages_positional() {
         let usages = HashSet::from(["foo (a <b> | c <d>)".to_string()]);
 
-        let result = expand_usages(usages, 2, 0);
+        let result = expand_usages(usages, 2, &vec![]);
         assert_eq!(
             result,
             HashSet::from(["foo a <b>".to_string(), "foo c <d>".to_string(),])
@@ -1246,7 +1250,7 @@ Foo:
                 .to_string(),
         ]);
 
-        let result = expand_usages(usages, 3, 2);
+        let result = expand_usages(usages, 3, &vec!["--sorted", "--quiet"]);
         assert_eq!(
             result,
             HashSet::from([
