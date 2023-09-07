@@ -58,9 +58,6 @@ pub struct Params {
     pub chdir: Option<String>,
     #[serde(flatten)]
     pub required: Required,
-    /// [DEPRECATED] Execute command as PID 1.
-    /// Note: from this point on, your rash script execution is transferred to the command
-    pub transfer_pid_1: Option<bool>,
     /// Execute command as PID 1.
     /// Note: from this point on, your rash script execution is transferred to the command
     pub transfer_pid: Option<bool>,
@@ -118,17 +115,13 @@ impl Module for Command {
             Some(s) => Params {
                 chdir: None,
                 required: Required::Cmd(s.to_string()),
-                transfer_pid_1: None,
                 transfer_pid: None,
             },
             None => parse_params(optional_params)?,
         };
 
         match params.transfer_pid {
-            Some(true) => {
-                warn!("transfer_pid_1 option will be removed in 1.9.0");
-                exec_transferring_pid(params)
-            }
+            Some(true) => exec_transferring_pid(params),
             None | Some(false) => match params.transfer_pid {
                 Some(true) => exec_transferring_pid(params),
                 None | Some(false) => {
@@ -222,7 +215,6 @@ mod tests {
             Params {
                 chdir: None,
                 required: Required::Cmd("ls".to_string()),
-                transfer_pid_1: None,
                 transfer_pid: Some(false),
             }
         );

@@ -5,9 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.9.0](https://github.com/rash-sh/rash/tree/v1.9.0) - 2023-09-07
 
-### To be removed in v1.9.0
+### Added
+
+* task: Add `vars` optional field
+
+### Build
+
+* Upgrade to Rust 1.70 and fix new clippy warnings
+* Update compatible versions
+* Upgrade incompatible versions
+* Add memfd feature to ipc-channel
+* Disable memfd for ipc-channel
+* Set resolver = "2"
+
+### Documentation
+
+* Add dotfile description
+* Fix readme typo
+
+### Fixed
+
+* ci: Update workers to latest versions
+* ci: Upgrade cache action version to v2
+* ci: Update to node16 github actions
+* ci: Replace `actions-rs/toolchain` with `dtolnay/rust-toolchain`
+* ci: Change dtolnay/rust-toolchaint to stable
+* ci: Remove container and downgrade to ubuntu 20
+* core: Improve docopt performance prefiltering possible options
+* core: Handle docopt edge cases with optiona arguments
+* task: Improve error message when become fails
+* Cargo clippy errors
+
+### Removed
 
 * Command module: `transfer_pid_1` (use `transfer_pid` instead)
 
