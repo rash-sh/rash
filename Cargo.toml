@@ -8,9 +8,9 @@ resolver = "2"
 
 
 [workspace.package]
-version = "1.8.6"
+version = "1.9.0"
 authors = ["Pando85 <pando855@gmail.com>"]
-rust-version = "1.70"
+rust-version = "1.72"
 edition = "2021"
 license-file = "LICENSE"
 homepage = "https://rash.sh"
