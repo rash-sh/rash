@@ -240,7 +240,7 @@ fn repeat_until_fill(
     args_len: usize,
     opts_len: usize,
 ) -> String {
-    let args_without_this = usage.replace(replace, "");
+    let args_without_this = usage.replace(replace, "").replace("[]", "");
     let args = args_without_this.split_whitespace().skip(1);
     let args_in_pattern = pattern.split_whitespace().count();
     if pattern.starts_with('{') {
@@ -252,10 +252,11 @@ fn repeat_until_fill(
         )
     } else {
         let current_args = args.filter(|x| !x.starts_with('{')).count();
-        let pattern_repetitions = args_len
+        let repetitions = args_len
             .saturating_sub(current_args)
             .saturating_sub(opts_len)
             / args_in_pattern;
+        let pattern_repetitions = if repetitions > 0 { repetitions } else { 1 };
         let pattern_repeatable = format!(
             "{}{}",
             if pattern.starts_with(' ') { " " } else { "" },
@@ -312,8 +313,16 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> 
                                 .join(" "),
                         )),
                     );
-                    let possible_usage = usage.replacen(&cap[0].to_string(), &cap[1], 1);
 
+                    // if captured repeatable(`...`): add usage with that repeatable case
+                    if cap.len() == 3 {
+                        usages_iter = Box::new(usages_iter.chain(std::iter::once(usage.replacen(
+                            &cap[0].to_string(),
+                            &format!("{}{}", &cap[1], &cap[2]),
+                            1,
+                        ))));
+                    }
+                    let possible_usage = usage.replacen(&cap[0].to_string(), &cap[1], 1);
                     if is_usage(&possible_usage, opts) {
                         usages_iter = Box::new(usages_iter.chain(std::iter::once(possible_usage)));
                     }
@@ -451,6 +460,21 @@ mod tests {
                 "package_filters": vec!["foo"],
             }))
             .unwrap()
+        );
+
+        let args = vec!["install", "foo", "boo"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "help": false,
+                "install": true,
+                "update": false,
+                "package_filters": vec!["foo", "boo"],
+            }))
+            .unwrap()
         )
     }
 
@@ -582,7 +606,12 @@ mod tests {
                 "package_filters": vec!["foo", "boo"],
             }))
             .unwrap()
-        )
+        );
+
+        let args = vec!["install"];
+        let err = parse(file, &args).unwrap_err();
+
+        assert_eq!(err.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
@@ -670,6 +699,107 @@ mod tests {
                 "options": {
                     "d": 2,
                 },
+            }))
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_parse_optional() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [<d>]
+#
+"#;
+        let args = vec![];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(result, Context::from_value(json!({})).unwrap());
+
+        let args = vec!["x"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "d": "x",
+            }))
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_parse_repeatable_optional() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [<d>...]
+#
+"#;
+
+        let args = vec![];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(result, Context::from_value(json!({})).unwrap());
+
+        let args = vec!["x"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "d": vec!["x"],
+            }))
+            .unwrap()
+        );
+
+        let args = vec!["x", "y"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "d": vec!["x", "y"],
+            }))
+            .unwrap()
+        );
+
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [<d>]...
+#
+"#;
+
+        let args = vec![];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(result, Context::from_value(json!({})).unwrap());
+
+        let args = vec!["x"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "d": vec!["x"],
+            }))
+            .unwrap()
+        );
+
+        let args = vec!["x", "y"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            Context::from_value(json!(
+            {
+                "d": vec!["x", "y"],
             }))
             .unwrap()
         );
@@ -938,7 +1068,7 @@ mod tests {
 #!/usr/bin/env rash
 #
 # Usage:
-#   ./dots (install|update|help) <package_filters>...
+#   ./dots (install|update|help) [<package_filters>...]
 #
 "#;
 
@@ -1254,9 +1384,14 @@ Foo:
         assert_eq!(
             result,
             HashSet::from([
+                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... INPUT+"
+                    .to_string(),
                 "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}...".to_string(),
+                "my_program.py {--quiet#--verbose} {--quiet#--verbose} INPUT+".to_string(),
                 "my_program.py {--quiet#--verbose} {--quiet#--verbose}".to_string(),
+                "my_program.py {--help#--sorted#-o=<-o>#} INPUT+".to_string(),
                 "my_program.py {--help#--sorted#-o=<-o>#}".to_string(),
+                "my_program.py INPUT+".to_string(),
                 "my_program.py".to_string(),
             ])
         )
