@@ -54,6 +54,9 @@ struct Args {
     /// It can be accessed from builtin `{{ env }}`. E.g.: `{{ env.USER }}`
     #[arg(short, long, action = ArgAction::Append, value_parser = parse_key_val::<String, String>, num_args = 1)]
     environment: Vec<(String, String)>,
+    /// Output format.
+    #[arg(value_enum, short, long, default_value_t=logger::Output::Ansible)]
+    output: logger::Output,
     /// Verbose mode (-vv for more)
     #[arg(short, long, action = ArgAction::Count)]
     verbose: u8,
@@ -107,7 +110,8 @@ fn main() {
         args.verbose
     };
 
-    logger::setup_logging(verbose, args.diff).expect("failed to initialize logging.");
+    logger::setup_logging(verbose, &args.diff, &args.output)
+        .expect("failed to initialize logging.");
     trace!("start logger");
     trace!("{:?}", &args);
     let script_path = Path::new(&args.script_file);
