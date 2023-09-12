@@ -3,12 +3,21 @@ use crate::error::{Error, ErrorKind, Result};
 use std::fmt;
 use std::io;
 
+use clap::ValueEnum;
 use console::{style, Style};
 use fern::colors::Color;
 use fern::FormatCallback;
 use similar::{Change, ChangeTag, TextDiff};
 
 struct Line(Option<usize>);
+
+#[derive(Clone, Debug, ValueEnum)]
+pub enum Output {
+    /// ansible style output with tasks and changed outputs
+    Ansible,
+    /// print module outputs without any extra details, omitting task names and separators.
+    Raw,
+}
 
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -102,7 +111,7 @@ where
     }
 }
 
-fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
+fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
     let log_header = match (record.level(), record.target()) {
         (log::Level::Error, "task") => "failed: ".to_owned(),
         (log::Level::Error, _) => "[ERROR] ".to_owned(),
@@ -154,8 +163,27 @@ fn log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Recor
     ))
 }
 
+fn raw_log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
+    out.finish(format_args!(
+        "{color_line}{message}\x1B[0m",
+        color_line = format_args!(
+            "\x1B[{}m",
+            match (record.level(), record.target()) {
+                (log::Level::Error, _) => Color::Red,
+                (log::Level::Warn, _) => Color::Magenta,
+                (log::Level::Info, _) => Color::White,
+                (log::Level::Debug, _) => Color::BrightBlue,
+                (log::Level::Trace, "error") => Color::Red,
+                (log::Level::Trace, _) => Color::BrightBlack,
+            }
+            .to_fg_str()
+        ),
+        message = &message,
+    ))
+}
+
 /// Setup logging according to the specified verbosity.
-pub fn setup_logging(verbosity: u8, diff: bool) -> Result<()> {
+pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> {
     let mut base_config = fern::Dispatch::new();
 
     base_config = match verbosity {
@@ -167,6 +195,17 @@ pub fn setup_logging(verbosity: u8, diff: bool) -> Result<()> {
     base_config = match diff {
         false => base_config.level_for("diff", log::LevelFilter::Error),
         true => base_config.level_for("diff", log::LevelFilter::Info),
+    };
+
+    // remove task module for raw output
+    base_config = match output {
+        Output::Raw => base_config.level_for("task", log::LevelFilter::Error),
+        _ => base_config,
+    };
+
+    let log_format = match output {
+        Output::Ansible => ansible_log_format,
+        Output::Raw => raw_log_format,
     };
 
     base_config
