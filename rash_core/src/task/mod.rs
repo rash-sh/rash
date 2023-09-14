@@ -108,10 +108,11 @@ impl Task {
     }
 
     #[inline(always)]
-    fn extended_vars(&self, vars: Vars) -> Result<Vars> {
+    fn extend_vars(&self, vars: Vars) -> Result<Vars> {
         match self.vars.clone() {
             Some(v) => {
                 let mut e_vars = vars.clone();
+                trace!("extend vars: {:?}", &v);
                 e_vars.extend(Vars::from_serialize(render(v, &vars)?)?);
                 Ok(e_vars)
             }
@@ -120,7 +121,7 @@ impl Task {
     }
 
     fn render_params(&self, vars: Vars) -> Result<Value> {
-        let extended_vars = self.extended_vars(vars)?;
+        let extended_vars = self.extend_vars(vars)?;
 
         let original_params = self.params.clone();
         match original_params {
@@ -160,7 +161,7 @@ impl Task {
         trace!("when: {:?}", &self.when);
         match &self.when {
             Some(s) => {
-                let extended_vars = self.extended_vars(vars.clone())?;
+                let extended_vars = self.extend_vars(vars.clone())?;
                 is_render_string(s, &extended_vars)
             }
             None => Ok(true),
