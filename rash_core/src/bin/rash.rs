@@ -70,11 +70,11 @@ struct Args {
     script_args: Vec<String>,
 }
 
-/// Trace all errors recursively
-fn trace_all(e: &dyn StdError) {
-    trace!(target: "error", "{}", e);
+/// Log all errors recursively
+fn log_inner_errors(e: &dyn StdError) {
+    error!("{}", e);
     if let Some(source_error) = e.source() {
-        trace_all(source_error)
+        log_inner_errors(source_error)
     }
 }
 
@@ -88,7 +88,7 @@ fn crash_error(e: Error) {
 
     if let Some(inner_error) = e.into_inner() {
         if let Some(source_error) = inner_error.source() {
-            trace_all(source_error)
+            log_inner_errors(source_error)
         }
     }
     exit(exit_code)

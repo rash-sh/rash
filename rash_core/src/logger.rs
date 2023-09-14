@@ -137,7 +137,6 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
                 (log::Level::Info, "ok") => Color::Green,
                 (log::Level::Info, _) => Color::White,
                 (log::Level::Debug, _) => Color::BrightBlue,
-                (log::Level::Trace, "error") => Color::Red,
                 (log::Level::Trace, _) => Color::BrightBlack,
             }
             .to_fg_str()
