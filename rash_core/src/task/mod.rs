@@ -552,6 +552,22 @@ mod tests {
         assert!(!task.is_exec(&vars).unwrap());
     }
 
+    // tera v2 will fix this
+    // #[test]
+    // fn test_is_exec_array_with_or_operator() {
+    //     let s: String = r#"
+    //         when:
+    //           - true
+    //           - "boo == 'test'" or false
+    //         command: 'example'
+    //         "#
+    //     .to_owned();
+    //     let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+    //     let yaml: Value = serde_yaml::from_str(&s).unwrap();
+    //     let task = Task::from(yaml);
+    //     assert!(task.is_exec(&vars).unwrap());
+    // }
+
     #[test]
     fn test_render_iterator() {
         let s: String = r#"
