@@ -45,9 +45,9 @@ impl Default for GlobalParams<'_> {
 #[derive(Debug, Clone, FieldNames)]
 // ANCHOR: task
 pub struct Task {
-    /// run operations with become (does not imply password prompting).
+    /// Run operations with become (does not imply password prompting).
     r#become: bool,
-    /// run operations as this user (just works with become enabled).
+    /// Run operations as this user (just works with become enabled).
     become_user: String,
     /// Run task in dry-run mode without modifications.
     check_mode: bool,
@@ -107,15 +107,20 @@ impl Task {
         Self::get_field_names().contains(attr)
     }
 
-    fn render_params(&self, vars: Vars) -> Result<Value> {
-        let extended_vars = match self.vars.clone() {
+    #[inline(always)]
+    fn extended_vars(&self, vars: Vars) -> Result<Vars> {
+        match self.vars.clone() {
             Some(v) => {
                 let mut e_vars = vars.clone();
                 e_vars.extend(Vars::from_serialize(render(v, &vars)?)?);
-                e_vars
+                Ok(e_vars)
             }
-            None => vars,
-        };
+            None => Ok(vars),
+        }
+    }
+
+    fn render_params(&self, vars: Vars) -> Result<Value> {
+        let extended_vars = self.extended_vars(vars)?;
 
         let original_params = self.params.clone();
         match original_params {
@@ -154,7 +159,10 @@ impl Task {
     fn is_exec(&self, vars: &Vars) -> Result<bool> {
         trace!("when: {:?}", &self.when);
         match &self.when {
-            Some(s) => is_render_string(s, vars),
+            Some(s) => {
+                let extended_vars = self.extended_vars(vars.clone())?;
+                is_render_string(s, &extended_vars)
+            }
             None => Ok(true),
         }
     }
