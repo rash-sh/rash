@@ -135,6 +135,20 @@
     - options.noconfirm
     - options.print_format == "%n"
 
+# if not it returns exit 1 and finish without output
+- name: Query if there are updates available
+  debug:
+    msg: |-
+      linux-firmware
+      linux61
+      linux61-nvidia
+      linux61-zfs
+  when:
+    - options.query
+    - options.upgrades
+    - options.quiet
+    - targets is undefined
+
 - name: Upgrade all packages
   debug:
     msg: |-
@@ -244,12 +258,6 @@
     - a == "true" and b == "true"
     - not options.sysupgrade and not options.list
 
-- name: List outdated packages
-  command: exit 1
-  when:
-    - options.query
-    - options.upgrades
-
 - name: List packages explicitly installed
   debug:
     msg: |-
@@ -315,16 +323,6 @@
   when:
     - options.query
     - options.groups
-    - not options.explicit
-    - not options.deps
-
-- name: List packages upgradeables
-  debug:
-    msg: ""
-  when:
-    - options.query
-    - options.upgrades
-    - not options.groups
     - not options.explicit
     - not options.deps
 

@@ -186,7 +186,7 @@ impl PacmanClient {
     }
 
     #[inline]
-    fn exec_cmd(&self, cmd: &mut Command) -> Result<Output> {
+    fn exec_cmd(&self, cmd: &mut Command, check_success: bool) -> Result<Output> {
         if let Some(extra_args) = &self.extra_args {
             cmd.args(split(extra_args).ok_or_else(|| {
                 Error::new(
@@ -201,7 +201,7 @@ impl PacmanClient {
         trace!("command: `{cmd:?}`");
         trace!("{output:?}");
 
-        if !output.status.success() {
+        if check_success && !output.status.success() {
             return Err(Error::new(
                 ErrorKind::InvalidData,
                 String::from_utf8_lossy(&output.stderr),
@@ -220,7 +220,7 @@ impl PacmanClient {
         let mut cmd = self.get_cmd();
         cmd.arg("--query");
 
-        let output = self.exec_cmd(&mut cmd)?;
+        let output = self.exec_cmd(&mut cmd, true)?;
         Ok(PacmanClient::parse_installed(output.stdout))
     }
 
@@ -228,7 +228,7 @@ impl PacmanClient {
         let mut cmd = self.get_cmd();
         cmd.arg("--query").arg("--explicit");
 
-        let output = self.exec_cmd(&mut cmd)?;
+        let output = self.exec_cmd(&mut cmd, true)?;
         Ok(PacmanClient::parse_installed(output.stdout))
     }
 
@@ -243,7 +243,7 @@ impl PacmanClient {
             .arg("--needed")
             .arg("--sync")
             .args(packages);
-        self.exec_cmd(&mut cmd)?;
+        self.exec_cmd(&mut cmd, true)?;
         Ok(())
     }
 
@@ -263,7 +263,7 @@ impl PacmanClient {
             .arg("--remove")
             .args(packages);
 
-        self.exec_cmd(&mut cmd)?;
+        self.exec_cmd(&mut cmd, true)?;
         Ok(())
     }
 
@@ -279,12 +279,26 @@ impl PacmanClient {
             cmd.arg("--refresh");
         };
 
-        self.exec_cmd(&mut cmd)?;
+        self.exec_cmd(&mut cmd, true)?;
         Ok(())
     }
 
     pub fn upgrade(&self) -> Result<IsChanged> {
-        if self.check_mode {
+        let mut query_cmd = self.get_cmd();
+        query_cmd
+            .arg("--noconfirm")
+            .arg("--noprogressbar")
+            .arg("--query")
+            .arg("--upgrades");
+
+        let query_output = self.exec_cmd(&mut query_cmd, false)?;
+
+        let exit_code = query_output
+            .status
+            .code()
+            .ok_or_else(|| Error::new(ErrorKind::SubprocessFail, "Process terminated by signal"))?;
+
+        if exit_code == 1 || self.check_mode {
             return Ok(false);
         };
 
@@ -293,7 +307,7 @@ impl PacmanClient {
             .arg("--noprogressbar")
             .arg("--sync")
             .arg("--sysupgrade");
-        let output = self.exec_cmd(&mut cmd)?;
+        let output = self.exec_cmd(&mut cmd, true)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let last_line = stdout
             .lines()
