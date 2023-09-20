@@ -17,6 +17,29 @@ fn update_path(new_path: &Path) {
     env::set_var("PATH", new_path);
 }
 
+fn run_test(script_text: &str, args: &[&str]) -> (String, String) {
+    let tmp_dir = tempdir().unwrap();
+    let script_path = tmp_dir.path().join("script.rh");
+    let mut script_file = File::create(&script_path).unwrap();
+    script_file.write_all(script_text.as_bytes()).unwrap();
+
+    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
+    update_path(bin_path.parent().unwrap());
+
+    let mut cmd = Command::new(bin_path);
+    cmd.args(args);
+    cmd.arg(script_path);
+
+    let output = cmd.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    dbg!(&stdout);
+    dbg!(&stderr);
+
+    (stdout, stderr)
+}
+
 #[test]
 fn test_pacman_present() {
     let mocks_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
@@ -37,34 +60,14 @@ fn test_pacman_present() {
         mocks_dir.to_str().unwrap()
     );
 
-    let tmp_dir = tempdir().unwrap();
-    let script_path = tmp_dir.path().join("script.rh");
-    let mut script_file = File::create(&script_path).unwrap();
-    script_file.write_all(script_text.as_bytes()).unwrap();
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test(&script_text, &args);
 
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-
-    let output = Command::new(bin_path)
-        .arg("--diff")
-        .arg(script_path)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let lines = stdout.lines();
-
-    dbg!(&stdout);
-    dbg!(String::from_utf8_lossy(&output.stderr));
-
-    assert!(lines.clone().any(|x| x == "+ rustup"));
-    assert!(lines.clone().any(|x| x == "+ bpftrace"));
-    assert!(lines.clone().all(|x| x != "+ linux61-zfs"));
-    assert!(output.stderr.is_empty());
-    assert!(lines
-        .clone()
-        .last()
-        .unwrap()
-        .starts_with("\u{1b}[33mchanged"));
+    assert!(stdout.contains("+ rustup"));
+    assert!(stdout.contains("+ bpftrace"));
+    assert!(!stdout.contains("+ linux61-zfs"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("\u{1b}[33mchanged\u{1b}[0m\n"));
 }
 
 #[test]
@@ -87,34 +90,14 @@ fn test_pacman_remove() {
         mocks_dir.to_str().unwrap()
     );
 
-    let tmp_dir = tempdir().unwrap();
-    let script_path = tmp_dir.path().join("script.rh");
-    let mut script_file = File::create(&script_path).unwrap();
-    script_file.write_all(script_text.as_bytes()).unwrap();
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test(&script_text, &args);
 
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-
-    let output = Command::new(bin_path)
-        .arg("--diff")
-        .arg(script_path)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let lines = stdout.lines();
-
-    dbg!(&stdout);
-    dbg!(String::from_utf8_lossy(&output.stderr));
-
-    assert!(lines.clone().any(|x| x == "- linux61-nvidia"));
-    assert!(lines.clone().any(|x| x == "- linux61-zfs"));
-    assert!(lines.clone().all(|x| x != "- rash"));
-    assert!(lines
-        .clone()
-        .last()
-        .unwrap()
-        .starts_with("\u{1b}[33mchanged"));
-    assert!(output.stderr.is_empty());
+    assert!(stdout.contains("- linux61-nvidia"));
+    assert!(stdout.contains("- linux61-zfs"));
+    assert!(!stdout.contains("- rash"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("\u{1b}[33mchanged\u{1b}[0m\n"));
 }
 
 #[test]
@@ -136,34 +119,14 @@ fn test_pacman_sync() {
         mocks_dir.to_str().unwrap()
     );
 
-    let tmp_dir = tempdir().unwrap();
-    let script_path = tmp_dir.path().join("script.rh");
-    let mut script_file = File::create(&script_path).unwrap();
-    script_file.write_all(script_text.as_bytes()).unwrap();
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test(&script_text, &args);
 
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-
-    let output = Command::new(bin_path)
-        .arg("--diff")
-        .arg(script_path)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let lines = stdout.lines();
-
-    dbg!(&stdout);
-    dbg!(String::from_utf8_lossy(&output.stderr));
-
-    assert!(lines.clone().any(|x| x == "- linux-firmware"));
-    assert!(lines.clone().any(|x| x == "- linux61"));
-    assert!(lines.clone().any(|x| x == "+ rash"));
-    assert!(lines
-        .clone()
-        .last()
-        .unwrap()
-        .starts_with("\u{1b}[33mchanged"));
-    assert!(output.stderr.is_empty());
+    assert!(stdout.contains("- linux-firmware"));
+    assert!(stdout.contains("- linux61"));
+    assert!(stdout.contains("+ rash"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("\u{1b}[33mchanged\u{1b}[0m\n"));
 }
 
 #[test]
@@ -187,31 +150,15 @@ fn test_pacman_sync_upgrade_no_changed() {
         mocks_dir.to_str().unwrap()
     );
 
-    let tmp_dir = tempdir().unwrap();
-    let script_path = tmp_dir.path().join("script.rh");
-    let mut script_file = File::create(&script_path).unwrap();
-    script_file.write_all(script_text.as_bytes()).unwrap();
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test(&script_text, &args);
 
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-
-    let output = Command::new(bin_path)
-        .arg("--diff")
-        .arg(script_path)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let lines = stdout.lines();
-
-    dbg!(&stdout);
-    dbg!(String::from_utf8_lossy(&output.stderr));
-
-    assert!(lines.clone().all(|x| x != "+ linux-firmware"));
-    assert!(lines.clone().all(|x| x != "+ linux61"));
-    assert!(lines.clone().all(|x| x != "+ linux61-nvidia"));
-    assert!(lines.clone().all(|x| x != "+ linux61-zfs"));
-    assert!(lines.clone().last().unwrap().starts_with("\u{1b}[32mok"));
-    assert!(output.stderr.is_empty());
+    assert!(!stdout.contains("+ linux-firmware"));
+    assert!(!stdout.contains("+ linux61"));
+    assert!(!stdout.contains("+ linux61-nvidia"));
+    assert!(!stdout.contains("+ linux61-zfs"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("\u{1b}[32mok\u{1b}[0m\n"));
 }
 
 #[test]
@@ -238,28 +185,12 @@ fn test_pacman_result_extra() {
         mocks_dir.to_str().unwrap()
     );
 
-    let tmp_dir = tempdir().unwrap();
-    let script_path = tmp_dir.path().join("script.rh");
-    let mut script_file = File::create(&script_path).unwrap();
-    script_file.write_all(script_text.as_bytes()).unwrap();
+    let args = ["--output", "raw"];
+    let (stdout, stderr) = run_test(&script_text, &args);
 
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-
-    let output = Command::new(bin_path)
-        .args(["--output", "raw"])
-        .arg(script_path)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let lines = stdout.lines();
-
-    dbg!(&stdout);
-    dbg!(String::from_utf8_lossy(&output.stderr));
-
-    assert!(output.stderr.is_empty());
+    assert!(stderr.is_empty());
     assert_eq!(
-        lines.clone().last().unwrap(),
+        stdout.lines().last().unwrap(),
         serde_json::to_string(&json!({
             "installed_packages": ["rash"],
             "removed_packages": ["linux61-zfs"],
