@@ -228,10 +228,17 @@ impl Task {
             .exec(rendered_params.clone(), vars.clone(), self.check_mode)
         {
             Ok((result, result_vars)) => {
-                info!(target: if self.is_changed(&result, &result_vars)? {"changed"} else { "ok"},
+                let output = result.get_output();
+                let target = match self.is_changed(&result, &result_vars)? {
+                    true => "changed",
+                    false => "ok",
+                };
+                let target_empty =
+                    &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
+                info!(target: target_empty,
                     "{}",
-                    result.get_output().unwrap_or_else(
-                        || format!("{rendered_params:?}")
+                    output.unwrap_or_else(
+                        || "".to_owned()
                     )
                 );
                 let mut new_vars = result_vars;
