@@ -5,11 +5,13 @@ use std::io;
 
 use clap::ValueEnum;
 use console::{style, Style};
-use fern::colors::Color;
 use fern::FormatCallback;
 use similar::{Change, ChangeTag, TextDiff};
 
 struct Line(Option<usize>);
+
+const COLOR_BRIGHT_BLUE: u8 = 33;
+const COLOR_BRIGHT_BLACK: u8 = 244;
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum Output {
@@ -108,17 +110,15 @@ where
 
 fn format_change<T: similar::DiffableStr + ?Sized>(change: Change<&T>) -> String {
     match change.tag() {
-        ChangeTag::Equal => format!("\x1B[0m  {change}"),
-        ChangeTag::Delete => format!(
-            "\x1B[{color}m- {s}\x1B[0m",
-            color = Color::Red.to_fg_str(),
-            s = change,
-        ),
-        ChangeTag::Insert => format!(
-            "\x1B[{color}m+ {s}\x1B[0m",
-            color = Color::Green.to_fg_str(),
-            s = change,
-        ),
+        ChangeTag::Equal => format!("  {change}"),
+        ChangeTag::Delete => Style::new()
+            .red()
+            .apply_to(format!("- {s}", s = change,))
+            .to_string(),
+        ChangeTag::Insert => Style::new()
+            .green()
+            .apply_to(format!("+ {s}", s = change,))
+            .to_string(),
     }
 }
 
@@ -142,7 +142,9 @@ where
 }
 
 fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
-    let log_header = match (record.level(), record.target()) {
+    let level = record.level();
+    let target = record.target();
+    let log_header = match (level, target) {
         (log::Level::Error, "task") => "failed: ".to_owned(),
         (log::Level::Error, _) => "[ERROR] ".to_owned(),
         (log::Level::Warn, _) => "[WARNING] ".to_owned(),
@@ -156,28 +158,23 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
         (log::Level::Debug, _) => "".to_owned(),
         (log::Level::Trace, s) => s.to_owned() + " - ",
     };
-    out.finish(format_args!(
-        "{color_line}{log_header}{message}{separator}\x1B[0m",
-        color_line = format_args!(
-            "\x1B[{}m",
-            match (record.level(), record.target()) {
-                (log::Level::Error, _) => Color::Red,
-                (log::Level::Warn, _) => Color::Magenta,
-                (log::Level::Info, "changed") => Color::Yellow,
-                (log::Level::Info, "changed_empty") => Color::Yellow,
-                (log::Level::Info, "diff") => Color::BrightBlack,
-                (log::Level::Info, "ignoring") => Color::Blue,
-                (log::Level::Info, "ok") => Color::Green,
-                (log::Level::Info, "ok_empty") => Color::Green,
-                (log::Level::Info, _) => Color::White,
-                (log::Level::Debug, _) => Color::BrightBlue,
-                (log::Level::Trace, _) => Color::BrightBlack,
-            }
-            .to_fg_str()
-        ),
+
+    let style = match (level, target) {
+        (log::Level::Error, _) => Style::new().red(),
+        (log::Level::Warn, _) => Style::new().magenta(),
+        (log::Level::Info, "changed" | "changed_empty") => Style::new().yellow(),
+        (log::Level::Info, "diff") => Style::new().color256(COLOR_BRIGHT_BLACK),
+        (log::Level::Info, "ignoring") => Style::new().blue(),
+        (log::Level::Info, "ok" | "ok_empty") => Style::new().green(),
+        (log::Level::Info, _) => Style::new().white(),
+        (log::Level::Debug, _) => Style::new().color256(COLOR_BRIGHT_BLUE), // bright blue
+        (log::Level::Trace, _) => Style::new().color256(COLOR_BRIGHT_BLACK), // bright black
+    };
+    let line = format!(
+        "{log_header}{message}{separator}",
         log_header = log_header,
         message = &message,
-        separator = match (record.level(), record.target()) {
+        separator = match (level, target) {
             (log::Level::Info, "task") => vec![
                 "*";
                 {
@@ -193,7 +190,8 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
             .join(""),
             (_, _) => "".to_string(),
         },
-    ))
+    );
+    out.finish(format_args!("{}", style.apply_to(line)))
 }
 
 fn raw_log_format(out: FormatCallback, message: &fmt::Arguments, _record: &log::Record) {

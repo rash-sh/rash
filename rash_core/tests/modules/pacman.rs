@@ -67,7 +67,7 @@ fn test_pacman_present() {
     assert!(stdout.contains("+ bpftrace"));
     assert!(!stdout.contains("+ linux61-zfs"));
     assert!(stderr.is_empty());
-    assert!(stdout.ends_with("\u{1b}[33mchanged\u{1b}[0m\n"));
+    assert!(stdout.ends_with("changed\n"));
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn test_pacman_remove() {
     assert!(stdout.contains("- linux61-zfs"));
     assert!(!stdout.contains("- rash"));
     assert!(stderr.is_empty());
-    assert!(stdout.ends_with("\u{1b}[33mchanged\u{1b}[0m\n"));
+    assert!(stdout.ends_with("changed\n"));
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn test_pacman_sync() {
     assert!(stdout.contains("- linux61"));
     assert!(stdout.contains("+ rash"));
     assert!(stderr.is_empty());
-    assert!(stdout.ends_with("\u{1b}[33mchanged\u{1b}[0m\n"));
+    assert!(stdout.ends_with("changed\n"));
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn test_pacman_sync_upgrade_no_changed() {
     assert!(!stdout.contains("+ linux61-nvidia"));
     assert!(!stdout.contains("+ linux61-zfs"));
     assert!(stderr.is_empty());
-    assert!(stdout.ends_with("\u{1b}[32mok\u{1b}[0m\n"));
+    assert!(stdout.ends_with("ok\n"));
 }
 
 #[test]
