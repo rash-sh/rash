@@ -60,6 +60,11 @@ fn test_pacman_present() {
     assert!(lines.clone().any(|x| x == "+ bpftrace"));
     assert!(lines.clone().all(|x| x != "+ linux61-zfs"));
     assert!(output.stderr.is_empty());
+    assert!(lines
+        .clone()
+        .last()
+        .unwrap()
+        .starts_with("\u{1b}[33mchanged"));
 }
 
 #[test]
@@ -108,7 +113,7 @@ fn test_pacman_remove() {
         .clone()
         .last()
         .unwrap()
-        .starts_with("\u{1b}[33mchanged:"));
+        .starts_with("\u{1b}[33mchanged"));
     assert!(output.stderr.is_empty());
 }
 
@@ -157,7 +162,7 @@ fn test_pacman_sync() {
         .clone()
         .last()
         .unwrap()
-        .starts_with("\u{1b}[33mchanged:"));
+        .starts_with("\u{1b}[33mchanged"));
     assert!(output.stderr.is_empty());
 }
 
@@ -205,7 +210,7 @@ fn test_pacman_sync_upgrade_no_changed() {
     assert!(lines.clone().all(|x| x != "+ linux61"));
     assert!(lines.clone().all(|x| x != "+ linux61-nvidia"));
     assert!(lines.clone().all(|x| x != "+ linux61-zfs"));
-    assert!(lines.clone().last().unwrap().starts_with("\u{1b}[32mok:"));
+    assert!(lines.clone().last().unwrap().starts_with("\u{1b}[32mok"));
     assert!(output.stderr.is_empty());
 }
 
