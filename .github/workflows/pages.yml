@@ -28,7 +28,10 @@ jobs:
           git clone --depth=1 https://github.com/rash-sh/rash-sh.github.io.git $GH_PAGES_DIR
 
           # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          FULL_VERSION=$(echo "${{ github.ref }}" | sed -e 's,refs/tags/\(.*\),\1,')
+
+          # Strip patch from version
+          VERSION=$(echo "${FULL_VERSION}" | sed  's/^v\([0-9]\+\)\.\([0-9]\+\)\.[0-9]\+/v\1.\2/')
 
           VERSION=$VERSION make book
 
