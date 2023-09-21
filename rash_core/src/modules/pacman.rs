@@ -25,6 +25,24 @@
 ///       - rash
 ///       - timer-rs
 ///     state: present
+///
+/// - pacman:
+///    upgrade: true
+///    update_cache: true
+///    name:
+///      - rustup
+///      - bpftrace
+///      - linux61-zfs
+///    state: sync
+///    register: packages
+///
+/// - pacman:
+///    upgrade: true
+///    update_cache: true
+///    force: true
+///    name: linux-nvidia
+///    state: absent
+///    register: packages
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
@@ -82,7 +100,6 @@ pub struct Params {
     extra_args: Option<String>,
     /// When removing packages, forcefully remove them, without any checks.
     /// Same as extra_args=”--nodeps --nodeps”.
-    ///
     /// When combined with `update_cache` force a refresh of all package databases.
     /// Same as update_cache_extra_args=”--refresh --refresh”.
     /// **[default: `false`]**
@@ -93,11 +110,9 @@ pub struct Params {
     #[serde(default)]
     name: Vec<String>,
     /// Whether to install (`present`), or remove (`absent`) a package.
-    ///
     /// Also, supports the `sync` which will keep explicit packages accord with packages defined.
     /// Explicit packages are packages installed were literally passed to a generic
     /// `pacman` `-S` or `-U` command. You can list them with: `pacman -Qe`
-    ///
     /// `present` will simply ensure that a desired package is installed.
     /// `absent` will remove the specified package.
     /// `sync` will install or remove packages to be in sync with explicit package list.
