@@ -434,24 +434,23 @@ impl Options {
             // transform options with params to --{option}={value}
             .filter_map(|(previous_arg, arg)| {
                 if previous_arg.starts_with('-') {
-                    match self.find(previous_arg) {
-                        Some(option_arg) => {
+                    self.find(previous_arg)
+                        .map(|option_arg| {
                             let repr = option_arg.get_simple_representation();
                             match option_arg {
                                 OptionArg::WithParam { .. } => {
                                     is_antepenultimate_with_param = true;
-                                    Some(Ok(format!("{repr}={arg}")))
+                                    Ok(format!("{repr}={arg}"))
                                 }
-                                OptionArg::Simple { .. } | OptionArg::Repeatable { .. } => {
-                                    Some(Ok(repr))
-                                }
+                                OptionArg::Simple { .. } | OptionArg::Repeatable { .. } => Ok(repr),
                             }
-                        }
-                        None => Some(Err(Error::new(
-                            ErrorKind::InvalidData,
-                            format!("Unknown option: {previous_arg}"),
-                        ))),
-                    }
+                        })
+                        .or_else(|| {
+                            Some(Err(Error::new(
+                                ErrorKind::InvalidData,
+                                format!("Unknown option: {previous_arg}"),
+                            )))
+                        })
                 } else if is_antepenultimate_with_param {
                     is_antepenultimate_with_param = false;
                     None
