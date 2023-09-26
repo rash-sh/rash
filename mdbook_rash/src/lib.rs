@@ -85,40 +85,34 @@ fn format_schema(schema: &RootSchema) -> String {
                 for property in schema_object.object.unwrap().properties {
                     let name = property.0;
                     let schema_object = property.1.into_object();
-                    let value = match schema_object.enum_values {
-                        Some(x) => x
-                            .into_iter()
-                            .map(|i| {
-                                serde_yaml::to_value(i)
-                                    .unwrap()
-                                    .as_str()
-                                    .unwrap()
-                                    .to_owned()
-                            })
-                            .collect::<Vec<String>>()
-                            .join("<br>"),
-                        None => "".to_owned(),
-                    };
+                    let value = schema_object.enum_values.map(|x| x
+                        .into_iter()
+                        .map(|i| {
+                            serde_yaml::to_value(i)
+                                .unwrap()
+                                .as_str()
+                                .unwrap()
+                                .to_owned()
+                        })
+                        .collect::<Vec<String>>()
+                        .join("<br>")).unwrap_or_else(|| "".to_owned());
                     table.add_row(row![
                         name,
                         match required_values.contains(&name) {
                             true => "true",
                             false => "",
                         },
-                        match schema_object.instance_type {
-                            Some(s) => {
-                                let t = match s {
-                                    SingleOrVec::Vec(v) => v[0],
-                                    SingleOrVec::Single(x) => *x,
-                                };
-                                serde_yaml::to_value(t)
-                                    .unwrap()
-                                    .as_str()
-                                    .unwrap()
-                                    .to_owned()
-                            }
-                            None => "".to_owned(),
-                        },
+                        schema_object.instance_type.map(|s| {
+                            let t = match s {
+                                SingleOrVec::Vec(v) => v[0],
+                                SingleOrVec::Single(x) => *x,
+                            };
+                            serde_yaml::to_value(t)
+                                .unwrap()
+                                .as_str()
+                                .unwrap()
+                                .to_owned()
+                        }).unwrap_or_else(|| "".to_owned()),
                         value,
                         description
                     ]);
@@ -139,40 +133,34 @@ fn format_schema(schema: &RootSchema) -> String {
             None => "".to_owned(),
         };
 
-        let value = match schema_object.enum_values {
-            Some(x) => x
-                .into_iter()
-                .map(|i| {
-                    serde_yaml::to_value(i)
-                        .unwrap()
-                        .as_str()
-                        .unwrap()
-                        .to_owned()
-                })
-                .collect::<Vec<String>>()
-                .join("<br>"),
-            None => "".to_owned(),
-        };
+        let value = schema_object.enum_values.map(|x| x
+            .into_iter()
+            .map(|i| {
+                serde_yaml::to_value(i)
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_owned()
+            })
+            .collect::<Vec<String>>()
+            .join("<br>")).unwrap_or_else(|| "".to_owned());
         table.add_row(row![
             name,
             match required_values.contains(&name) {
                 true => "true",
                 false => "",
             },
-            match schema_object.instance_type {
-                Some(s) => {
-                    let t = match s {
-                        SingleOrVec::Vec(v) => v[0],
-                        SingleOrVec::Single(x) => *x,
-                    };
-                    serde_yaml::to_value(t)
-                        .unwrap()
-                        .as_str()
-                        .unwrap()
-                        .to_owned()
-                }
-                None => "".to_owned(),
-            },
+            schema_object.instance_type.map(|s| {
+                let t = match s {
+                    SingleOrVec::Vec(v) => v[0],
+                    SingleOrVec::Single(x) => *x,
+                };
+                serde_yaml::to_value(t)
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_owned()
+            }).unwrap_or_else(|| "".to_owned()),
             value,
             description
         ]);
@@ -200,11 +188,7 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
                 let schema = module.1.get_json_schema();
                 let name = module.0;
 
-                let parameters = match schema {
-                    Some(s) => format_schema(&s),
-                    None => format!("{{$include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:parameters}}}}}}")
-                };
-
+                let parameters = schema.map(|s| format_schema(&s)).unwrap_or_else(|| format!("{{$include_doc {{{{#include ../../rash_core/src/modules/{name}.rs:parameters}}}}}}"));
                 let content_header = format!(
                     r#"---
 title: {name}
