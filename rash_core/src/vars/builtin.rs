@@ -61,13 +61,13 @@ impl Builtins {
                     "Script parent dir cannot be represented as UTF-8",
                 )
             })?
-            .to_string();
+            .to_owned();
 
         trace!("dir: {dir:?}");
 
         Ok(Builtins {
             args: args.into_iter().map(String::from).collect(),
-            dir: if dir.is_empty() { ".".to_string() } else { dir },
+            dir: if dir.is_empty() { ".".to_owned() } else { dir },
             path: path
                 .to_str()
                 .ok_or_else(|| {
@@ -76,7 +76,7 @@ impl Builtins {
                         "Script path cannot be parsed to String",
                     )
                 })?
-                .to_string(),
+                .to_owned(),
             user: UserInfo {
                 uid: u32::from(getuid()),
                 gid: u32::from(getgid()),
@@ -95,8 +95,8 @@ mod tests {
     fn test_builtin_new() {
         let builtins = Builtins::new(vec![], Path::new("/example.rh")).unwrap();
         assert_eq!(builtins.args.len(), 0);
-        assert_eq!(builtins.path, "/example.rh".to_string());
-        assert_eq!(builtins.dir, "/".to_string());
+        assert_eq!(builtins.path, "/example.rh".to_owned());
+        assert_eq!(builtins.dir, "/".to_owned());
     }
 
     #[test]
@@ -108,11 +108,7 @@ mod tests {
         let builtins = Builtins::new(vec![], file_path.as_ref()).unwrap();
         assert_eq!(
             builtins.dir,
-            canonicalize(dir_path)
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string()
+            canonicalize(dir_path).unwrap().to_str().unwrap().to_owned()
         );
     }
 }

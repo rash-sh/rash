@@ -835,7 +835,7 @@ mod tests {
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
                 .cloned()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect::<HashMap<String, String>>(),
         )
         .unwrap();
@@ -878,7 +878,7 @@ mod tests {
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
                 .cloned()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect::<HashMap<String, String>>(),
         )
         .unwrap();
@@ -904,7 +904,7 @@ mod tests {
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
                 .cloned()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect::<HashMap<String, String>>(),
         )
         .unwrap();
@@ -944,7 +944,7 @@ mod tests {
             [("directory", "boo"), ("xuu", "zoo")]
                 .iter()
                 .cloned()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect::<HashMap<String, String>>(),
         )
         .unwrap();

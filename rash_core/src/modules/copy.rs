@@ -239,9 +239,9 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                input: Input::Content("boo".to_string()),
-                dest: "/tmp/buu.txt".to_string(),
-                mode: Some("0600".to_string()),
+                input: Input::Content("boo".to_owned()),
+                dest: "/tmp/buu.txt".to_owned(),
+                mode: Some("0600".to_owned()),
             }
         );
     }
@@ -260,9 +260,9 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                input: Input::Content("boo".to_string()),
-                dest: "/tmp/buu.txt".to_string(),
-                mode: Some("0600".to_string()),
+                input: Input::Content("boo".to_owned()),
+                dest: "/tmp/buu.txt".to_owned(),
+                mode: Some("0600".to_owned()),
             }
         );
     }
@@ -280,8 +280,8 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                input: Input::Content("boo".to_string()),
-                dest: "/tmp/buu.txt".to_string(),
+                input: Input::Content("boo".to_owned()),
+                dest: "/tmp/buu.txt".to_owned(),
                 mode: None,
             }
         );
@@ -300,8 +300,8 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                input: Input::Src("/tmp/a".to_string()),
-                dest: "/tmp/buu.txt".to_string(),
+                input: Input::Src("/tmp/a".to_owned()),
+                dest: "/tmp/buu.txt".to_owned(),
                 mode: None,
             }
         );
@@ -349,8 +349,8 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Content("test\n".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
+                input: Input::Content("test\n".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
                 mode: None,
             },
             false,
@@ -373,7 +373,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: false,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -395,9 +395,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Src(file_src_path.to_str().unwrap().to_string()),
-                dest: file_dest_path.to_str().unwrap().to_string(),
-                mode: Some("preserve".to_string()),
+                input: Input::Src(file_src_path.to_str().unwrap().to_owned()),
+                dest: file_dest_path.to_str().unwrap().to_owned(),
+                mode: Some("preserve".to_owned()),
             },
             false,
         )
@@ -419,7 +419,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_dest_path.to_str().unwrap().to_string()),
+                output: Some(file_dest_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -448,9 +448,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Src(file_src_path.to_str().unwrap().to_string()),
-                dest: file_dest_path.to_str().unwrap().to_string(),
-                mode: Some("preserve".to_string()),
+                input: Input::Src(file_src_path.to_str().unwrap().to_owned()),
+                dest: file_dest_path.to_str().unwrap().to_owned(),
+                mode: Some("preserve".to_owned()),
             },
             false,
         )
@@ -472,7 +472,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: false,
-                output: Some(file_dest_path.to_str().unwrap().to_string()),
+                output: Some(file_dest_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -487,9 +487,9 @@ mod tests {
         writeln!(file, "test").unwrap();
         let output = copy_file(
             Params {
-                input: Input::Content("fu".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("fu".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             false,
         )
@@ -511,7 +511,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -526,9 +526,9 @@ mod tests {
         writeln!(file, "test").unwrap();
         let output = copy_file(
             Params {
-                input: Input::Content("fu".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("fu".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             true,
         )
@@ -551,7 +551,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -564,9 +564,9 @@ mod tests {
         let file_path = dir.path().join("create.txt");
         let output = copy_file(
             Params {
-                input: Input::Content("zoo".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("zoo".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             false,
         )
@@ -588,7 +588,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -604,8 +604,8 @@ mod tests {
         let output = copy_file(
             Params {
                 input: Input::Src(src_path.into_os_string().into_string().unwrap()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             false,
         )
@@ -627,7 +627,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -640,9 +640,9 @@ mod tests {
         let file_path = dir.path().join("create_check_mode.txt");
         let output = copy_file(
             Params {
-                input: Input::Content("zoo".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("zoo".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             true,
         )
@@ -654,7 +654,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -672,9 +672,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Content("zoo".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0600".to_string()),
+                input: Input::Content("zoo".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0600".to_owned()),
             },
             false,
         )
@@ -696,7 +696,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -714,9 +714,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Content("zoo".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0600".to_string()),
+                input: Input::Content("zoo".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0600".to_owned()),
             },
             true,
         )
@@ -743,7 +743,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -761,9 +761,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Content("zoo".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("zoo".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             false,
         )
@@ -785,7 +785,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -805,9 +805,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Content("zoo\n".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("zoo\n".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             false,
         )
@@ -829,7 +829,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: false,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -847,9 +847,9 @@ mod tests {
 
         let output = copy_file(
             Params {
-                input: Input::Content("zoo".to_string()),
-                dest: file_path.to_str().unwrap().to_string(),
-                mode: Some("0400".to_string()),
+                input: Input::Content("zoo".to_owned()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
             },
             true,
         )
@@ -871,7 +871,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );

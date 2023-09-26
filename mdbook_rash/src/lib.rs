@@ -42,10 +42,10 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
                 ("include_doc", Some(content)) => Some((
                     origin,
                     Some(content.as_str().replace("/// ", "").replace("///", "")),
-                    typ.as_str().to_string(),
+                    typ.as_str().to_owned(),
                 )),
                 ("include_module_index" | "include_doc", _) => {
-                    Some((origin, None, typ.as_str().to_string()))
+                    Some((origin, None, typ.as_str().to_owned()))
                 }
                 _ => None,
             },
@@ -78,9 +78,9 @@ fn format_schema(schema: &RootSchema) -> String {
                 let description = match metadata {
                     Some(x) => match x.description {
                         Some(d) => d,
-                        None => "".to_string(),
+                        None => "".to_owned(),
                     },
-                    None => "".to_string(),
+                    None => "".to_owned(),
                 };
                 for property in schema_object.object.unwrap().properties {
                     let name = property.0;
@@ -97,7 +97,7 @@ fn format_schema(schema: &RootSchema) -> String {
                             })
                             .collect::<Vec<String>>()
                             .join("<br>"),
-                        None => "".to_string(),
+                        None => "".to_owned(),
                     };
                     table.add_row(row![
                         name,
@@ -117,7 +117,7 @@ fn format_schema(schema: &RootSchema) -> String {
                                     .unwrap()
                                     .to_owned()
                             }
-                            None => "".to_string(),
+                            None => "".to_owned(),
                         },
                         value,
                         description
@@ -134,9 +134,9 @@ fn format_schema(schema: &RootSchema) -> String {
         let description = match metadata {
             Some(x) => match x.description {
                 Some(d) => d,
-                None => "".to_string(),
+                None => "".to_owned(),
             },
-            None => "".to_string(),
+            None => "".to_owned(),
         };
 
         let value = match schema_object.enum_values {
@@ -151,7 +151,7 @@ fn format_schema(schema: &RootSchema) -> String {
                 })
                 .collect::<Vec<String>>()
                 .join("<br>"),
-            None => "".to_string(),
+            None => "".to_owned(),
         };
         table.add_row(row![
             name,
@@ -171,7 +171,7 @@ fn format_schema(schema: &RootSchema) -> String {
                         .unwrap()
                         .to_owned()
                 }
-                None => "".to_string(),
+                None => "".to_owned(),
             },
             value,
             description

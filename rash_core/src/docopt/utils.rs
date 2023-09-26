@@ -25,7 +25,7 @@ pub enum RegexMatch {
 
 fn get_vec_from_cap(cap: &Captures) -> Vec<String> {
     cap.iter()
-        .filter_map(|option_match| Some(option_match?.as_str().to_string()))
+        .filter_map(|option_match| Some(option_match?.as_str().to_owned()))
         .collect::<Vec<String>>()
 }
 
@@ -76,7 +76,7 @@ pub fn expand_brackets(s: &str) -> String {
                 ))
             }
         })
-        .unwrap_or_else(|| s.to_string())
+        .unwrap_or_else(|| s.to_owned())
 }
 
 pub fn get_smallest_regex_match(usage: &str) -> Option<(RegexMatch, Vec<String>)> {
@@ -105,13 +105,13 @@ pub fn split_keeping_separators(text: &str, split_chars: &[char]) -> Vec<String>
 
     for (index, matched) in text.match_indices(|c: char| split_chars.contains(&c)) {
         if last != index {
-            result.push(text[last..index].to_string());
+            result.push(text[last..index].to_owned());
         }
-        result.push(matched.to_string());
+        result.push(matched.to_owned());
         last = index + matched.len();
     }
     if last < text.len() {
-        result.push(text[last..].to_string());
+        result.push(text[last..].to_owned());
     }
     result
 }
@@ -122,69 +122,69 @@ mod tests {
 
     #[test]
     fn test_expand_brackets() {
-        let usage = "foo [boo fuu] [-a -b -c] [zuu -d]".to_string();
+        let usage = "foo [boo fuu] [-a -b -c] [zuu -d]".to_owned();
 
         let result = expand_brackets(&usage);
 
         assert_eq!(
             result,
-            "foo [boo] [fuu] [-a] [-b] [-c] [zuu] [-d]".to_string()
+            "foo [boo] [fuu] [-a] [-b] [-c] [zuu] [-d]".to_owned()
         )
     }
 
     #[test]
     fn test_expand_brackets_with_param() {
-        let usage = "foo [boo fuu] [-o <-o> -a -b -c] [zuu -d]".to_string();
+        let usage = "foo [boo fuu] [-o <-o> -a -b -c] [zuu -d]".to_owned();
 
         let result = expand_brackets(&usage);
 
         assert_eq!(
             result,
-            "foo [boo] [fuu] [-o <-o>] [-a] [-b] [-c] [zuu] [-d]".to_string()
+            "foo [boo] [fuu] [-o <-o>] [-a] [-b] [-c] [zuu] [-d]".to_owned()
         )
     }
 
     #[test]
     fn test_expand_brackets_with_param_and_white_spaces() {
-        let usage = "foo [ boo fuu ] [ -o <-o> -a -b -c ] [ zuu -d ]".to_string();
+        let usage = "foo [ boo fuu ] [ -o <-o> -a -b -c ] [ zuu -d ]".to_owned();
 
         let result = expand_brackets(&usage);
 
         assert_eq!(
             result,
-            "foo [boo] [fuu] [-o <-o>] [-a] [-b] [-c] [zuu] [-d]".to_string()
+            "foo [boo] [fuu] [-o <-o>] [-a] [-b] [-c] [zuu] [-d]".to_owned()
         )
     }
 
     #[test]
     fn test_expand_brackets_grouped() {
-        let usage = "foo [(a | b)] [(a | b)]".to_string();
+        let usage = "foo [(a | b)] [(a | b)]".to_owned();
 
         let result = expand_brackets(&usage);
 
-        assert_eq!(result, "foo [(a | b)] [(a | b)]".to_string())
+        assert_eq!(result, "foo [(a | b)] [(a | b)]".to_owned())
     }
 
     #[test]
     fn test_expand_brackets_grouped_without_parentesis() {
-        let usage = "foo [a | b] [a | b]".to_string();
+        let usage = "foo [a | b] [a | b]".to_owned();
 
         let result = expand_brackets(&usage);
 
-        assert_eq!(result, "foo [a | b] [a | b]".to_string())
+        assert_eq!(result, "foo [a | b] [a | b]".to_owned())
     }
 
     #[test]
     fn test_expand_brackets_multiple_groups() {
         let usage =
-            "my_program.py [--help --sorted -o <-o>] [--quiet | --verbose] [INPUT ...]".to_string();
+            "my_program.py [--help --sorted -o <-o>] [--quiet | --verbose] [INPUT ...]".to_owned();
 
         let result = expand_brackets(&usage);
 
         assert_eq!(
             result,
             "my_program.py [--help] [--sorted] [-o <-o>] [--quiet | --verbose] [INPUT ...]"
-                .to_string()
+                .to_owned()
         )
     }
 
@@ -200,22 +200,22 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                "foo".to_string(),
-                "[".to_string(),
-                "boo".to_string(),
-                "fuu".to_string(),
-                "]".to_string(),
-                "[".to_string(),
-                "-o".to_string(),
-                "<-o>".to_string(),
-                "-a".to_string(),
-                "-b".to_string(),
-                "-c".to_string(),
-                "]".to_string(),
-                "[".to_string(),
-                "zuu".to_string(),
-                "-d".to_string(),
-                "]".to_string(),
+                "foo".to_owned(),
+                "[".to_owned(),
+                "boo".to_owned(),
+                "fuu".to_owned(),
+                "]".to_owned(),
+                "[".to_owned(),
+                "-o".to_owned(),
+                "<-o>".to_owned(),
+                "-a".to_owned(),
+                "-b".to_owned(),
+                "-c".to_owned(),
+                "]".to_owned(),
+                "[".to_owned(),
+                "zuu".to_owned(),
+                "-d".to_owned(),
+                "]".to_owned(),
             ]
         )
     }

@@ -114,7 +114,7 @@ impl Module for Command {
         let params: Params = match optional_params.as_str() {
             Some(s) => Params {
                 chdir: None,
-                required: Required::Cmd(s.to_string()),
+                required: Required::Cmd(s.to_owned()),
                 transfer_pid: None,
             },
             None => parse_params(optional_params)?,
@@ -212,7 +212,7 @@ mod tests {
             params,
             Params {
                 chdir: None,
-                required: Required::Cmd("ls".to_string()),
+                required: Required::Cmd("ls".to_owned()),
                 transfer_pid: Some(false),
             }
         );

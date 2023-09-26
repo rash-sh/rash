@@ -175,9 +175,9 @@ impl Options {
             .split_whitespace()
         {
             if w.starts_with("--") {
-                long = Some(w.to_string());
+                long = Some(w.to_owned());
             } else if w.starts_with('-') {
-                short = Some(w.to_string());
+                short = Some(w.to_owned());
             } else if w == "repeatable" {
                 is_repeatable = true;
             } else {
@@ -187,7 +187,7 @@ impl Options {
 
         if is_with_param {
             let default_value = if let Some(cap) = RE_DEFAULT_VALUE.captures(description) {
-                cap.get(1).map(|x| x.as_str().to_string())
+                cap.get(1).map(|x| x.as_str().to_owned())
             } else {
                 None
             };
@@ -301,7 +301,7 @@ impl Options {
                                 })
                                 .collect::<Vec<String>>()
                         } else if is_option {
-                            vec![arg.to_string()]
+                            vec![arg.to_owned()]
                         } else {
                             vec![]
                         }
@@ -408,7 +408,7 @@ impl Options {
                                         result.push(
                                             arg.split_at(arg.find(arg_char).unwrap() + 1)
                                                 .1
-                                                .to_string(),
+                                                .to_owned(),
                                         )
                                     };
                                     is_previously_added = true;
@@ -425,7 +425,7 @@ impl Options {
                         })
                         .collect::<Vec<String>>()
                 } else {
-                    vec![arg.to_string()]
+                    vec![arg.to_owned()]
                 }
             })
             .collect::<Vec<_>>()
@@ -455,7 +455,7 @@ impl Options {
                     is_antepenultimate_with_param = false;
                     None
                 } else {
-                    Some(Ok(previous_arg.to_string()))
+                    Some(Ok(previous_arg.to_owned()))
                 }
             })
             .collect()
@@ -489,7 +489,7 @@ impl Options {
                                         None
                                     }
                                 } else {
-                                    Some(arg.to_string())
+                                    Some(arg.to_owned())
                                 }
                             })
                             .collect::<Option<Vec<String>>>()?
@@ -518,7 +518,7 @@ impl Options {
                     .collect();
                 usage.replace(OPTIONS_MARK, &format!("[{}]", remaining_options.join(" ")))
             } else {
-                usage.to_string()
+                usage.to_owned()
             }
         });
 
@@ -558,7 +558,7 @@ impl Options {
                         if is_same_group_of_options {
                             option_groups
                                 // safe unwrap: checked because is_option
-                                .push(bracket_group.split_once(']').unwrap().0.to_string());
+                                .push(bracket_group.split_once(']').unwrap().0.to_owned());
                         }
                         if (is_same_group_of_options && is_last)
                             || (!is_same_group_of_options && !option_groups.is_empty())
@@ -601,35 +601,35 @@ Usage: {usage}
 "#
         );
 
-        let result = Options::parse_doc(&file, &[usage.to_string()]).unwrap();
+        let result = Options::parse_doc(&file, &[usage.to_owned()]).unwrap();
 
         assert_eq!(
             result,
             Options::new(HashSet::from([
                 OptionArg::Simple {
-                    short: Some("-h".to_string()),
-                    long: Some("--help".to_string()),
+                    short: Some("-h".to_owned()),
+                    long: Some("--help".to_owned()),
                 },
                 OptionArg::Simple {
-                    short: Some("-s".to_string()),
-                    long: Some("--sorted".to_string()),
+                    short: Some("-s".to_owned()),
+                    long: Some("--sorted".to_owned()),
                 },
                 OptionArg::WithParam {
-                    short: Some("-o".to_string()),
+                    short: Some("-o".to_owned()),
                     long: None,
-                    default_value: Some("./test.txt".to_string()),
+                    default_value: Some("./test.txt".to_owned()),
                 },
                 OptionArg::Repeatable {
-                    short: Some("-r".to_string()),
-                    long: Some("--repeatable".to_string()),
+                    short: Some("-r".to_owned()),
+                    long: Some("--repeatable".to_owned()),
                 },
                 OptionArg::Simple {
                     short: None,
-                    long: Some("--quiet".to_string()),
+                    long: Some("--quiet".to_owned()),
                 },
                 OptionArg::Simple {
                     short: None,
-                    long: Some("--verbose".to_string()),
+                    long: Some("--verbose".to_owned()),
                 },
             ]))
         )
@@ -644,46 +644,46 @@ Usage: {usage}
 "#
         );
 
-        let result = Options::parse_doc(&file, &[usage.to_string()]).unwrap();
+        let result = Options::parse_doc(&file, &[usage.to_owned()]).unwrap();
 
         assert_eq!(
             result,
             Options::new(HashSet::from([
                 OptionArg::Simple {
-                    short: Some("-h".to_string()),
+                    short: Some("-h".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
-                    short: Some("-s".to_string()),
+                    short: Some("-s".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
-                    short: Some("-o".to_string()),
+                    short: Some("-o".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
-                    short: Some("-F".to_string()),
+                    short: Some("-F".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
-                    short: Some("-I".to_string()),
+                    short: Some("-I".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
-                    short: Some("-L".to_string()),
+                    short: Some("-L".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
-                    short: Some("-E".to_string()),
+                    short: Some("-E".to_owned()),
                     long: None,
                 },
                 OptionArg::Simple {
                     short: None,
-                    long: Some("--verbose".to_string()),
+                    long: Some("--verbose".to_owned()),
                 },
                 OptionArg::Simple {
                     short: None,
-                    long: Some("--quiet".to_string()),
+                    long: Some("--quiet".to_owned()),
                 },
             ]))
         )
@@ -698,13 +698,13 @@ Usage: {usage}
 "#
         );
 
-        let result = Options::parse_doc(&file, &[usage.to_string()]).unwrap();
+        let result = Options::parse_doc(&file, &[usage.to_owned()]).unwrap();
 
         assert_eq!(
             result,
             Options::new(HashSet::from([OptionArg::Repeatable {
                 short: None,
-                long: Some("--repeatable".to_string()),
+                long: Some("--repeatable".to_owned()),
             },]))
         )
     }
@@ -712,8 +712,8 @@ Usage: {usage}
     #[test]
     fn test_options_parse() {
         let options = Options::new(HashSet::from([OptionArg::Simple {
-            short: Some("-h".to_string()),
-            long: Some("--help".to_string()),
+            short: Some("-h".to_owned()),
+            long: Some("--help".to_owned()),
         }]));
 
         let arg_def = r"--help";
@@ -736,25 +736,25 @@ Usage: {usage}
     fn test_options_parse_multiple() {
         let options = Options::new(HashSet::from([
             OptionArg::Simple {
-                short: Some("-h".to_string()),
-                long: Some("--help".to_string()),
+                short: Some("-h".to_owned()),
+                long: Some("--help".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-s".to_string()),
-                long: Some("--sorted".to_string()),
+                short: Some("-s".to_owned()),
+                long: Some("--sorted".to_owned()),
             },
             OptionArg::WithParam {
-                short: Some("-o".to_string()),
+                short: Some("-o".to_owned()),
                 long: None,
-                default_value: Some("./test.txt".to_string()),
+                default_value: Some("./test.txt".to_owned()),
             },
             OptionArg::Simple {
                 short: None,
-                long: Some("--quiet".to_string()),
+                long: Some("--quiet".to_owned()),
             },
             OptionArg::Simple {
                 short: None,
-                long: Some("--verbose".to_string()),
+                long: Some("--verbose".to_owned()),
             },
         ]));
 
@@ -811,93 +811,93 @@ Usage: {usage}
     fn test_options_expand_args() {
         let options = Options::new(HashSet::from([
             OptionArg::WithParam {
-                short: Some("-o".to_string()),
+                short: Some("-o".to_owned()),
                 long: None,
-                default_value: Some("./test.txt".to_string()),
+                default_value: Some("./test.txt".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-s".to_string()),
-                long: Some("--sorted".to_string()),
+                short: Some("-s".to_owned()),
+                long: Some("--sorted".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-q".to_string()),
-                long: Some("--quiet".to_string()),
+                short: Some("-q".to_owned()),
+                long: Some("--quiet".to_owned()),
             },
         ]));
 
-        let args = vec!["-qo".to_string(), "yea".to_string(), "--sorted".to_string()];
+        let args = vec!["-qo".to_owned(), "yea".to_owned(), "--sorted".to_owned()];
 
         let result = options.expand_args(&args).unwrap();
         assert_eq!(
             result,
             vec![
-                "--quiet".to_string(),
-                "-o=yea".to_string(),
-                "--sorted".to_string(),
+                "--quiet".to_owned(),
+                "-o=yea".to_owned(),
+                "--sorted".to_owned(),
             ],
         );
 
-        let args = vec!["-qo".to_string(), "yea".to_string(), "-s".to_string()];
+        let args = vec!["-qo".to_owned(), "yea".to_owned(), "-s".to_owned()];
 
         let result = options.expand_args(&args).unwrap();
         assert_eq!(
             result,
             vec![
-                "--quiet".to_string(),
-                "-o=yea".to_string(),
-                "--sorted".to_string(),
+                "--quiet".to_owned(),
+                "-o=yea".to_owned(),
+                "--sorted".to_owned(),
             ],
         );
 
-        let args = vec!["-qoyea".to_string(), "-s".to_string()];
+        let args = vec!["-qoyea".to_owned(), "-s".to_owned()];
 
         let result = options.expand_args(&args).unwrap();
         assert_eq!(
             result,
             vec![
-                "--quiet".to_string(),
-                "-o=yea".to_string(),
-                "--sorted".to_string(),
+                "--quiet".to_owned(),
+                "-o=yea".to_owned(),
+                "--sorted".to_owned(),
             ],
         );
 
-        let args = vec!["-sq".to_string()];
+        let args = vec!["-sq".to_owned()];
 
         let result = options.expand_args(&args).unwrap();
-        assert_eq!(result, vec!["--sorted".to_string(), "--quiet".to_string(),],);
+        assert_eq!(result, vec!["--sorted".to_owned(), "--quiet".to_owned(),],);
 
-        let args = vec!["-o=yea".to_string()];
+        let args = vec!["-o=yea".to_owned()];
 
         let result = options.expand_args(&args).unwrap();
-        assert_eq!(result, vec!["-o=yea".to_string()]);
+        assert_eq!(result, vec!["-o=yea".to_owned()]);
     }
 
     #[test]
     fn test_options_extend_usage() {
         let options = Options::new(HashSet::from([
             OptionArg::Simple {
-                short: Some("-h".to_string()),
-                long: Some("--help".to_string()),
+                short: Some("-h".to_owned()),
+                long: Some("--help".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-s".to_string()),
-                long: Some("--sorted".to_string()),
+                short: Some("-s".to_owned()),
+                long: Some("--sorted".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-q".to_string()),
-                long: Some("--quiet".to_string()),
+                short: Some("-q".to_owned()),
+                long: Some("--quiet".to_owned()),
             },
         ]));
 
-        let usages = HashSet::from(["foo a [-h]".to_string(), "foo b [-qsh]".to_string()]);
+        let usages = HashSet::from(["foo a [-h]".to_owned(), "foo b [-qsh]".to_owned()]);
 
         let result = options.extend_usages(usages).unwrap();
 
         assert_eq!(
             result,
             HashSet::from([
-                "foo a {--help}".to_string(),
-                "foo b {--quiet#--sorted#--help}...".to_string(),
+                "foo a {--help}".to_owned(),
+                "foo b {--quiet#--sorted#--help}...".to_owned(),
             ])
         )
     }
@@ -905,36 +905,36 @@ Usage: {usage}
     #[test]
     fn test_options_extend_simple() {
         let options = Options::new(HashSet::from([OptionArg::Simple {
-            short: Some("-h".to_string()),
-            long: Some("--help".to_string()),
+            short: Some("-h".to_owned()),
+            long: Some("--help".to_owned()),
         }]));
 
-        let usages = HashSet::from(["foo --help".to_string()]);
+        let usages = HashSet::from(["foo --help".to_owned()]);
 
         let result = options.extend_usages(usages).unwrap();
 
-        assert_eq!(result, HashSet::from(["foo --help".to_string(),]))
+        assert_eq!(result, HashSet::from(["foo --help".to_owned(),]))
     }
 
     #[test]
     fn test_options_extend_usage_with_params() {
         let options = Options::new(HashSet::from([
             OptionArg::WithParam {
-                short: Some("-o".to_string()),
+                short: Some("-o".to_owned()),
                 long: None,
-                default_value: Some("./test.txt".to_string()),
+                default_value: Some("./test.txt".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-s".to_string()),
-                long: Some("--sorted".to_string()),
+                short: Some("-s".to_owned()),
+                long: Some("--sorted".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-q".to_string()),
-                long: Some("--quiet".to_string()),
+                short: Some("-q".to_owned()),
+                long: Some("--quiet".to_owned()),
             },
         ]));
 
-        let usages = HashSet::from(["foo a [options] <ARG>".to_string()]);
+        let usages = HashSet::from(["foo a [options] <ARG>".to_owned()]);
 
         let result = options.extend_usages(usages).unwrap();
         // extract options from usage and create hashSet to compare
@@ -956,27 +956,27 @@ Usage: {usage}
     fn test_options_extend_usage_with_params_and_or() {
         let options = Options::new(HashSet::from([
             OptionArg::WithParam {
-                short: Some("-o".to_string()),
+                short: Some("-o".to_owned()),
                 long: None,
-                default_value: Some("./test.txt".to_string()),
+                default_value: Some("./test.txt".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-s".to_string()),
-                long: Some("--sorted".to_string()),
+                short: Some("-s".to_owned()),
+                long: Some("--sorted".to_owned()),
             },
             OptionArg::Simple {
-                short: Some("-q".to_string()),
-                long: Some("--quiet".to_string()),
+                short: Some("-q".to_owned()),
+                long: Some("--quiet".to_owned()),
             },
         ]));
 
-        let usages = HashSet::from(["foo [-o FILE] [--sorted | --quiet]".to_string()]);
+        let usages = HashSet::from(["foo [-o FILE] [--sorted | --quiet]".to_owned()]);
 
         let result = options.extend_usages(usages).unwrap();
 
         assert_eq!(
             result,
-            HashSet::from(["foo {-o=<-o>} {--sorted#--quiet}".to_string()])
+            HashSet::from(["foo {-o=<-o>} {--sorted#--quiet}".to_owned()])
         )
     }
 }

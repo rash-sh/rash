@@ -217,7 +217,7 @@ fn find(params: Params) -> Result<ModuleResult> {
             FileType::Any => true,
         })
         .map(|dir_entry| match dir_entry.path().to_str() {
-            Some(s) => Ok(s.to_string()),
+            Some(s) => Ok(s.to_owned()),
             None => Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("Path `{dir_entry:?}` cannot be represented as UTF-8"),
@@ -292,10 +292,10 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                paths: vec!["/var/log".to_string()],
+                paths: vec!["/var/log".to_owned()],
                 file_type: Some(FileType::Directory),
                 recurse: Some(false),
-                excludes: Some(vec!["nginx,mysql".to_string()]),
+                excludes: Some(vec!["nginx,mysql".to_owned()]),
                 ..Default::default()
             }
         );
@@ -313,7 +313,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                paths: vec!["/var/log".to_string()],
+                paths: vec!["/var/log".to_owned()],
                 ..Default::default()
             }
         );
@@ -346,7 +346,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                paths: vec!["/foo".to_string(), "/boo".to_string()],
+                paths: vec!["/foo".to_owned(), "/boo".to_owned()],
                 ..Default::default()
             }
         );
@@ -360,7 +360,7 @@ mod tests {
         let _ = File::create(file_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             ..Default::default()
         })
         .unwrap();
@@ -371,7 +371,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![file_path.to_str().unwrap().to_string()])).unwrap()
+                    value::to_value(json!(vec![file_path.to_str().unwrap().to_owned()])).unwrap()
                 ),
             }
         );
@@ -412,16 +412,16 @@ mod tests {
             .as_sequence()
             .unwrap()
             .iter()
-            .map(|x| x.as_str().unwrap().to_string())
+            .map(|x| x.as_str().unwrap().to_owned())
             .collect::<Vec<String>>();
         finds.sort();
 
         assert_eq!(
             finds,
             vec![
-                subdir_path1.to_str().unwrap().to_string(),
-                subdir_path2.to_str().unwrap().to_string(),
-                subdir_path3.to_str().unwrap().to_string(),
+                subdir_path1.to_str().unwrap().to_owned(),
+                subdir_path2.to_str().unwrap().to_owned(),
+                subdir_path3.to_str().unwrap().to_owned(),
             ],
         );
     }
@@ -429,7 +429,7 @@ mod tests {
     #[test]
     fn test_find_relative_path() {
         let error = find(Params {
-            paths: vec!["./".to_string()],
+            paths: vec!["./".to_owned()],
             ..Default::default()
         })
         .unwrap_err();
@@ -445,7 +445,7 @@ mod tests {
         create_dir(dir_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             file_type: Some(FileType::Directory),
             ..Default::default()
         })
@@ -458,8 +458,8 @@ mod tests {
                 output: None,
                 extra: Some(
                     value::to_value(json!(vec![
-                        dir.path().to_str().unwrap().to_string(),
-                        dir_path.to_str().unwrap().to_string(),
+                        dir.path().to_str().unwrap().to_owned(),
+                        dir_path.to_str().unwrap().to_owned(),
                     ]))
                     .unwrap()
                 ),
@@ -477,7 +477,7 @@ mod tests {
         let _ = File::create(file_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             file_type: Some(FileType::File),
             recurse: Some(true),
             ..Default::default()
@@ -490,7 +490,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![file_path.to_str().unwrap().to_string()])).unwrap()
+                    value::to_value(json!(vec![file_path.to_str().unwrap().to_owned()])).unwrap()
                 ),
             }
         );
@@ -507,7 +507,7 @@ mod tests {
         let _ = File::create(file_path).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             ..Default::default()
         })
         .unwrap();
@@ -534,7 +534,7 @@ mod tests {
         let _ = File::create(file_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             hidden: Some(true),
             ..Default::default()
         })
@@ -546,14 +546,14 @@ mod tests {
             .as_sequence()
             .unwrap()
             .iter()
-            .map(|x| x.as_str().unwrap().to_string())
+            .map(|x| x.as_str().unwrap().to_owned())
             .collect::<Vec<String>>();
         finds.sort();
         assert_eq!(
             finds,
             vec![
-                ignore_path.to_str().unwrap().to_string(),
-                file_path.to_str().unwrap().to_string(),
+                ignore_path.to_str().unwrap().to_owned(),
+                file_path.to_str().unwrap().to_owned(),
             ],
         );
     }
@@ -569,9 +569,9 @@ mod tests {
         let _ = File::create(file_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             hidden: Some(true),
-            excludes: Some(vec!["\\..*".to_string()]),
+            excludes: Some(vec!["\\..*".to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -582,7 +582,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![file_path.to_str().unwrap().to_string(),])).unwrap()
+                    value::to_value(json!(vec![file_path.to_str().unwrap().to_owned(),])).unwrap()
                 ),
             }
         );
@@ -599,9 +599,9 @@ mod tests {
         let _ = File::create(file_path).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             hidden: Some(true),
-            excludes: Some(vec!["ignored_file".to_string()]),
+            excludes: Some(vec!["ignored_file".to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -612,7 +612,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![ignore_path.to_str().unwrap().to_string(),]))
+                    value::to_value(json!(vec![ignore_path.to_str().unwrap().to_owned(),]))
                         .unwrap()
                 ),
             }
@@ -629,9 +629,9 @@ mod tests {
         create_dir(dir_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![parent_path.to_str().unwrap().to_string()],
+            paths: vec![parent_path.to_str().unwrap().to_owned()],
             file_type: Some(FileType::Directory),
-            excludes: Some(vec!["foo".to_string()]),
+            excludes: Some(vec!["foo".to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -642,7 +642,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![dir_path.to_str().unwrap().to_string(),])).unwrap()
+                    value::to_value(json!(vec![dir_path.to_str().unwrap().to_owned(),])).unwrap()
                 ),
             }
         );
@@ -658,9 +658,9 @@ mod tests {
         create_dir(dir_path).unwrap();
 
         let output = find(Params {
-            paths: vec![parent_path.to_str().unwrap().to_string()],
+            paths: vec![parent_path.to_str().unwrap().to_owned()],
             file_type: Some(FileType::Directory),
-            excludes: Some(vec![r#"["foo", "boo"]"#.to_string()]),
+            excludes: Some(vec![r#"["foo", "boo"]"#.to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -685,9 +685,9 @@ mod tests {
         let _ = File::create(file2_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             file_type: Some(FileType::File),
-            patterns: Some(vec![r".*\.log".to_string()]),
+            patterns: Some(vec![r".*\.log".to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -698,8 +698,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![file2_path.to_str().unwrap().to_string(),]))
-                        .unwrap()
+                    value::to_value(json!(vec![file2_path.to_str().unwrap().to_owned(),])).unwrap()
                 ),
             }
         );
@@ -716,12 +715,9 @@ mod tests {
         let _ = File::create(file3_path.clone()).unwrap();
 
         let output = find(Params {
-            paths: vec![dir.path().to_str().unwrap().to_string()],
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
             file_type: Some(FileType::File),
-            patterns: Some(vec![
-                r#"["file2.log"]"#.to_string(),
-                "file3.log".to_string(),
-            ]),
+            patterns: Some(vec![r#"["file2.log"]"#.to_owned(), "file3.log".to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -732,15 +728,15 @@ mod tests {
             .as_sequence()
             .unwrap()
             .iter()
-            .map(|x| x.as_str().unwrap().to_string())
+            .map(|x| x.as_str().unwrap().to_owned())
             .collect::<Vec<String>>();
         finds.sort();
 
         assert_eq!(
             finds,
             vec![
-                file2_path.to_str().unwrap().to_string(),
-                file3_path.to_str().unwrap().to_string(),
+                file2_path.to_str().unwrap().to_owned(),
+                file3_path.to_str().unwrap().to_owned(),
             ],
         );
     }
@@ -755,9 +751,9 @@ mod tests {
         create_dir(dir_path).unwrap();
 
         let output = find(Params {
-            paths: vec![parent_path.to_str().unwrap().to_string()],
+            paths: vec![parent_path.to_str().unwrap().to_owned()],
             file_type: Some(FileType::Directory),
-            patterns: Some(vec!["foo".to_string()]),
+            patterns: Some(vec!["foo".to_owned()]),
             ..Default::default()
         })
         .unwrap();
@@ -768,7 +764,7 @@ mod tests {
                 changed: false,
                 output: None,
                 extra: Some(
-                    value::to_value(json!(vec![parent_path.to_str().unwrap().to_string(),]))
+                    value::to_value(json!(vec![parent_path.to_str().unwrap().to_owned(),]))
                         .unwrap()
                 ),
             }

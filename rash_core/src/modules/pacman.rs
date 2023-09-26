@@ -70,7 +70,7 @@ use shlex::split;
 use strum_macros::{Display, EnumString};
 
 fn default_executable() -> Option<String> {
-    Some("pacman".to_string())
+    Some("pacman".to_owned())
 }
 
 #[derive(Default, Debug, PartialEq, Deserialize)]
@@ -136,7 +136,7 @@ pub struct Params {
 impl Default for Params {
     fn default() -> Self {
         Params {
-            executable: Some("pacman".to_string()),
+            executable: Some("pacman".to_owned()),
             extra_args: None,
             force: Some(false),
             name: Vec::new(),
@@ -416,7 +416,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                name: vec!["rustup".to_string()],
+                name: vec!["rustup".to_owned()],
                 state: Some(State::Present),
                 ..Default::default()
             }
@@ -441,10 +441,10 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                executable: Some("yay".to_string()),
-                extra_args: Some("--nodeps --nodeps".to_string()),
+                executable: Some("yay".to_owned()),
+                extra_args: Some("--nodeps --nodeps".to_owned()),
                 force: Some(true),
-                name: vec!["rustup".to_string(), "bpftrace".to_string()],
+                name: vec!["rustup".to_owned(), "bpftrace".to_owned()],
                 state: Some(State::Present),
                 update_cache: Some(false),
                 upgrade: Some(false),

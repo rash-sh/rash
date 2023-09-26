@@ -110,7 +110,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                required: Required::Msg("foo boo".to_string()),
+                required: Required::Msg("foo boo".to_owned()),
             }
         );
     }
@@ -127,7 +127,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                required: Required::Var("rash.args".to_string()),
+                required: Required::Var("rash.args".to_owned()),
             }
         );
     }
@@ -137,7 +137,7 @@ mod tests {
         let vars = Vars::new();
         let output = debug(
             Params {
-                required: Required::Msg("foo boo".to_string()),
+                required: Required::Msg("foo boo".to_owned()),
             },
             &vars,
         )
@@ -147,7 +147,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: false,
-                output: Some("foo boo".to_string()),
+                output: Some("foo boo".to_owned()),
                 extra: None,
             }
         );
@@ -158,7 +158,7 @@ mod tests {
         let vars = Vars::from_value(json!({"yea": "foo"})).unwrap();
         let output = debug(
             Params {
-                required: Required::Var("yea".to_string()),
+                required: Required::Var("yea".to_owned()),
             },
             &vars,
         )
@@ -168,7 +168,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: false,
-                output: Some("foo".to_string()),
+                output: Some("foo".to_owned()),
                 extra: None,
             }
         );

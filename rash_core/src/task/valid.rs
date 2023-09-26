@@ -27,7 +27,7 @@ impl TaskValid {
             .unwrap()
             .iter()
             // safe unwrap: validated attr
-            .map(|(key, _)| key.as_str().unwrap().to_string())
+            .map(|(key, _)| key.as_str().unwrap().to_owned())
             .collect::<HashSet<String>>()
     }
 
@@ -75,8 +75,8 @@ impl TaskValid {
     fn parse_bool_or_string(&'_ self, attr: &Value) -> Option<String> {
         match attr.as_bool() {
             Some(x) => match x {
-                true => Some("true".to_string()),
-                false => Some("false".to_string()),
+                true => Some("true".to_owned()),
+                false => Some("false".to_owned()),
             },
             None => attr.as_str().map(String::from),
         }
@@ -94,7 +94,7 @@ impl TaskValid {
                 Some(s) => s,
                 None => global_params.become_user,
             }
-            .to_string(),
+            .to_owned(),
             changed_when: self.parse_array(&self.attrs["changed_when"]),
             check_mode: match global_params.check_mode {
                 true => true,
