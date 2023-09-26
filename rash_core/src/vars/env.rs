@@ -31,7 +31,7 @@ impl From<env::Vars> for Env {
 ///
 /// use std::env;
 ///
-/// let vars = load(vec![("foo".to_string(), "boo".to_string())]).unwrap();
+/// let vars = load(vec![("foo".to_owned(), "boo".to_owned())]).unwrap();
 /// ```
 pub fn load(envars: Vec<(String, String)>) -> Result<Vars> {
     trace!("{:?}", envars);

@@ -310,12 +310,12 @@ impl Error {
     /// impl MyError {
     ///     fn new() -> MyError {
     ///         MyError {
-    ///             v: "oh no!".to_string()
+    ///             v: "oh no!".to_owned()
     ///         }
     ///     }
     ///
     ///     fn change_message(&mut self, new_message: &str) {
-    ///         self.v = new_message.to_string();
+    ///         self.v = new_message.to_owned();
     ///     }
     /// }
     ///

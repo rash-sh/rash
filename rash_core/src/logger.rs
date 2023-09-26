@@ -188,7 +188,7 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
                 }
             ]
             .join(""),
-            (_, _) => "".to_string(),
+            (_, _) => "".to_owned(),
         },
     );
     out.finish(format_args!("{}", style.apply_to(line)))

@@ -125,19 +125,19 @@ mod tests {
     #[test]
     fn test_parse_if_json() {
         let vec_string = parse_if_json(vec![
-            r#"["yea", "foo", "boo"]"#.to_string(),
-            r#"["fuu", "buu"]"#.to_string(),
-            "yuu".to_string(),
+            r#"["yea", "foo", "boo"]"#.to_owned(),
+            r#"["fuu", "buu"]"#.to_owned(),
+            "yuu".to_owned(),
         ]);
         assert_eq!(
             vec_string,
             vec![
-                "yea".to_string(),
-                "foo".to_string(),
-                "boo".to_string(),
-                "fuu".to_string(),
-                "buu".to_string(),
-                "yuu".to_string()
+                "yea".to_owned(),
+                "foo".to_owned(),
+                "boo".to_owned(),
+                "fuu".to_owned(),
+                "buu".to_owned(),
+                "yuu".to_owned()
             ]
         )
     }

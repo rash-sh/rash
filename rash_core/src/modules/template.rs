@@ -134,9 +134,9 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                src: "/tmp/foo.j2".to_string(),
-                dest: "/tmp/buu.txt".to_string(),
-                mode: Some("0600".to_string()),
+                src: "/tmp/foo.j2".to_owned(),
+                dest: "/tmp/buu.txt".to_owned(),
+                mode: Some("0600".to_owned()),
             }
         );
     }
@@ -155,9 +155,9 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                src: "/tmp/foo.j2".to_string(),
-                dest: "/tmp/buu.txt".to_string(),
-                mode: Some("0600".to_string()),
+                src: "/tmp/foo.j2".to_owned(),
+                dest: "/tmp/buu.txt".to_owned(),
+                mode: Some("0600".to_owned()),
             }
         );
     }
@@ -175,8 +175,8 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                src: "/tmp/boo.j2".to_string(),
-                dest: "/tmp/buu.txt".to_string(),
+                src: "/tmp/boo.j2".to_owned(),
+                dest: "/tmp/buu.txt".to_owned(),
                 mode: None,
             }
         );
@@ -210,8 +210,8 @@ mod tests {
         let copy_params = render_content(
             Params {
                 src: file_path.to_str().unwrap().to_owned(),
-                dest: "/tmp/buu.txt".to_string(),
-                mode: Some("0644".to_string()),
+                dest: "/tmp/buu.txt".to_owned(),
+                mode: Some("0644".to_owned()),
             },
             vars,
         )
@@ -245,8 +245,8 @@ mod tests {
         let copy_params = render_content(
             Params {
                 src: file_path.to_str().unwrap().to_owned(),
-                dest: "/tmp/buu.txt".to_string(),
-                mode: Some("preserve".to_string()),
+                dest: "/tmp/buu.txt".to_owned(),
+                mode: Some("preserve".to_owned()),
             },
             vars,
         )

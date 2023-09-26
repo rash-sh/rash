@@ -111,7 +111,7 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                that: vec!["1 == 1".to_string()],
+                that: vec!["1 == 1".to_owned()],
             }
         );
     }
@@ -134,7 +134,7 @@ mod tests {
     fn test_verify_conditions() {
         let _ = verify_conditions(
             Params {
-                that: vec!["1 == 1".to_string()],
+                that: vec!["1 == 1".to_owned()],
             },
             &Vars::new(),
         )
@@ -145,7 +145,7 @@ mod tests {
     fn test_verify_conditions_fail() {
         let _ = verify_conditions(
             Params {
-                that: vec!["1 != 1".to_string()],
+                that: vec!["1 != 1".to_owned()],
             },
             &Vars::new(),
         )

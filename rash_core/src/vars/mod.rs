@@ -18,7 +18,7 @@ where
 {
     Context::from_serialize(
         iterable
-            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
             .collect::<HashMap<String, String>>(),
     )
     .unwrap()

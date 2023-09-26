@@ -99,7 +99,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                     {
                         repeatable_arg
                     } else {
-                        arg_def.to_string()
+                        arg_def.to_owned()
                     }
                 })
                 .collect()
@@ -197,11 +197,11 @@ fn parse_help(file: &str) -> String {
         .skip(1)
         .map_while(|line| re.captures(line))
         .filter(|cap| !cap[1].starts_with('!'))
-        .map(|cap| cap[1].to_string().replacen(' ', "", 1))
+        .map(|cap| cap[1].to_owned().replacen(' ', "", 1))
         .chain(vec![
-            "Note: Options must be preceded by `--`. If not, you are passing options directly to rash.".to_string(),
-            "For more information check rash options with `rash --help`.".to_string(),
-            "".to_string(),
+            "Note: Options must be preceded by `--`. If not, you are passing options directly to rash.".to_owned(),
+            "For more information check rash options with `rash --help`.".to_owned(),
+            "".to_owned(),
         ])
         .collect::<Vec<String>>()
         .join("\n")
@@ -215,7 +215,7 @@ fn parse_usage_multiline(doc: &str) -> Option<Vec<String>> {
         cap[1]
             .split('\n')
             .map_while(|line| re_rm_indentation.captures(line))
-            .map(|cap| cap[1].to_string())
+            .map(|cap| cap[1].to_owned())
             .collect::<Vec<String>>(),
     )
 }
@@ -223,7 +223,7 @@ fn parse_usage_multiline(doc: &str) -> Option<Vec<String>> {
 fn parse_usage_one_line(doc: &str) -> Option<Vec<String>> {
     let re = Regex::new(r"(?i)Usage:\s+(.*)\n").unwrap();
     let cap = re.captures_iter(doc).next()?;
-    Some(vec![cap[1].to_string()])
+    Some(vec![cap[1].to_owned()])
 }
 
 fn parse_usage(doc: &str) -> Option<Vec<String>> {
@@ -298,7 +298,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> 
                         #[allow(clippy::needless_collect)]
                         let splitted: Vec<String> = cap[1]
                             .split('|')
-                            .map(|w| usage.clone().replacen(&cap[0].to_string(), w.trim(), 1))
+                            .map(|w| usage.clone().replacen(&cap[0].to_owned(), w.trim(), 1))
                             .collect();
                         usages_iter = Box::new(usages_iter.chain(splitted))
                     }
@@ -307,7 +307,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> 
                     usages_iter = Box::new(
                         usages_iter.chain(std::iter::once(
                             usage
-                                .replacen(&cap[0].to_string(), "", 1)
+                                .replacen(&cap[0].to_owned(), "", 1)
                                 .split_whitespace()
                                 .collect::<Vec<_>>()
                                 .join(" "),
@@ -317,12 +317,12 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> 
                     // if captured repeatable(`...`): add usage with that repeatable case
                     if cap.len() == 3 {
                         usages_iter = Box::new(usages_iter.chain(std::iter::once(usage.replacen(
-                            &cap[0].to_string(),
+                            &cap[0].to_owned(),
                             &format!("{}{}", &cap[1], &cap[2]),
                             1,
                         ))));
                     }
-                    let possible_usage = usage.replacen(&cap[0].to_string(), &cap[1], 1);
+                    let possible_usage = usage.replacen(&cap[0].to_owned(), &cap[1], 1);
                     if is_usage(&possible_usage, opts) {
                         usages_iter = Box::new(usages_iter.chain(std::iter::once(possible_usage)));
                     }
@@ -358,13 +358,13 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> 
                     };
                     usages_iter = Box::new(
                         usages_iter
-                            .chain(std::iter::once(get_usage(left_w.to_string())))
-                            .chain(std::iter::once(get_usage(right_w.to_string()))),
+                            .chain(std::iter::once(get_usage(left_w.to_owned())))
+                            .chain(std::iter::once(get_usage(right_w.to_owned()))),
                     );
                 }
                 Some((RegexMatch::InnerCurlyBraces, cap)) => {
                     let usage_without_cap = usage
-                        .replacen(&cap[0].to_string(), "", 1)
+                        .replacen(&cap[0].to_owned(), "", 1)
                         .split_whitespace()
                         .collect::<Vec<_>>()
                         .join(" ");
@@ -376,7 +376,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> 
                         usages_iter = Box::new(
                             usages_iter.chain(std::iter::once(
                                 usage
-                                    .replacen(&cap[0].to_string(), "", 1)
+                                    .replacen(&cap[0].to_owned(), "", 1)
                                     .split_whitespace()
                                     .collect::<Vec<_>>()
                                     .join(" "),
@@ -1216,8 +1216,8 @@ Usage:
         assert_eq!(
             result,
             vec![
-                "cp <source> <dest>".to_string(),
-                "cp <source>... <dest>".to_string(),
+                "cp <source> <dest>".to_owned(),
+                "cp <source>... <dest>".to_owned(),
             ]
         )
     }
@@ -1229,7 +1229,7 @@ Usage:  cp <source> <dest>
 "#;
 
         let result = parse_usage(file).unwrap();
-        assert_eq!(result, vec!["cp <source> <dest>".to_string(),])
+        assert_eq!(result, vec!["cp <source> <dest>".to_owned(),])
     }
 
     #[test]
@@ -1245,8 +1245,8 @@ Usage:
         assert_eq!(
             result,
             vec![
-                "cp <source> <dest>".to_string(),
-                "cp <source>... <dest>".to_string(),
+                "cp <source> <dest>".to_owned(),
+                "cp <source>... <dest>".to_owned(),
             ]
         )
     }
@@ -1266,110 +1266,106 @@ Foo:
         assert_eq!(
             result,
             vec![
-                "cp <source> <dest>".to_string(),
-                "cp <source>... <dest>".to_string(),
+                "cp <source> <dest>".to_owned(),
+                "cp <source>... <dest>".to_owned(),
             ]
         )
     }
 
     #[test]
     fn test_expand_usages() {
-        let usages = HashSet::from(["foo ((a | b) (c | d))".to_string()]);
+        let usages = HashSet::from(["foo ((a | b) (c | d))".to_owned()]);
 
         let result = expand_usages(usages, 2, &vec![]);
         assert_eq!(
             result,
             HashSet::from([
-                "foo a c".to_string(),
-                "foo a d".to_string(),
-                "foo b c".to_string(),
-                "foo b d".to_string(),
+                "foo a c".to_owned(),
+                "foo a d".to_owned(),
+                "foo b c".to_owned(),
+                "foo b d".to_owned(),
             ])
         )
     }
 
     #[test]
     fn test_expand_usages_or() {
-        let usages = HashSet::from(["foo -h | --help".to_string()]);
+        let usages = HashSet::from(["foo -h | --help".to_owned()]);
 
         let result = expand_usages(usages, 2, &vec!["--help"]);
         assert_eq!(
             result,
-            HashSet::from(["foo -h".to_string(), "foo --help".to_string(),])
+            HashSet::from(["foo -h".to_owned(), "foo --help".to_owned(),])
         )
     }
 
     #[test]
     fn test_expand_usages_or_without_space() {
-        let usages = HashSet::from(["foo -h|--help".to_string()]);
+        let usages = HashSet::from(["foo -h|--help".to_owned()]);
 
         let result = expand_usages(usages, 2, &vec!["--help"]);
         assert_eq!(
             result,
-            HashSet::from(["foo -h".to_string(), "foo --help".to_string(),])
+            HashSet::from(["foo -h".to_owned(), "foo --help".to_owned(),])
         )
     }
 
     #[test]
     fn test_expand_usages_all() {
-        let usages = HashSet::from(["foo [(-d | --no-deps)] [(-d | --no-deps)]".to_string()]);
+        let usages = HashSet::from(["foo [(-d | --no-deps)] [(-d | --no-deps)]".to_owned()]);
 
         let result = expand_usages(usages, 2, &vec!["--no-deps", "--no-deps"]);
         assert_eq!(
             result,
             HashSet::from([
-                "foo".to_string(),
-                "foo --no-deps".to_string(),
-                "foo --no-deps --no-deps".to_string(),
+                "foo".to_owned(),
+                "foo --no-deps".to_owned(),
+                "foo --no-deps --no-deps".to_owned(),
             ])
         )
     }
 
     #[test]
     fn test_expand_usages_all_bad() {
-        let usages = HashSet::from(["foo [(-d | --no-deps) (-d | --no-deps)]".to_string()]);
+        let usages = HashSet::from(["foo [(-d | --no-deps) (-d | --no-deps)]".to_owned()]);
 
         let result = expand_usages(usages, 2, &vec!["--no-deps", "--no-deps"]);
         assert_eq!(
             result,
-            HashSet::from(["foo".to_string(), "foo --no-deps --no-deps".to_string(),])
+            HashSet::from(["foo".to_owned(), "foo --no-deps --no-deps".to_owned(),])
         )
     }
 
     #[test]
     fn test_expand_usages_tree() {
-        let usages = HashSet::from(["foo (a | b | c)".to_string()]);
+        let usages = HashSet::from(["foo (a | b | c)".to_owned()]);
 
         let result = expand_usages(usages, 1, &vec![]);
         assert_eq!(
             result,
-            HashSet::from([
-                "foo a".to_string(),
-                "foo b".to_string(),
-                "foo c".to_string(),
-            ])
+            HashSet::from(["foo a".to_owned(), "foo b".to_owned(), "foo c".to_owned(),])
         )
     }
 
     #[test]
     fn test_expand_usages_optional() {
-        let usages = HashSet::from(["foo a [b] c".to_string()]);
+        let usages = HashSet::from(["foo a [b] c".to_owned()]);
 
         let result = expand_usages(usages, 3, &vec![]);
         assert_eq!(
             result,
-            HashSet::from(["foo a b c".to_string(), "foo a c".to_string(),])
+            HashSet::from(["foo a b c".to_owned(), "foo a c".to_owned(),])
         )
     }
 
     #[test]
     fn test_expand_usages_positional() {
-        let usages = HashSet::from(["foo (a <b> | c <d>)".to_string()]);
+        let usages = HashSet::from(["foo (a <b> | c <d>)".to_owned()]);
 
         let result = expand_usages(usages, 2, &vec![]);
         assert_eq!(
             result,
-            HashSet::from(["foo a <b>".to_string(), "foo c <d>".to_string(),])
+            HashSet::from(["foo a <b>".to_owned(), "foo c <d>".to_owned(),])
         )
     }
 
@@ -1377,29 +1373,28 @@ Foo:
     fn test_expand_usages_double_fill() {
         let usages = HashSet::from([
             "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... [INPUT ...]"
-                .to_string(),
+                .to_owned(),
         ]);
 
         let result = expand_usages(usages, 3, &vec!["--sorted", "--quiet"]);
         assert_eq!(
             result,
             HashSet::from([
-                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... INPUT+"
-                    .to_string(),
-                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}...".to_string(),
-                "my_program.py {--quiet#--verbose} {--quiet#--verbose} INPUT+".to_string(),
-                "my_program.py {--quiet#--verbose} {--quiet#--verbose}".to_string(),
-                "my_program.py {--help#--sorted#-o=<-o>#} INPUT+".to_string(),
-                "my_program.py {--help#--sorted#-o=<-o>#}".to_string(),
-                "my_program.py INPUT+".to_string(),
-                "my_program.py".to_string(),
+                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... INPUT+".to_owned(),
+                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}...".to_owned(),
+                "my_program.py {--quiet#--verbose} {--quiet#--verbose} INPUT+".to_owned(),
+                "my_program.py {--quiet#--verbose} {--quiet#--verbose}".to_owned(),
+                "my_program.py {--help#--sorted#-o=<-o>#} INPUT+".to_owned(),
+                "my_program.py {--help#--sorted#-o=<-o>#}".to_owned(),
+                "my_program.py INPUT+".to_owned(),
+                "my_program.py".to_owned(),
             ])
         )
     }
 
     #[test]
     fn test_repeat_until_fill() {
-        let usage = "foo (<a> <b>)... <c>".to_string();
+        let usage = "foo (<a> <b>)... <c>".to_owned();
         let replace = "(<a> <b>)...";
         let pattern = "<a> <b>";
 
@@ -1409,7 +1404,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_fill_simple() {
-        let usage = "foo <a>... <b>".to_string();
+        let usage = "foo <a>... <b>".to_owned();
         let replace = "<a>...";
         let pattern = "<a>";
 
@@ -1419,7 +1414,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_options() {
-        let usage = "foo {-s#-o}... <c>...".to_string();
+        let usage = "foo {-s#-o}... <c>...".to_owned();
         let replace = "{-s#-o}...";
         let pattern = "{-s#-o}";
 
@@ -1429,7 +1424,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_options_expand_positional() {
-        let usage = "foo {-s#-o}... <c>...".to_string();
+        let usage = "foo {-s#-o}... <c>...".to_owned();
         let replace = "<c>...";
         let pattern = "<c>";
 

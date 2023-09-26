@@ -359,8 +359,8 @@ mod tests {
         assert_eq!(
             params,
             Params {
-                mode: Some("0644".to_string()),
-                path: "/yea".to_string(),
+                mode: Some("0644".to_owned()),
+                path: "/yea".to_owned(),
                 state: Some(State::File),
             }
         );
@@ -393,7 +393,7 @@ mod tests {
             params,
             Params {
                 mode: None,
-                path: "foo".to_string(),
+                path: "foo".to_owned(),
                 state: Some(State::Directory),
             }
         );
@@ -427,7 +427,7 @@ mod tests {
             params,
             Params {
                 mode: None,
-                path: "foo".to_string(),
+                path: "foo".to_owned(),
                 state: None,
             }
         );
@@ -445,7 +445,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: file_path.to_str().unwrap().to_string(),
+                path: file_path.to_str().unwrap().to_owned(),
                 state: None,
                 mode: None,
             },
@@ -463,7 +463,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: false,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -476,7 +476,7 @@ mod tests {
         let file_path = dir.path().join("no_exists");
         let error = define_file(
             Params {
-                path: file_path.to_str().unwrap().to_string(),
+                path: file_path.to_str().unwrap().to_owned(),
                 state: None,
                 mode: None,
             },
@@ -494,7 +494,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Touch),
                 mode: None,
             },
@@ -514,7 +514,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -527,7 +527,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Touch),
                 mode: None,
             },
@@ -541,7 +541,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -557,9 +557,9 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Directory),
-                mode: Some("0750".to_string()),
+                mode: Some("0750".to_owned()),
             },
             false,
         )
@@ -584,7 +584,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -600,9 +600,9 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Directory),
-                mode: Some("0750".to_string()),
+                mode: Some("0750".to_owned()),
             },
             true,
         )
@@ -617,7 +617,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -635,9 +635,9 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: file_path.to_str().unwrap().to_string(),
+                path: file_path.to_str().unwrap().to_owned(),
                 state: Some(State::File),
-                mode: Some("0604".to_string()),
+                mode: Some("0604".to_owned()),
             },
             false,
         )
@@ -655,7 +655,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -673,9 +673,9 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: file_path.to_str().unwrap().to_string(),
+                path: file_path.to_str().unwrap().to_owned(),
                 state: Some(State::File),
-                mode: Some("0604".to_string()),
+                mode: Some("0604".to_owned()),
             },
             true,
         )
@@ -693,7 +693,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -711,7 +711,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: file_path.to_str().unwrap().to_string(),
+                path: file_path.to_str().unwrap().to_owned(),
                 state: Some(State::Absent),
                 mode: None,
             },
@@ -726,7 +726,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -744,7 +744,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: file_path.to_str().unwrap().to_string(),
+                path: file_path.to_str().unwrap().to_owned(),
                 state: Some(State::Absent),
                 mode: None,
             },
@@ -759,7 +759,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(file_path.to_str().unwrap().to_string()),
+                output: Some(file_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -778,7 +778,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Absent),
                 mode: None,
             },
@@ -793,7 +793,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -812,7 +812,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Absent),
                 mode: None,
             },
@@ -827,7 +827,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -848,7 +848,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Absent),
                 mode: None,
             },
@@ -863,7 +863,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
@@ -884,7 +884,7 @@ mod tests {
 
         let output = define_file(
             Params {
-                path: dir_path.to_str().unwrap().to_string(),
+                path: dir_path.to_str().unwrap().to_owned(),
                 state: Some(State::Absent),
                 mode: None,
             },
@@ -899,7 +899,7 @@ mod tests {
             output,
             ModuleResult {
                 changed: true,
-                output: Some(dir_path.to_str().unwrap().to_string()),
+                output: Some(dir_path.to_str().unwrap().to_owned()),
                 extra: None,
             }
         );
