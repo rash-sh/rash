@@ -50,6 +50,13 @@ tempfile = "3"
 tera = { version = "1", default-features = false }
 term_size = "1.0.0-beta.2"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "docopt"
+harness = false
+
 [dev-dependencies.cargo-husky]
 version = "1"
 default-features = false # Disable features which are enabled by default
