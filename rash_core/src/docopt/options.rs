@@ -50,11 +50,9 @@ impl OptionArg {
     }
 
     pub fn get_simple_representation(&self) -> String {
-        match self.get_long() {
-            Some(s) => s,
+        self.get_long()
             // safe unwrap: if it long is None, short should be Some
-            None => self.get_short().unwrap(),
-        }
+            .unwrap_or_else(|| self.get_short().unwrap())
     }
 
     pub fn get_key_representation(&self) -> String {

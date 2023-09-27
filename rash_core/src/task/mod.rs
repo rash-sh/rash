@@ -250,15 +250,11 @@ impl Task {
                 Ok(new_vars)
             }
             Err(e) => match self.ignore_errors {
-                Some(is_true) => {
-                    if is_true {
-                        info!(target: "ignoring", "{}", e);
-                        Ok(vars.clone())
-                    } else {
-                        Err(e)
-                    }
+                Some(is_true) if is_true => {
+                    info!(target: "ignoring", "{}", e);
+                    Ok(vars.clone())
                 }
-                None => Err(e),
+                _ => Err(e),
             },
         }
     }

@@ -75,44 +75,47 @@ fn format_schema(schema: &RootSchema) -> String {
             for schema in schema_objects {
                 let schema_object = schema.into_object();
                 let metadata = schema_object.metadata;
-                let description = match metadata {
-                    Some(x) => match x.description {
-                        Some(d) => d,
-                        None => "".to_owned(),
-                    },
-                    None => "".to_owned(),
-                };
+                let description = metadata
+                    .and_then(|x| x.description)
+                    .unwrap_or_else(|| "".to_owned());
                 for property in schema_object.object.unwrap().properties {
                     let name = property.0;
                     let schema_object = property.1.into_object();
-                    let value = schema_object.enum_values.map(|x| x
-                        .into_iter()
-                        .map(|i| {
-                            serde_yaml::to_value(i)
-                                .unwrap()
-                                .as_str()
-                                .unwrap()
-                                .to_owned()
+                    let value = schema_object
+                        .enum_values
+                        .map(|x| {
+                            x.into_iter()
+                                .map(|i| {
+                                    serde_yaml::to_value(i)
+                                        .unwrap()
+                                        .as_str()
+                                        .unwrap()
+                                        .to_owned()
+                                })
+                                .collect::<Vec<String>>()
+                                .join("<br>")
                         })
-                        .collect::<Vec<String>>()
-                        .join("<br>")).unwrap_or_else(|| "".to_owned());
+                        .unwrap_or_else(|| "".to_owned());
                     table.add_row(row![
                         name,
                         match required_values.contains(&name) {
                             true => "true",
                             false => "",
                         },
-                        schema_object.instance_type.map(|s| {
-                            let t = match s {
-                                SingleOrVec::Vec(v) => v[0],
-                                SingleOrVec::Single(x) => *x,
-                            };
-                            serde_yaml::to_value(t)
-                                .unwrap()
-                                .as_str()
-                                .unwrap()
-                                .to_owned()
-                        }).unwrap_or_else(|| "".to_owned()),
+                        schema_object
+                            .instance_type
+                            .map(|s| {
+                                let t = match s {
+                                    SingleOrVec::Vec(v) => v[0],
+                                    SingleOrVec::Single(x) => *x,
+                                };
+                                serde_yaml::to_value(t)
+                                    .unwrap()
+                                    .as_str()
+                                    .unwrap()
+                                    .to_owned()
+                            })
+                            .unwrap_or_else(|| "".to_owned()),
                         value,
                         description
                     ]);
@@ -125,42 +128,45 @@ fn format_schema(schema: &RootSchema) -> String {
         let name = property.0;
         let schema_object = property.1.into_object();
         let metadata = schema_object.metadata;
-        let description = match metadata {
-            Some(x) => match x.description {
-                Some(d) => d,
-                None => "".to_owned(),
-            },
-            None => "".to_owned(),
-        };
+        let description = metadata
+            .and_then(|x| x.description)
+            .unwrap_or_else(|| "".to_owned());
 
-        let value = schema_object.enum_values.map(|x| x
-            .into_iter()
-            .map(|i| {
-                serde_yaml::to_value(i)
-                    .unwrap()
-                    .as_str()
-                    .unwrap()
-                    .to_owned()
+        let value = schema_object
+            .enum_values
+            .map(|x| {
+                x.into_iter()
+                    .map(|i| {
+                        serde_yaml::to_value(i)
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                            .to_owned()
+                    })
+                    .collect::<Vec<String>>()
+                    .join("<br>")
             })
-            .collect::<Vec<String>>()
-            .join("<br>")).unwrap_or_else(|| "".to_owned());
+            .unwrap_or_else(|| "".to_owned());
         table.add_row(row![
             name,
             match required_values.contains(&name) {
                 true => "true",
                 false => "",
             },
-            schema_object.instance_type.map(|s| {
-                let t = match s {
-                    SingleOrVec::Vec(v) => v[0],
-                    SingleOrVec::Single(x) => *x,
-                };
-                serde_yaml::to_value(t)
-                    .unwrap()
-                    .as_str()
-                    .unwrap()
-                    .to_owned()
-            }).unwrap_or_else(|| "".to_owned()),
+            schema_object
+                .instance_type
+                .map(|s| {
+                    let t = match s {
+                        SingleOrVec::Vec(v) => v[0],
+                        SingleOrVec::Single(x) => *x,
+                    };
+                    serde_yaml::to_value(t)
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_owned()
+                })
+                .unwrap_or_else(|| "".to_owned()),
             value,
             description
         ]);

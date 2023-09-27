@@ -227,10 +227,7 @@ fn parse_usage_one_line(doc: &str) -> Option<Vec<String>> {
 }
 
 fn parse_usage(doc: &str) -> Option<Vec<String>> {
-    match parse_usage_multiline(doc) {
-        Some(usage) => Some(usage),
-        None => parse_usage_one_line(doc),
-    }
+    parse_usage_multiline(doc).or_else(|| parse_usage_one_line(doc))
 }
 
 fn repeat_until_fill(
