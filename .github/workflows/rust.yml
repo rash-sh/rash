@@ -141,6 +141,7 @@ jobs:
       with:
         install-only: true
         version: latest
+      if: matrix.job.os != 'macos-12'
 
     - name: Make release
       id: package

@@ -51,11 +51,14 @@ jobs:
 
       - run: rustup override set ${{steps.toolchain.outputs.name}}
 
+      - name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+          version: latest
+
       - name: Build image
         run: |
-          # install dependencies
-          apt update && apt install -y \
-            upx
           make images
 
       - name: Log into registry
@@ -66,12 +69,6 @@ jobs:
 
       - name: Set up Docker Buildx for multiarch images
         uses: docker/setup-buildx-action@v2
-
-      - name: Install UPX
-        uses: crazy-max/ghaction-upx@v3
-        with:
-          install-only: true
-          version: latest
 
       - name: Push image
         run: |

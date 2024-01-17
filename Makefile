@@ -86,7 +86,9 @@ release:	## generate $(PKG_BASE_NAME).tar.gz with binary
 	else \
 		cargo build --frozen --release --target ${CARGO_TARGET}; \
 	fi
-	@upx $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash
+	@if command -v "upx" &> /dev/null; then \
+		upx $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash; \
+	fi
 	@tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash && \
 	echo Released in $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash;
 
