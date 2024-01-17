@@ -136,6 +136,12 @@ jobs:
         echo "PROJECT_NAME=rash" >> $GITHUB_ENV
         echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
 
+    - name: Install UPX
+      uses: crazy-max/ghaction-upx@v3
+      with:
+        install-only: true
+        version: latest
+
     - name: Make release
       id: package
       shell: bash
