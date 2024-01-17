@@ -24,6 +24,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+          version: latest
+
       - name: Run tests
         run: |
           make images
@@ -46,7 +52,11 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
 
       - name: Build image
-        run: make images
+        run: |
+          # install dependencies
+          apt update && apt install -y \
+            upx
+          make images
 
       - name: Log into registry
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
@@ -56,6 +66,12 @@ jobs:
 
       - name: Set up Docker Buildx for multiarch images
         uses: docker/setup-buildx-action@v2
+
+      - name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+          version: latest
 
       - name: Push image
         run: |
