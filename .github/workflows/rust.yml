@@ -165,7 +165,7 @@ jobs:
     - name: Get Changelog Entry
       if: startsWith(github.ref, 'refs/tags/')
       id: changelog_reader
-      uses: mindsers/changelog-reader-action@v2.0.0
+      uses: mindsers/changelog-reader-action@v2.2.2
       with:
         version: v${{ env.PROJECT_VERSION }}
         path: ./CHANGELOG.md
