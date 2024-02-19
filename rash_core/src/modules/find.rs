@@ -160,19 +160,14 @@ fn find(params: Params) -> Result<ModuleResult> {
 
     if let Some(s) = params.size {
         walk_builder.max_filesize(Some(
-            u64::try_from(
-                Byte::from_str(s)
-                    .map_err(|_| {
-                        Error::new(
-                            ErrorKind::InvalidData,
-                            "Unable to convert size from string.",
-                        )
-                    })?
-                    .get_bytes(),
-            )
-            .map_err(|_| {
-                Error::new(ErrorKind::InvalidData, "Size overflow, it must feet in u64")
-            })?,
+            Byte::parse_str(s, true)
+                .map_err(|_| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "Unable to convert size from string.",
+                    )
+                })?
+                .as_u64(),
         ));
     };
 
@@ -710,9 +705,9 @@ mod tests {
         let file1_path = dir.path().join("file1.txt");
         let _ = File::create(file1_path).unwrap();
         let file2_path = dir.path().join("file2.log");
-        let _ = File::create(file2_path.clone()).unwrap();
+        let _ = File::create(&file2_path).unwrap();
         let file3_path = dir.path().join("file3.log");
-        let _ = File::create(file3_path.clone()).unwrap();
+        let _ = File::create(&file3_path).unwrap();
 
         let output = find(Params {
             paths: vec![dir.path().to_str().unwrap().to_owned()],
@@ -766,6 +761,33 @@ mod tests {
                 extra: Some(
                     value::to_value(json!(vec![parent_path.to_str().unwrap().to_owned(),]))
                         .unwrap()
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn test_find_size() {
+        let dir = tempdir().unwrap();
+
+        let file1_path = dir.path().join("file1.txt");
+        let _ = File::create(&file1_path).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
+            file_type: Some(FileType::File),
+            size: Some("20 MB".to_owned()),
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: false,
+                output: None,
+                extra: Some(
+                    value::to_value(json!(vec![file1_path.to_str().unwrap().to_owned(),])).unwrap()
                 ),
             }
         );
