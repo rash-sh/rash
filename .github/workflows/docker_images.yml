@@ -68,7 +68,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx for multiarch images
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Push image
         run: |
