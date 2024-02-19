@@ -571,19 +571,6 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
-dependencies = [
- "humantime",
- "is-terminal",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
-name = "env_logger"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c012a26a7f605efc424dd53697843a72be7dc86ad2d01f7814337794a12231d"
@@ -983,7 +970,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
- "env_logger 0.11.2",
+ "env_logger",
  "handlebars",
  "log",
  "memchr",
@@ -1005,7 +992,7 @@ version = "1.10.0"
 dependencies = [
  "chrono",
  "clap",
- "env_logger 0.10.0",
+ "env_logger",
  "lazy_static",
  "log",
  "mdbook",
@@ -1713,15 +1700,6 @@ dependencies = [
  "kernel32-sys",
  "libc",
  "winapi 0.2.8",
-]
-
-[[package]]
-name = "termcolor"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
-dependencies = [
- "winapi-util",
 ]
 
 [[package]]
