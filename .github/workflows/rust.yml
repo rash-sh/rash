@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install fmt with stable toolchain
         id: toolchain
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install clippy with stable toolchain
         id: toolchain
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Extract min supported rust version
       shell: bash
@@ -99,7 +99,7 @@ jobs:
     runs-on: ${{ matrix.job.os }}
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install prerequisites
       shell: bash
