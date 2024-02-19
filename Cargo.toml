@@ -1,16 +1,12 @@
 [workspace]
-members = [
-    "rash_core",
-    "rash_derive",
-    "mdbook_rash",
-]
+members = ["rash_core", "rash_derive", "mdbook_rash"]
 resolver = "2"
 
 
 [workspace.package]
 version = "1.10.0"
 authors = ["Pando85 <pando855@gmail.com>"]
-rust-version = "1.72"
+rust-version = "1.74"
 edition = "2021"
 license-file = "LICENSE"
 homepage = "https://rash.sh"
