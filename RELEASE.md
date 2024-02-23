@@ -15,3 +15,7 @@ Requirements:
 Upgrade dependencies:
 
 - `cargo upgrade` or `cargo upgrade --incompatible`
+
+Update cargo lock dependencies:
+
+- `cargo update`

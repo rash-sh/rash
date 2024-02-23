@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.10.1](https://github.com/rash-sh/rash/tree/v1.10.1) - 2024-02-23
+
+### Added
+
+* ci: Add renovate
+* module: Add pacman
+* module: Check pacman upgrades before execution
+
+### Build
+
+* book: Update mdbook to 0.4.34
+* deps: Bump rustix from 0.37.23 to 0.37.25
+* deps: Bump unsafe-libyaml from 0.2.9 to 0.2.10
+* deps: Bump shlex from 1.2.0 to 1.3.0
+* deps: Update Rust crate mdbook to 0.4.37
+* deps: Update KSXGitHub/github-actions-deploy-aur action to v2.7.0
+* deps: Update Rust crate term_size to 1.0.0-beta1
+* deps: Update Rust crate itertools to 0.12
+* deps: Update Rust crate regex to 1.10
+* deps: Update Rust crate serde_with to 3.6
+* deps: Update Rust crate strum to 0.26
+* deps: Update Rust crate console to 0.15.8
+* deps: Update Rust crate term_size to 1.0.0-beta.2
+* deps: Update wagoid/commitlint-github-action action to v5
+* deps: Update docker/setup-qemu-action action to v3
+* deps: Update docker/setup-buildx-action action to v3
+* deps: Update actions/checkout action to v4
+* deps: Update rust Docker tag to v1.76.0
+* deps: Update mindsers/changelog-reader-action action to v2.2.2
+* deps: Update Rust crate env_logger to 0.11
+* deps: Update Rust crate ipc-channel to 0.18
+* deps: Update Rust crate similar to 2.4
+* deps: Update Rust crate strum_macros to 0.26
+* deps: Update Rust crate clap to 4.5
+* deps: Update Rust crate byte-unit to v5
+* deps: Update lock file
+* docker: Update debian to latest bookworm version
+* Compress binary with upx
+* Fix macOS and push images
+* Increase min rust version to 1.74
+
+### Documentation
+
+* ci: Remove patch versions from web page
+* core: Add comment about tera bug
+* module: Include pacman examples and remove new lines in params
+* vars: Add debug command to show all vars in current context
+
+### Fixed
+
+* ci: Fix strip ref prefix from version in github pages action
+* core: Log errors instead of trace
+* core: Enable vars in when param
+* core: Add log trace for extend vars
+* core: Allow module log for empty output
+* core: Log with colors just if terminal
+* docker: Update to rust 1.72.0
+* docker: Update to rust 1.75.0
+
+### Refactor
+
+* core: Replace match with and_then for readibility
+* module: Add run_test function for pacman integration tests
+* Replace to_string to to_owner when possible
+* Remove match in favor of map if possible
+* Remove some match statements
+
+### Testing
+
+* Add docopt benches
+
 ## [v1.10.0](https://github.com/rash-sh/rash/tree/v1.10.0) - 2023-09-12
 
 ### Added
