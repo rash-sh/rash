@@ -38,7 +38,7 @@ ignore = "0.4"
 # ipc-channel = { version = "0.17", features = ["memfd"] }
 ipc-channel = "0.18"
 itertools = "0.12"
-nix = { version = "0.27", features =  ["process", "user"] }
+nix = { version = "0.28", features =  ["process", "user"] }
 serde = { version = "1.0", features = ["derive"] }
 serde-error = "0.1"
 serde_with = "3.6"
