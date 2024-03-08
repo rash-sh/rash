@@ -171,7 +171,7 @@ jobs:
         path: ./CHANGELOG.md
 
     - name: Publish
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
         body: ${{ steps.changelog_reader.outputs.changes }}
