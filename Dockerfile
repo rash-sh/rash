@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=rust:1.77.1
+ARG BASE_IMAGE=rust:1.77.2
 FROM ${BASE_IMAGE} AS builder
 LABEL mantainer pando855@gmail.com
 
