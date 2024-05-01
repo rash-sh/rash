@@ -32,7 +32,7 @@ byte-unit = "5.1.4"
 console = "0.15.8"
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
-fern = { version = "0.6", features = ["colored"] }
+fern = { version = "0.6.2", features = ["colored"] }
 ignore = "0.4"
 # memfd could be added but brakes compatibility with kernels < 3.17
 # ipc-channel = { version = "0.17", features = ["memfd"] }
