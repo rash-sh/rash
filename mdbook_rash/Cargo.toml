@@ -22,7 +22,7 @@ regex.workspace = true
 schemars.workspace = true
 clap.workspace = true
 chrono = "0.4.38"
-env_logger = "0.11"
+env_logger = "0.11.3"
 mdbook = { version = "0.4.37", default-features = false }
 prettytable-rs = "^0.10"
 semver = "1.0"
