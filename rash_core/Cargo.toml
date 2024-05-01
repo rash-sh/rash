@@ -33,7 +33,7 @@ console = "0.15.8"
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6.2", features = ["colored"] }
-ignore = "0.4"
+ignore = "0.4.22"
 # memfd could be added but brakes compatibility with kernels < 3.17
 # ipc-channel = { version = "0.17", features = ["memfd"] }
 ipc-channel = "0.18"
