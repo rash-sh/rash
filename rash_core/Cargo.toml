@@ -28,7 +28,7 @@ regex.workspace = true
 schemars = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_yaml.workspace = true
-byte-unit = "5.1"
+byte-unit = "5.1.4"
 console = "0.15.8"
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
