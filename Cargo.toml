@@ -14,7 +14,7 @@ repository = "https://github.com/rash-sh/rash"
 readme = "README.md"
 
 [workspace.dependencies]
-clap = "4.5"
+clap = "4.5.4"
 lazy_static = "1.4.0"
 log = "0.4"
 regex = "1.10"
