@@ -25,6 +25,6 @@ chrono = "0.4.38"
 env_logger = "0.11.3"
 mdbook = { version = "0.4.37", default-features = false }
 prettytable-rs = "^0.10"
-semver = "1.0"
+semver = "1.0.22"
 serde_json.workspace = true
 serde_yaml.workspace = true
