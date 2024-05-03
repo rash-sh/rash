@@ -47,7 +47,7 @@ similar = { version = "2.5", features = ["inline"] }
 strum = "0.26.2"
 strum_macros = "0.26"
 tempfile = "3.10.1"
-tera = { version = "1", default-features = false }
+tera = { version = "1.19.1", default-features = false }
 term_size = "1.0.0-beta.2"
 
 [dev-dependencies]
