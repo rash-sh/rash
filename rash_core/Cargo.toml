@@ -37,7 +37,7 @@ ignore = "0.4.22"
 # memfd could be added but brakes compatibility with kernels < 3.17
 # ipc-channel = { version = "0.17", features = ["memfd"] }
 ipc-channel = "0.18"
-itertools = "0.12.1"
+itertools = "0.13.0"
 nix = { version = "0.28", features =  ["process", "user"] }
 serde = { version = "1.0.200", features = ["derive"] }
 serde-error = "0.1.2"
