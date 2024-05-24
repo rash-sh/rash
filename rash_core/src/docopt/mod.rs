@@ -266,7 +266,7 @@ fn repeat_until_fill(
     }
 }
 
-fn is_usage(possible_usage: &str, opts: &Vec<&str>) -> bool {
+fn is_usage(possible_usage: &str, opts: &[&str]) -> bool {
     let possible_usage_opts = possible_usage
         .split(' ')
         .filter(|x| !x.contains(['(', '[', ']', ')']))
@@ -276,7 +276,7 @@ fn is_usage(possible_usage: &str, opts: &Vec<&str>) -> bool {
     possible_usage_opts.len() <= opts.len() && possible_usage_opts.iter().all(|x| opts.contains(x))
 }
 
-fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &Vec<&str>) -> HashSet<String> {
+fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> HashSet<String> {
     let mut new_usages = HashSet::new();
     let mut usages_iter: Box<dyn Iterator<Item = String>> = Box::new(usages.into_iter());
 
@@ -1273,7 +1273,7 @@ Foo:
     fn test_expand_usages() {
         let usages = HashSet::from(["foo ((a | b) (c | d))".to_owned()]);
 
-        let result = expand_usages(usages, 2, &vec![]);
+        let result = expand_usages(usages, 2, &[]);
         assert_eq!(
             result,
             HashSet::from([
@@ -1289,7 +1289,7 @@ Foo:
     fn test_expand_usages_or() {
         let usages = HashSet::from(["foo -h | --help".to_owned()]);
 
-        let result = expand_usages(usages, 2, &vec!["--help"]);
+        let result = expand_usages(usages, 2, &["--help"]);
         assert_eq!(
             result,
             HashSet::from(["foo -h".to_owned(), "foo --help".to_owned(),])
@@ -1300,7 +1300,7 @@ Foo:
     fn test_expand_usages_or_without_space() {
         let usages = HashSet::from(["foo -h|--help".to_owned()]);
 
-        let result = expand_usages(usages, 2, &vec!["--help"]);
+        let result = expand_usages(usages, 2, &["--help"]);
         assert_eq!(
             result,
             HashSet::from(["foo -h".to_owned(), "foo --help".to_owned(),])
@@ -1311,7 +1311,7 @@ Foo:
     fn test_expand_usages_all() {
         let usages = HashSet::from(["foo [(-d | --no-deps)] [(-d | --no-deps)]".to_owned()]);
 
-        let result = expand_usages(usages, 2, &vec!["--no-deps", "--no-deps"]);
+        let result = expand_usages(usages, 2, &["--no-deps", "--no-deps"]);
         assert_eq!(
             result,
             HashSet::from([
@@ -1326,7 +1326,7 @@ Foo:
     fn test_expand_usages_all_bad() {
         let usages = HashSet::from(["foo [(-d | --no-deps) (-d | --no-deps)]".to_owned()]);
 
-        let result = expand_usages(usages, 2, &vec!["--no-deps", "--no-deps"]);
+        let result = expand_usages(usages, 2, &["--no-deps", "--no-deps"]);
         assert_eq!(
             result,
             HashSet::from(["foo".to_owned(), "foo --no-deps --no-deps".to_owned(),])
@@ -1337,7 +1337,7 @@ Foo:
     fn test_expand_usages_tree() {
         let usages = HashSet::from(["foo (a | b | c)".to_owned()]);
 
-        let result = expand_usages(usages, 1, &vec![]);
+        let result = expand_usages(usages, 1, &[]);
         assert_eq!(
             result,
             HashSet::from(["foo a".to_owned(), "foo b".to_owned(), "foo c".to_owned(),])
@@ -1348,7 +1348,7 @@ Foo:
     fn test_expand_usages_optional() {
         let usages = HashSet::from(["foo a [b] c".to_owned()]);
 
-        let result = expand_usages(usages, 3, &vec![]);
+        let result = expand_usages(usages, 3, &[]);
         assert_eq!(
             result,
             HashSet::from(["foo a b c".to_owned(), "foo a c".to_owned(),])
@@ -1359,7 +1359,7 @@ Foo:
     fn test_expand_usages_positional() {
         let usages = HashSet::from(["foo (a <b> | c <d>)".to_owned()]);
 
-        let result = expand_usages(usages, 2, &vec![]);
+        let result = expand_usages(usages, 2, &[]);
         assert_eq!(
             result,
             HashSet::from(["foo a <b>".to_owned(), "foo c <d>".to_owned(),])
@@ -1373,7 +1373,7 @@ Foo:
                 .to_owned(),
         ]);
 
-        let result = expand_usages(usages, 3, &vec!["--sorted", "--quiet"]);
+        let result = expand_usages(usages, 3, &["--sorted", "--quiet"]);
         assert_eq!(
             result,
             HashSet::from([
