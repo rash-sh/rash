@@ -4,7 +4,6 @@
 - Update lock file: `cargo update -p rash_core -p rash_derive`.
 - Update `CHANGELOG.md` with `make update-changelog`.
 - Merge PR.
-- Tag version in master branch: `make tag`.
 
 ## Upgrade dependencies
 
