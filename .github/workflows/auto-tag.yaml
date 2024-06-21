@@ -1,0 +1,48 @@
+name: Auto tag
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        with:
+          token: ${{ secrets.PAT }}
+        uses: actions/checkout@v4
+
+      - name: Get last changelog version
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          path: ./CHANGELOG.md
+
+      - name: Check if tag exists
+        run: |
+          tag=${{ steps.changelog_reader.outputs.version }}
+          if git ls-remote --tags origin | grep -q "refs/tags/$tag"; then
+            echo "Tag already exists"
+            echo "TAG_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "Tag does not exist"
+            echo "TAG_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Import GPG key
+        if: env.TAG_EXISTS == 'false'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Create new tag
+        if: env.TAG_EXISTS == 'false'
+        run: |
+          tag=${{ steps.changelog_reader.outputs.version }}
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag -s "$tag" -m "$tag" --local-user $(gpg --list-keys --with-colons | grep '^pub' | cut -d':' -f5)
+          git push origin "$tag"
