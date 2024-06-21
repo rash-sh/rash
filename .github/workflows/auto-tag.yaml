@@ -3,7 +3,7 @@ name: Auto tag
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   tag:
