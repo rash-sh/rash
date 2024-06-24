@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.10.3](https://github.com/rash-sh/rash/tree/v1.10.3) - 2024-06-24
+
+### Build
+
+- deps: Update Rust crate lazy_static to v1.5.0
+- deps: Update Rust crate syn to v2.0.68
+- deps: Update Rust crate strum to v0.26.3
+- Fix AUR gpg key fingerprint
+
 ## [v1.10.2](https://github.com/rash-sh/rash/tree/v1.10.2) - 2024-06-21
 
 ### Added
