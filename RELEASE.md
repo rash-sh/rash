@@ -1,9 +1,20 @@
 # release workflow
 
-- Bump version in `Cargo.toml` and run `make update-version`.
-- Update lock file: `cargo update -p rash_core -p rash_derive`.
-- Update `CHANGELOG.md` with `make update-changelog`.
-- Merge PR.
+```bash
+# bump version
+vim Cargo.toml
+make update-version
+
+# update lock file
+cargo update -p rash_core -p rash_derive
+
+# update CHANGELOG.md
+make update-changelog
+
+# merge PR
+VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+git commit -m "release: Version $VERSION"
+```
 
 ## Upgrade dependencies
 
