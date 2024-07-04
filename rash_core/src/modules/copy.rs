@@ -106,12 +106,11 @@ enum Content {
     Bytes(Vec<u8>),
 }
 
-// Implement std::fmt::Display for Content
 impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Content::Str(s) => write!(f, "{}", s),
-            Content::Bytes(b) => write!(f, "{:?}", b),
+            Content::Bytes(_) => Ok(()),
         }
     }
 }
