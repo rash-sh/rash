@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.10.4](https://github.com/rash-sh/rash/tree/v1.10.4) - 2024-07-04
+
+### Build
+
+- deps: Update Rust crate serde_json to v1.0.118
+- deps: Update Rust crate log to v0.4.22
+- deps: Update Rust crate clap to v4.5.8
+- deps: Update Rust crate serde_json to v1.0.119
+- deps: Update Rust crate serde_with to v3.8.2
+- deps: Update Rust crate serde_json to v1.0.120
+- deps: Update KSXGitHub/github-actions-deploy-aur action to v2.7.2
+- deps: Update Rust crate serde_with to v3.8.3
+
+### Fixed
+
+- module: Copy binary data
+
 ## [v1.10.3](https://github.com/rash-sh/rash/tree/v1.10.3) - 2024-06-24
 
 ### Build
