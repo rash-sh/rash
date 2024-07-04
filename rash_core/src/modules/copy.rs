@@ -32,6 +32,8 @@ use rash_derive::DocJsonSchema;
 use std::fs::{metadata, set_permissions, File, OpenOptions, Permissions};
 use std::io::prelude::*;
 
+use std::fmt;
+use std::io::Result as IoResult;
 use std::io::{BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 
@@ -97,6 +99,48 @@ fn change_permissions(
     Ok(false)
 }
 
+#[derive(Debug, PartialEq)]
+enum Content {
+    Str(String),
+    Bytes(Vec<u8>),
+}
+
+// Implement std::fmt::Display for Content
+impl fmt::Display for Content {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Content::Str(s) => write!(f, "{}", s),
+            Content::Bytes(b) => write!(f, "{:?}", b),
+        }
+    }
+}
+
+impl Content {
+    fn as_bytes(&self) -> &[u8] {
+        match self {
+            Content::Str(s) => s.as_bytes(),
+            Content::Bytes(b) => b,
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Content::Str(s) => s.len(),
+            Content::Bytes(b) => b.len(),
+        }
+    }
+}
+
+fn read_content<R: BufRead + Seek>(buf_reader: &mut R) -> IoResult<Content> {
+    let mut content = Vec::new();
+    buf_reader.read_to_end(&mut content)?;
+
+    match String::from_utf8(content.clone()) {
+        Ok(s) => Ok(Content::Str(s)),
+        Err(_) => Ok(Content::Bytes(content)),
+    }
+}
+
 pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {:?}", params);
     let open_read_file = OpenOptions::new().read(true).clone();
@@ -114,20 +158,17 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     })?;
     let mut buf_reader = BufReader::new(&read_file);
-    let mut content = String::new();
-    buf_reader.read_to_string(&mut content)?;
+    let content = read_content(&mut buf_reader)?;
     let dest_metadata = read_file.metadata()?;
     let dest_permissions = dest_metadata.permissions();
     let mut changed = false;
 
     let desired_content = match params.input.clone() {
-        Input::Content(s) => s,
+        Input::Content(s) => Content::Str(s),
         Input::Src(src) => {
             let file = File::open(src)?;
             let mut buf_reader = BufReader::new(file);
-            let mut contents = String::new();
-            buf_reader.read_to_string(&mut contents)?;
-            contents
+            read_content(&mut buf_reader)?
         }
     };
 
@@ -859,6 +900,53 @@ mod tests {
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
         assert_eq!(contents, "read_only\n");
+
+        let metadata = file.metadata().unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o400)
+        );
+
+        assert_eq!(
+            output,
+            ModuleResult {
+                changed: true,
+                output: Some(file_path.to_str().unwrap().to_owned()),
+                extra: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_file_binary() {
+        let dir = tempdir().unwrap();
+
+        let src_path = dir.path().join("image.png");
+        let file_path = dir.path().join("output_image.png");
+
+        let image_data: &[u8] = &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x05, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x8d, 0x6f, 0x26, 0xe5, 0x00, 0x00, 0x00, 0x1c, 0x49, 0x44, 0x41, 0x54, 0x08,
+            0xd7, 0x63, 0xf8,
+        ];
+        let mut file = File::create(src_path.clone()).unwrap();
+        file.write_all(image_data).unwrap();
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_path.into_os_string().into_string().unwrap()),
+                dest: file_path.to_str().unwrap().to_owned(),
+                mode: Some("0400".to_owned()),
+            },
+            false,
+        )
+        .unwrap();
+
+        let mut file = File::open(&file_path).unwrap();
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
+        assert_eq!(contents, image_data);
 
         let metadata = file.metadata().unwrap();
         let permissions = metadata.permissions();
