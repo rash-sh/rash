@@ -85,17 +85,18 @@ fn change_permissions(
     mode: u32,
     check_mode: bool,
 ) -> Result<bool> {
-    let mut dest_permissions_copy = dest_permissions;
+    let masked_mode = mode & 0o7777;
 
     // & 0o7777 to remove lead 100: 100644 -> 644
-    if dest_permissions_copy.mode() & 0o7777 != mode & 0o7777 {
+    if dest_permissions.mode() & 0o7777 != masked_mode {
         if !check_mode {
-            trace!("changing mode: {:o}", &mode);
+            trace!("changing mode: {:o}", mode);
+            let mut dest_permissions_copy = dest_permissions;
             dest_permissions_copy.set_mode(mode);
             set_permissions(dest, dest_permissions_copy)?;
         }
         return Ok(true);
-    };
+    }
     Ok(false)
 }
 
@@ -153,7 +154,6 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 .create(true)
                 .open(&params.dest)
         } else {
-            // TODO: avoid this logic.
             tempfile()
         }
     })?;
