@@ -6,5 +6,5 @@
       uid: {{ rash.user.uid }}
       gid: {{ rash.user.gid }}
     dest: "{% if rash.user.uid != 0 %}/tmp{% endif %}/user_info"
-    mode: "{{ env.FILE_MODE | default(value='400') }}"
+    mode: "{{ env.FILE_MODE | default('400') }}"
 

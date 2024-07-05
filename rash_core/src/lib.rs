@@ -36,7 +36,7 @@ mod tests {
 
         let context = Context::new(
             parse_file(file, &task::GlobalParams::default()).unwrap(),
-            env::load(vec![]).unwrap(),
+            env::load(vec![]),
         );
         let context_error = Context::exec(context).unwrap_err();
 

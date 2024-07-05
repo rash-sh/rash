@@ -180,17 +180,16 @@ fn test_pacman_result_extra() {
     state: sync
   register: packages
 - debug:
-    msg: "{{{{ packages.extra | json_encode }}}}"
+    msg: "{{{{ packages.extra }}}}"
         "#,
         mocks_dir.to_str().unwrap()
     );
-
     let args = ["--output", "raw"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap(),
+        stdout.lines().last().unwrap().replace(' ', ""),
         serde_json::to_string(&json!({
             "installed_packages": ["rash"],
             "removed_packages": ["linux61-zfs"],

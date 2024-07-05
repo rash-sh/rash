@@ -4,7 +4,7 @@ mod valid;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
-use crate::utils::tera::{is_render_string, render, render_as_json, render_string};
+use crate::utils::jinja2::{is_render_string, render, render_as_json, render_string};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
@@ -14,6 +14,7 @@ use std::result::Result as StdResult;
 
 use ipc_channel::ipc::IpcReceiver;
 use ipc_channel::ipc::{self, IpcSender};
+use minijinja::context;
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
 use serde_error::Error as SerdeError;
@@ -108,15 +109,15 @@ impl Task {
     }
 
     #[inline(always)]
-    fn extend_vars(&self, vars: Vars) -> Result<Vars> {
+    fn extend_vars(&self, additional_vars: Vars) -> Result<Vars> {
         match self.vars.clone() {
             Some(v) => {
-                let mut e_vars = vars.clone();
                 trace!("extend vars: {:?}", &v);
-                e_vars.extend(Vars::from_serialize(render(v, &vars)?)?);
-                Ok(e_vars)
+                Ok(
+                    context! { ..Vars::from_serialize(render(v.clone(), &additional_vars)?), ..Vars::from_serialize(additional_vars)},
+                )
             }
-            None => Ok(vars),
+            None => Ok(additional_vars),
         }
     }
 
@@ -241,11 +242,12 @@ impl Task {
                         || "".to_owned()
                     )
                 );
-                let mut new_vars = result_vars;
+                let mut new_vars = context! {..result_vars};
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
                     trace!("register {:?} in {:?}", &result, register);
-                    new_vars.insert(register, &result);
+                    new_vars =
+                        context! { ..Vars::from_serialize(json!({register: &result})), ..new_vars};
                 }
                 Ok(new_vars)
             }
@@ -314,7 +316,7 @@ impl Task {
                                 trace!("send result: {:?}", result);
                                 tx.send(
                                     result
-                                        .map(|x| x.into_json().to_string())
+                                        .map(|x| x.to_string())
                                         .map_err(|e| SerdeError::new(&e)),
                                 )
                                 .unwrap_or_else(|e| {
@@ -344,13 +346,7 @@ impl Task {
                                             format!("{e:?}"),
                                         )))
                                     })
-                                    .map(|x| {
-                                        // safe unwrap: this value comes from vars.into_json()
-                                        tera::Context::from_value(serde_json::from_str(&x).unwrap())
-                                            // safe unwrap: json is object because comes from
-                                            // child tera::Context
-                                            .unwrap()
-                                    })
+                                    .map(|x| Vars::from_serialize(&x))
                                     .map_err(|e| Error::new(ErrorKind::Other, e))
                             }
                             Err(e) => Err(Error::new(ErrorKind::Other, e)),
@@ -376,15 +372,15 @@ impl Task {
         debug!("Params: {:?}", self.params);
 
         if self.r#loop.is_some() {
-            let mut new_vars = vars.clone();
+            // TODO: remove unnecessary movements
+            let mut ctx = vars.clone();
             for item in self.render_iterator(vars)?.into_iter() {
-                new_vars.insert("item", &item);
-                new_vars = self.exec_module(new_vars.clone())?;
+                let new_ctx = context! {item => &item, ..ctx.clone()};
+                ctx = self.exec_module(new_ctx)?;
             }
-            Ok(new_vars)
+            Ok(ctx)
         } else {
-            let new_vars = self.exec_module(vars)?;
-            Ok(new_vars)
+            Ok(self.exec_module(vars)?)
         }
     }
 
@@ -437,11 +433,9 @@ pub fn parse_file(tasks_file: &str, global_params: &GlobalParams) -> Result<Task
 mod tests {
     use super::*;
 
-    use crate::vars;
-
     use std::collections::HashMap;
 
-    use tera::Context;
+    use minijinja::context;
 
     #[test]
     fn test_from_yaml() {
@@ -489,7 +483,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
@@ -502,7 +496,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "false")].into_iter());
+        let vars = Vars::from_serialize(vec![("boo", "false")]);
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -515,7 +509,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -528,7 +522,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![].into_iter());
+        let vars = context! {};
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -543,7 +537,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
@@ -558,27 +552,65 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        assert!(!task.is_exec(&vars).unwrap());
+
+        let s: String = r#"
+            command: 'example'
+            when:
+              - true
+              - false
+              - true
+            "#
+        .to_owned();
+        let vars = Vars::from_serialize(context! {});
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        assert!(!task.is_exec(&vars).unwrap());
+
+        let s: String = r#"
+            command: 'example'
+            when:
+              - true
+              - true
+              - true
+            "#
+        .to_owned();
+        let vars = Vars::from_serialize(context! {});
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        assert!(task.is_exec(&vars).unwrap());
+
+        let s: String = r#"
+            command: 'example'
+            when:
+              - true or true or true
+              - false
+              - true
+            "#
+        .to_owned();
+        let vars = Vars::from_serialize(context! {});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
 
-    // tera v2 will fix this
-    // #[test]
-    // fn test_is_exec_array_with_or_operator() {
-    //     let s: String = r#"
-    //         when:
-    //           - true
-    //           - "boo == 'test'" or false
-    //         command: 'example'
-    //         "#
-    //     .to_owned();
-    //     let vars = vars::from_iter(vec![("boo", "test")].into_iter());
-    //     let yaml: Value = serde_yaml::from_str(&s).unwrap();
-    //     let task = Task::from(yaml);
-    //     assert!(task.is_exec(&vars).unwrap());
-    // }
+    #[test]
+    fn test_is_exec_array_with_or_operator() {
+        let s: String = r#"
+            command: 'example'
+            when:
+              - true
+              - boo == 'test' or false
+            "#
+        .to_owned();
+        let vars = Vars::from_serialize(context! { boo => "test"});
+        let yaml: Value = serde_yaml::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        assert!(task.is_exec(&vars).unwrap());
+    }
 
     #[test]
     fn test_render_iterator() {
@@ -590,7 +622,7 @@ mod tests {
               - 3
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![].into_iter());
+        let vars = context! {};
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
@@ -606,7 +638,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test" });
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
@@ -621,7 +653,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
@@ -636,7 +668,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -651,7 +683,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -666,7 +698,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -683,7 +715,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
@@ -700,7 +732,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -719,12 +751,13 @@ mod tests {
             when: item == 1
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![].into_iter());
+        let vars = context! {};
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         let result = task.exec(vars).unwrap();
-        let mut expected = Context::new();
-        expected.insert("item", &json!(3));
+        let expected = context! {
+            item => 3,
+        };
         assert_eq!(result, expected);
     }
 
@@ -732,10 +765,10 @@ mod tests {
     fn test_render_iterator_var() {
         let s: String = r#"
             command: 'example'
-            loop: "{{ range(end=3) }}"
+            loop: "{{ range(3) }}"
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
@@ -753,7 +786,7 @@ mod tests {
               - 2
             "#
         .to_owned();
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test"});
         let yaml: Value = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
@@ -772,10 +805,57 @@ mod tests {
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task = Task::from(yaml);
 
-        let vars = vars::from_iter(vec![].into_iter());
+        let vars = context! {};
         let result = task.exec(vars.clone()).unwrap();
         assert_eq!(result, vars);
     }
+
+    #[test]
+    fn test_task_execute_keep_vars() {
+        let s0 = r#"
+            name: task 1
+            command: echo foo
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+
+        let vars = context! {buu => "boo"};
+        let result = task.exec(vars.clone()).unwrap();
+        assert_eq!(result, vars);
+
+        let s0 = r#"
+            name: task 1
+            debug:
+              msg: "foo"
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+
+        let vars = context! {buu => "boo"};
+        let result = task.exec(vars.clone()).unwrap();
+        assert_eq!(result, vars);
+    }
+
+    #[test]
+    fn test_task_execute_register() {
+        let s0 = r#"
+            name: task 1
+            command: echo foo
+            register: yea
+            "#
+        .to_owned();
+        let yaml: Value = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+
+        let vars = context! {};
+        let result = task.exec(vars.clone()).unwrap();
+        assert!(result.get_attr("yea").map(|x| !x.is_undefined()).unwrap());
+    }
+
+    // TODO: check item is removed from vars after task loop execution
+    // check behaviour in Ansible
 
     #[test]
     fn test_read_tasks() {
@@ -833,8 +913,7 @@ mod tests {
                 .cloned()
                 .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect::<HashMap<String, String>>(),
-        )
-        .unwrap();
+        );
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
@@ -852,7 +931,7 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task = Task::from(yaml);
-        let vars = Vars::from_value(json!({})).unwrap();
+        let vars = context! {};
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
@@ -870,14 +949,10 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task = Task::from(yaml);
-        let vars = Vars::from_serialize(
-            [("directory", "boo"), ("xuu", "zoo")]
-                .iter()
-                .cloned()
-                .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                .collect::<HashMap<String, String>>(),
-        )
-        .unwrap();
+        let vars = context! {
+            directory => "boo",
+            xuu => "zoo",
+        };
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
@@ -896,17 +971,13 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task = Task::from(yaml);
-        let vars = Vars::from_serialize(
-            [("directory", "boo"), ("xuu", "zoo")]
-                .iter()
-                .cloned()
-                .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                .collect::<HashMap<String, String>>(),
-        )
-        .unwrap();
+        let vars = context! {
+            directory => "boo",
+            xuu => "zoo",
+        };
 
         let rendered_params_err = task.render_params(vars).unwrap_err();
-        assert_eq!(rendered_params_err.kind(), ErrorKind::TeraRenderError);
+        assert_eq!(rendered_params_err.kind(), ErrorKind::JinjaRenderError);
     }
 
     #[test]
@@ -921,10 +992,10 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task = Task::from(yaml);
-        let vars = Vars::from_value(json!({})).unwrap();
+        let vars = context! {};
 
         let rendered_params_err = task.render_params(vars).unwrap_err();
-        assert_eq!(rendered_params_err.kind(), ErrorKind::TeraRenderError);
+        assert_eq!(rendered_params_err.kind(), ErrorKind::JinjaRenderError);
     }
 
     #[test]
@@ -936,14 +1007,10 @@ mod tests {
         .to_owned();
         let yaml: Value = serde_yaml::from_str(&s0).unwrap();
         let task = Task::from(yaml);
-        let vars = Vars::from_serialize(
-            [("directory", "boo"), ("xuu", "zoo")]
-                .iter()
-                .cloned()
-                .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                .collect::<HashMap<String, String>>(),
-        )
-        .unwrap();
+        let vars = context! {
+            directory => "boo",
+            xuu => "zoo",
+        };
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params.as_str().unwrap(), "ls boo");

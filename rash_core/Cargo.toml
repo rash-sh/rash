@@ -29,13 +29,13 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 byte-unit = "5.1.4"
 console = "0.15.8"
+minijinja = { version = "2.1.2", features = ["loader"]}
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
 exec = "0.3.1"
 fern = { version = "0.6.2", features = ["colored"] }
 ignore = "0.4.22"
-# memfd could be added but brakes compatibility with kernels < 3.17
-# ipc-channel = { version = "0.17", features = ["memfd"] }
-ipc-channel = "0.18"
+# memfd brakes compatibility with kernels < 3.17
+ipc-channel = { version = "0.18", features = ["memfd"] }
 itertools = "0.13.0"
 nix = { version = "0.29", features =  ["process", "user"] }
 serde = { version = "1.0.200", features = ["derive"] }
@@ -46,7 +46,6 @@ similar = { version = "2.5", features = ["inline"] }
 strum = "0.26.2"
 strum_macros = "0.26.2"
 tempfile = "3.10.1"
-tera = { version = "1.19.1", default-features = false }
 term_size = "1.0.0-beta.2"
 
 [dev-dependencies]

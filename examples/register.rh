@@ -6,5 +6,5 @@
 
 - name: files in directory
   debug:
-    var: item | replace(from=rash.dir, to='.')
+    var: item | replace(rash.dir, '.')
   loop: "{{ find_result.extra }}"

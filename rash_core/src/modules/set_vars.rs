@@ -41,6 +41,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::vars::Vars;
 
+use minijinja::context;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde_yaml::Value;
@@ -60,15 +61,14 @@ impl Module for SetVars {
             Value::Mapping(map) => {
                 map.iter()
                     .map(|hash_map| {
-                        new_vars.insert(
-                            hash_map.0.as_str().ok_or_else(|| {
-                                Error::new(
-                                    ErrorKind::InvalidData,
-                                    format!("{:?} is not a valid string", &hash_map.0),
-                                )
-                            })?,
-                            hash_map.1,
-                        );
+                        let key = hash_map.0.as_str().ok_or_else(|| {
+                            Error::new(
+                                ErrorKind::InvalidData,
+                                format!("{:?} is not a valid string", &hash_map.0),
+                            )
+                        })?;
+                        let element = json!({key: hash_map.1});
+                        new_vars = context! {..new_vars.clone(), ..Vars::from_serialize(element)};
                         Ok(())
                     })
                     .collect::<Result<Vec<_>>>()?;
