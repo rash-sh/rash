@@ -7,8 +7,8 @@ use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use itertools::Itertools;
+use minijinja::Value;
 use regex::Regex;
-use tera::Context;
 
 const OPTIONS_MARK: &str = "[options]";
 
@@ -341,17 +341,16 @@ impl Options {
             OptionArg::Repeatable { .. } => json!(1),
             OptionArg::Simple { .. } => json!(true),
         };
-        Some(
-            Context::from_value(json!(
-            { "options":
-                { option_arg.get_key_representation(): value
-                }
-            }))
-            .unwrap(),
-        )
+        Some(Value::from_serialize(json!(
+        { "options":
+            { option_arg.get_key_representation(): value
+            }
+        })))
     }
 
     pub fn initial_vars(&self) -> Vars {
+        // TODO: refactor to more functional way and remove JSON. Look for a better structure to
+        // store state
         let mut new_vars_json = json!({});
 
         self.hash_set
@@ -380,8 +379,7 @@ impl Options {
                 })
             })
             .for_each(|x| merge_json(&mut new_vars_json, x));
-        // safe unwrap: new_vars_json is a json object
-        Context::from_value(new_vars_json).unwrap()
+        Value::from_serialize(new_vars_json)
     }
 
     /// Replace options in args for standard docopt usage arguments
@@ -721,12 +719,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Value::from_serialize(json!({
                 "options": {
                     "help": true,
                 }
             }))
-            .unwrap()
         )
     }
 
@@ -762,12 +759,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Value::from_serialize(json!({
                 "options": {
                     "sorted": true,
                 }
             }))
-            .unwrap()
         );
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";
@@ -776,12 +772,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Value::from_serialize(json!({
                 "options": {
                     "o": "Fgwe=sad",
                 }
             }))
-            .unwrap()
         );
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";
@@ -790,12 +785,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Value::from_serialize(json!({
                 "options": {
                     "o": "Fgwe=sad",
                 }
             }))
-            .unwrap()
         );
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";

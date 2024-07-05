@@ -12,6 +12,7 @@ use std::path::Path;
 use std::process::exit;
 
 use clap::{crate_authors, crate_description, crate_version, ArgAction, Parser};
+use minijinja::context;
 
 #[macro_use]
 extern crate log;
@@ -140,24 +141,22 @@ fn main() {
     };
 
     match parse_file(&main_file, &global_params) {
-        Ok(tasks) => match env::load(args.environment) {
-            Ok(env_vars) => {
-                new_vars.extend(env_vars);
-                match Builtins::new(script_args, script_path) {
-                    Ok(builtins) => new_vars.insert("rash", &builtins),
-                    Err(e) => crash_error(e),
-                };
-                trace!("Vars: {}", &new_vars.clone().into_json().to_string());
-                match Context::exec(Context::new(tasks, new_vars)) {
-                    Ok(_) => (),
-                    Err(context_error) => match context_error.kind() {
-                        ErrorKind::EmptyTaskStack => (),
-                        _ => crash_error(context_error),
-                    },
-                };
-            }
-            Err(e) => crash_error(e),
-        },
+        Ok(tasks) => {
+            let env_vars = env::load(args.environment);
+            new_vars = context! {..new_vars, ..env_vars};
+            match Builtins::new(script_args, script_path) {
+                Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
+                Err(e) => crash_error(e),
+            };
+            trace!("Vars: {}", &new_vars.clone().to_string());
+            match Context::exec(Context::new(tasks, new_vars)) {
+                Ok(_) => (),
+                Err(context_error) => match context_error.kind() {
+                    ErrorKind::EmptyTaskStack => (),
+                    _ => crash_error(context_error),
+                },
+            };
+        }
         Err(e) => crash_error(e),
     }
 }

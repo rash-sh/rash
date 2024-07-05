@@ -12,4 +12,4 @@
   register: packages
 
 - debug:
-    msg: "{{ packages.extra | json_encode }}"
+    msg: "{{ packages.extra }}"

@@ -20,18 +20,18 @@
 ///     mode: "0400"
 /// ```
 /// ANCHOR_END: examples
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 use crate::modules::copy::copy_file;
 use crate::modules::copy::{Input, Params as CopyParams};
 use crate::modules::{parse_params, Module, ModuleResult};
+use crate::utils::jinja2::render_string;
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::fs::metadata;
+use std::fs::{metadata, read_to_string};
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
 
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
@@ -39,13 +39,12 @@ use schemars::schema::RootSchema;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_yaml::Value;
-use tera::Tera;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
-    /// Path of Tera formatted template.
+    /// Path of Jinja formatted template.
     /// This can be a relative or an absolute path.
     src: String,
     /// Absolute path where the file should be rendered to.
@@ -57,9 +56,6 @@ pub struct Params {
 }
 
 fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
-    let mut tera = Tera::default();
-    tera.add_template_file(Path::new(&params.src), None)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     let mode = match params.mode.as_deref() {
         Some("preserve") => {
             let src_metadata = metadata(&params.src)?;
@@ -71,10 +67,7 @@ fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
     };
 
     Ok(CopyParams {
-        input: Input::Content(
-            tera.render(&params.src, &vars)
-                .map_err(|e| Error::new(ErrorKind::InvalidData, e))?,
-        ),
+        input: Input::Content(render_string(&read_to_string(params.src)?, &vars)?),
         dest: params.dest.clone(),
         mode,
     })
@@ -113,11 +106,12 @@ impl Module for Template {
 mod tests {
     use super::*;
 
-    use crate::vars;
+    use crate::error::ErrorKind;
 
     use std::fs::{set_permissions, File};
     use std::io::Write;
 
+    use minijinja::context;
     use tempfile::tempdir;
 
     #[test]
@@ -205,7 +199,7 @@ mod tests {
         #[allow(clippy::write_literal)]
         writeln!(file, "{}", "{{ boo }}").unwrap();
 
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = context! { boo => "test" };
 
         let copy_params = render_content(
             Params {
@@ -240,7 +234,7 @@ mod tests {
         permissions.set_mode(0o604);
         set_permissions(&file_path, permissions).unwrap();
 
-        let vars = vars::from_iter(vec![("boo", "test")].into_iter());
+        let vars = Vars::from_serialize(context! { boo => "test" });
 
         let copy_params = render_content(
             Params {

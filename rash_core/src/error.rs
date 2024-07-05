@@ -4,9 +4,9 @@ use std::fmt;
 use std::io;
 use std::result;
 
+use minijinja::Error as JinjaError;
 use nix::Error as NixError;
 use serde_yaml::Error as YamlError;
-use tera::Error as TeraError;
 
 /// A specialized type `rash` operations.
 pub type Result<T> = result::Result<T, Error>;
@@ -48,7 +48,7 @@ pub enum ErrorKind {
     GracefulExit,
     /// An entity was not found, often a module.
     NotFound,
-    /// Data is invalid, often fail to render Tera.
+    /// Data is invalid.
     InvalidData,
     /// I/O error propagation
     IOError,
@@ -58,8 +58,8 @@ pub enum ErrorKind {
     SubprocessFail,
     /// Task stack is empty
     EmptyTaskStack,
-    /// Tera failed to render template
-    TeraRenderError,
+    /// Jinja2 failed to render template
+    JinjaRenderError,
     /// Any `rash` error not part of this list.
     Other,
 }
@@ -74,7 +74,7 @@ impl ErrorKind {
             ErrorKind::OmitParam => "omit param",
             ErrorKind::SubprocessFail => "subprocess fail",
             ErrorKind::EmptyTaskStack => "task stack is empty",
-            ErrorKind::TeraRenderError => "Tera failed to render template",
+            ErrorKind::JinjaRenderError => "Jinja2 failed to render template",
             ErrorKind::Other => "other os error",
         }
     }
@@ -167,7 +167,7 @@ impl From<NixError> for Error {
     }
 }
 
-impl From<TeraError> for Error {
+impl From<JinjaError> for Error {
     /// Converts an tera::Error into an [`Error`].
     ///
     /// This conversion allocates a new error with a custom representation of Tera error.
@@ -175,10 +175,10 @@ impl From<TeraError> for Error {
     ///
     /// [`Error`]: ../error/struct.Error.html
     #[inline]
-    fn from(error: TeraError) -> Error {
+    fn from(error: JinjaError) -> Error {
         Error {
             repr: Repr::Custom(Box::new(Custom {
-                kind: ErrorKind::TeraRenderError,
+                kind: ErrorKind::JinjaRenderError,
                 error: Box::new(error),
             })),
         }

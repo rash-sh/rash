@@ -23,7 +23,7 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, Module, ModuleResult};
-use crate::utils::tera::is_render_string;
+use crate::utils::jinja2::is_render_string;
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
@@ -136,7 +136,7 @@ mod tests {
             Params {
                 that: vec!["1 == 1".to_owned()],
             },
-            &Vars::new(),
+            &Vars::from_serialize(json!({})),
         )
         .unwrap();
     }
@@ -147,7 +147,7 @@ mod tests {
             Params {
                 that: vec!["1 != 1".to_owned()],
             },
-            &Vars::new(),
+            &Vars::from_serialize(json!({})),
         )
         .unwrap_err();
     }

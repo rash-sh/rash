@@ -8,14 +8,14 @@
 - name: user "{{ env.USER }}" loves
   debug:
     msg: |
-      "My favorite browser is {{ env.BROWSER | split(pat="/") | last | capitalize }}"
-  when: env | get(key="BROWSER")
+      "My favorite browser is {{ env.BROWSER | split("/") | last | capitalize }}"
+  when: "'BROWSER' in env"
 
 - command:
     cmd: "pwd"
     chdir: "{{ env.HOME }}"
     transfer_pid: true
-  when: env | get(key="MY_PASSWORD")
+  when: "'MY_PASSWORD' in env"
 
 - name: last command must send with transfer_pid to let it as PID 1
   command:

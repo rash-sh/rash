@@ -62,10 +62,9 @@ impl TaskValid {
                 v.iter()
                     .map(|x| self.parse_bool_or_string(x))
                     .collect::<Option<Vec<String>>>()?
-                    // tera v2 will fix this allowing ({})
-                    // .iter()
-                    // .map(|s| format!("({})", s))
-                    // .collect::<Vec<String>>()
+                    .iter()
+                    .map(|s| format!("({})", s))
+                    .collect::<Vec<String>>()
                     .join(" and "),
             ),
             None => self.parse_bool_or_string(attr),

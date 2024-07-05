@@ -33,6 +33,7 @@
 #  -w, --downloadonly   download packages but do not install/upgrade anything
 #  -y, --refresh        download fresh package databases from the server
 #                       (-yy to force a refresh even if up to date)
+#      --deps           list packages installed as dependencies [filter]
 #      --arch <arch>    set an alternate architecture
 #      --asdeps         install packages as non-explicitly installed
 #      --asexplicit     install packages as explicitly installed
@@ -71,7 +72,7 @@
       resolving dependencies...
       looking for conflicting packages...
 
-      Packages (1) {{ targets | join(sep=' ') }}
+      Packages (1) {{ targets | join(' ') }}
 
       Total Installed Size:  21.73 MiB
       Net Upgrade Size:       0.00 MiB
@@ -100,7 +101,7 @@
       resolving dependencies...
       looking for conflicting packages...
 
-      Packages (1) {{ targets | join(sep=' ') }}
+      Packages (1) {{ targets | join(' ') }}
 
       Total Installed Size:  21.73 MiB
       Net Upgrade Size:       0.00 MiB
@@ -127,11 +128,9 @@
 - name: Install
   debug:
     msg: "{{ item }}"
-  loop: "{{ targets | default (value=[]) }}"
-  vars:
-    a: "{{ options.upgrade or options.sync }}"
+  loop: "{{ targets | default([]) }}"
   when:
-    - a == "true"
+    - options.upgrade or options.sync
     - options.noconfirm
     - options.print_format == "%n"
 
@@ -166,7 +165,7 @@
     msg: |-
       checking dependencies...
 
-      Packages (1) {{ targets | join(sep=' ') }}
+      Packages (1) {{ targets | join(' ') }}
 
       Total Removed Size:  21.73 MiB
 
@@ -230,7 +229,7 @@
 - name: Packages to set reason
   debug:
     msg: "{{ item }}: install reason has been set to 'dependency installed'"
-  loop: "{{ targets | default (value=[]) }}"
+  loop: "{{ targets | default([]) }}"
   when:
     - options.database
     - options.asdeps
@@ -238,7 +237,7 @@
 - name: Packages to set reason
   debug:
     msg: "{{ item }}: install reason has been set to 'explicity installed'"
-  loop: "{{ targets | default (value=[]) }}"
+  loop: "{{ targets | default([]) }}"
   when:
     - options.database
     - options.asexplicit
@@ -250,12 +249,9 @@
       - -c
       - 'echo "error: no targets specified (use -h for help)" && exit 1'
     transfer_pid: true
-  # workaround until tera v2
-  vars:
-    a: "{{ options.upgrade or options.sync or options.remove or options.database }}"
-    b: "{{ targets is undefined or targets | length == 0 }}"
   when:
-    - a == "true" and b == "true"
+    - options.upgrade or options.sync or options.remove or options.database
+    - targets | default([]) | length == 0
     - not options.sysupgrade and not options.list
 
 - name: List packages explicitly installed

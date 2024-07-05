@@ -9,17 +9,16 @@ use crate::vars::Vars;
 
 use std::collections::HashSet;
 
+use minijinja::context;
 use regex::{Regex, RegexSet};
-use tera::Context;
 
 /// Parse file doc and args to return docopts variables.
 /// Supports help subcommand to print help and exit.
 pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
     let help_msg = parse_help(file);
-    let mut vars = Context::new();
     let usages = match parse_usage(&help_msg) {
         Some(usages) => usages,
-        None => return Ok(vars),
+        None => return Ok(context! {}),
     };
 
     let options = options::Options::parse_doc(&help_msg, &usages)?;
@@ -106,8 +105,17 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })
         .collect();
 
+    let mut vars = options.initial_vars();
+    // TODO: change vars.extend to a more functional approach with context! {vars, ..context!{}}
     // init vars
-    vars.extend(options.initial_vars());
+
+    // create lambda for extend vars
+    let extend_vars = |vars: Vars, x: Vars| {
+        context! {
+        ..vars,
+        ..x}
+    };
+
     args_defs_expand_repeatable
         .clone()
         .iter()
@@ -117,24 +125,21 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, arg_def)| match args_kinds[usage_idx].get(idx) {
-                    Some(0) => Some(
-                        Context::from_value(
-                            match args_defs_expand_repeatable.iter().any(|args_def| {
-                                args_def.iter().filter(|&x| x == arg_def).count() > 1
-                            }) {
-                                true => json!({arg_def: 0}),
-                                false => json!({arg_def: false}),
-                            },
-                        )
-                        // safe unwrap: all args_kinds were previously checked
-                        .unwrap(),
-                    ),
+                    Some(0) => Some(Vars::from_serialize(
+                        match args_defs_expand_repeatable
+                            .iter()
+                            .any(|args_def| args_def.iter().filter(|&x| x == arg_def).count() > 1)
+                        {
+                            true => json!({arg_def: 0}),
+                            false => json!({arg_def: false}),
+                        },
+                    )),
                     Some(1) | Some(2) => None,
                     _ => unreachable!(),
                 })
                 .collect::<Vec<Vars>>()
         })
-        .for_each(|x| vars.extend(x));
+        .for_each(|x| vars = extend_vars(vars.clone(), x));
 
     let vars_vec = args_defs_expand_repeatable
         .iter()
@@ -170,19 +175,18 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
             Error::new(ErrorKind::InvalidData, help_msg.clone())
         })?;
 
-    let mut new_vars_json = vars.into_json();
+    let mut new_vars_json = json! {vars.clone()};
     vars_vec
         .into_iter()
-        .map(|x| x.into_json())
+        .map(|x| json! {x})
         .for_each(|x| merge_json(&mut new_vars_json, x));
-    // safe unwrap: new_vars_json is a json object
-    let new_vars = Context::from_value(new_vars_json).unwrap();
+    let new_vars = Vars::from_serialize(new_vars_json);
 
-    match new_vars.get("help") {
-        Some(json!(true)) => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
-        _ => match new_vars.get("options") {
-            Some(options) => match options.get("help") {
-                Some(json!(true)) => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
+    match new_vars.get_attr("help") {
+        Ok(y) if y.is_true() => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
+        _ => match new_vars.get_attr("options") {
+            Ok(options) => match options.get_attr("help") {
+                Ok(z) if z.is_true() => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
                 _ => Ok(new_vars),
             },
             _ => Ok(new_vars),
@@ -413,7 +417,7 @@ fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Vars> {
         } else {
             json!({arg: true})
         };
-        Some(Context::from_value(value).unwrap())
+        Some(Vars::from_serialize(value))
     } else {
         None
     }
@@ -427,7 +431,7 @@ fn parse_positional(arg: &str, def: &str) -> Vars {
     } else {
         json!({ key: arg })
     };
-    Context::from_value(value).unwrap()
+    Vars::from_serialize(value)
 }
 
 #[cfg(test)]
@@ -449,14 +453,13 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "help": false,
                 "install": true,
                 "update": false,
                 "package_filters": vec!["foo"],
             }))
-            .unwrap()
         );
 
         let args = vec!["install", "foo", "boo"];
@@ -464,14 +467,13 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "help": false,
                 "install": true,
                 "update": false,
                 "package_filters": vec!["foo", "boo"],
             }))
-            .unwrap()
         )
     }
 
@@ -490,11 +492,10 @@ mod tests {
         let result = parse(file, &args).unwrap();
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Vars::from_serialize(json!({
                 "source": ["foo", "boo"],
                 "dest": "/tmp",
             }))
-            .unwrap()
         )
     }
 
@@ -512,11 +513,10 @@ mod tests {
         let result = parse(file, &args).unwrap();
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Vars::from_serialize(json!({
                 "a": ["a", "c"],
                 "b": ["b", "d"],
             }))
-            .unwrap()
         )
     }
 
@@ -571,12 +571,11 @@ mod tests {
         let result = parse(file, &args).unwrap();
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Vars::from_serialize(json!({
                 "options": {
                     "d": true,
                 }
             }))
-            .unwrap()
         )
     }
 
@@ -595,14 +594,13 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "help": false,
                 "install": true,
                 "update": false,
                 "package_filters": vec!["foo", "boo"],
             }))
-            .unwrap()
         );
 
         let args = vec!["install"];
@@ -626,12 +624,11 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "a": 2,
                 "b": 0,
             }))
-            .unwrap()
         )
     }
 
@@ -649,13 +646,12 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "d": 0,
                 },
             }))
-            .unwrap()
         );
 
         let args = vec!["-d"];
@@ -663,13 +659,12 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "d": 1,
                 },
             }))
-            .unwrap()
         );
 
         let args = vec!["-dd"];
@@ -677,13 +672,12 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "d": 2,
                 },
             }))
-            .unwrap()
         );
 
         let args = vec!["-d", "-d"];
@@ -691,13 +685,12 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "d": 2,
                 },
             }))
-            .unwrap()
         );
     }
 
@@ -712,18 +705,17 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Context::from_value(json!({})).unwrap());
+        assert_eq!(result, Vars::from_serialize(json!({})));
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "d": "x",
             }))
-            .unwrap()
         );
     }
 
@@ -739,18 +731,17 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Context::from_value(json!({})).unwrap());
+        assert_eq!(result, Vars::from_serialize(json!({})));
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "d": vec!["x"],
             }))
-            .unwrap()
         );
 
         let args = vec!["x", "y"];
@@ -758,11 +749,10 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "d": vec!["x", "y"],
             }))
-            .unwrap()
         );
 
         let file = r#"
@@ -775,18 +765,17 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Context::from_value(json!({})).unwrap());
+        assert_eq!(result, Vars::from_serialize(json!({})));
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "d": vec!["x"],
             }))
-            .unwrap()
         );
 
         let args = vec!["x", "y"];
@@ -794,11 +783,10 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "d": vec!["x", "y"],
             }))
-            .unwrap()
         );
     }
 
@@ -833,7 +821,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "drifting": true,
@@ -852,7 +840,6 @@ mod tests {
                 "ship": false,
                 "shoot": false
             }))
-            .unwrap()
         );
 
         let args = vec!["mine", "set", "10", "50", "--speed=50"];
@@ -865,7 +852,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "drifting": false,
@@ -887,7 +874,6 @@ mod tests {
                 "ship": true,
                 "shoot": false
             }))
-            .unwrap()
         );
 
         let args = vec!["ship", "foo", "move", "2", "3", "-s20"];
@@ -895,7 +881,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "drifting": false,
@@ -917,7 +903,6 @@ mod tests {
                 "ship": true,
                 "shoot": false
             }))
-            .unwrap()
         );
 
         let args = vec!["ship", "foo", "move", "2", "3", "-s=20"];
@@ -925,7 +910,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "drifting": false,
@@ -947,7 +932,6 @@ mod tests {
                 "ship": true,
                 "shoot": false
             }))
-            .unwrap()
         );
 
         let args = vec!["ship", "foo", "move", "2", "3", "-s20", "-x"];
@@ -976,7 +960,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "dry_run": false,
@@ -987,7 +971,6 @@ mod tests {
                     "o": "yea",
                 },
             }))
-            .unwrap()
         )
     }
 
@@ -1010,7 +993,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "dry_run": false,
@@ -1018,7 +1001,6 @@ mod tests {
                     "help": false,
                 },
             }))
-            .unwrap()
         )
     }
 
@@ -1043,7 +1025,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Context::from_value(json!(
+            Vars::from_serialize(json!(
             {
                 "options": {
                     "apply": false,
@@ -1055,7 +1037,6 @@ mod tests {
                 },
                 "port": "443"
             }))
-            .unwrap()
         );
     }
 
@@ -1437,10 +1418,9 @@ Foo:
         let result = parse_required(arg, arg_def, &[]).unwrap();
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Vars::from_serialize(json!({
                 "foo": true,
             }))
-            .unwrap()
         )
     }
 
@@ -1461,10 +1441,9 @@ Foo:
         let result = parse_positional(arg, arg_def);
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Vars::from_serialize(json!({
                 "foo": "boo",
             }))
-            .unwrap()
         )
     }
 
@@ -1476,10 +1455,9 @@ Foo:
         let result = parse_positional(arg, arg_def);
         assert_eq!(
             result,
-            Context::from_value(json!({
+            Vars::from_serialize(json!({
                 "foo": vec!["boo"],
             }))
-            .unwrap()
         )
     }
 }

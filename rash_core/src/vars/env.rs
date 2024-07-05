@@ -1,11 +1,9 @@
-use crate::error::{Error, ErrorKind, Result};
 use crate::vars::Vars;
 
 use std::collections::HashMap;
 use std::env;
 
 use serde::Serialize;
-use tera::Context;
 
 #[derive(Serialize)]
 struct Env {
@@ -31,13 +29,12 @@ impl From<env::Vars> for Env {
 ///
 /// use std::env;
 ///
-/// let vars = load(vec![("foo".to_owned(), "boo".to_owned())]).unwrap();
+/// let vars = load(vec![("foo".to_owned(), "boo".to_owned())]);
 /// ```
-pub fn load(envars: Vec<(String, String)>) -> Result<Vars> {
+pub fn load(envars: Vec<(String, String)>) -> Vars {
     trace!("{:?}", envars);
     envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
-    Context::from_serialize(Env::from(env::vars()))
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))
+    Vars::from_serialize(Env::from(env::vars()))
 }
 
 #[cfg(test)]
@@ -55,23 +52,24 @@ mod tests {
     #[test]
     fn test_inventory_from_envars() {
         run_test_with_envar(("KEY", "VALUE"), || {
-            let json = load(vec![]).unwrap().into_json();
-            let result = json.get("env").unwrap().get("KEY").unwrap();
+            let vars = load(vec![]);
+            let result = vars.get_attr("env").unwrap().get_attr("KEY").unwrap();
 
-            assert_eq!(result, "VALUE");
+            assert_eq!(result.to_string(), "VALUE");
         });
     }
 
     #[test]
     fn test_inventory_from_envars_none() {
         run_test_with_envar(("KEY_NOT_FOUND", "VALUE"), || {
-            let vars = load(vec![]).unwrap();
-            assert!(vars
-                .into_json()
-                .get("env")
-                .unwrap()
-                .get("key_not_found")
-                .is_none());
+            let vars = load(vec![]);
+            assert_eq!(
+                vars.get_attr("env")
+                    .unwrap()
+                    .get_attr("key_not_found")
+                    .unwrap(),
+                Vars::UNDEFINED
+            );
         });
     }
 }

@@ -27,7 +27,7 @@
 /// ANCHOR_END: examples
 use crate::error::Result;
 use crate::modules::{parse_params, Module, ModuleResult};
-use crate::utils::tera::render_string;
+use crate::utils::jinja2::render_string;
 use crate::vars::Vars;
 
 #[cfg(feature = "docs")]
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_debug_msg() {
-        let vars = Vars::new();
+        let vars = Vars::UNDEFINED;
         let output = debug(
             Params {
                 required: Required::Msg("foo boo".to_owned()),
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_debug_vars() {
-        let vars = Vars::from_value(json!({"yea": "foo"})).unwrap();
+        let vars = Vars::from_serialize(json!({"yea": "foo"}));
         let output = debug(
             Params {
                 required: Required::Var("yea".to_owned()),
