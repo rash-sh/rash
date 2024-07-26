@@ -1,19 +1,23 @@
 use itertools::Itertools;
-use lazy_static;
 use regex::{Captures, Regex};
+
+use std::sync::LazyLock;
 
 pub const WORDS_REGEX: &str = r"[a-z]+(?:[_\-][a-z]+)*";
 pub const WORDS_UPPERCASE_REGEX: &str = r"[A-Z]+(?:[_\-][A-Z]+)*";
 
-lazy_static! {
-    static ref RE_INNER_PARENTHESIS: Regex = Regex::new(r"\(([^\(]+?)\)(\.\.\.)?").unwrap();
-    static ref RE_INNER_BRACKETS: Regex = Regex::new(r"\[([^\[]+?)\](\.\.\.)?").unwrap();
-    static ref RE_INNER_CURLY_BRACES: Regex = Regex::new(r"(\{[^\[]+?\})(\.\.\.)?").unwrap();
-    static ref RE_REPEATABLE: Regex = Regex::new(&format!(
+static RE_INNER_PARENTHESIS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\(([^\(]+?)\)(\.\.\.)?").unwrap());
+static RE_INNER_BRACKETS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([^\[]+?)\](\.\.\.)?").unwrap());
+static RE_INNER_CURLY_BRACES: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(\{[^\[]+?\})(\.\.\.)?").unwrap());
+static RE_REPEATABLE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
         r"(<{WORDS_REGEX}>|{WORDS_UPPERCASE_REGEX})\x20?(\.\.\.)"
     ))
-    .unwrap();
-}
+    .unwrap()
+});
 
 #[derive(Debug, Clone, Copy)]
 pub enum RegexMatch {

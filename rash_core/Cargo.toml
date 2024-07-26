@@ -22,7 +22,6 @@ docs = ["rash_derive/docs", "schemars"]
 
 [dependencies]
 rash_derive = { path = "../rash_derive", version = "1.10.5" }
-lazy_static.workspace = true
 log.workspace = true
 regex.workspace = true
 schemars = { workspace = true, optional = true }

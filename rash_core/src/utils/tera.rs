@@ -4,6 +4,7 @@ use crate::vars::Vars;
 
 use std::collections::HashMap;
 use std::error::Error as StdError;
+use std::sync::LazyLock;
 
 use serde_yaml::value::Value;
 use tera::Tera;
@@ -21,9 +22,7 @@ fn init_tera() -> Tera {
     tera
 }
 
-lazy_static! {
-    static ref TERA: Tera = init_tera();
-}
+static TERA: LazyLock<Tera> = LazyLock::new(init_tera);
 
 #[inline(always)]
 pub fn render(value: Value, vars: &Vars) -> Result<Value> {

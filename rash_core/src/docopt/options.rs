@@ -4,6 +4,7 @@ use crate::utils::merge_json;
 use crate::vars::Vars;
 
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 use itertools::Itertools;
 use regex::Regex;
@@ -11,9 +12,8 @@ use tera::Context;
 
 const OPTIONS_MARK: &str = "[options]";
 
-lazy_static! {
-    static ref RE_DEFAULT_VALUE: Regex = Regex::new(r"\[default: (.*)\]").unwrap();
-}
+static RE_DEFAULT_VALUE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[default: (.*)\]").unwrap());
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum OptionArg {

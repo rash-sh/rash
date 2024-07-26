@@ -22,6 +22,7 @@ use crate::modules::template::Template;
 use crate::vars::Vars;
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
@@ -79,23 +80,21 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     fn get_json_schema(&self) -> Option<RootSchema>;
 }
 
-lazy_static! {
-    pub static ref MODULES: HashMap<&'static str, Box<dyn Module>> = {
-        vec![
-            (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
-            (Command.get_name(), Box::new(Command) as Box<dyn Module>),
-            (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
-            (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
-            (File.get_name(), Box::new(File) as Box<dyn Module>),
-            (Find.get_name(), Box::new(Find) as Box<dyn Module>),
-            (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
-            (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
-            (Template.get_name(), Box::new(Template) as Box<dyn Module>),
-        ]
-        .into_iter()
-        .collect()
-    };
-}
+pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
+    vec![
+        (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
+        (Command.get_name(), Box::new(Command) as Box<dyn Module>),
+        (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
+        (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
+        (File.get_name(), Box::new(File) as Box<dyn Module>),
+        (Find.get_name(), Box::new(Find) as Box<dyn Module>),
+        (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
+        (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
+        (Template.get_name(), Box::new(Template) as Box<dyn Module>),
+    ]
+    .into_iter()
+    .collect()
+});
 
 #[inline(always)]
 pub fn is_module(module: &str) -> bool {
