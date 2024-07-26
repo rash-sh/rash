@@ -6,7 +6,7 @@ resolver = "2"
 [workspace.package]
 version = "1.10.5"
 authors = ["Pando85 <pando855@gmail.com>"]
-rust-version = "1.74"
+rust-version = "1.80"
 edition = "2021"
 license-file = "LICENSE"
 homepage = "https://rash.sh"
@@ -15,7 +15,6 @@ readme = "README.md"
 
 [workspace.dependencies]
 clap = "4.5.4"
-lazy_static = "1.4.0"
 log = "0.4.21"
 regex = "1.10.4"
 schemars = "0.8.17"

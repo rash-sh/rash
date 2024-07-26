@@ -16,7 +16,6 @@ doc = false
 
 [dependencies]
 rash_core = { path = "../rash_core", features = ["docs"], version = "1.10.5" }
-lazy_static.workspace = true
 log.workspace = true
 regex.workspace = true
 schemars.workspace = true

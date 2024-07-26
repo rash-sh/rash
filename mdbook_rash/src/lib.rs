@@ -1,5 +1,7 @@
 use rash_core::modules::MODULES;
 
+use std::sync::LazyLock;
+
 use mdbook::book::{Book, BookItem, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{LinkPreprocessor, Preprocessor, PreprocessorContext};
@@ -9,13 +11,11 @@ use schemars::schema::{RootSchema, SingleOrVec};
 
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate lazy_static;
 
 pub static SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
-lazy_static! {
-    static ref RE: Regex = Regex::new(
+static RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
         r#"(?x)                                                # insignificant whitespace mode
         \{\s*                                                  # link opening parens and whitespace
         \$([a-zA-Z0-9_]+)                                      # link type
@@ -23,8 +23,11 @@ lazy_static! {
         ([a-zA-Z0-9\s_.,\*\{\}\[\]\(\)\|'\-\\/`"\#+=:/\\]+))?  # all doc
         \s*\}                                                  # whitespace and link closing parens"#
     )
-    .unwrap();
-    static ref FORMAT: format::TableFormat = format::FormatBuilder::new()
+    .unwrap()
+});
+
+static FORMAT: LazyLock<format::TableFormat> = LazyLock::new(|| {
+    format::FormatBuilder::new()
         .padding(1, 1)
         .borders('|')
         .separator(
@@ -32,8 +35,8 @@ lazy_static! {
             format::LineSeparator::new('-', '|', '|', '|'),
         )
         .column_separator('|')
-        .build();
-}
+        .build()
+});
 
 fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
     RE.captures_iter(&ch.content)
