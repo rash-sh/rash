@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_render_string_omit() {
-        let string = "{{ package_filters | default(value=omit()) }}";
+        let string = "{{ package_filters | default(omit()) }}";
         let e = render_string(string, &context! {}).unwrap_err();
         assert_eq!(e.kind(), error::ErrorKind::OmitParam)
     }

@@ -4,8 +4,8 @@
       server {
         listen       80;
 
-        {% for domain in env.DOMAINS | split(pat=',') -%}
-        {% set path = domain | split(pat='.') | first -%}
+        {% for domain in env.DOMAINS | split(',') -%}
+        {% set path = domain | split('.') | first -%}
         location /{{ path }} {
             rewrite /{{ path }}[/]?(.*) /$1 break;
             proxy_pass http://{{ domain }};

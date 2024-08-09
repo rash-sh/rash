@@ -25,7 +25,7 @@ omit them programmatically.
 E.g.:
 
 ```
-"{{ env.MY_PASSWORD_MODE | default(value=omit()) }}"
+"{{ env.MY_PASSWORD_MODE | default(omit()) }}"
 ```
 
 Furthermore, if you are chaining additional filters after the `default(omit())`, you should instead
