@@ -177,6 +177,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
         .into_iter()
         .map(|x| json! {x})
         .for_each(|x| merge_json(&mut new_vars_json, x));
+    trace!("new_vars_json: {new_vars_json}");
     let new_vars = Value::from_serialize(new_vars_json);
 
     match new_vars.get_attr("help") {

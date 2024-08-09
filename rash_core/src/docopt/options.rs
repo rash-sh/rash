@@ -1,12 +1,11 @@
 use crate::docopt::utils::{expand_brackets, split_keeping_separators};
 use crate::error::{Error, ErrorKind, Result};
-use crate::utils::merge_json;
 
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use itertools::Itertools;
-use minijinja::Value;
+use minijinja::{context, Value};
 use regex::Regex;
 
 const OPTIONS_MARK: &str = "[options]";
@@ -348,37 +347,33 @@ impl Options {
     }
 
     pub fn initial_vars(&self) -> Value {
-        // TODO: refactor to more functional way and remove JSON. Look for a better structure to
-        // store state
-        let mut new_vars_json = json!({});
+        // TODO: options are not merged as happened with json_merge
+        let mut value = context! {};
 
         self.hash_set
             .clone()
             .into_iter()
             .map(|option_arg| {
                 let value = match option_arg.clone() {
-                    OptionArg::Simple { .. } => {
-                        json!(false)
-                    }
-                    OptionArg::Repeatable { .. } => {
-                        json!(0)
-                    }
+                    OptionArg::Simple { .. } => Value::from(false),
+                    OptionArg::Repeatable { .. } => Value::from(0),
                     OptionArg::WithParam { default_value, .. } => {
-                        if default_value.is_some() {
-                            json!(default_value.unwrap())
+                        if let Some(v) = default_value {
+                            Value::from(v)
                         } else {
-                            json!(null)
+                            Value::UNDEFINED
                         }
                     }
                 };
-                json!(
-                { "options":
-                    { option_arg.get_key_representation(): value
-                    }
-                })
+                context! { options =>
+                    Value::from_serialize(json!({ option_arg.get_key_representation(): value
+                    }))
+                }
             })
-            .for_each(|x| merge_json(&mut new_vars_json, x));
-        Value::from_serialize(new_vars_json)
+            .for_each(|x| {
+                value = context! {..x, ..value.clone()};
+            });
+        value
     }
 
     /// Replace options in args for standard docopt usage arguments
