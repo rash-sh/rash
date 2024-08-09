@@ -24,7 +24,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff_files;
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::parse_octal;
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -42,7 +42,7 @@ use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 use tempfile::tempfile;
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -240,10 +240,10 @@ impl Module for Copy {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((copy_file(parse_params(optional_params)?, check_mode)?, vars))
     }
 
@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             content: "boo"
             dest: "/tmp/buu.txt"
@@ -288,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_mode_int() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             content: "boo"
             dest: "/tmp/buu.txt"
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             content: "boo"
             dest: "/tmp/buu.txt"
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_src_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             src: "/tmp/a"
             dest: "/tmp/buu.txt"
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_content_and_src() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             content: "boo"
             src: "/tmp/a"
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             random: "boo"
             src: "/tmp/a"

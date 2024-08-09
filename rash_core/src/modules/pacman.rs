@@ -49,7 +49,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::logger;
 use crate::modules::utils::default_false;
 use crate::modules::{parse_params, Module, ModuleResult};
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -64,7 +64,7 @@ use schemars::schema::RootSchema;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_with::{serde_as, OneOrMany};
-use serde_yaml::{value, Value};
+use serde_yaml::{value, Value as YamlValue};
 use shlex::split;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
@@ -157,10 +157,10 @@ impl Module for Pacman {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((pacman(parse_params(optional_params)?, check_mode)?, vars))
     }
 
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             name: rustup
             state: present
@@ -425,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_all_values() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             executable: yay
             extra_args: "--nodeps --nodeps"
@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             name: rustup
             foo: yea

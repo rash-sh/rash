@@ -24,7 +24,7 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::jinja2::is_render_string;
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -34,7 +34,7 @@ use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -45,7 +45,7 @@ pub struct Params {
     that: Vec<String>,
 }
 
-fn verify_conditions(params: Params, vars: &Vars) -> Result<ModuleResult> {
+fn verify_conditions(params: Params, vars: &Value) -> Result<ModuleResult> {
     params.that.iter().try_for_each(|expression| {
         if is_render_string(expression, vars)? {
             Ok(())
@@ -73,10 +73,10 @@ impl Module for Assert {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((
             verify_conditions(parse_params(optional_params)?, &vars)?,
             vars,
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             that:
               - 1 == 1
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             that:
               - 1 == 1
@@ -131,7 +131,7 @@ mod tests {
             Params {
                 that: vec!["1 == 1".to_owned()],
             },
-            &Vars::from_serialize(json!({})),
+            &Value::from_serialize(json!({})),
         )
         .unwrap();
     }
@@ -142,7 +142,7 @@ mod tests {
             Params {
                 that: vec!["1 != 1".to_owned()],
             },
-            &Vars::from_serialize(json!({})),
+            &Value::from_serialize(json!({})),
         )
         .unwrap_err();
     }

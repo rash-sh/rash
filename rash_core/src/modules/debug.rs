@@ -25,7 +25,7 @@
 use crate::error::Result;
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::jinja2::render_string;
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -35,7 +35,7 @@ use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -56,7 +56,7 @@ pub enum Required {
     Var(String),
 }
 
-fn debug(params: Params, vars: &Vars) -> Result<ModuleResult> {
+fn debug(params: Params, vars: &Value) -> Result<ModuleResult> {
     let output = match params.required {
         Required::Msg(s) => s,
         Required::Var(var) => render_string(&format!("{{{{ {var} }}}}"), vars)?,
@@ -78,10 +78,10 @@ impl Module for Debug {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((debug(parse_params(optional_params)?, &vars)?, vars))
     }
 
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             msg: foo boo
             "#,
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_default() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             var: rash.args
             "#,
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_debug_msg() {
-        let vars = Vars::UNDEFINED;
+        let vars = Value::UNDEFINED;
         let output = debug(
             Params {
                 required: Required::Msg("foo boo".to_owned()),
@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_debug_vars() {
-        let vars = Vars::from_serialize(json!({"yea": "foo"}));
+        let vars = Value::from_serialize(json!({"yea": "foo"}));
         let output = debug(
             Params {
                 required: Required::Var("yea".to_owned()),

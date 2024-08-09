@@ -32,7 +32,7 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::utils::default_false;
 use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -48,7 +48,7 @@ use schemars::schema::RootSchema;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_with::{serde_as, OneOrMany};
-use serde_yaml::{value, Value};
+use serde_yaml::{value, Value as YamlValue};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -250,10 +250,10 @@ impl Module for Find {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((find(parse_params(optional_params)?)?, vars))
     }
 
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             paths: /var/log
             recurse: false
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_default() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             paths: /var/log
             "#,
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             paths: /var/log
             yea: boo
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_one_or_many() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             paths:
               - /foo

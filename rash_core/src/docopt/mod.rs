@@ -5,7 +5,7 @@ use utils::{get_smallest_regex_match, RegexMatch, WORDS_REGEX, WORDS_UPPERCASE_R
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
-use crate::vars::Vars;
+use minijinja::Value;
 
 use std::collections::HashSet;
 
@@ -14,7 +14,7 @@ use regex::{Regex, RegexSet};
 
 /// Parse file doc and args to return docopts variables.
 /// Supports help subcommand to print help and exit.
-pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
+pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     let help_msg = parse_help(file);
     let usages = match parse_usage(&help_msg) {
         Some(usages) => usages,
@@ -105,7 +105,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })
         .collect();
 
-    let extend_vars = |vars: Vars, x: Vars| {
+    let extend_vars = |vars: Value, x: Value| {
         context! {
         ..vars,
         ..x}
@@ -122,7 +122,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, arg_def)| match args_kinds[usage_idx].get(idx) {
-                    Some(0) => Some(Vars::from_serialize(
+                    Some(0) => Some(Value::from_serialize(
                         match args_defs_expand_repeatable
                             .iter()
                             .any(|args_def| args_def.iter().filter(|&x| x == arg_def).count() > 1)
@@ -134,7 +134,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                     Some(1) | Some(2) => None,
                     _ => unreachable!(),
                 })
-                .collect::<Vec<Vars>>()
+                .collect::<Vec<Value>>()
         })
         .for_each(|x| vars = extend_vars(vars.clone(), x));
 
@@ -164,7 +164,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
                     2 => options.parse(arg, &args_def[idx]),
                     _ => unreachable!(),
                 })
-                .collect::<Option<Vec<Vars>>>()
+                .collect::<Option<Vec<Value>>>()
         })
         .ok_or_else(|| {
             trace!("args: {args:?}");
@@ -177,7 +177,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         .into_iter()
         .map(|x| json! {x})
         .for_each(|x| merge_json(&mut new_vars_json, x));
-    let new_vars = Vars::from_serialize(new_vars_json);
+    let new_vars = Value::from_serialize(new_vars_json);
 
     match new_vars.get_attr("help") {
         Ok(y) if y.is_true() => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
@@ -407,20 +407,20 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
     }
 }
 
-fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Vars> {
+fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Value> {
     if arg == def {
         let value = if defs.iter().filter(|&x| *x == def).count() > 1 {
             json!({arg: 1})
         } else {
             json!({arg: true})
         };
-        Some(Vars::from_serialize(value))
+        Some(Value::from_serialize(value))
     } else {
         None
     }
 }
 
-fn parse_positional(arg: &str, def: &str) -> Vars {
+fn parse_positional(arg: &str, def: &str) -> Value {
     // safe unwrap: Must be a positional argument definition
     let key = def.strip_prefix('<').unwrap().split_once('>').unwrap().0;
     let value = if def.ends_with('+') {
@@ -428,7 +428,7 @@ fn parse_positional(arg: &str, def: &str) -> Vars {
     } else {
         json!({ key: arg })
     };
-    Vars::from_serialize(value)
+    Value::from_serialize(value)
 }
 
 #[cfg(test)]
@@ -450,7 +450,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "help": false,
                 "install": true,
@@ -464,7 +464,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "help": false,
                 "install": true,
@@ -489,7 +489,7 @@ mod tests {
         let result = parse(file, &args).unwrap();
         assert_eq!(
             result,
-            Vars::from_serialize(json!({
+            Value::from_serialize(json!({
                 "source": ["foo", "boo"],
                 "dest": "/tmp",
             }))
@@ -510,7 +510,7 @@ mod tests {
         let result = parse(file, &args).unwrap();
         assert_eq!(
             result,
-            Vars::from_serialize(json!({
+            Value::from_serialize(json!({
                 "a": ["a", "c"],
                 "b": ["b", "d"],
             }))
@@ -568,7 +568,7 @@ mod tests {
         let result = parse(file, &args).unwrap();
         assert_eq!(
             result,
-            Vars::from_serialize(json!({
+            Value::from_serialize(json!({
                 "options": {
                     "d": true,
                 }
@@ -591,7 +591,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "help": false,
                 "install": true,
@@ -621,7 +621,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "a": 2,
                 "b": 0,
@@ -643,7 +643,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "d": 0,
@@ -656,7 +656,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "d": 1,
@@ -669,7 +669,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "d": 2,
@@ -682,7 +682,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "d": 2,
@@ -702,14 +702,14 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Vars::from_serialize(json!({})));
+        assert_eq!(result, Value::from_serialize(json!({})));
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "d": "x",
             }))
@@ -728,14 +728,14 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Vars::from_serialize(json!({})));
+        assert_eq!(result, Value::from_serialize(json!({})));
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "d": vec!["x"],
             }))
@@ -746,7 +746,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "d": vec!["x", "y"],
             }))
@@ -762,14 +762,14 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Vars::from_serialize(json!({})));
+        assert_eq!(result, Value::from_serialize(json!({})));
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "d": vec!["x"],
             }))
@@ -780,7 +780,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "d": vec!["x", "y"],
             }))
@@ -818,7 +818,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "drifting": true,
@@ -849,7 +849,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "drifting": false,
@@ -878,7 +878,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "drifting": false,
@@ -907,7 +907,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "drifting": false,
@@ -957,7 +957,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "dry_run": false,
@@ -990,7 +990,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "dry_run": false,
@@ -1022,7 +1022,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Vars::from_serialize(json!(
+            Value::from_serialize(json!(
             {
                 "options": {
                     "apply": false,
@@ -1415,7 +1415,7 @@ Foo:
         let result = parse_required(arg, arg_def, &[]).unwrap();
         assert_eq!(
             result,
-            Vars::from_serialize(json!({
+            Value::from_serialize(json!({
                 "foo": true,
             }))
         )
@@ -1438,7 +1438,7 @@ Foo:
         let result = parse_positional(arg, arg_def);
         assert_eq!(
             result,
-            Vars::from_serialize(json!({
+            Value::from_serialize(json!({
                 "foo": "boo",
             }))
         )
@@ -1452,7 +1452,7 @@ Foo:
         let result = parse_positional(arg, arg_def);
         assert_eq!(
             result,
-            Vars::from_serialize(json!({
+            Value::from_serialize(json!({
                 "foo": vec!["boo"],
             }))
         )

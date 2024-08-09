@@ -1,7 +1,6 @@
 use crate::docopt::utils::{expand_brackets, split_keeping_separators};
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
-use crate::vars::Vars;
 
 use std::collections::HashSet;
 use std::sync::LazyLock;
@@ -327,7 +326,7 @@ impl Options {
         description_options.extend(Options::new(usage_options))
     }
 
-    pub fn parse(&self, arg: &str, def: &str) -> Option<Vars> {
+    pub fn parse(&self, arg: &str, def: &str) -> Option<Value> {
         let option_arg = self.find(arg.split('=').next().unwrap())?;
         // check arg is in def
         def.replace(['{', '}'], "")
@@ -348,7 +347,7 @@ impl Options {
         })))
     }
 
-    pub fn initial_vars(&self) -> Vars {
+    pub fn initial_vars(&self) -> Value {
         // TODO: refactor to more functional way and remove JSON. Look for a better structure to
         // store state
         let mut new_vars_json = json!({});
