@@ -30,7 +30,7 @@ our [installation guide](installation.md).
 
 YAML syntax based on [modules](module_index.md).
 
-Besides, `rash` includes [Tera](https://tera.netlify.app/docs/) templates which you can use
+Besides, `rash` includes [MiniJinja](https://docs.rs/minijinja/) templates which you can use
 anywhere. You can use all its functions and combine them as you want.
 
 `rash` implements custom [builtins](vars.md), too. For example, `{{ rash.path }}` or

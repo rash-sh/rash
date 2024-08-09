@@ -168,9 +168,9 @@ impl From<NixError> for Error {
 }
 
 impl From<JinjaError> for Error {
-    /// Converts an tera::Error into an [`Error`].
+    /// Converts an minijinja::Error into an [`Error`].
     ///
-    /// This conversion allocates a new error with a custom representation of Tera error.
+    /// This conversion allocates a new error with a custom representation of MiniJinja error.
     ///
     ///
     /// [`Error`]: ../error/struct.Error.html

@@ -30,7 +30,6 @@
         "docker",
         "filter",
         "group",
-        "tera",
         "lookup",
         "module",
         "task",
