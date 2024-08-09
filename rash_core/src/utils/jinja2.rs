@@ -52,7 +52,6 @@ pub fn render(value: Value, vars: &Vars) -> Result<Value> {
     }
 }
 
-// TODO: remove borrowing if possible
 #[inline(always)]
 pub fn render_string(s: &str, vars: &Vars) -> Result<String> {
     let mut env = MINIJINJA_ENV.clone();
@@ -62,13 +61,6 @@ pub fn render_string(s: &str, vars: &Vars) -> Result<String> {
     tmpl.render(vars).map_err(map_minijinja_error)
 }
 
-// TODO: check this
-#[inline(always)]
-pub fn render_as_json(s: &str, vars: &Vars) -> Result<String> {
-    render_string(s, vars)
-}
-
-// TODO: use minijinja compile_expression
 #[inline(always)]
 pub fn is_render_string(s: &str, vars: &Vars) -> Result<bool> {
     match render_string(

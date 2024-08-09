@@ -105,16 +105,13 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Vars> {
         })
         .collect();
 
-    let mut vars = options.initial_vars();
-    // TODO: change vars.extend to a more functional approach with context! {vars, ..context!{}}
-    // init vars
-
-    // create lambda for extend vars
     let extend_vars = |vars: Vars, x: Vars| {
         context! {
         ..vars,
         ..x}
     };
+
+    let mut vars = options.initial_vars();
 
     args_defs_expand_repeatable
         .clone()

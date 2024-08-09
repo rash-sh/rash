@@ -4,7 +4,7 @@ mod valid;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
-use crate::utils::jinja2::{is_render_string, render, render_as_json, render_string};
+use crate::utils::jinja2::{is_render_string, render, render_string};
 use crate::vars::Vars;
 
 use rash_derive::FieldNames;
@@ -184,7 +184,7 @@ impl Task {
         let loop_some = self.r#loop.clone().unwrap();
         match loop_some.as_str() {
             Some(s) => {
-                let value: Value = serde_yaml::from_str(&render_as_json(s, &vars)?)?;
+                let value: Value = serde_yaml::from_str(&render_string(s, &vars)?)?;
                 match value.as_str() {
                     Some(_) => Ok(vec![value]),
                     None => Task::get_iterator(&value, vars),
@@ -372,10 +372,9 @@ impl Task {
         debug!("Params: {:?}", self.params);
 
         if self.r#loop.is_some() {
-            // TODO: remove unnecessary movements
             let mut ctx = vars.clone();
             for item in self.render_iterator(vars)?.into_iter() {
-                let new_ctx = context! {item => &item, ..ctx.clone()};
+                let new_ctx = context! {item => &item, ..ctx};
                 ctx = self.exec_module(new_ctx)?;
             }
             Ok(ctx)

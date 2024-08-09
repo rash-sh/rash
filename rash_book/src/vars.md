@@ -12,12 +12,3 @@ There are two kinds of variables:
 
 - [Builtins](builtins.md)
 - [Runtime](runtime.md)
-
-## debug
-
-To show all variables in current context:
-
-```yaml
-- debug:
-    var: __tera_context
-```
