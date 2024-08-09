@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.1](https://github.com/rash-sh/rash/tree/v2.0.1) - 2024-08-09
+
+### Build
+
+- Remove armhf build
+
+### Documentation
+
+- Update examples with MiniJinja breacking changes
+
+### Fixed
+
+- Minor docs and refactors
+
+### Refactor
+
+- Use minijinja::Value instead of Vars abstraction
+
+### Testing
+
+- task: Check item is removed from vars after execute loop task
+
 ## [v2.0.0](https://github.com/rash-sh/rash/tree/v2.0.0) - 2024-08-09
 
 ### **BREAKING**
