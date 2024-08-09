@@ -1014,6 +1014,28 @@ mod tests {
     }
 
     #[test]
+    fn test_render_params_with_vars_array_concat() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: echo {{ (boo + buu) | join(' ') }}
+            vars:
+              boo:
+                - 1
+                - 2
+              buu:
+                - 3
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = context! {};
+
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 2 3");
+    }
+
+    #[test]
     fn test_render_params_no_hash_map() {
         let s0 = r#"
             name: task 1
