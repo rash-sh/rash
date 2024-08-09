@@ -855,8 +855,22 @@ mod tests {
         assert!(result.get_attr("yea").map(|x| !x.is_undefined()).unwrap());
     }
 
-    // TODO: check item is removed from vars after task loop execution
-    // check behaviour in Ansible
+    // check item is removed from vars after task loop execution
+    #[test]
+    fn test_task_execute_item_var_removed() {
+        let s0 = r#"
+            name: task 1
+            command: echo foo
+            loop: "{{ range(3) }}"
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+
+        let vars = context! {};
+        let result = task.exec(vars.clone()).unwrap();
+        assert!(result.get_attr("item").map(|x| !x.is_undefined()).unwrap());
+    }
 
     #[test]
     fn test_read_tasks() {
