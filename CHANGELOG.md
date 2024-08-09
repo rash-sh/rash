@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.0](https://github.com/rash-sh/rash/tree/v2.0.0) - 2024-08-09
+
+### **BREAKING**
+
+Replaced Tera with Minijinja, enhancing the project's versatility and bringing near-complete
+compatibility with Jinja2 syntax. This upgrade resolves several critical issues, including improved
+handling of `()` in expressions.
+
+With Minijinja, Rash now overcomes the limitations previously imposed by the Jinja2 engine.
+
+### Build
+
+- deps: Update Rust crate serde to v1.0.204
+- deps: Update Rust crate syn to v2.0.69
+- deps: Update Rust crate syn to v2.0.70
+- deps: Update Rust crate clap to v4.5.9
+- deps: Update Rust crate syn to v2.0.71
+- deps: Update Rust crate syn to v2.0.72
+- deps: Update Rust crate clap to v4.5.10
+- deps: Update Rust crate similar to v2.6.0
+- deps: Update Rust crate serde_with to v3.9.0
+- deps: Update Rust crate env_logger to v0.11.4
+- deps: Update Rust crate clap to v4.5.11
+- deps: Update Rust crate serde_json to v1.0.121
+- deps: Update Rust crate clap to v4.5.12
+- deps: Update Rust crate clap to v4.5.13
+- deps: Update Rust crate serde_json to v1.0.122
+- deps: Update Rust crate regex to v1.10.6
+- deps: Update wagoid/commitlint-github-action action to v6.0.2
+- deps: Update Rust crate tempfile to v3.12.0
+- deps: Update Rust crate serde to v1.0.205
+- deps: Update Rust crate clap to v4.5.14
+- deps: Update rust Docker tag to v1.80.1
+
+### Documentation
+
+- Change from list to script in release workflow
+
+### Refactor
+
+- tera: Change Jinja2 engine for minijinja
+- Replace lazy_static with std from 1.80
+
 ## [v1.10.5](https://github.com/rash-sh/rash/tree/v1.10.5) - 2024-07-04
 
 ### Fixed

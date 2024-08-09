@@ -12,6 +12,7 @@ cargo update -p rash_core -p rash_derive
 make update-changelog
 
 # merge PR
+git add .
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
 git commit -m "release: Version $VERSION"
 ```
