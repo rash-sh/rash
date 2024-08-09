@@ -27,7 +27,7 @@
   find:
     paths: "{{ dotfiles_dir }}"
     hidden: true
-    patterns: "{{ package_filters | default(value=omit()) | json_encode() }}"
+    patterns: "{{ package_filters | default(omit()) }}"
     excludes: "{{ templates_pattern }}"
     recurse: true
   changed_when: false
@@ -55,7 +55,7 @@
 
 - name: create dotfiles directories
   file:
-    path: "{{ item | replace(from=dotfiles_dir, to=env.HOME) }}"
+    path: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     state: "directory"
   loop: "{{ dotfiles_dirs.extra }}"
   when: install
@@ -63,7 +63,7 @@
 - name: copy dotfiles
   copy:
     src: "{{ item }}"
-    dest: "{{ item | replace(from=dotfiles_dir, to=env.HOME) }}"
+    dest: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     mode: preserve
   loop: "{{ dotfiles.extra }}"
   when: install
@@ -71,14 +71,14 @@
 - name: render dotfiles templates
   template:
     src: "{{ item }}"
-    dest: "{{ item | replace(from=dotfiles_dir, to=env.HOME) | replace(from='.j2', to='') }}"
+    dest: "{{ item | replace(dotfiles_dir, env.HOME) | replace('.j2', '') }}"
     mode: preserve
-  loop: "{{ dotfile_templates.extra | default(value=[]) }}"
+  loop: "{{ dotfile_templates.extra | default([]) }}"
   when: install
 
 - name: update dotfiles
   copy:
-    src: "{{ item | replace(from=dotfiles_dir, to=env.HOME) }}"
+    src: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     dest: "{{ item }}"
     mode: preserve
   loop: "{{ dotfiles.extra }}"

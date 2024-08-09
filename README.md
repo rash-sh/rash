@@ -79,7 +79,7 @@ Declarative: `entrypoint.rh`
 
 - name: launch docker CMD
   command:
-    cmd: {{ rash.argv }}
+    cmd: { { rash.argv } }
     transfer_pid: yes
   env:
     APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
@@ -109,9 +109,9 @@ Example:
 
 - copy:
     src: "{{ item }}"
-    dest: "{{ dest }}/{{ item | split(pat='/') | last }}"
+    dest: "{{ dest }}/{{ item | split('/') | last }}"
     mode: "{{ options.mode }}"
-  loop: "{{ source | default (value=[]) }}"
+  loop: "{{ source | default ([]) }}"
 ```
 
 ### Lightness
