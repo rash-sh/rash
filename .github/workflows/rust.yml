@@ -89,7 +89,6 @@ jobs:
       matrix:
         job:
           # cross minimum glibc version is 2.32
-          - { os: ubuntu-22.04, target: arm-unknown-linux-gnueabihf, use-cross: true }
           - { os: ubuntu-22.04, target: aarch64-unknown-linux-gnu, use-cross: true }
           - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, use-cross: true }
           # use ubuntu 20.04 to keep minimum glibc version to 2.31
