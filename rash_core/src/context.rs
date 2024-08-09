@@ -3,7 +3,7 @@
 /// Preserve state between executions
 use crate::error::{Error, ErrorKind, Result};
 use crate::task::Tasks;
-use crate::vars::Vars;
+use minijinja::Value;
 
 /// Main data structure in `rash`.
 /// It contents all [`task::Tasks`] with their [`vars::Vars`] to be executed
@@ -13,7 +13,7 @@ use crate::vars::Vars;
 #[derive(Debug)]
 pub struct Context {
     tasks: Tasks,
-    vars: Vars,
+    vars: Value,
 }
 
 impl Context {
@@ -21,7 +21,7 @@ impl Context {
     ///
     /// [`task::Tasks`]: ../task/type.Tasks.html
     /// [`vars::Vars`]: ../vars/type.Vars.html
-    pub fn new(tasks: Tasks, vars: Vars) -> Self {
+    pub fn new(tasks: Tasks, vars: Value) -> Self {
         Context { tasks, vars }
     }
 

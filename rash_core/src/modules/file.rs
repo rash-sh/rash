@@ -27,7 +27,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::parse_octal;
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -44,7 +44,7 @@ use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -320,10 +320,10 @@ impl Module for File {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((
             define_file(parse_params(optional_params)?, check_mode)?,
             vars,
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             path: /yea
             state: file
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_path() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             mode: "0644"
             state: file
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             path: foo
             state: directory
@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_invalid_mode() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             mode:
               yea: boo
@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_state() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             path: foo
         "#,

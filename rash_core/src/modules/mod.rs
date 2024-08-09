@@ -19,7 +19,7 @@ use crate::modules::find::Find;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
 use crate::modules::template::Template;
-use crate::vars::Vars;
+use minijinja::Value;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -27,7 +27,7 @@ use std::sync::LazyLock;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 
 /// Return values of a [`Module`] execution.
 ///
@@ -40,12 +40,12 @@ pub struct ModuleResult {
     /// The Output value will appear in logs when module is executed.
     output: Option<String>,
     /// Modules store the data they return in the Extra field.
-    extra: Option<Value>,
+    extra: Option<YamlValue>,
 }
 // ANCHOR_END: module_result
 
 impl ModuleResult {
-    pub fn new(changed: bool, extra: Option<Value>, output: Option<String>) -> Self {
+    pub fn new(changed: bool, extra: Option<YamlValue>, output: Option<String>) -> Self {
         Self {
             changed,
             extra,
@@ -59,7 +59,7 @@ impl ModuleResult {
     }
 
     /// Return extra.
-    pub fn get_extra(&self) -> Option<Value> {
+    pub fn get_extra(&self) -> Option<YamlValue> {
         self.extra.clone()
     }
 
@@ -74,7 +74,12 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     fn get_name(&self) -> &str;
 
     /// Execute module
-    fn exec(&self, params: Value, vars: Vars, check_mode: bool) -> Result<(ModuleResult, Vars)>;
+    fn exec(
+        &self,
+        params: YamlValue,
+        vars: Value,
+        check_mode: bool,
+    ) -> Result<(ModuleResult, Value)>;
 
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<RootSchema>;
@@ -102,7 +107,7 @@ pub fn is_module(module: &str) -> bool {
 }
 
 #[inline(always)]
-pub fn parse_params<P>(yaml: Value) -> Result<P>
+pub fn parse_params<P>(yaml: YamlValue) -> Result<P>
 where
     for<'a> P: Deserialize<'a>,
 {

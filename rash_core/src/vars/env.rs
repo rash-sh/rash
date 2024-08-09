@@ -1,4 +1,4 @@
-use crate::vars::Vars;
+use minijinja::Value;
 
 use std::collections::HashMap;
 use std::env;
@@ -31,10 +31,10 @@ impl From<env::Vars> for Env {
 ///
 /// let vars = load(vec![("foo".to_owned(), "boo".to_owned())]);
 /// ```
-pub fn load(envars: Vec<(String, String)>) -> Vars {
+pub fn load(envars: Vec<(String, String)>) -> Value {
     trace!("{:?}", envars);
     envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
-    Vars::from_serialize(Env::from(env::vars()))
+    Value::from_serialize(Env::from(env::vars()))
 }
 
 #[cfg(test)]
@@ -68,7 +68,7 @@ mod tests {
                     .unwrap()
                     .get_attr("key_not_found")
                     .unwrap(),
-                Vars::UNDEFINED
+                Value::UNDEFINED
             );
         });
     }

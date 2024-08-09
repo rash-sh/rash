@@ -32,7 +32,7 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, Module, ModuleResult};
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -48,7 +48,7 @@ use schemars::schema::RootSchema;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_yaml::value;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -74,7 +74,7 @@ pub enum Required {
     Argv(Vec<String>),
 }
 
-fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Vars)> {
+fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Value)> {
     let args_vec = match params.required {
         Required::Cmd(s) => s
             .split_whitespace()
@@ -107,10 +107,10 @@ impl Module for Command {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         let params: Params = match optional_params.as_str() {
             Some(s) => Params {
                 chdir: None,
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             cmd: "ls"
             transfer_pid: false
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_without_cmd_or_argv() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             transfer_pid: false
             "#,
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             cmd: "ls"
             yea: boo

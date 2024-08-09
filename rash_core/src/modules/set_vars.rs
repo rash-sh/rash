@@ -39,12 +39,12 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
-use crate::vars::Vars;
+use minijinja::Value;
 
 use minijinja::context;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 
 #[derive(Debug)]
 pub struct SetVars;
@@ -54,11 +54,16 @@ impl Module for SetVars {
         "set_vars"
     }
 
-    fn exec(&self, params: Value, vars: Vars, _check_mode: bool) -> Result<(ModuleResult, Vars)> {
+    fn exec(
+        &self,
+        params: YamlValue,
+        vars: Value,
+        _check_mode: bool,
+    ) -> Result<(ModuleResult, Value)> {
         let mut new_vars = vars;
 
         match params {
-            Value::Mapping(map) => {
+            YamlValue::Mapping(map) => {
                 map.iter()
                     .map(|hash_map| {
                         let key = hash_map.0.as_str().ok_or_else(|| {
@@ -68,7 +73,7 @@ impl Module for SetVars {
                             )
                         })?;
                         let element = json!({key: hash_map.1});
-                        new_vars = context! {..new_vars.clone(), ..Vars::from_serialize(element)};
+                        new_vars = context! {..new_vars.clone(), ..Value::from_serialize(element)};
                         Ok(())
                     })
                     .collect::<Result<Vec<_>>>()?;

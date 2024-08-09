@@ -25,7 +25,7 @@ use crate::modules::copy::copy_file;
 use crate::modules::copy::{Input, Params as CopyParams};
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::jinja2::render_string;
-use crate::vars::Vars;
+use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -38,7 +38,7 @@ use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_yaml::Value;
+use serde_yaml::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -55,7 +55,7 @@ pub struct Params {
     mode: Option<String>,
 }
 
-fn render_content(params: Params, vars: Vars) -> Result<CopyParams> {
+fn render_content(params: Params, vars: Value) -> Result<CopyParams> {
     let mode = match params.mode.as_deref() {
         Some("preserve") => {
             let src_metadata = metadata(&params.src)?;
@@ -83,10 +83,10 @@ impl Module for Template {
 
     fn exec(
         &self,
-        optional_params: Value,
-        vars: Vars,
+        optional_params: YamlValue,
+        vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Vars)> {
+    ) -> Result<(ModuleResult, Value)> {
         Ok((
             copy_file(
                 render_content(parse_params(optional_params)?, vars.clone())?,
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             src: "/tmp/foo.j2"
             dest: "/tmp/buu.txt"
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_mode_int() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             src: "/tmp/foo.j2"
             dest: "/tmp/buu.txt"
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             src: "/tmp/boo.j2"
             dest: "/tmp/buu.txt"
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: Value = serde_yaml::from_str(
+        let yaml: YamlValue = serde_yaml::from_str(
             r#"
             src: "/tmp/boo.j2"
             yea: foo
@@ -234,7 +234,7 @@ mod tests {
         permissions.set_mode(0o604);
         set_permissions(&file_path, permissions).unwrap();
 
-        let vars = Vars::from_serialize(context! { boo => "test" });
+        let vars = Value::from_serialize(context! { boo => "test" });
 
         let copy_params = render_content(
             Params {

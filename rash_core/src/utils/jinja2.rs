@@ -1,6 +1,6 @@
 use crate::error;
 use crate::error::{Error, ErrorKind, Result};
-use crate::vars::Vars;
+use minijinja::Value;
 
 use std::result::Result as StdResult;
 use std::sync::LazyLock;
@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use minijinja::{
     Environment, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, UndefinedBehavior,
 };
-use serde_yaml::value::Value;
+use serde_yaml::value::Value as YamlValue;
 
 const OMIT_MESSAGE: &str = "Param is omitted";
 
@@ -30,17 +30,17 @@ fn init_env() -> Environment<'static> {
 static MINIJINJA_ENV: LazyLock<Environment<'static>> = LazyLock::new(init_env);
 
 #[inline(always)]
-pub fn render(value: Value, vars: &Vars) -> Result<Value> {
+pub fn render(value: YamlValue, vars: &Value) -> Result<YamlValue> {
     match value {
-        Value::String(s) => Ok(Value::String(render_string(&s, vars)?)),
-        Value::Number(_) => Ok(value),
-        Value::Bool(_) => Ok(value),
-        Value::Sequence(v) => Ok(Value::Sequence(
+        YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, vars)?)),
+        YamlValue::Number(_) => Ok(value),
+        YamlValue::Bool(_) => Ok(value),
+        YamlValue::Sequence(v) => Ok(YamlValue::Sequence(
             v.iter()
                 .map(|x| render(x.clone(), vars))
                 .collect::<Result<Vec<_>>>()?,
         )),
-        Value::Mapping(x) => Ok(Value::Mapping(
+        YamlValue::Mapping(x) => Ok(YamlValue::Mapping(
             x.iter()
                 .map(|t| render((*t.1).clone(), vars).map(|value| ((*t.0).clone(), value)))
                 .collect::<Result<_>>()?,
@@ -53,7 +53,7 @@ pub fn render(value: Value, vars: &Vars) -> Result<Value> {
 }
 
 #[inline(always)]
-pub fn render_string(s: &str, vars: &Vars) -> Result<String> {
+pub fn render_string(s: &str, vars: &Value) -> Result<String> {
     let mut env = MINIJINJA_ENV.clone();
     trace!("rendering {:?}", &s);
     env.add_template("t", s)?;
@@ -62,7 +62,7 @@ pub fn render_string(s: &str, vars: &Vars) -> Result<String> {
 }
 
 #[inline(always)]
-pub fn is_render_string(s: &str, vars: &Vars) -> Result<bool> {
+pub fn is_render_string(s: &str, vars: &Value) -> Result<bool> {
     match render_string(
         &format!("{{% if {s} %}}true{{% else %}}false{{% endif %}}"),
         vars,
@@ -90,11 +90,11 @@ mod tests {
 
     #[test]
     fn test_render() {
-        let r_yaml = render(Value::from(1), &context! {}).unwrap();
-        assert_eq!(r_yaml, Value::from(1));
+        let r_yaml = render(YamlValue::from(1), &context! {}).unwrap();
+        assert_eq!(r_yaml, YamlValue::from(1));
 
-        let r_yaml = render(Value::from("yea"), &context! {}).unwrap();
-        assert_eq!(r_yaml, Value::from("yea"));
+        let r_yaml = render(YamlValue::from("yea"), &context! {}).unwrap();
+        assert_eq!(r_yaml, YamlValue::from("yea"));
     }
 
     #[test]
