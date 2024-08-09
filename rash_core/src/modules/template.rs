@@ -1,7 +1,7 @@
 /// ANCHOR: module
 /// # template
 ///
-/// Render [Tera template](https://tera.netlify.app/docs/#templates).
+/// Render [MiniJinja template](https://docs.rs/minijinja/latest/minijinja/syntax/index.html).
 ///
 /// ## Attributes
 ///
