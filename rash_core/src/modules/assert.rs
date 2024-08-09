@@ -46,21 +46,16 @@ pub struct Params {
 }
 
 fn verify_conditions(params: Params, vars: &Vars) -> Result<ModuleResult> {
-    // TODO: replace with try_for_each?
-    let _ = params
-        .that
-        .iter()
-        .map(|expression| {
-            if is_render_string(expression, vars)? {
-                Ok(true)
-            } else {
-                Err(Error::new(
-                    ErrorKind::Other,
-                    format!("{} expression is false", &expression),
-                ))
-            }
-        })
-        .collect::<Result<Vec<bool>>>()?;
+    params.that.iter().try_for_each(|expression| {
+        if is_render_string(expression, vars)? {
+            Ok(())
+        } else {
+            Err(Error::new(
+                ErrorKind::Other,
+                format!("{} expression is false", &expression),
+            ))
+        }
+    })?;
     Ok(ModuleResult {
         changed: false,
         output: None,
