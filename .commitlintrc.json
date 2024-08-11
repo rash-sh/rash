@@ -30,6 +30,7 @@
         "docker",
         "filter",
         "group",
+        "jinja",
         "lookup",
         "module",
         "task",
