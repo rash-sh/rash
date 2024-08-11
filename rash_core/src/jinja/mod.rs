@@ -1,14 +1,13 @@
-pub mod lookup;
+mod lookup;
 
 use crate::error;
 use crate::error::{Error, ErrorKind, Result};
-use minijinja::Value;
 
 use std::result::Result as StdResult;
 use std::sync::LazyLock;
 
 use minijinja::{
-    Environment, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, UndefinedBehavior,
+    Environment, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, UndefinedBehavior, Value,
 };
 use serde_yaml::value::Value as YamlValue;
 
@@ -26,6 +25,7 @@ fn init_env() -> Environment<'static> {
     env.set_keep_trailing_newline(true);
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_function("omit", omit);
+    lookup::add_lookup_functions(&mut env);
     env
 }
 
