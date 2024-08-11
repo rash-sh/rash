@@ -18,7 +18,10 @@ name = "rash"
 path = "src/bin/rash.rs"
 
 [features]
+default = ["passwordstore"]
+
 docs = ["rash_derive/docs", "schemars"]
+passwordstore = ["prs-lib"]
 
 [dependencies]
 rash_derive = { path = "../rash_derive", version = "2.0.1" }
@@ -47,6 +50,7 @@ strum = "0.26.2"
 strum_macros = "0.26.2"
 tempfile = "3.10.1"
 term_size = "1.0.0-beta.2"
+prs-lib = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.5.1"
