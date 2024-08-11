@@ -1,7 +1,6 @@
 ---
 title: Lookups
-weight: 7100
-indent: true
+weight: 8000
 ---
 
 # Lookups

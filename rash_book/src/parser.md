@@ -1,6 +1,6 @@
 ---
 title: Parser
-weight: 7200
+weight: 10200
 indent: true
 ---
 
@@ -12,16 +12,16 @@ Commands are parsed as `false` by default and when are passed they will appear a
 
 ```json
 {
-    "options": {
-        "apply": false,
-        "dry_run": false,
-        "help": false,
-        "number": "10",
-        "timeout": null,
-        "version": false,
-       "q": true,
-    },
-    "port": "443"
+  "options": {
+    "apply": false,
+    "dry_run": false,
+    "help": false,
+    "number": "10",
+    "timeout": null,
+    "version": false,
+    "q": true
+  },
+  "port": "443"
 }
 ```
 
