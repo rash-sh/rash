@@ -204,15 +204,10 @@ impl Task {
         }
     }
 
-    fn exec_module_rendered_with_user(
-        &self,
-        rendered_params: &YamlValue,
-        vars: &Value,
-        user: User,
-    ) -> Result<Value> {
+    fn exec_module_with_user(&self, vars: &Value, user: User) -> Result<Value> {
         match setgid(user.gid) {
             Ok(_) => match setuid(user.uid) {
-                Ok(_) => self.exec_module_rendered(rendered_params, vars),
+                Ok(_) => self._exec_module(vars),
                 Err(_) => Err(Error::new(
                     ErrorKind::Other,
                     format!("gid cannot be changed to {}", user.gid),
@@ -225,7 +220,8 @@ impl Task {
         }
     }
 
-    fn exec_module_rendered(&self, rendered_params: &YamlValue, vars: &Value) -> Result<Value> {
+    fn _exec_module(&self, vars: &Value) -> Result<Value> {
+        let rendered_params = self.render_params(vars.clone())?;
         match self
             .module
             .exec(rendered_params.clone(), vars.clone(), self.check_mode)
@@ -265,8 +261,6 @@ impl Task {
 
     fn exec_module(&self, vars: Value) -> Result<Value> {
         if self.is_exec(&vars)? {
-            let rendered_params = self.render_params(vars.clone())?;
-
             match self.r#become {
                 true => {
                     let user_not_found_error = || {
@@ -290,13 +284,9 @@ impl Task {
 
                     if user.uid != Uid::current() {
                         if self.module.get_name() == "command"
-                            && rendered_params["transfer_pid"].as_bool().unwrap_or(false)
+                            && self.params["transfer_pid"].as_bool().unwrap_or(false)
                         {
-                            return self.exec_module_rendered_with_user(
-                                &rendered_params,
-                                &vars,
-                                user,
-                            );
+                            return self.exec_module_with_user(&vars, user);
                         }
 
                         #[allow(clippy::type_complexity)]
@@ -309,11 +299,7 @@ impl Task {
                             Ok(ForkResult::Child) => {
                                 trace!("change uid to: {}", user.uid);
                                 trace!("change gid to: {}", user.gid);
-                                let result = self.exec_module_rendered_with_user(
-                                    &rendered_params,
-                                    &vars,
-                                    user,
-                                );
+                                let result = self.exec_module_with_user(&vars, user);
 
                                 trace!("send result: {:?}", result);
                                 tx.send(
@@ -354,10 +340,10 @@ impl Task {
                             Err(e) => Err(Error::new(ErrorKind::Other, e)),
                         }
                     } else {
-                        self.exec_module_rendered(&rendered_params, &vars)
+                        self._exec_module(&vars)
                     }
                 }
-                false => self.exec_module_rendered(&rendered_params, &vars),
+                false => self._exec_module(&vars),
             }
         } else {
             debug!("skipping");
