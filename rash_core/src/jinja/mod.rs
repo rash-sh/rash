@@ -1,3 +1,6 @@
+#[cfg(feature = "docs")]
+pub mod lookup;
+#[cfg(not(feature = "docs"))]
 mod lookup;
 
 use crate::error;

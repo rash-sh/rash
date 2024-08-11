@@ -6,4 +6,6 @@ indent: true
 
 # Lookups
 
-incoming...
+## Lookups index
+
+{$include_lookup_index}

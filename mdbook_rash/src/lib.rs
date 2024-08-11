@@ -1,3 +1,4 @@
+use rash_core::jinja::lookup::LOOKUPS;
 use rash_core::modules::MODULES;
 
 use std::sync::LazyLock;
@@ -47,7 +48,7 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
                     Some(content.as_str().replace("/// ", "").replace("///", "")),
                     typ.as_str().to_owned(),
                 )),
-                ("include_module_index" | "include_doc", _) => {
+                ("include_module_index" | "include_doc" | "include_lookup_index", _) => {
                     Some((origin, None, typ.as_str().to_owned()))
                 }
                 _ => None,
@@ -228,6 +229,50 @@ indent: true
                 );
                 new_ch.number = Some(new_section_number);
                 info!("Add {} module", &name);
+                ch.sub_items.push(BookItem::Chapter(new_ch));
+            }
+            return ch.content = RE.replace(&ch.content, &indexes_body).to_string();
+        } else if capture.2 == "include_lookup_index" {
+            let mut indexes_vec = LOOKUPS
+                .iter()
+                .map(|name| format!("- [{name}](./{name}.html)"))
+                .collect::<Vec<String>>();
+            indexes_vec.sort();
+            let indexes_body = indexes_vec.join("\n");
+
+            let mut lookups = LOOKUPS.iter().collect::<Vec<_>>();
+            lookups.sort();
+
+            for lookup_name in lookups {
+                let mut new_section_number = ch.number.clone().unwrap();
+                new_section_number.push((ch.sub_items.len() + 1) as u32);
+
+                let content_header = format!(
+                    r#"---
+title: {name}
+weight: {weight}
+indent: true
+---
+
+{{$include_doc {{{{#include ../../rash_core/src/jinja/lookup/{name}.rs:lookup}}}}}}
+
+{{$include_doc {{{{#include ../../rash_core/src/jinja/lookup/{name}.rs:examples}}}}}}
+
+"#,
+                    name = lookup_name,
+                    weight = (new_section_number.clone().first().unwrap() + 1) * 1000
+                        + ((ch.sub_items.len() + 1) * 100) as u32,
+                )
+                .to_owned();
+
+                let mut new_ch = Chapter::new(
+                    lookup_name,
+                    content_header,
+                    format!("{}.md", &lookup_name),
+                    vec![ch.name.clone()],
+                );
+                new_ch.number = Some(new_section_number);
+                info!("Add {} lookup", &lookup_name);
                 ch.sub_items.push(BookItem::Chapter(new_ch));
             }
             return ch.content = RE.replace(&ch.content, &indexes_body).to_string();
