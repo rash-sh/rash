@@ -1,9 +1,6 @@
 #[cfg(feature = "passwordstore")]
 mod passwordstore;
 
-use minijinja::Environment;
+use rash_derive::generate_lookup_functions;
 
-pub fn add_lookup_functions(env: &mut Environment<'static>) {
-    #[cfg(feature = "passwordstore")]
-    env.add_function("passwordstore", passwordstore::passwordstore);
-}
+generate_lookup_functions!(passwordstore);

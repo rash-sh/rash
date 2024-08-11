@@ -19,7 +19,7 @@ use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value}
 use prs_lib::crypto::{self, Config, IsContext, Proto};
 use prs_lib::{Store, STORE_DEFAULT_ROOT};
 
-pub fn passwordstore(path: String) -> StdResult<Value, MinijinjaError> {
+pub fn function(path: String) -> StdResult<Value, MinijinjaError> {
     let store_path = env::var("PASSWORD_STORE_DIR").unwrap_or(STORE_DEFAULT_ROOT.to_string());
     let store = Store::open(store_path).map_err(|_| {
         MinijinjaError::new(
