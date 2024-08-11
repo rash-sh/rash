@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.1.1](https://github.com/rash-sh/rash/tree/v2.1.1) - 2024-08-11
+
+### Build
+
+- deps: Update Rust crate serde_json to v1.0.123
+
+### Fixed
+
+- task: Render vars recursively
+
 ## [v2.1.0](https://github.com/rash-sh/rash/tree/v2.1.0) - 2024-08-11
 
 ### Added
