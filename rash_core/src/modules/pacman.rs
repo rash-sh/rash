@@ -47,9 +47,8 @@
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger;
-use crate::modules::utils::default_false;
 use crate::modules::{parse_params, Module, ModuleResult};
-use minijinja::Value;
+use crate::utils::default_false;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -58,6 +57,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]

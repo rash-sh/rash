@@ -34,6 +34,10 @@ pub fn merge_json(a: &mut serde_json::Value, b: serde_json::Value) {
     }
 }
 
+pub fn default_false() -> Option<bool> {
+    Some(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
