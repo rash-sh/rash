@@ -1,6 +1,6 @@
 ---
 title: Command-line interfaces
-weight: 7000
+weight: 8000
 ---
 
 # Command-line interfaces <!-- omit in toc -->

@@ -1,6 +1,6 @@
 ---
 title: Contributing
-weight: 8000
+weight: 10000
 ---
 
 # Contributing
