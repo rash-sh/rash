@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.1.0](https://github.com/rash-sh/rash/tree/v2.1.0) - 2024-08-11
+
+### Added
+
+- jinja: Enable `tojson` filter from minijinja
+- lookup: Add passwordstore
+
+### Build
+
+- deps: Update Rust crate clap to v4.5.15
+- deps: Update Rust crate syn to v2.0.73
+- deps: Update Rust crate serde to v1.0.206
+- deps: Update Rust crate syn to v2.0.74
+
+### Documentation
+
+- jinja: Add lookups programmatically to Rash book
+- jinja: Add section with lookups and filters
+- Replace Tera doc with MiniJinja
+- Add debug vars and context info
+- Fix index
+
+### Fixed
+
+- module: `set_vars` overwrites previous variables
+
+### Refactor
+
+- jinja: Add macro for generating add lookup function
+- module: Move module::utils to utils
+- task: Change `test_render_params_with_vars_array_concat`
+- Create jinja module
+
+### Testing
+
+- task: Add vars concat arrays test
+
 ## [v2.0.1](https://github.com/rash-sh/rash/tree/v2.0.1) - 2024-08-09
 
 ### Build
