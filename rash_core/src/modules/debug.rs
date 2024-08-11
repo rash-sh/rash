@@ -20,6 +20,10 @@
 ///
 /// - debug:
 ///     var: rash.user.gid
+///
+/// - name: Print all template engine context
+///   debug:
+///     msg: "{{ debug() }}"
 /// ```
 /// ANCHOR_END: examples
 use crate::error::Result;
