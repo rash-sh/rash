@@ -73,7 +73,7 @@ impl Module for SetVars {
                             )
                         })?;
                         let element = json!({key: hash_map.1});
-                        new_vars = context! {..new_vars.clone(), ..Value::from_serialize(element)};
+                        new_vars = context! {..Value::from_serialize(element), ..new_vars.clone()};
                         Ok(())
                     })
                     .collect::<Result<Vec<_>>>()?;
