@@ -22,8 +22,8 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
+use crate::jinja::is_render_string;
 use crate::modules::{parse_params, Module, ModuleResult};
-use crate::utils::jinja2::is_render_string;
 use minijinja::Value;
 
 #[cfg(feature = "docs")]
