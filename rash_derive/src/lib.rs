@@ -131,6 +131,7 @@ pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
         parse_macro_input!(input with Punctuated::<Ident, Token![,]>::parse_terminated);
 
     let mut add_functions = Vec::new();
+    let mut lookup_names = Vec::new();
 
     // Iterate through each identifier and generate the corresponding function call with #[cfg]
     for func in function_names.iter() {
@@ -139,6 +140,8 @@ pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
             #[cfg(feature = #func_name_str)]
             env.add_function(#func_name_str, #func::function);
         });
+
+        lookup_names.push(func_name_str);
     }
 
     // Generate the output function code
@@ -146,6 +149,11 @@ pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
         pub fn add_lookup_functions(env: &mut minijinja::Environment<'static>) {
             #(#add_functions)*
         }
+
+        #[cfg(feature = "docs")]
+        pub const LOOKUPS: &[&str] = &[
+            #(#lookup_names),*
+        ];
     };
 
     // Convert the generated code back into a TokenStream and return it
