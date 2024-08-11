@@ -991,8 +991,8 @@ mod tests {
             xuu => "zoo",
         };
 
-        let rendered_params_err = task.render_params(vars).unwrap_err();
-        assert_eq!(rendered_params_err.kind(), ErrorKind::JinjaRenderError);
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
     }
 
     #[test]
@@ -1025,6 +1025,47 @@ mod tests {
                 - 23
               buu:
                 - 13
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = context! {};
+
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 23 13");
+    }
+
+    #[test]
+    fn test_render_params_with_vars_array_concat_in_vars() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: echo {{ all | join(' ') }}
+            vars:
+              all: '{{ boo + buu }}'
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let task = Task::from(yaml);
+        let vars = context! {boo => &[1, 23], buu => &[13]};
+
+        let rendered_params = task.render_params(vars).unwrap();
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 23 13");
+    }
+
+    #[test]
+    fn test_render_params_with_vars_array_concat_in_vars_recursive() {
+        let s0 = r#"
+            name: task 1
+            command:
+              cmd: echo {{ all | join(' ') }}
+            vars:
+              boo:
+                - 1
+                - 23
+              buu:
+                - 13
+              all: '{{ boo + buu }}'
             "#
         .to_owned();
         let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();

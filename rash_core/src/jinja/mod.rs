@@ -10,7 +10,8 @@ use std::result::Result as StdResult;
 use std::sync::LazyLock;
 
 use minijinja::{
-    Environment, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, UndefinedBehavior, Value,
+    context, Environment, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind,
+    UndefinedBehavior, Value,
 };
 use serde_yaml::value::Value as YamlValue;
 
@@ -36,8 +37,8 @@ static MINIJINJA_ENV: LazyLock<Environment<'static>> = LazyLock::new(init_env);
 
 #[inline(always)]
 pub fn render(value: YamlValue, vars: &Value) -> Result<YamlValue> {
-    match value {
-        YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, vars)?)),
+    match value.clone() {
+        YamlValue::String(s) => Ok(serde_yaml::from_str(&render_string(&s, vars)?)?),
         YamlValue::Number(_) => Ok(value),
         YamlValue::Bool(_) => Ok(value),
         YamlValue::Sequence(v) => Ok(YamlValue::Sequence(
@@ -45,11 +46,26 @@ pub fn render(value: YamlValue, vars: &Value) -> Result<YamlValue> {
                 .map(|x| render(x.clone(), vars))
                 .collect::<Result<Vec<_>>>()?,
         )),
-        YamlValue::Mapping(x) => Ok(YamlValue::Mapping(
-            x.iter()
-                .map(|t| render((*t.1).clone(), vars).map(|value| ((*t.0).clone(), value)))
-                .collect::<Result<_>>()?,
-        )),
+        YamlValue::Mapping(x) => {
+            let mut rendered_map = serde_yaml::Mapping::new();
+            let mut current_vars = vars.clone();
+
+            for (k, v) in x.iter() {
+                let rendered_value = render(v.clone(), &current_vars)?;
+                current_vars = context! {
+                    ..current_vars,
+                    ..Value::from_serialize(
+                        json!({
+                            // safe unwrap: k is always a String
+                            k.as_str().unwrap(): rendered_value.clone()
+                        })
+                    )
+                };
+                rendered_map.insert(k.clone(), rendered_value);
+            }
+
+            Ok(YamlValue::Mapping(rendered_map))
+        }
         _ => Err(Error::new(
             ErrorKind::InvalidData,
             format!("{value:?} is not a valid render value"),
@@ -90,8 +106,6 @@ fn map_minijinja_error(e: MinijinjaError) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use minijinja::context;
 
     #[test]
     fn test_render() {
