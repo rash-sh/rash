@@ -30,9 +30,8 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::utils::default_false;
 use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
-use minijinja::Value;
+use crate::utils::default_false;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -41,6 +40,7 @@ use std::path::Path;
 
 use byte_unit::Byte;
 use ignore::WalkBuilder;
+use minijinja::Value;
 use regex::RegexSet;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;

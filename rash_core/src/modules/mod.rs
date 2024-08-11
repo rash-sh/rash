@@ -7,7 +7,6 @@ mod find;
 mod pacman;
 mod set_vars;
 mod template;
-mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::assert::Assert;
