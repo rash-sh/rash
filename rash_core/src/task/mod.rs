@@ -1022,9 +1022,9 @@ mod tests {
             vars:
               boo:
                 - 1
-                - 2
+                - 23
               buu:
-                - 3
+                - 13
             "#
         .to_owned();
         let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
@@ -1032,7 +1032,7 @@ mod tests {
         let vars = context! {};
 
         let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 2 3");
+        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 23 13");
     }
 
     #[test]
