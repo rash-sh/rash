@@ -1,5 +1,3 @@
-pub mod jinja2;
-
 use crate::error::{Error, ErrorKind, Result};
 
 pub fn parse_octal(s: &str) -> Result<u32> {

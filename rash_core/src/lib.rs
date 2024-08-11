@@ -3,6 +3,7 @@
 pub mod context;
 pub mod docopt;
 pub mod error;
+pub mod jinja;
 pub mod logger;
 pub mod modules;
 pub mod task;

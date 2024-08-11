@@ -1,3 +1,5 @@
+pub mod lookup;
+
 use crate::error;
 use crate::error::{Error, ErrorKind, Result};
 use minijinja::Value;

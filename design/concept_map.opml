@@ -14,10 +14,10 @@
               <outline text="args" _icon="progress_100"/>
               <outline text="user" _icon="progress_100"/>
             </outline>
-            <outline text="extend Jinja2">
-              <outline text="Lookup" _note="https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Flookup"/>
-              <outline text="Filter" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ffilter"/>
-            </outline>
+          </outline>
+          <outline text="Jinja" _note="Minijinja engine">
+            <outline text="Lookup" _note="https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Flookup"/>
+            <outline text="Filter" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ffilter"/>
           </outline>
           <outline text="Tasks" _icon="progress_100">
             <outline text="Task" _icon="progress_100" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ftask">
@@ -45,12 +45,12 @@
               </outline>
               <outline text="when" _icon="help;progress_100"/>
               <outline text="loop" _icon="help;progress_50"/>
-              <outline text="changed_when" _icon="help"/>
+              <outline text="changed_when" _icon="help;progress_100"/>
               <outline text="ignore_errors" _icon="help;progress_100"/>
               <outline text="until" _icon="help"/>
               <outline text="register" _icon="help;progress_100"/>
-              <outline text="variables" _icon="help"/>
-              <outline text="become" _icon="help"/>
+              <outline text="variables" _icon="help;progress_100"/>
+              <outline text="become" _icon="help;progress_100"/>
               <outline text="check_mode" _icon="help;progress_100"/>
               <outline text="notify" _icon="help"/>
               <outline text="tags" _icon="help"/>
@@ -113,7 +113,7 @@
       <outline text="repository" _icon="lightbulb" _note="&lt;div&gt;Repository of entrypoints.rh or custom scripts&lt;/div&gt;&lt;div&gt;**initially could be a repo of examples&lt;br /&gt;&lt;/div&gt;"/>
       <outline text="linter" _icon="warning"/>
       <outline text="performance" _icon="lightning" _note="bash comparison, CPU and MEMORY"/>
-      <outline text="log format configurable" _icon="information" _note="make log format configurable to accomplish with container log format"/>
+      <outline text="log format configurable" _icon="information;progress_100" _note="make log format configurable to accomplish with container log format:&lt;br /&gt;option (-o/--output &amp;lt;mode&amp;gt;):&lt;br /&gt;&amp;nbsp;- ansible (default)&lt;br /&gt;&amp;nbsp;- raw: print module output without frills"/>
     </outline>
   </body>
 </opml>

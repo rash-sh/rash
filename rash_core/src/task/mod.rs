@@ -2,9 +2,9 @@ mod new;
 mod valid;
 
 use crate::error::{Error, ErrorKind, Result};
+use crate::jinja::{is_render_string, render, render_string};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
-use crate::utils::jinja2::{is_render_string, render, render_string};
 use minijinja::Value;
 
 use rash_derive::FieldNames;
