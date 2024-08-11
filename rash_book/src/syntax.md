@@ -1,10 +1,10 @@
 ---
 title: Syntax
-weight: 7100
+weight: 10100
 indent: true
 ---
 
-# Syntax  <!-- omit in toc -->
+# Syntax <!-- omit in toc -->
 
 ## Usage patterns
 
@@ -44,9 +44,9 @@ as short (one-letter) or long options, respectively.
 
 - Short options can be `stacked` meaning that -abc is equivalent to -a -b -c.
 - Long options can have arguments specified after space or equal `=` sign:
-       `--input=ARG` is equivalent to `--input ARG`.
+  `--input=ARG` is equivalent to `--input ARG`.
 - Short options can have arguments specified after optional space:
-    `-f FILE` is equivalent to `-fFILE`.
+  `-f FILE` is equivalent to `-fFILE`.
 
 **Note**: writing `--input ARG` (as opposed to `--input=ARG`) is ambiguous, meaning it is not
 possible to tell whether `ARG` is option's argument or a positional argument. In usage patterns
@@ -92,6 +92,7 @@ required, which you can achieve as:
 ```
 Usage: my_program [(<one-argument> <another-argument>)]
 ```
+
 In this case, a valid program invocation could be with either no arguments, or with 2 arguments.
 
 ## element|another

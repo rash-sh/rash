@@ -1,7 +1,6 @@
 ---
 title: Filters
-weight: 7200
-indent: true
+weight: 9000
 ---
 
 # Filters
