@@ -25,11 +25,11 @@ omit them programmatically.
 E.g.:
 
 ```
-"{{ env.MY_PASSWORD_MODE | default(omit()) }}"
+"{{ env.MY_PASSWORD_MODE | default(omit) }}"
 ```
 
-Furthermore, if you are chaining additional filters after the `default(omit())`, you should instead
-do something like this: `"{{ foo | default(None) | some_filter or omit() }}"`.
+Furthermore, if you are chaining additional filters after the `default(omit)`, you should instead
+do something like this: `"{{ foo | default(None) | some_filter or omit }}"`.
 In this example, the default `None` value will cause the later filters to fail, which will trigger
 the `or omit` portion of the logic. Using `omit` in this manner is very specific to the later
 filters you are chaining though, so be prepared for some trial and error if you do this.

@@ -27,7 +27,7 @@
   find:
     paths: "{{ dotfiles_dir }}"
     hidden: true
-    patterns: "{{ package_filters | default(omit()) }}"
+    patterns: "{{ package_filters | default(omit) }}"
     excludes: "{{ templates_pattern }}"
     recurse: true
   changed_when: false

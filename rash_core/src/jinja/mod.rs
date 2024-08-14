@@ -3,32 +3,20 @@ pub mod lookup;
 #[cfg(not(feature = "docs"))]
 mod lookup;
 
-use crate::error;
 use crate::error::{Error, ErrorKind, Result};
 
-use std::result::Result as StdResult;
 use std::sync::LazyLock;
 
-use minijinja::{
-    context, Environment, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind,
-    UndefinedBehavior, Value,
-};
+use minijinja::{context, Environment, UndefinedBehavior, Value};
 use serde_yaml::value::Value as YamlValue;
 
-const OMIT_MESSAGE: &str = "Param is omitted";
-
-fn omit() -> StdResult<String, MinijinjaError> {
-    Err(MinijinjaError::new(
-        MinijinjaErrorKind::InvalidOperation,
-        OMIT_MESSAGE,
-    ))
-}
+const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
 
 fn init_env() -> Environment<'static> {
     let mut env = Environment::new();
     env.set_keep_trailing_newline(true);
     env.set_undefined_behavior(UndefinedBehavior::Strict);
-    env.add_function("omit", omit);
+    env.add_global("omit", OMIT_VALUE);
     lookup::add_lookup_functions(&mut env);
     env
 }
@@ -73,13 +61,21 @@ pub fn render(value: YamlValue, vars: &Value) -> Result<YamlValue> {
     }
 }
 
+fn skip_omit(x: String) -> Result<String> {
+    if x == OMIT_VALUE {
+        Err(Error::new(ErrorKind::OmitParam, OMIT_VALUE))
+    } else {
+        Ok(x)
+    }
+}
+
 #[inline(always)]
 pub fn render_string(s: &str, vars: &Value) -> Result<String> {
     let mut env = MINIJINJA_ENV.clone();
     trace!("rendering {:?}", &s);
     env.add_template("t", s)?;
-    let tmpl = env.get_template("t").map_err(map_minijinja_error)?;
-    tmpl.render(vars).map_err(map_minijinja_error)
+    let tmpl = env.get_template("t")?;
+    tmpl.render(vars).map(skip_omit)?
 }
 
 #[inline(always)]
@@ -92,14 +88,6 @@ pub fn is_render_string(s: &str, vars: &Value) -> Result<bool> {
     {
         "false" => Ok(false),
         _ => Ok(true),
-    }
-}
-
-fn map_minijinja_error(e: MinijinjaError) -> Error {
-    let f = |e: &MinijinjaError| -> Option<bool> { Some(e.detail()? == OMIT_MESSAGE) };
-    match f(&e) {
-        Some(true) => error::Error::new(error::ErrorKind::OmitParam, OMIT_MESSAGE),
-        _ => error::Error::from(e),
     }
 }
 
@@ -143,8 +131,12 @@ mod tests {
 
     #[test]
     fn test_render_string_omit() {
-        let string = "{{ package_filters | default(omit()) }}";
+        let string = "{{ package_filters | default(omit) }}";
+
         let e = render_string(string, &context! {}).unwrap_err();
-        assert_eq!(e.kind(), error::ErrorKind::OmitParam)
+        assert_eq!(e.kind(), ErrorKind::OmitParam);
+
+        let result = render_string(string, &context! {package_filters => "yea"}).unwrap();
+        assert_eq!(result, "yea");
     }
 }
