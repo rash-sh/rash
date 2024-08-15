@@ -161,7 +161,7 @@ impl Task {
         // safe unwrap, previous verification self.r#loop.is_some()
         let loop_some = self.r#loop.clone().unwrap();
 
-        let extended_vars = self.extend_vars(vars)?;
+        let extended_vars = self.extend_vars(context! {item => "",..vars})?;
         match loop_some.as_str() {
             Some(s) => {
                 let value: YamlValue = serde_yaml::from_str(&render_string(s, &extended_vars)?)?;
