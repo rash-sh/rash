@@ -24,36 +24,51 @@ fn init_env() -> Environment<'static> {
 static MINIJINJA_ENV: LazyLock<Environment<'static>> = LazyLock::new(init_env);
 
 #[inline(always)]
-pub fn render(value: YamlValue, vars: &Value) -> Result<YamlValue> {
-    match value.clone() {
-        YamlValue::String(s) => Ok(serde_yaml::from_str(&render_string(&s, vars)?)?),
-        YamlValue::Number(_) => Ok(value),
-        YamlValue::Bool(_) => Ok(value),
-        YamlValue::Sequence(v) => Ok(YamlValue::Sequence(
-            v.iter()
-                .map(|x| render(x.clone(), vars))
-                .collect::<Result<Vec<_>>>()?,
-        )),
-        YamlValue::Mapping(x) => {
-            let mut rendered_map = serde_yaml::Mapping::new();
-            let mut current_vars = vars.clone();
+pub fn render_map(map: serde_yaml::Mapping, vars: &Value, force_string: bool) -> Result<YamlValue> {
+    let mut rendered_map = serde_yaml::Mapping::new();
+    let mut current_vars = vars.clone();
 
-            for (k, v) in x.iter() {
-                let rendered_value = render(v.clone(), &current_vars)?;
+    for (k, v) in map.iter() {
+        match render(v.clone(), &current_vars, force_string) {
+            Ok(v) => {
                 current_vars = context! {
                     ..current_vars,
                     ..Value::from_serialize(
                         json!({
                             // safe unwrap: k is always a String
-                            k.as_str().unwrap(): rendered_value.clone()
+                            k.as_str().unwrap(): v.clone()
                         })
                     )
                 };
-                rendered_map.insert(k.clone(), rendered_value);
+                rendered_map.insert(k.clone(), v);
             }
-
-            Ok(YamlValue::Mapping(rendered_map))
+            Err(e) if e.kind() == ErrorKind::OmitParam => (),
+            Err(e) => Err(e)?,
         }
+    }
+
+    Ok(YamlValue::Mapping(rendered_map))
+}
+
+#[inline(always)]
+pub fn render(value: YamlValue, vars: &Value, force_string: bool) -> Result<YamlValue> {
+    match value.clone() {
+        YamlValue::String(s) => {
+            let rendered = &render_string(&s, vars)?;
+            if force_string {
+                Ok(YamlValue::String(rendered.to_string()))
+            } else {
+                Ok(serde_yaml::from_str(rendered)?)
+            }
+        }
+        YamlValue::Number(_) => Ok(value),
+        YamlValue::Bool(_) => Ok(value),
+        YamlValue::Sequence(v) => Ok(YamlValue::Sequence(
+            v.iter()
+                .map(|x| render(x.clone(), vars, force_string))
+                .collect::<Result<Vec<_>>>()?,
+        )),
+        YamlValue::Mapping(x) => render_map(x, vars, force_string),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
             format!("{value:?} is not a valid render value"),
@@ -96,11 +111,55 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_render_map() {
+        let yaml: YamlValue = serde_yaml::from_str(
+            r#"
+            yea: "{{ boo }}"
+            "#,
+        )
+        .unwrap();
+        let r_yaml = render_map(
+            yaml.as_mapping().unwrap().to_owned(),
+            &context! {boo => 1},
+            false,
+        )
+        .unwrap();
+        let expected: YamlValue = serde_yaml::from_str(
+            r#"
+            yea: 1
+            "#,
+        )
+        .unwrap();
+        assert_eq!(r_yaml, expected);
+
+        let yaml: YamlValue = serde_yaml::from_str(
+            r#"
+            yea: "{{ boo }}"
+            fuu: "{{ zoo | default(omit) }}"
+            "#,
+        )
+        .unwrap();
+        let r_yaml = render_map(
+            yaml.as_mapping().unwrap().to_owned(),
+            &context! {boo => 2},
+            false,
+        )
+        .unwrap();
+        let expected: YamlValue = serde_yaml::from_str(
+            r#"
+            yea: 2
+            "#,
+        )
+        .unwrap();
+        assert_eq!(r_yaml, expected);
+    }
+
+    #[test]
     fn test_render() {
-        let r_yaml = render(YamlValue::from(1), &context! {}).unwrap();
+        let r_yaml = render(YamlValue::from(1), &context! {}, false).unwrap();
         assert_eq!(r_yaml, YamlValue::from(1));
 
-        let r_yaml = render(YamlValue::from("yea"), &context! {}).unwrap();
+        let r_yaml = render(YamlValue::from("yea"), &context! {}, false).unwrap();
         assert_eq!(r_yaml, YamlValue::from("yea"));
     }
 

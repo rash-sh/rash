@@ -2,19 +2,17 @@ mod new;
 mod valid;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::jinja::{is_render_string, render, render_string};
+use crate::jinja::{is_render_string, render, render_map, render_string};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
-use minijinja::Value;
 
 use rash_derive::FieldNames;
 
 use std::process::exit;
 use std::result::Result as StdResult;
 
-use ipc_channel::ipc::IpcReceiver;
-use ipc_channel::ipc::{self, IpcSender};
-use minijinja::context;
+use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
+use minijinja::{context, Value};
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
 use serde_error::Error as SerdeError;
@@ -113,7 +111,7 @@ impl Task {
         match self.vars.clone() {
             Some(v) => {
                 trace!("extend vars: {:?}", &v);
-                let rendered_value = match render(v.clone(), &additional_vars) {
+                let rendered_value = match render(v.clone(), &additional_vars, false) {
                     Ok(v) => Value::from_serialize(v),
                     Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
                     Err(e) => return Err(e),
@@ -129,32 +127,7 @@ impl Task {
 
         let original_params = self.params.clone();
         match original_params {
-            YamlValue::Mapping(map) => match map
-                .iter()
-                .filter_map(|t| match t.1 {
-                    YamlValue::String(s) => match render_string(s, &extended_vars) {
-                        Ok(s) => Some(Ok((t.0.clone(), YamlValue::String(s)))),
-                        Err(e) if e.kind() == ErrorKind::OmitParam => None,
-                        Err(e) => Some(Err(e)),
-                    },
-                    YamlValue::Sequence(x) => match x
-                        .iter()
-                        .map(|value| render(value.clone(), &extended_vars))
-                        .collect::<Result<Vec<YamlValue>>>()
-                    {
-                        Ok(rendered_vec) => {
-                            Some(Ok((t.0.clone(), YamlValue::Sequence(rendered_vec))))
-                        }
-                        Err(e) => Some(Err(e)),
-                    },
-                    _ => Some(Ok((t.0.clone(), t.1.clone()))),
-                })
-                .collect::<Result<_>>()
-            {
-                Ok(map) => Ok(YamlValue::Mapping(map)),
-                Err(e) => Err(e),
-            },
-
+            YamlValue::Mapping(x) => render_map(x.clone(), &extended_vars, true),
             YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, &extended_vars)?)),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
@@ -178,7 +151,7 @@ impl Task {
         match value.as_sequence() {
             Some(v) => Ok(v
                 .iter()
-                .map(|item| render(item.clone(), &vars))
+                .map(|item| render(item.clone(), &vars, true))
                 .collect::<Result<Vec<YamlValue>>>()?),
             None => Err(Error::new(ErrorKind::NotFound, "loop is not iterable")),
         }

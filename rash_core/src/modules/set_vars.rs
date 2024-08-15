@@ -38,7 +38,9 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::error::{Error, ErrorKind, Result};
+use crate::jinja::render;
 use crate::modules::{Module, ModuleResult};
+
 use minijinja::Value;
 
 use minijinja::context;
@@ -60,7 +62,7 @@ impl Module for SetVars {
         vars: Value,
         _check_mode: bool,
     ) -> Result<(ModuleResult, Value)> {
-        let mut new_vars = vars;
+        let mut new_vars = vars.clone();
 
         match params {
             YamlValue::Mapping(map) => {
@@ -72,7 +74,7 @@ impl Module for SetVars {
                                 format!("{:?} is not a valid string", &hash_map.0),
                             )
                         })?;
-                        let element = json!({key: hash_map.1});
+                        let element = json!({key: render(hash_map.1.clone(), &vars, false)?});
                         new_vars = context! {..Value::from_serialize(element), ..new_vars.clone()};
                         Ok(())
                     })
