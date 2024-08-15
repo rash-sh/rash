@@ -160,15 +160,17 @@ impl Task {
     fn render_iterator(&self, vars: Value) -> Result<Vec<YamlValue>> {
         // safe unwrap, previous verification self.r#loop.is_some()
         let loop_some = self.r#loop.clone().unwrap();
+
+        let extended_vars = self.extend_vars(vars)?;
         match loop_some.as_str() {
             Some(s) => {
-                let value: YamlValue = serde_yaml::from_str(&render_string(s, &vars)?)?;
+                let value: YamlValue = serde_yaml::from_str(&render_string(s, &extended_vars)?)?;
                 match value.as_str() {
                     Some(_) => Ok(vec![value]),
-                    None => Task::get_iterator(&value, vars),
+                    None => Task::get_iterator(&value, extended_vars),
                 }
             }
-            None => Task::get_iterator(&loop_some, vars),
+            None => Task::get_iterator(&loop_some, extended_vars),
         }
     }
 
