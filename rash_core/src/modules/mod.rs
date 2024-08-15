@@ -3,7 +3,7 @@ mod command;
 mod copy;
 mod debug;
 mod file;
-mod find;
+pub mod find;
 mod pacman;
 mod set_vars;
 mod template;

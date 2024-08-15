@@ -5,7 +5,7 @@ extern crate syn;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Ident, Token};
+use syn::{parse_macro_input, punctuated::Punctuated, Expr, ExprLit, ExprTuple, Lit, Token};
 
 /// Implementation of the `#[derive(FieldNames)]` derive macro.
 ///
@@ -76,22 +76,25 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
 /// Macro to generate a function that adds lookup functions to a `minijinja::Environment`.
 ///
 /// This macro generates an `add_lookup_functions` function that registers multiple lookup
-/// functions into a `minijinja::Environment`, with each function being conditionally compiled
-/// based on the presence of a corresponding feature flag.
+/// functions into a `minijinja::Environment`. Each function can be conditionally compiled
+/// based on the presence of a corresponding feature flag if specified in the tuple.
+///
+/// Additionally, when the `docs` feature is enabled, it will generate a `LOOKUPS` constant that
+/// lists all the lookup function names.
 ///
 /// # Example
 ///
 /// Assuming you have three modules `lookup1`, `lookup2`, and `lookup3`, each with a `function`
 /// that you want to add to the environment, you would use the macro like this:
 ///
-/// ```
+/// ```rust
 /// mod lookup1;
 /// mod lookup2;
 /// mod lookup3;
 ///
-/// use rash_derive::generate_lookup_functions;
+/// use my_macro::generate_lookup_functions;
 ///
-/// generate_lookup_functions!(lookup1, lookup2, lookup3);
+/// generate_lookup_functions!((lookup1, true), (lookup2, false), (lookup3, true));
 /// ```
 ///
 /// This will generate the following function:
@@ -101,6 +104,9 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
 ///     #[cfg(feature = "lookup1")]
 ///     env.add_function("lookup1", lookup1::function);
 ///
+///
+///     #[cfg(feature = "lookup2")]
+///
 ///     #[cfg(feature = "lookup2")]
 ///     env.add_function("lookup2", lookup2::function);
 ///
@@ -109,7 +115,18 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// You can then control which functions are included by specifying the corresponding features
+/// When the `docs` feature is enabled, it will also generate the following constant:
+///
+/// ```rust
+/// #[cfg(feature = "docs")]
+/// const LOOKUPS: &[&str] = &[
+///     "lookup1",
+///     "lookup2",
+///     "lookup3",
+/// ];
+/// ```
+///
+/// You can control which functions are included by specifying the corresponding features
 /// in your `Cargo.toml`:
 ///
 /// ```toml
@@ -117,31 +134,47 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
 /// lookup1 = []
 /// lookup2 = []
 /// lookup3 = []
+/// docs = []
 /// ```
 ///
-/// When building your crate, you can enable the desired features:
+/// When building your crate with the `docs` feature, the `LOOKUPS` constant will be included:
 ///
 /// ```sh
-/// cargo build --features "lookup1 lookup2"
+/// cargo build --features "docs"
 /// ```
 #[proc_macro]
 pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
-    // Parse the input tokens into a punctuated list of identifiers separated by commas
-    let function_names =
-        parse_macro_input!(input with Punctuated::<Ident, Token![,]>::parse_terminated);
+    // Parse the input tokens into a punctuated list of tuples separated by commas
+    let tuples =
+        parse_macro_input!(input with Punctuated::<ExprTuple, Token![,]>::parse_terminated);
 
     let mut add_functions = Vec::new();
     let mut lookup_names = Vec::new();
 
-    // Iterate through each identifier and generate the corresponding function call with #[cfg]
-    for func in function_names.iter() {
-        let func_name_str = func.to_string(); // Convert the identifier to a string
-        add_functions.push(quote! {
-            #[cfg(feature = #func_name_str)]
-            env.add_function(#func_name_str, #func::function);
-        });
+    // Iterate through each tuple and generate the corresponding function call with optional #[cfg]
+    for tuple in tuples.iter() {
+        if let (
+            Some(Expr::Path(path)),
+            Some(Expr::Lit(ExprLit {
+                lit: Lit::Bool(lit_bool),
+                ..
+            })),
+        ) = (tuple.elems.first(), tuple.elems.last())
+        {
+            let func_name = path.path.segments.first().unwrap().ident.to_string(); // Extract function name
+            lookup_names.push(func_name.clone());
 
-        lookup_names.push(func_name_str);
+            if lit_bool.value {
+                add_functions.push(quote! {
+                    #[cfg(feature = #func_name)]
+                    env.add_function(#func_name, #path::function);
+                });
+            } else {
+                add_functions.push(quote! {
+                    env.add_function(#func_name, #path::function);
+                });
+            }
+        }
     }
 
     // Generate the output function code

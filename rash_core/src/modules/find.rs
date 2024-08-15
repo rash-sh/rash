@@ -139,7 +139,7 @@ fn get_regex_set(v: Option<Vec<String>>) -> Result<Option<RegexSet>> {
     }
 }
 
-fn find(params: Params) -> Result<ModuleResult> {
+pub fn find(params: Params) -> Result<ModuleResult> {
     let paths = parse_if_json(params.paths);
     if paths.iter().map(Path::new).any(|x| x.is_relative()) {
         return Err(Error::new(
