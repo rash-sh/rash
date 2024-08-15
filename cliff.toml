@@ -18,7 +18,7 @@ body = """
     ## [unreleased]
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
-    ### {{ group | upper_first }}
+    ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits
     | filter(attribute="scope")
     | sort(attribute="scope") %}
@@ -54,10 +54,10 @@ filter_unconventional = true
 split_commits = false
 # regex for parsing and grouping commits
 commit_parsers = [
+    { message = "^feat", group = "<!-- 0 -->Added"},
+    { message = "^fix", group = "<!-- 1 -->Fixed"},
+    { message = "^docs", group = "<!-- 2 -->Documentation"},
     { message = "^build", group = "Build"},
-    { message = "^docs", group = "Documentation"},
-    { message = "^feat", group = "Added"},
-    { message = "^fix", group = "Fixed"},
     { message = "^refactor", group = "Refactor"},
     { message = "^release", skip = true},
     { message = "^style", group = "Styling"},
