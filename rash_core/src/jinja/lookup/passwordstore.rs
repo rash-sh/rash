@@ -12,6 +12,8 @@
 ///     msg: "{{ passwordstore('foo/boo') }}"
 /// ```
 /// ANCHOR_END: examples
+use crate::jinja::lookup::utils::to_minijinja_error;
+
 use std::env;
 use std::result::Result as StdResult;
 
@@ -34,15 +36,11 @@ pub fn function(path: String) -> StdResult<Value, MinijinjaError> {
 
     let config = Config::from(Proto::Gpg);
     let plaintext = crypto::context(&config)
-        .map_err(|e| MinijinjaError::new(MinijinjaErrorKind::InvalidOperation, e.to_string()))?
+        .map_err(to_minijinja_error)?
         .decrypt_file(&secret.path)
-        .map_err(|e| MinijinjaError::new(MinijinjaErrorKind::InvalidOperation, e.to_string()))?;
-    let first_line = plaintext
-        .first_line()
-        .map_err(|e| MinijinjaError::new(MinijinjaErrorKind::InvalidOperation, e.to_string()))?;
+        .map_err(to_minijinja_error)?;
+    let first_line = plaintext.first_line().map_err(to_minijinja_error)?;
 
-    let password = first_line
-        .unsecure_to_str()
-        .map_err(|e| MinijinjaError::new(MinijinjaErrorKind::InvalidOperation, e.to_string()))?;
+    let password = first_line.unsecure_to_str().map_err(to_minijinja_error)?;
     Ok(Value::from(password))
 }

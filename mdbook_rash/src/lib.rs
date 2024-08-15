@@ -183,7 +183,7 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
         if capture.2 == "include_module_index" {
             let mut indexes_vec = MODULES
                 .iter()
-                .map(|(name, _)| format!("- [{name}](./{name}.html)"))
+                .map(|(name, _)| format!("- [{name}](./module_{name}.html)"))
                 .collect::<Vec<String>>();
             indexes_vec.sort();
             let indexes_body = indexes_vec.join("\n");
@@ -224,7 +224,7 @@ indent: true
                 let mut new_ch = Chapter::new(
                     name,
                     content_header,
-                    format!("{}.md", &name),
+                    format!("module_{}.md", &name),
                     vec![ch.name.clone()],
                 );
                 new_ch.number = Some(new_section_number);
@@ -235,7 +235,7 @@ indent: true
         } else if capture.2 == "include_lookup_index" {
             let mut indexes_vec = LOOKUPS
                 .iter()
-                .map(|name| format!("- [{name}](./{name}.html)"))
+                .map(|name| format!("- [{name}](./lookup_{name}.html)"))
                 .collect::<Vec<String>>();
             indexes_vec.sort();
             let indexes_body = indexes_vec.join("\n");
@@ -268,7 +268,7 @@ indent: true
                 let mut new_ch = Chapter::new(
                     lookup_name,
                     content_header,
-                    format!("{}.md", &lookup_name),
+                    format!("lookup_{}.md", &lookup_name),
                     vec![ch.name.clone()],
                 );
                 new_ch.number = Some(new_section_number);
