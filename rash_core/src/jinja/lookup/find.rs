@@ -20,6 +20,8 @@ use std::result::Result as StdResult;
 
 use minijinja::{Error as MinijinjaError, Value};
 
+// TODO: This function should have as argument vars and return a function like this with the config
+// rendered.
 pub fn function(config: Value) -> StdResult<Value, MinijinjaError> {
     parse_params(serde_yaml::to_value(config).map_err(to_minijinja_error)?)
         .map_err(to_minijinja_error)

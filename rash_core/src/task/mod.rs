@@ -113,9 +113,12 @@ impl Task {
         match self.vars.clone() {
             Some(v) => {
                 trace!("extend vars: {:?}", &v);
-                Ok(
-                    context! { ..Value::from_serialize(render(v.clone(), &additional_vars)?), ..Value::from_serialize(additional_vars)},
-                )
+                let rendered_value = match render(v.clone(), &additional_vars) {
+                    Ok(v) => Value::from_serialize(v),
+                    Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
+                    Err(e) => return Err(e),
+                };
+                Ok(context! { ..rendered_value, ..Value::from_serialize(additional_vars)})
             }
             None => Ok(additional_vars),
         }
