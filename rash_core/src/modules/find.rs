@@ -52,7 +52,7 @@ use serde_yaml::{value, Value as YamlValue};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
-#[derive(Default, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
 enum FileType {
@@ -68,7 +68,7 @@ fn default_file_type() -> Option<FileType> {
 }
 
 #[serde_as]
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
