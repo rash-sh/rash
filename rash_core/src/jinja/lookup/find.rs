@@ -10,6 +10,18 @@
 /// ```yaml
 /// - debug:
 ///     msg: "{{ find(paths='/') }}"
+///
+/// - name: Copy all files in /tmp to /tmp2
+///   vars:
+///     tmp_query:
+///       paths: "/tmp"
+///       hidden: true
+///       recurse: false
+///   loop: "{{ find(tmp_query) }}"
+///   copy:
+///     src: "{{ item }}""
+///     dest: "/tmp2/{{ item | basename }}"
+///
 /// ```
 /// ANCHOR_END: examples
 use crate::jinja::lookup::utils::to_minijinja_error;
