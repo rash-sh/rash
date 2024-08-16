@@ -25,23 +25,18 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::jinja::lookup::utils::to_minijinja_error;
-use crate::modules::find::find;
-use crate::modules::parse_params;
+use crate::modules::find::{find, Params};
 
+use std::ops::Deref;
 use std::result::Result as StdResult;
 
+use minijinja::value::ViaDeserialize;
 use minijinja::{Error as MinijinjaError, Value};
 
-pub fn function(config: Value) -> StdResult<Value, MinijinjaError> {
-    parse_params(serde_yaml::to_value(config).map_err(to_minijinja_error)?)
+pub fn function(config: ViaDeserialize<Params>) -> StdResult<Value, MinijinjaError> {
+    let params = config.deref();
+    find(params.clone())
         .map_err(to_minijinja_error)
-        .and_then(|params| {
-            Ok(find(params)
-                .map_err(to_minijinja_error)
-                .map(|x| serde_yaml::to_value(x.get_extra()))
-                .map_err(to_minijinja_error)?
-                .map(Value::from_serialize))
-        })
-        .map_err(to_minijinja_error)?
+        .map(|x| Value::from_serialize(x.get_extra()))
         .map_err(to_minijinja_error)
 }
