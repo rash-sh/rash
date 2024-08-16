@@ -118,7 +118,7 @@ impl Task {
                     Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
                     Err(e) => return Err(e),
                 };
-                Ok(context! { ..rendered_value, ..Value::from_serialize(additional_vars)})
+                Ok(context! { ..rendered_value, ..additional_vars})
             }
             None => Ok(additional_vars),
         }
@@ -228,8 +228,10 @@ impl Task {
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
                     trace!("register {:?} in {:?}", &result, register);
-                    new_vars =
-                        context! { ..Value::from_serialize(json!({register: &result})), ..new_vars};
+                    let v: Value = [(register, Value::from_serialize(&result))]
+                        .into_iter()
+                        .collect();
+                    new_vars = context! { ..v, ..new_vars};
                 }
                 Ok(new_vars)
             }
@@ -464,7 +466,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
@@ -490,7 +492,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -518,7 +520,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
@@ -533,7 +535,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -546,7 +548,7 @@ mod tests {
               - true
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! {});
+        let vars = context! {};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -559,7 +561,7 @@ mod tests {
               - true
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! {});
+        let vars = context! {};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
@@ -572,7 +574,7 @@ mod tests {
               - true
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! {});
+        let vars = context! {};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
@@ -587,7 +589,7 @@ mod tests {
               - boo == 'test' or false
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
@@ -619,7 +621,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test" });
+        let vars = context! { boo => "test" };
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
@@ -634,7 +636,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
@@ -649,7 +651,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -664,7 +666,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -679,7 +681,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -696,7 +698,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task
@@ -713,7 +715,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task
@@ -749,7 +751,7 @@ mod tests {
             loop: "{{ range(3) }}"
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
@@ -767,7 +769,7 @@ mod tests {
               - 2
             "#
         .to_owned();
-        let vars = Value::from_serialize(context! { boo => "test"});
+        let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
