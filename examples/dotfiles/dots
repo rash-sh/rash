@@ -24,6 +24,7 @@
     templates_pattern: ".*\\.j2"
 
 - name: create dotfiles directories
+  when: install
   vars:
     dotfiles_dirs_query:
       paths: "{{ dotfiles_dir }}"
@@ -31,11 +32,10 @@
       recurse: true
       excludes: dotfiles
       file_type: directory
+  loop: "{{ find(dotfiles_dirs_query) }}"
   file:
     path: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     state: "directory"
-  loop: "{{ find(dotfiles_dirs_query) }}"
-  when: install
 
 - set_vars:
     dotfiles_query:
@@ -46,33 +46,31 @@
       recurse: true
 
 - name: copy dotfiles
+  when: install
+  loop: "{{ find(dotfiles_query) }}"
   copy:
     src: "{{ item }}"
     dest: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     mode: preserve
-  loop: "{{ find(dotfiles_query) }}"
-  when: install
 
-- set_vars:
+- name: render dotfiles templates
+  when: install
+  loop: "{{ find(dotfile_templates_query) }}"
+  vars:
     dotfile_templates_query:
       paths: "{{ dotfiles_dir }}"
       hidden: true
       patterns: "{{ templates_pattern }}"
       recurse: true
-  when: package_filters is not defined
-
-- name: render dotfiles templates
   template:
     src: "{{ item }}"
     dest: "{{ item | replace(dotfiles_dir, env.HOME) | replace('.j2', '') }}"
     mode: preserve
-  loop: "{{ find(dotfile_templates_query) }}"
-  when: install
 
 - name: update dotfiles
+  when: update
+  loop: "{{ find(dotfiles_query) }}"
   copy:
     src: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     dest: "{{ item }}"
     mode: preserve
-  loop: "{{ find(dotfiles_query) }}"
-  when: update
