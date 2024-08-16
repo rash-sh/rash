@@ -2,7 +2,9 @@ mod new;
 mod valid;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::jinja::{is_render_string, render, render_map, render_string};
+use crate::jinja::{
+    is_render_string, render, render_force_string, render_map_force_string, render_string,
+};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 
@@ -111,7 +113,7 @@ impl Task {
         match self.vars.clone() {
             Some(v) => {
                 trace!("extend vars: {:?}", &v);
-                let rendered_value = match render(v.clone(), &additional_vars, false) {
+                let rendered_value = match render(v.clone(), &additional_vars) {
                     Ok(v) => Value::from_serialize(v),
                     Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
                     Err(e) => return Err(e),
@@ -127,7 +129,7 @@ impl Task {
 
         let original_params = self.params.clone();
         match original_params {
-            YamlValue::Mapping(x) => render_map(x.clone(), &extended_vars, true),
+            YamlValue::Mapping(x) => render_map_force_string(x.clone(), &extended_vars),
             YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, &extended_vars)?)),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
@@ -151,7 +153,7 @@ impl Task {
         match value.as_sequence() {
             Some(v) => Ok(v
                 .iter()
-                .map(|item| render(item.clone(), &vars, true))
+                .map(|item| render_force_string(item.clone(), &vars))
                 .collect::<Result<Vec<YamlValue>>>()?),
             None => Err(Error::new(ErrorKind::NotFound, "loop is not iterable")),
         }

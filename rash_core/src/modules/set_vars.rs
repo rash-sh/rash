@@ -74,7 +74,7 @@ impl Module for SetVars {
                                 format!("{:?} is not a valid string", &hash_map.0),
                             )
                         })?;
-                        let element = json!({key: render(hash_map.1.clone(), &vars, false)?});
+                        let element = json!({key: render(hash_map.1.clone(), &vars)?});
                         new_vars = context! {..Value::from_serialize(element), ..new_vars.clone()};
                         Ok(())
                     })

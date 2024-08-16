@@ -24,12 +24,12 @@ fn init_env() -> Environment<'static> {
 static MINIJINJA_ENV: LazyLock<Environment<'static>> = LazyLock::new(init_env);
 
 #[inline(always)]
-pub fn render_map(map: serde_yaml::Mapping, vars: &Value, force_string: bool) -> Result<YamlValue> {
+fn _render_map(map: serde_yaml::Mapping, vars: &Value, force_string: bool) -> Result<YamlValue> {
     let mut rendered_map = serde_yaml::Mapping::new();
     let mut current_vars = vars.clone();
 
     for (k, v) in map.iter() {
-        match render(v.clone(), &current_vars, force_string) {
+        match _render(v.clone(), &current_vars, force_string) {
             Ok(v) => {
                 current_vars = context! {
                     ..current_vars,
@@ -51,7 +51,17 @@ pub fn render_map(map: serde_yaml::Mapping, vars: &Value, force_string: bool) ->
 }
 
 #[inline(always)]
-pub fn render(value: YamlValue, vars: &Value, force_string: bool) -> Result<YamlValue> {
+pub fn render_map(map: serde_yaml::Mapping, vars: &Value) -> Result<YamlValue> {
+    _render_map(map, vars, false)
+}
+
+#[inline(always)]
+pub fn render_map_force_string(map: serde_yaml::Mapping, vars: &Value) -> Result<YamlValue> {
+    _render_map(map, vars, true)
+}
+
+#[inline(always)]
+fn _render(value: YamlValue, vars: &Value, force_string: bool) -> Result<YamlValue> {
     match value.clone() {
         YamlValue::String(s) => {
             let rendered = &render_string(&s, vars)?;
@@ -65,15 +75,25 @@ pub fn render(value: YamlValue, vars: &Value, force_string: bool) -> Result<Yaml
         YamlValue::Bool(_) => Ok(value),
         YamlValue::Sequence(v) => Ok(YamlValue::Sequence(
             v.iter()
-                .map(|x| render(x.clone(), vars, force_string))
+                .map(|x| _render(x.clone(), vars, force_string))
                 .collect::<Result<Vec<_>>>()?,
         )),
-        YamlValue::Mapping(x) => render_map(x, vars, force_string),
+        YamlValue::Mapping(x) => _render_map(x, vars, force_string),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
             format!("{value:?} is not a valid render value"),
         )),
     }
+}
+
+#[inline(always)]
+pub fn render(value: YamlValue, vars: &Value) -> Result<YamlValue> {
+    _render(value, vars, false)
+}
+
+#[inline(always)]
+pub fn render_force_string(value: YamlValue, vars: &Value) -> Result<YamlValue> {
+    _render(value, vars, true)
 }
 
 fn skip_omit(x: String) -> Result<String> {
@@ -118,12 +138,8 @@ mod tests {
             "#,
         )
         .unwrap();
-        let r_yaml = render_map(
-            yaml.as_mapping().unwrap().to_owned(),
-            &context! {boo => 1},
-            false,
-        )
-        .unwrap();
+        let r_yaml =
+            render_map(yaml.as_mapping().unwrap().to_owned(), &context! {boo => 1}).unwrap();
         let expected: YamlValue = serde_yaml::from_str(
             r#"
             yea: 1
@@ -139,12 +155,8 @@ mod tests {
             "#,
         )
         .unwrap();
-        let r_yaml = render_map(
-            yaml.as_mapping().unwrap().to_owned(),
-            &context! {boo => 2},
-            false,
-        )
-        .unwrap();
+        let r_yaml =
+            render_map(yaml.as_mapping().unwrap().to_owned(), &context! {boo => 2}).unwrap();
         let expected: YamlValue = serde_yaml::from_str(
             r#"
             yea: 2
@@ -156,10 +168,10 @@ mod tests {
 
     #[test]
     fn test_render() {
-        let r_yaml = render(YamlValue::from(1), &context! {}, false).unwrap();
+        let r_yaml = render(YamlValue::from(1), &context! {}).unwrap();
         assert_eq!(r_yaml, YamlValue::from(1));
 
-        let r_yaml = render(YamlValue::from("yea"), &context! {}, false).unwrap();
+        let r_yaml = render(YamlValue::from("yea"), &context! {}).unwrap();
         assert_eq!(r_yaml, YamlValue::from("yea"));
     }
 
