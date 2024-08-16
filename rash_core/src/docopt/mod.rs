@@ -122,15 +122,15 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, arg_def)| match args_kinds[usage_idx].get(idx) {
-                    Some(0) => Some(Value::from_serialize(
+                    Some(0) => Some(
                         match args_defs_expand_repeatable
                             .iter()
                             .any(|args_def| args_def.iter().filter(|&x| x == arg_def).count() > 1)
                         {
-                            true => json!({arg_def: 0}),
-                            false => json!({arg_def: false}),
+                            true => [(arg_def, 0)].into_iter().collect(),
+                            false => [(arg_def, false)].into_iter().collect(),
                         },
-                    )),
+                    ),
                     Some(1) | Some(2) => None,
                     _ => unreachable!(),
                 })
@@ -410,11 +410,11 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
 fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Value> {
     if arg == def {
         let value = if defs.iter().filter(|&x| *x == def).count() > 1 {
-            json!({arg: 1})
+            [(arg, 1)].into_iter().collect()
         } else {
-            json!({arg: true})
+            [(arg, true)].into_iter().collect()
         };
-        Some(Value::from_serialize(value))
+        Some(value)
     } else {
         None
     }
@@ -423,12 +423,13 @@ fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Value> {
 fn parse_positional(arg: &str, def: &str) -> Value {
     // safe unwrap: Must be a positional argument definition
     let key = def.strip_prefix('<').unwrap().split_once('>').unwrap().0;
-    let value = if def.ends_with('+') {
-        json!({ key: vec![arg] })
+    if def.ends_with('+') {
+        [(key, Value::from_serialize(vec![arg]))]
+            .into_iter()
+            .collect()
     } else {
-        json!({ key: arg })
-    };
-    Value::from_serialize(value)
+        [(key, arg)].into_iter().collect()
+    }
 }
 
 #[cfg(test)]
@@ -702,7 +703,7 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Value::from_serialize(json!({})));
+        assert_eq!(result, context! {});
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
@@ -728,7 +729,7 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Value::from_serialize(json!({})));
+        assert_eq!(result, context! {});
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();
@@ -762,7 +763,7 @@ mod tests {
         let args = vec![];
         let result = parse(file, &args).unwrap();
 
-        assert_eq!(result, Value::from_serialize(json!({})));
+        assert_eq!(result, context! {});
 
         let args = vec!["x"];
         let result = parse(file, &args).unwrap();

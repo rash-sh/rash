@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_debug_vars() {
-        let vars = Value::from_serialize(json!({"yea": "foo"}));
+        let vars = [("yea", "foo")].into_iter().collect();
         let output = debug(
             Params {
                 required: Required::Var("yea".to_owned()),

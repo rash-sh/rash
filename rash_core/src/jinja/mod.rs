@@ -31,14 +31,13 @@ fn _render_map(map: serde_yaml::Mapping, vars: &Value, force_string: bool) -> Re
     for (k, v) in map.iter() {
         match _render(v.clone(), &current_vars, force_string) {
             Ok(v) => {
+                // safe unwrap: k is always a String
+                let value: Value = [(k.as_str().unwrap(), Value::from_serialize(v.clone()))]
+                    .into_iter()
+                    .collect();
                 current_vars = context! {
                     ..current_vars,
-                    ..Value::from_serialize(
-                        json!({
-                            // safe unwrap: k is always a String
-                            k.as_str().unwrap(): v.clone()
-                        })
-                    )
+                    ..value
                 };
                 rendered_map.insert(k.clone(), v);
             }

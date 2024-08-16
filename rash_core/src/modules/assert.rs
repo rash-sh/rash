@@ -91,6 +91,8 @@ impl Module for Assert {
 
 #[cfg(test)]
 mod tests {
+    use minijinja::context;
+
     use super::*;
 
     #[test]
@@ -131,7 +133,7 @@ mod tests {
             Params {
                 that: vec!["1 == 1".to_owned()],
             },
-            &Value::from_serialize(json!({})),
+            &context! {},
         )
         .unwrap();
     }
@@ -142,7 +144,7 @@ mod tests {
             Params {
                 that: vec!["1 != 1".to_owned()],
             },
-            &Value::from_serialize(json!({})),
+            &context! {},
         )
         .unwrap_err();
     }
