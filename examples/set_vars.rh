@@ -1,0 +1,19 @@
+#!/usr/bin/env -S rash --
+- set_vars:
+    username: alice
+    scores:
+      - 85
+      - 90
+      - 78
+    profile:
+      age: 30
+      active: true
+      name: "{{ username }}"
+
+- assert:
+    that:
+      - username == 'alice'
+      - scores[1] == 90
+      - profile.age == 30
+      - profile.active == true
+      - username == profile.name
