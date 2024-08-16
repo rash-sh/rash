@@ -2,7 +2,7 @@
 #
 # dots easy manage of your dotfiles.
 # Usage:
-#   ./dots (install|update|help) <package_filters>...
+#   ./dots (install|update|help) [<package_filters>...]
 #
 # Arguments:
 #   package_filters   List of regex matching packages wanted.
@@ -23,57 +23,50 @@
     dotfiles_dir: "{{ rash.dir }}/dotfiles"
     templates_pattern: ".*\\.j2"
 
-- name: find dotfiles to copy
-  find:
-    paths: "{{ dotfiles_dir }}"
-    hidden: true
-    patterns: "{{ package_filters | default(omit) }}"
-    excludes: "{{ templates_pattern }}"
-    recurse: true
-  changed_when: false
-  register: dotfiles
-
-- name: find dotfiles to render
-  find:
-    paths: "{{ dotfiles_dir }}"
-    hidden: true
-    patterns: "{{ templates_pattern }}"
-    recurse: true
-  changed_when: false
-  register: dotfile_templates
-  when: package_filters is not defined
-
-- name: find dotfiles directories to create dir structure
-  find:
-    paths: "{{ dotfiles_dir }}"
-    hidden: true
-    recurse: true
-    excludes: dotfiles
-    file_type: directory
-  changed_when: false
-  register: dotfiles_dirs
-
 - name: create dotfiles directories
+  vars:
+    dotfiles_dirs_query:
+      paths: "{{ dotfiles_dir }}"
+      hidden: true
+      recurse: true
+      excludes: dotfiles
+      file_type: directory
   file:
     path: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     state: "directory"
-  loop: "{{ dotfiles_dirs.extra }}"
+  loop: "{{ find(dotfiles_dirs_query) }}"
   when: install
+
+- set_vars:
+    dotfiles_query:
+      paths: "{{ dotfiles_dir }}"
+      hidden: true
+      patterns: "{{ package_filters | default(omit) }}"
+      excludes: "{{ templates_pattern }}"
+      recurse: true
 
 - name: copy dotfiles
   copy:
     src: "{{ item }}"
     dest: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     mode: preserve
-  loop: "{{ dotfiles.extra }}"
+  loop: "{{ find(dotfiles_query) }}"
   when: install
+
+- set_vars:
+    dotfile_templates_query:
+      paths: "{{ dotfiles_dir }}"
+      hidden: true
+      patterns: "{{ templates_pattern }}"
+      recurse: true
+  when: package_filters is not defined
 
 - name: render dotfiles templates
   template:
     src: "{{ item }}"
     dest: "{{ item | replace(dotfiles_dir, env.HOME) | replace('.j2', '') }}"
     mode: preserve
-  loop: "{{ dotfile_templates.extra | default([]) }}"
+  loop: "{{ find(dotfile_templates_query) }}"
   when: install
 
 - name: update dotfiles
@@ -81,5 +74,5 @@
     src: "{{ item | replace(dotfiles_dir, env.HOME) }}"
     dest: "{{ item }}"
     mode: preserve
-  loop: "{{ dotfiles.extra }}"
+  loop: "{{ find(dotfiles_query) }}"
   when: update
