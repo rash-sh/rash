@@ -2,6 +2,7 @@
 pub mod lookup;
 #[cfg(not(feature = "docs"))]
 mod lookup;
+pub mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
 

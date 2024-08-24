@@ -4,7 +4,7 @@ mod utils;
 use utils::{get_smallest_regex_match, RegexMatch, WORDS_REGEX, WORDS_UPPERCASE_REGEX};
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::utils::merge_json;
+use crate::jinja::utils::{extend_vars, merge};
 use minijinja::Value;
 
 use std::collections::HashSet;
@@ -105,12 +105,6 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
         })
         .collect();
 
-    let extend_vars = |vars: Value, x: Value| {
-        context! {
-        ..vars,
-        ..x}
-    };
-
     let mut vars = options.initial_vars();
 
     args_defs_expand_repeatable
@@ -172,21 +166,18 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
             Error::new(ErrorKind::InvalidData, help_msg.clone())
         })?;
 
-    let mut new_vars_json = json! {vars.clone()};
     vars_vec
         .into_iter()
-        .map(|x| json! {x})
-        .for_each(|x| merge_json(&mut new_vars_json, x));
-    let new_vars = Value::from_serialize(new_vars_json);
+        .for_each(|x| vars = merge(x, vars.clone()));
 
-    match new_vars.get_attr("help") {
+    match vars.get_attr("help") {
         Ok(y) if y.is_true() => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
-        _ => match new_vars.get_attr("options") {
+        _ => match vars.get_attr("options") {
             Ok(options) => match options.get_attr("help") {
                 Ok(z) if z.is_true() => Err(Error::new(ErrorKind::GracefulExit, help_msg)),
-                _ => Ok(new_vars),
+                _ => Ok(vars),
             },
-            _ => Ok(new_vars),
+            _ => Ok(vars),
         },
     }
 }
