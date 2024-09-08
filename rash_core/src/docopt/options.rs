@@ -327,22 +327,27 @@ impl Options {
     }
 
     pub fn parse(&self, arg: &str, def: &str) -> Option<Value> {
-        let option_arg = self.find(arg.split('=').next().unwrap())?;
+        let (arg_key, arg_value_option) = match arg.split_once('=') {
+            Some((k, v)) => (k, Some(v)),
+            None => (arg, None),
+        };
+        let option_arg = self.find(arg_key)?;
+
         // check arg is in def
         def.replace(['{', '}'], "")
             .split('#')
             .find(|arg_def| &option_arg.get_representation() == arg_def)?;
+
         let value = match option_arg {
-            OptionArg::WithParam { .. } => {
-                // safe unwrap: WithParams always has `=` in the representation
-                json!(arg.split_once('=').unwrap().1)
-            }
+            // safe unwrap: WithParams always has `=` in the representation
+            OptionArg::WithParam { .. } => json!(arg_value_option.unwrap()),
             OptionArg::Repeatable { .. } => json!(1),
             OptionArg::Simple { .. } => json!(true),
         };
-        Some(json!(
-        { "options":
-            { option_arg.get_key_representation(): value
+
+        Some(json!({
+            "options": {
+                option_arg.get_key_representation(): value
             }
         }))
     }
