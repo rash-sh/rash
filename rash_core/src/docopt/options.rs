@@ -6,8 +6,8 @@ use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use itertools::Itertools;
-use minijinja::Value;
 use regex::Regex;
+use serde_json::Value;
 
 const OPTIONS_MARK: &str = "[options]";
 
@@ -340,11 +340,11 @@ impl Options {
             OptionArg::Repeatable { .. } => json!(1),
             OptionArg::Simple { .. } => json!(true),
         };
-        Some(Value::from_serialize(json!(
+        Some(json!(
         { "options":
             { option_arg.get_key_representation(): value
             }
-        })))
+        }))
     }
 
     pub fn initial_vars(&self) -> Value {
@@ -378,7 +378,7 @@ impl Options {
                 })
             })
             .for_each(|x| merge_json(&mut new_vars_json, x));
-        Value::from_serialize(new_vars_json)
+        new_vars_json
     }
 
     /// Replace options in args for standard docopt usage arguments
@@ -718,11 +718,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Value::from_serialize(json!({
+            json!({
                 "options": {
                     "help": true,
                 }
-            }))
+            })
         )
     }
 
@@ -758,11 +758,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Value::from_serialize(json!({
+            json!({
                 "options": {
                     "sorted": true,
                 }
-            }))
+            })
         );
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";
@@ -771,11 +771,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Value::from_serialize(json!({
+            json!({
                 "options": {
                     "o": "Fgwe=sad",
                 }
-            }))
+            })
         );
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";
@@ -784,11 +784,11 @@ Usage: {usage}
 
         assert_eq!(
             result,
-            Value::from_serialize(json!({
+            json!({
                 "options": {
                     "o": "Fgwe=sad",
                 }
-            }))
+            })
         );
 
         let arg_def = r"{--help#--sorted#-o=<-o>#--quiet|--verbose}";
