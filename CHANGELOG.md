@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.4.0](https://github.com/rash-sh/rash/tree/v2.4.0) - 2024-09-10
+
+### Added
+
+- module: Make `render_params` force string optional
+
+### Fixed
+
+- ci: Remove `fetch-depth: 0` to get just last commit on commitlint
+- ci: Add permissions to commitlint action
+
+### Documentation
+
+- lookup: Remove TODO as completed
+- Add find lookup example and update dots script
+- Update dots example
+
+### Build
+
+- deps: Update Rust crate syn to v2.0.75
+- deps: Update wagoid/commitlint-github-action action to v6.1.0
+- deps: Update wagoid/commitlint-github-action action to v6.1.1
+- deps: Update KSXGitHub/github-actions-deploy-aur action to v3
+- deps: Update Rust crate quote to v1.0.37
+- deps: Update Rust crate serde_json to v1.0.127
+- deps: Update Rust crate serde to v1.0.209
+- deps: Update Rust crate syn to v2.0.76
+- deps: Update Rust crate minijinja to v2.2.0
+- deps: Update KSXGitHub/github-actions-deploy-aur action to v3.0.1
+- deps: Update wagoid/commitlint-github-action action to v6.1.2
+- deps: Update rust Docker tag to v1.81.0
+
+### Refactor
+
+- core: Merge `minijinja::Value` instead of using json
+- core: Replace minijinja value by serde_json in docopt
+- core: Improbe `merge_json` performance
+- core: Small tweak in parse function in docopt
+- jinja: Expose render with `force_string` functions
+- jinja: Improve `Value` transformations
+- lookup: Direct serde between `Params` and `minijinja::Value`
+
+### Testing
+
+- module: Add `set_vars.rh` to examples
+
 ## [v2.3.1](https://github.com/rash-sh/rash/tree/v2.3.1) - 2024-08-15
 
 ### Fixed
