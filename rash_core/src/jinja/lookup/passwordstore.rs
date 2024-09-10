@@ -3,6 +3,12 @@
 ///
 /// Lookup passwords from the passwordstore.org pass utility.
 ///
+/// ## Parameters
+///
+/// | Parameter | Required | Type    | Values | Description                                                                             |
+/// |-----------|----------|---------|--------|-----------------------------------------------------------------------------------------|
+/// | returnall |          | boolean |        | Return all the content of the password, not only the first line. **[default: `false`]** |
+///
 /// ANCHOR_END: lookup
 /// ANCHOR: examples
 /// ## Example
@@ -10,6 +16,9 @@
 /// ```yaml
 /// - debug:
 ///     msg: "{{ passwordstore('foo/boo') }}"
+///
+/// - debug:
+///     msg: "{{ passwordstore('foo/boo', returnall=true) }}"
 /// ```
 /// ANCHOR_END: examples
 use crate::jinja::lookup::utils::to_minijinja_error;
@@ -17,11 +26,11 @@ use crate::jinja::lookup::utils::to_minijinja_error;
 use std::env;
 use std::result::Result as StdResult;
 
-use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value};
+use minijinja::{value::Kwargs, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value};
 use prs_lib::crypto::{self, Config, IsContext, Proto};
 use prs_lib::{Store, STORE_DEFAULT_ROOT};
 
-pub fn function(path: String) -> StdResult<Value, MinijinjaError> {
+pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaError> {
     let store_path = env::var("PASSWORD_STORE_DIR").unwrap_or(STORE_DEFAULT_ROOT.to_string());
     let store = Store::open(store_path).map_err(|_| {
         MinijinjaError::new(
@@ -35,12 +44,18 @@ pub fn function(path: String) -> StdResult<Value, MinijinjaError> {
     })?;
 
     let config = Config::from(Proto::Gpg);
-    let plaintext = crypto::context(&config)
+    let mut plaintext = crypto::context(&config)
         .map_err(to_minijinja_error)?
         .decrypt_file(&secret.path)
         .map_err(to_minijinja_error)?;
-    let first_line = plaintext.first_line().map_err(to_minijinja_error)?;
 
-    let password = first_line.unsecure_to_str().map_err(to_minijinja_error)?;
+    if Some(true) != options.get("returnall")? {
+        plaintext = plaintext.first_line().map_err(to_minijinja_error)?;
+    };
+
+    let password = plaintext.unsecure_to_str().map_err(to_minijinja_error)?;
+
+    options.assert_all_used()?;
+
     Ok(Value::from(password))
 }
