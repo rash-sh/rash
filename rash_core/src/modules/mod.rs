@@ -69,16 +69,30 @@ impl ModuleResult {
 }
 
 pub trait Module: Send + Sync + std::fmt::Debug {
-    /// Return name.
+    /// Returns the name of the module.
     fn get_name(&self) -> &str;
 
-    /// Execute module
+    /// Executes the module's functionality with the provided parameters.
+    ///
+    /// This method is responsible for performing the module's core logic.
+    /// It accepts a set of YAML parameters and additional variables, then
+    /// runs the module's functionality. The result includes both the outcome
+    /// of the execution and any potential changes made to the variables.
     fn exec(
         &self,
         params: YamlValue,
         vars: Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Value)>;
+
+    /// Determines if the module requires its parameters to be treated as strings.
+    ///
+    /// By default, this returns `true`, meaning the module will force all parameters
+    /// to be interpreted as strings. Override this method if the module should
+    /// accept other types.
+    fn force_string_on_params(&self) -> bool {
+        true
+    }
 
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<RootSchema>;

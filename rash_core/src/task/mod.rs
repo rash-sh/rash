@@ -2,9 +2,7 @@ mod new;
 mod valid;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::jinja::{
-    is_render_string, render, render_force_string, render_map_force_string, render_string,
-};
+use crate::jinja::{is_render_string, render, render_force_string, render_map, render_string};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 
@@ -129,7 +127,11 @@ impl Task {
 
         let original_params = self.params.clone();
         match original_params {
-            YamlValue::Mapping(x) => render_map_force_string(x.clone(), &extended_vars),
+            YamlValue::Mapping(x) => render_map(
+                x.clone(),
+                &extended_vars,
+                self.module.force_string_on_params(),
+            ),
             YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, &extended_vars)?)),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,

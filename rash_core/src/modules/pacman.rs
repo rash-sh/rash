@@ -164,6 +164,10 @@ impl Module for Pacman {
         Ok((pacman(parse_params(optional_params)?, check_mode)?, vars))
     }
 
+    fn force_string_on_params(&self) -> bool {
+        false
+    }
+
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<RootSchema> {
         Some(Params::get_json_schema())
