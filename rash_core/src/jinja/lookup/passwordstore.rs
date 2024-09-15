@@ -5,9 +5,10 @@
 ///
 /// ## Parameters
 ///
-/// | Parameter | Required | Type    | Values | Description                                                                             |
-/// |-----------|----------|---------|--------|-----------------------------------------------------------------------------------------|
-/// | returnall |          | boolean |        | Return all the content of the password, not only the first line. **[default: `false`]** |
+/// | Parameter | Required | Type    | Values | Description                                                                                                              |
+/// | --------- | -------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+/// | returnall |          | boolean |        | Return all the content of the password, not only the first line. **[default: `false`]**                                  |
+/// | subkey    |          | string  |        | Return a specific subkey of the password. When set to password, always returns the first line. **[default: `password`]** |
 ///
 /// ANCHOR_END: lookup
 /// ANCHOR: examples
@@ -48,6 +49,14 @@ pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaErro
         .map_err(to_minijinja_error)?
         .decrypt_file(&secret.path)
         .map_err(to_minijinja_error)?;
+
+    if let Some(key) = options.get::<Option<String>>("subkey")? {
+        if key == "password" {
+            plaintext = plaintext.first_line().map_err(to_minijinja_error)?;
+        } else {
+            plaintext = plaintext.property(&key).map_err(to_minijinja_error)?;
+        }
+    };
 
     if Some(true) != options.get("returnall")? {
         plaintext = plaintext.first_line().map_err(to_minijinja_error)?;
