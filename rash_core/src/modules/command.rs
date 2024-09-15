@@ -30,9 +30,9 @@
 ///
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_params, Module, ModuleResult};
-use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -42,6 +42,7 @@ use std::path::Path;
 use std::process::Command as StdCommand;
 
 use exec as exec_command;
+use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
@@ -107,6 +108,7 @@ impl Module for Command {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         _check_mode: bool,

@@ -19,3 +19,22 @@ fn test_fieldnames() {
             .collect::<HashSet<String>>()
     ];
 }
+
+#[allow(dead_code)]
+#[derive(FieldNames)]
+struct TestLifetimes<'a> {
+    foo: bool,
+    boo: &'a str,
+    r#loop: u16,
+}
+
+#[test]
+fn test_fieldnames_lifetimes() {
+    assert_eq![
+        Test::get_field_names(),
+        ["foo", "boo", "loop"]
+            .iter()
+            .map(ToString::to_string)
+            .collect::<HashSet<String>>()
+    ];
+}

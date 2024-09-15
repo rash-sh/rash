@@ -23,13 +23,13 @@
             <outline text="Task" _icon="progress_100" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ftask">
               <outline text="name" _icon="help;progress_100"/>
               <outline text="params" _icon="progress_100" _note="&lt;div&gt;flexible to satisfy all modules&lt;/div&gt;"/>
-              <outline text="ModuleKind" _icon="progress_25" _note="&lt;div&gt;https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fmodule&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;&lt;div&gt;kinds names:&lt;br /&gt;- Genera/Standard/Basic&lt;br /&gt;- Core/Special/Unique&lt;br /&gt;&lt;/div&gt;">
+              <outline text="ModuleKind" _icon="progress_25" _note="&lt;div&gt;https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fmodule&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;&lt;div&gt;kinds names:&lt;br /&gt;- Genera/Standard/Basic&lt;br /&gt;- Core/Special/Unique&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;&lt;div&gt;Is this abstraction really needed? what are the differences between&amp;nbsp; Standard and Unique?&lt;br /&gt;Let's implemented them and see if there are differences. If not, remove this abstraction from concept map.&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;">
                 <outline text="Standard">
                   <outline text="exec_fn" _icon="progress_100"/>
                   <outline text="name" _icon="progress_100"/>
                 </outline>
-                <outline text="Special">
-                  <outline text="Dynamic">
+                <outline text="Special" _note="&lt;div&gt;create new tasks and add them&lt;/div&gt;&lt;div&gt;&lt;br /&gt;&lt;/div&gt;">
+                  <outline text="Dynamic" _note="is this needed?">
                     <outline text="name"/>
                     <outline text="ModuleKind::Special::Include"/>
                   </outline>
@@ -39,6 +39,10 @@
                   </outline>
                   <outline text="Group" _note="&lt;div&gt;group tasks with similar fields (when, changed_when, ignore_errors)&lt;/div&gt;">
                     <outline text="name: group"/>
+                    <outline text="exec_fn"/>
+                  </outline>
+                  <outline text="Handlers">
+                    <outline text="name: handlers"/>
                     <outline text="exec_fn"/>
                   </outline>
                 </outline>

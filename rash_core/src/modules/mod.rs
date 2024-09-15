@@ -4,10 +4,12 @@ mod copy;
 mod debug;
 mod file;
 pub mod find;
+mod include;
 mod pacman;
 mod set_vars;
 mod template;
 
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::assert::Assert;
 use crate::modules::command::Command;
@@ -15,14 +17,15 @@ use crate::modules::copy::Copy;
 use crate::modules::debug::Debug;
 use crate::modules::file::File;
 use crate::modules::find::Find;
+use crate::modules::include::Include;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
 use crate::modules::template::Template;
-use minijinja::Value;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde::{Deserialize, Serialize};
@@ -80,6 +83,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     /// of the execution and any potential changes made to the variables.
     fn exec(
         &self,
+        global_params: &GlobalParams,
         params: YamlValue,
         vars: Value,
         check_mode: bool,
@@ -106,6 +110,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
+        (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),

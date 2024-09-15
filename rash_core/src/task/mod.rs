@@ -1,6 +1,7 @@
 mod new;
 mod valid;
 
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{is_render_string, render, render_force_string, render_map, render_string};
 use crate::modules::{Module, ModuleResult};
@@ -18,23 +19,6 @@ use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
 use serde_error::Error as SerdeError;
 use serde_yaml::Value as YamlValue;
 
-/// Parameters that can be set globally
-pub struct GlobalParams<'a> {
-    pub r#become: bool,
-    pub become_user: &'a str,
-    pub check_mode: bool,
-}
-
-impl Default for GlobalParams<'_> {
-    fn default() -> Self {
-        GlobalParams {
-            r#become: Default::default(),
-            become_user: "root",
-            check_mode: Default::default(),
-        }
-    }
-}
-
 /// Main structure at definition level which prepares [`Module`] executions.
 ///
 /// It implements a state machine using Rust Generics to enforce well done definitions.
@@ -43,7 +27,7 @@ impl Default for GlobalParams<'_> {
 /// [`Module`]: ../modules/trait.Module.html
 #[derive(Debug, Clone, FieldNames)]
 // ANCHOR: task
-pub struct Task {
+pub struct Task<'a> {
     /// Run operations with become (does not imply password prompting).
     r#become: bool,
     /// Run operations as this user (just works with become enabled).
@@ -77,15 +61,17 @@ pub struct Task {
     vars: Option<YamlValue>,
     /// Template expression passed directly without {{ }}; if false skip task execution.
     when: Option<String>,
+    /// Global parameters.
+    global_params: &'a GlobalParams<'a>,
 }
 // ANCHOR_END: task
 
 /// A lists of [`Task`]
 ///
 /// [`Task`]: struct.Task.html
-pub type Tasks = Vec<Task>;
+pub type Tasks<'a> = Vec<Task<'a>>;
 
-impl Task {
+impl<'a> Task<'a> {
     /// Create a new Task from [`Value`].
     /// Enforcing all key values are valid using TaskNew and TaskValid internal states.
     ///
@@ -94,7 +80,7 @@ impl Task {
     ///
     /// [`Task`]: struct.Task.html
     /// [`Value`]: ../../serde_yaml/enum.Value.html
-    pub fn new(yaml: &YamlValue, global_params: &GlobalParams) -> Result<Self> {
+    pub fn new(yaml: &YamlValue, global_params: &'a GlobalParams) -> Result<Self> {
         trace!("new task: {:?}", yaml);
         TaskNew::from(yaml)
             .validate_attrs()?
@@ -208,10 +194,12 @@ impl Task {
     }
 
     fn exec_module_rendered(&self, rendered_params: &YamlValue, vars: &Value) -> Result<Value> {
-        match self
-            .module
-            .exec(rendered_params.clone(), vars.clone(), self.check_mode)
-        {
+        match self.module.exec(
+            self.global_params,
+            rendered_params.clone(),
+            vars.clone(),
+            self.check_mode,
+        ) {
             Ok((result, result_vars)) => {
                 let output = result.get_output();
                 let target = match self.is_changed(&result, &result_vars)? {
@@ -396,17 +384,20 @@ impl Task {
 }
 
 #[cfg(test)]
-impl From<YamlValue> for Task {
+use crate::context::GLOBAL_PARAMS;
+
+#[cfg(test)]
+impl From<YamlValue> for Task<'_> {
     fn from(value: YamlValue) -> Self {
         TaskNew::from(&value)
             .validate_attrs()
             .unwrap()
-            .get_task(&GlobalParams::default())
+            .get_task(&GLOBAL_PARAMS)
             .unwrap()
     }
 }
 
-pub fn parse_file(tasks_file: &str, global_params: &GlobalParams) -> Result<Tasks> {
+pub fn parse_file<'a>(tasks_file: &str, global_params: &'a GlobalParams) -> Result<Tasks<'a>> {
     let tasks: Vec<YamlValue> = serde_yaml::from_str(tasks_file)?;
     tasks
         .into_iter()
@@ -868,7 +859,8 @@ mod tests {
               command: boo
             "#;
 
-        let tasks = parse_file(file, &GlobalParams::default()).unwrap();
+        let global_params = GlobalParams::default();
+        let tasks = parse_file(file, &global_params).unwrap();
         assert_eq!(tasks.len(), 2);
 
         let s0 = r#"

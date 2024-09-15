@@ -4,10 +4,10 @@ use std::fs::canonicalize;
 use std::path::Path;
 
 use nix::unistd::{getgid, getuid};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ANCHOR: builtins
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Builtins {
     /// Args passed from command line execution.
     args: Vec<String>,
@@ -18,7 +18,7 @@ pub struct Builtins {
     user: UserInfo,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct UserInfo {
     uid: u32,
     gid: u32,
@@ -41,6 +41,26 @@ struct UserInfo {
 
 impl Builtins {
     pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {
+        Ok(Builtins {
+            args: args.into_iter().map(String::from).collect(),
+            dir: Builtins::get_dir(path)?,
+            path: path
+                .to_str()
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "Script path cannot be parsed to String",
+                    )
+                })?
+                .to_owned(),
+            user: UserInfo {
+                uid: u32::from(getuid()),
+                gid: u32::from(getgid()),
+            },
+        })
+    }
+
+    fn get_dir(path: &Path) -> Result<String> {
         let parent_path_original = path
             .parent()
             .ok_or_else(|| Error::new(ErrorKind::NotFound, "Script parent dir not found"))?;
@@ -64,10 +84,13 @@ impl Builtins {
             .to_owned();
 
         trace!("dir: {dir:?}");
+        Ok(if dir.is_empty() { ".".to_owned() } else { dir })
+    }
 
+    pub fn update(&self, path: &Path) -> Result<Self> {
         Ok(Builtins {
-            args: args.into_iter().map(String::from).collect(),
-            dir: if dir.is_empty() { ".".to_owned() } else { dir },
+            args: self.args.clone(),
+            dir: Builtins::get_dir(path)?,
             path: path
                 .to_str()
                 .ok_or_else(|| {

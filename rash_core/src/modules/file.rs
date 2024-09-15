@@ -23,11 +23,11 @@
 ///     mode: 0644
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::parse_octal;
-use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -39,6 +39,7 @@ use std::fs::{
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
@@ -320,6 +321,7 @@ impl Module for File {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         check_mode: bool,

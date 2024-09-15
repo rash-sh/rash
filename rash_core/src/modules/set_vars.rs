@@ -37,13 +37,12 @@
 ///       - zoo.suu == 'yea'
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::render;
 use crate::modules::{Module, ModuleResult};
 
-use minijinja::Value;
-
-use minijinja::context;
+use minijinja::{context, Value};
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde_yaml::Value as YamlValue;
@@ -58,6 +57,7 @@ impl Module for SetVars {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         params: YamlValue,
         vars: Value,
         _check_mode: bool,
