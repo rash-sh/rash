@@ -45,7 +45,8 @@ test: lint
 
 .PHONY: test-examples
 test-examples:	## run examples and check exit code
-	@for example in $$(find examples -not -path 'examples/envar-api-gateway/*' -not -path 'examples/diff.rh'  -name '*.rh'); do \
+	@for example in $$(find examples -not -path 'examples/envar-api-gateway/*' \
+		-not -path 'examples/diff.rh' -not -path 'examples/dotfiles/*' -name '*.rh'); do \
 		echo $$example; \
 		$$example || exit 1; \
 	done

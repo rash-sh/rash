@@ -1,0 +1,51 @@
+- name: create {{ file_types }} directories
+  when: install
+  vars:
+    files_dirs_query:
+      paths: "{{ files_dir }}"
+      hidden: true
+      recurse: true
+      excludes: "{{ file_types }}"
+      file_type: directory
+  loop: "{{ find(files_dirs_query) }}"
+  file:
+    path: "{{ item | replace(files_dir, replace_root) }}"
+    state: "directory"
+
+- set_vars:
+    files_query:
+      paths: "{{ files_dir }}"
+      hidden: true
+      patterns: "{{ package_filters | default(omit) }}"
+      excludes: "{{ templates_pattern }}"
+      recurse: true
+
+- name: copy {{ file_types }}
+  when: install
+  loop: "{{ find(files_query) }}"
+  copy:
+    src: "{{ item }}"
+    dest: "{{ item | replace(files_dir, replace_root) }}"
+    mode: preserve
+
+- name: render {{ file_types }} templates
+  when: install
+  loop: "{{ find(file_templates_query) }}"
+  vars:
+    file_templates_query:
+      paths: "{{ files_dir }}"
+      hidden: true
+      patterns: "({{ package_filters | join('|') }}){{ templates_pattern }}"
+      recurse: true
+  template:
+    src: "{{ item }}"
+    dest: "{{ item | replace(files_dir, replace_root) | replace('.j2', '') }}"
+    mode: preserve
+
+- name: update {{ file_types }}
+  when: update
+  loop: "{{ find(files_query) }}"
+  copy:
+    src: "{{ item | replace(files_dir, replace_root) }}"
+    dest: "{{ item }}"
+    mode: preserve
