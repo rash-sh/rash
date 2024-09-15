@@ -26,6 +26,7 @@
 ///     msg: "{{ debug() }}"
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::Result;
 use crate::jinja::render_string;
 use crate::modules::{parse_params, Module, ModuleResult};
@@ -82,6 +83,7 @@ impl Module for Debug {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         _check_mode: bool,

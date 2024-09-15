@@ -20,12 +20,12 @@
 ///     mode: "0400"
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::Result;
 use crate::jinja::render_string;
 use crate::modules::copy::copy_file;
 use crate::modules::copy::{Input, Params as CopyParams};
 use crate::modules::{parse_params, Module, ModuleResult};
-use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -33,6 +33,7 @@ use rash_derive::DocJsonSchema;
 use std::fs::{metadata, read_to_string};
 use std::os::unix::fs::PermissionsExt;
 
+use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
@@ -83,6 +84,7 @@ impl Module for Template {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         check_mode: bool,

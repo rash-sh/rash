@@ -1,8 +1,8 @@
-use rash_core::context::Context;
+use rash_core::context::{Context, GlobalParams};
 use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
-use rash_core::task::{parse_file, GlobalParams};
+use rash_core::task::parse_file;
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
@@ -148,8 +148,8 @@ fn main() {
                 Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
                 Err(e) => crash_error(e),
             };
-            trace!("Vars: {}", &new_vars.clone().to_string());
-            match Context::exec(Context::new(tasks, new_vars)) {
+            trace!("Vars: {new_vars}");
+            match Context::new(tasks, new_vars).exec() {
                 Ok(_) => (),
                 Err(context_error) => match context_error.kind() {
                     ErrorKind::EmptyTaskStack => (),

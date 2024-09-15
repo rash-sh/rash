@@ -22,6 +22,9 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::ItemStruct);
 
     let name = &input.ident;
+    let generics = &input.generics; // Handle lifetimes and generics here
+    let where_clause = &generics.where_clause;
+
     let field_names: Vec<String> = input
         .fields
         .iter()
@@ -29,13 +32,14 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
         .collect();
 
     let expanded = quote::quote! {
-        impl #name {
+        impl #generics #name #generics #where_clause {
             /// Return field names.
             pub fn get_field_names() -> std::collections::HashSet<String> {
                 [#(#field_names),*].iter().map(ToString::to_string).map(|s| s.replace("r#", "")).collect::<std::collections::HashSet<String>>()
             }
         }
     };
+
     TokenStream::from(expanded)
 }
 

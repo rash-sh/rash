@@ -19,7 +19,7 @@ extern crate serde_json;
 mod tests {
     use super::*;
 
-    use context::Context;
+    use context::{Context, GlobalParams};
     use error::ErrorKind;
     use task::parse_file;
     use vars::env;
@@ -35,11 +35,9 @@ mod tests {
                 cmd: ls /
             "#;
 
-        let context = Context::new(
-            parse_file(file, &task::GlobalParams::default()).unwrap(),
-            env::load(vec![]),
-        );
-        let context_error = Context::exec(context).unwrap_err();
+        let global_params = GlobalParams::default();
+        let context = Context::new(parse_file(file, &global_params).unwrap(), env::load(vec![]));
+        let context_error = context.exec().unwrap_err();
 
         match context_error.kind() {
             ErrorKind::EmptyTaskStack => (),

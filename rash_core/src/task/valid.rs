@@ -1,12 +1,13 @@
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{is_module, MODULES};
-use crate::task::{GlobalParams, Task};
+use crate::task::Task;
 
 use std::collections::HashSet;
 
 use serde_yaml::Value;
 
-/// TaskValid is a ProtoTask with verified attrs (one module and valid attrs)
+/// TaskValid is a ProtoTask with verified attrs: one module with valid attrs
 #[derive(Debug)]
 pub struct TaskValid {
     attrs: Value,
@@ -81,7 +82,7 @@ impl TaskValid {
         }
     }
 
-    pub fn get_task(&self, global_params: &GlobalParams) -> Result<Task> {
+    pub fn get_task<'a>(&self, global_params: &'a GlobalParams) -> Result<Task<'a>> {
         let module_name: &str = &self.get_module_name()?;
 
         Ok(Task {
@@ -113,6 +114,7 @@ impl TaskValid {
             register: self.attrs["register"].as_str().map(String::from),
             vars: self.attrs.get("vars").map(|_| self.attrs["vars"].clone()),
             when: self.parse_array(&self.attrs["when"]),
+            global_params,
         })
     }
 }

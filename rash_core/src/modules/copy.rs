@@ -20,11 +20,11 @@
 ///     mode: "0400"
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff_files;
 use crate::modules::{parse_params, Module, ModuleResult};
 use crate::utils::parse_octal;
-use minijinja::Value;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -37,6 +37,7 @@ use std::io::Result as IoResult;
 use std::io::{BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 
+use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 #[cfg(feature = "docs")]
@@ -240,6 +241,7 @@ impl Module for Copy {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         check_mode: bool,

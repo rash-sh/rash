@@ -29,6 +29,7 @@
 ///     excludes: "nginx,mysql"
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
 use crate::utils::default_false;
@@ -250,6 +251,7 @@ impl Module for Find {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         _check_mode: bool,

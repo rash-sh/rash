@@ -11,17 +11,17 @@ use minijinja::Value;
 /// [`task::Tasks`]: ../task/type.Tasks.html
 /// [`vars::Vars`]: ../vars/type.Vars.html
 #[derive(Debug)]
-pub struct Context {
-    tasks: Tasks,
+pub struct Context<'a> {
+    tasks: Tasks<'a>,
     vars: Value,
 }
 
-impl Context {
+impl<'a> Context<'a> {
     /// Create a new context from [`task::Tasks`] and [`vars::Vars`].Error
     ///
     /// [`task::Tasks`]: ../task/type.Tasks.html
     /// [`vars::Vars`]: ../vars/type.Vars.html
-    pub fn new(tasks: Tasks, vars: Value) -> Self {
+    pub fn new(tasks: Tasks<'a>, vars: Value) -> Self {
         Context { tasks, vars }
     }
 
@@ -57,8 +57,32 @@ impl Context {
     ///
     /// [`error::Error`]: ../error/struct.Error.html
     /// [`ErrorKind::EmptyTaskStack`]: ../error/enum.ErrorKind.html
-    pub fn exec(context: Self) -> Result<Self> {
+    pub fn exec(&self) -> Result<Self> {
         // https://prev.rust-lang.org/en-US/faq.html#does-rust-do-tail-call-optimization
-        Self::exec(context.exec_task()?)
+        Self::exec(&self.exec_task()?)
     }
 }
+
+/// [`task::Task`] parameters that can be set globally
+#[derive(Debug)]
+pub struct GlobalParams<'a> {
+    pub r#become: bool,
+    pub become_user: &'a str,
+    pub check_mode: bool,
+}
+
+impl Default for GlobalParams<'_> {
+    fn default() -> Self {
+        GlobalParams {
+            r#become: Default::default(),
+            become_user: "root",
+            check_mode: Default::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+use std::sync::LazyLock;
+
+#[cfg(test)]
+pub static GLOBAL_PARAMS: LazyLock<GlobalParams> = LazyLock::new(GlobalParams::default);

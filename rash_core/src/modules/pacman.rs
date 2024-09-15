@@ -45,6 +45,7 @@
 ///    register: packages
 /// ```
 /// ANCHOR_END: examples
+use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger;
 use crate::modules::{parse_params, Module, ModuleResult};
@@ -157,6 +158,7 @@ impl Module for Pacman {
 
     fn exec(
         &self,
+        _: &GlobalParams,
         optional_params: YamlValue,
         vars: Value,
         check_mode: bool,
