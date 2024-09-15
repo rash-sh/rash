@@ -1,7 +1,7 @@
 /// Context
 ///
 /// Preserve state between executions
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 use crate::task::Tasks;
 use minijinja::Value;
 
@@ -10,9 +10,9 @@ use minijinja::Value;
 ///
 /// [`task::Tasks`]: ../task/type.Tasks.html
 /// [`vars::Vars`]: ../vars/type.Vars.html
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Context<'a> {
-    tasks: Tasks<'a>,
+    pub tasks: Tasks<'a>,
     vars: Value,
 }
 
@@ -25,41 +25,35 @@ impl<'a> Context<'a> {
         Context { tasks, vars }
     }
 
-    /// Execute the first [`task::Task`] and return a new context without the one that executed [`task::Task`]
-    ///
-    /// [`task::Task`]: ../task/struct.Task.html
-    pub fn exec_task(&self) -> Result<Self> {
-        if self.tasks.is_empty() {
-            return Err(Error::new(
-                ErrorKind::EmptyTaskStack,
-                format!("No more tasks in context stack: {self:?}"),
-            ));
-        }
-
-        let mut next_tasks = self.tasks.clone();
-        let next_task = next_tasks.remove(0);
-        info!(target: "task",
-            "[{}] - {} to go - ",
-            next_task.get_rendered_name(self.vars.clone())
-                .unwrap_or_else(|_| next_task.get_module().get_name().to_owned()),
-            self.tasks.len(),
-        );
-        let vars = next_task.exec(self.vars.clone())?;
-        Ok(Self {
-            tasks: next_tasks,
-            vars,
-        })
-    }
-
     /// Execute all Tasks in Context until empty.
     ///
-    /// If this finishes correctly, it will return an [`error::Error`] with [`ErrorKind::EmptyTaskStack`]
+    /// If this finishes correctly, it will return an [`error::Error`] with [`ErrorKind::EmptyTaskStack`].
     ///
     /// [`error::Error`]: ../error/struct.Error.html
     /// [`ErrorKind::EmptyTaskStack`]: ../error/enum.ErrorKind.html
     pub fn exec(&self) -> Result<Self> {
-        // https://prev.rust-lang.org/en-US/faq.html#does-rust-do-tail-call-optimization
-        Self::exec(&self.exec_task()?)
+        let mut context = self.clone();
+
+        while !context.tasks.is_empty() {
+            let mut next_tasks = context.tasks.clone();
+            let next_task = next_tasks.remove(0);
+
+            info!(target: "task",
+                "[{}:{}] - {} to go - ",
+                context.vars.get_attr("rash")?.get_attr("path")?,
+                next_task.get_rendered_name(context.vars.clone())
+                    .unwrap_or_else(|_| next_task.get_module().get_name().to_owned()),
+                context.tasks.len(),
+            );
+
+            let vars = next_task.exec(context.vars.clone())?;
+            context = Self {
+                tasks: next_tasks,
+                vars,
+            };
+        }
+
+        Ok(context)
     }
 }
 

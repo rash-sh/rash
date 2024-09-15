@@ -20,7 +20,6 @@ mod tests {
     use super::*;
 
     use context::{Context, GlobalParams};
-    use error::ErrorKind;
     use task::parse_file;
     use vars::env;
 
@@ -37,11 +36,8 @@ mod tests {
 
         let global_params = GlobalParams::default();
         let context = Context::new(parse_file(file, &global_params).unwrap(), env::load(vec![]));
-        let context_error = context.exec().unwrap_err();
+        let last_context = context.exec().unwrap();
 
-        match context_error.kind() {
-            ErrorKind::EmptyTaskStack => (),
-            _ => panic!("{}", context_error),
-        };
+        assert!(last_context.tasks.is_empty());
     }
 }

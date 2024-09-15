@@ -201,19 +201,21 @@ impl<'a> Task<'a> {
             self.check_mode,
         ) {
             Ok((result, result_vars)) => {
-                let output = result.get_output();
-                let target = match self.is_changed(&result, &result_vars)? {
-                    true => "changed",
-                    false => "ok",
-                };
-                let target_empty =
-                    &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
-                info!(target: target_empty,
-                    "{}",
-                    output.unwrap_or_else(
-                        || "".to_owned()
-                    )
-                );
+                if self.module.get_name() != "include" {
+                    let output = result.get_output();
+                    let target = match self.is_changed(&result, &result_vars)? {
+                        true => "changed",
+                        false => "ok",
+                    };
+                    let target_empty =
+                        &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
+                    info!(target: target_empty,
+                        "{}",
+                        output.unwrap_or_else(
+                            || "".to_owned()
+                        )
+                    );
+                }
                 let mut new_vars = context! {..result_vars};
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
