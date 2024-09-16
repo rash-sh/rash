@@ -277,7 +277,7 @@ impl<'a> Task<'a> {
                         let (tx, rx): (
                             IpcSender<StdResult<String, SerdeError>>,
                             IpcReceiver<StdResult<String, SerdeError>>,
-                        ) = ipc::channel().unwrap();
+                        ) = ipc::channel().map_err(|e| Error::new(ErrorKind::Other, e))?;
 
                         match unsafe { fork() } {
                             Ok(ForkResult::Child) => {
@@ -292,7 +292,7 @@ impl<'a> Task<'a> {
                                 trace!("send result: {:?}", result);
                                 tx.send(
                                     result
-                                        .map(|x| x.to_string())
+                                        .map(|v| serde_json::to_string(&v))?
                                         .map_err(|e| SerdeError::new(&e)),
                                 )
                                 .unwrap_or_else(|e| {
@@ -314,6 +314,7 @@ impl<'a> Task<'a> {
                                         format!("child {child} unknown status"),
                                     )),
                                 }?;
+                                trace!("receive result");
                                 rx.recv()
                                     .unwrap_or_else(|e| {
                                         Err(SerdeError::new(&Error::new(
@@ -322,7 +323,9 @@ impl<'a> Task<'a> {
                                             format!("{e:?}"),
                                         )))
                                     })
-                                    .map(|x| Value::from_serialize(&x))
+                                    .map(|s| serde_json::from_str(&s))
+                                    .map_err(|e| Error::new(ErrorKind::Other, e))?
+                                    .map(Value::from_serialize::<Value>)
                                     .map_err(|e| Error::new(ErrorKind::Other, e))
                             }
                             Err(e) => Err(Error::new(ErrorKind::Other, e)),
@@ -351,7 +354,9 @@ impl<'a> Task<'a> {
             let mut ctx = vars.clone();
             for item in self.render_iterator(vars)?.into_iter() {
                 let new_ctx = context! {item => &item, ..ctx};
+                trace!("pre execute loop: {:?}", &new_ctx);
                 ctx = self.exec_module(new_ctx)?;
+                trace!("post execute loop: {:?}", &ctx);
             }
             Ok(ctx)
         } else {
