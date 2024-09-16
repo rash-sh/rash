@@ -40,9 +40,9 @@ struct UserInfo {
 // ANCHOR_END: examples
 
 impl Builtins {
-    pub fn new(args: Vec<&str>, path: &Path) -> Result<Self> {
+    pub fn new(args: Vec<String>, path: &Path) -> Result<Self> {
         Ok(Builtins {
-            args: args.into_iter().map(String::from).collect(),
+            args,
             dir: Builtins::get_dir(path)?,
             path: path
                 .to_str()
@@ -88,23 +88,7 @@ impl Builtins {
     }
 
     pub fn update(&self, path: &Path) -> Result<Self> {
-        Ok(Builtins {
-            args: self.args.clone(),
-            dir: Builtins::get_dir(path)?,
-            path: path
-                .to_str()
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        "Script path cannot be parsed to String",
-                    )
-                })?
-                .to_owned(),
-            user: UserInfo {
-                uid: u32::from(getuid()),
-                gid: u32::from(getgid()),
-            },
-        })
+        Builtins::new(self.args.clone(), path)
     }
 }
 

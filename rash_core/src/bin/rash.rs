@@ -144,7 +144,10 @@ fn main() {
         Ok(tasks) => {
             let env_vars = env::load(args.environment);
             new_vars = context! {..new_vars, ..env_vars};
-            match Builtins::new(script_args, script_path) {
+            match Builtins::new(
+                script_args.into_iter().map(String::from).collect(),
+                script_path,
+            ) {
                 Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
                 Err(e) => crash_error(e),
             };
