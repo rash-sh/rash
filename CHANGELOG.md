@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- module: Include continue workflow
+- core: Add script path to task name output
+- module: Include continue workflow in the previous context
 
 ## [v2.7.0](https://github.com/rash-sh/rash/tree/v2.7.0) - 2024-09-15
 
