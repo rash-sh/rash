@@ -15,11 +15,17 @@
 /// ## Example
 ///
 /// ```yaml
-/// - debug:
+/// - name: Return the first line of the secret
+///   debug:
 ///     msg: "{{ passwordstore('foo/boo') }}"
 ///
-/// - debug:
+/// - name: Return all the content
+///   debug:
 ///     msg: "{{ passwordstore('foo/boo', returnall=true) }}"
+///
+/// - name: Return just the username
+///   debug:
+///     msg: "{{ passwordstore('foo/boo', subkey='username') }}"
 /// ```
 /// ANCHOR_END: examples
 use crate::jinja::lookup::utils::to_minijinja_error;
