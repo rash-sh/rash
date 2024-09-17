@@ -6,7 +6,7 @@ WORKDIR /usr/src/rash
 COPY . .
 RUN cargo build --locked --release --bin rash
 
-FROM debian:bookworm-20230904-slim
+FROM debian:trixie-20240904-slim
 LABEL mantainer pando855@gmail.com
 
 COPY --from=builder /usr/src/rash/target/release/rash /bin/rash
