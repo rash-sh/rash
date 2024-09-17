@@ -1,44 +1,9 @@
 use std::env;
-use std::fs::File;
-use std::io::Write;
-use std::iter;
 use std::path::Path;
-use std::process::Command;
+
+use crate::modules::run_test;
 
 use serde_json::json;
-use tempfile::tempdir;
-
-fn update_path(new_path: &Path) {
-    let path = env::var_os("PATH").unwrap();
-    let paths = iter::once(new_path.to_path_buf())
-        .chain(env::split_paths(&path))
-        .collect::<Vec<_>>();
-    let new_path = env::join_paths(paths).unwrap();
-    env::set_var("PATH", new_path);
-}
-
-fn run_test(script_text: &str, args: &[&str]) -> (String, String) {
-    let tmp_dir = tempdir().unwrap();
-    let script_path = tmp_dir.path().join("script.rh");
-    let mut script_file = File::create(&script_path).unwrap();
-    script_file.write_all(script_text.as_bytes()).unwrap();
-
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-
-    let mut cmd = Command::new(bin_path);
-    cmd.args(args);
-    cmd.arg(script_path);
-
-    let output = cmd.output().unwrap();
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    dbg!(&stdout);
-    dbg!(&stderr);
-
-    (stdout, stderr)
-}
 
 #[test]
 fn test_pacman_present() {
