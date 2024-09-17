@@ -2,7 +2,7 @@
 
 - assert:
     that:
-      - "rash.path == 'examples/recursivity.rh'"
+      - "rash.path == '{{ rash.dir }}/recursivity.rh'"
       - "1 == 1"
 
 - name: user "{{ env.USER }}" loves
