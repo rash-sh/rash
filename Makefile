@@ -68,11 +68,6 @@ book:	mdbook-rash
 update-changelog:	## automatically update changelog based on commits
 	git cliff -t v$(PROJECT_VERSION) -u -p CHANGELOG.md
 
-.PHONY: tag
-tag:	## create a tag using version from VERSION file
-	git tag -s v$(PROJECT_VERSION)  -m "v$(PROJECT_VERSION)" && \
-	git push origin v$(PROJECT_VERSION)
-
 .PHONY: release
 release: CARGO_USE_CROSS ?= $(IMAGES_CARGO_USE_CROSS)
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
