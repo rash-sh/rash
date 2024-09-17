@@ -30,25 +30,25 @@ regex.workspace = true
 schemars = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_yaml.workspace = true
-byte-unit = "5.1.4"
-console = "0.15.8"
-minijinja = { version = "2.1.2", features = ["loader", "json"]}
-clap = { workspace = true, features = ["std", "color", "derive", "cargo"]}
+byte-unit = "5.1"
+console = "0.15"
+minijinja = { version = "2.2.0", features = ["loader", "json"] }
+clap = { workspace = true, features = ["std", "color", "derive", "cargo"] }
 exec = "0.3.1"
 fern = { version = "0.6.2", features = ["colored"] }
-ignore = "0.4.22"
+ignore = "0.4"
 # memfd brakes compatibility with kernels < 3.17
 ipc-channel = { version = "0.18", features = ["memfd"] }
-itertools = "0.13.0"
-nix = { version = "0.29", features =  ["process", "user"] }
-serde = { version = "1.0.200", features = ["derive"] }
+itertools = "0.13"
+nix = { version = "0.29", features = ["process", "user"] }
+serde = { version = "1.0", features = ["derive"] }
 serde-error = "0.1.2"
-serde_with = "3.8.1"
+serde_with = "3.8"
 shlex = "1.3"
 similar = { version = "2.5", features = ["inline"] }
 strum = "0.26.2"
 strum_macros = "0.26.2"
-tempfile = "3.10.1"
+tempfile = "3.10"
 term_size = "1.0.0-beta.2"
 prs-lib = { version = "0.5.1", optional = true }
 
@@ -61,5 +61,5 @@ harness = false
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
-default-features = false # Disable features which are enabled by default
+default-features = false  # Disable features which are enabled by default
 features = ["user-hooks"]
