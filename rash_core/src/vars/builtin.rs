@@ -41,18 +41,23 @@ struct UserInfo {
 
 impl Builtins {
     pub fn new(args: Vec<String>, path: &Path) -> Result<Self> {
+        let dir = Builtins::get_dir(path)?;
+
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, "Script filename not found"))?;
+        let dir_path = Path::new(&dir);
+        let canonical_path = dir_path.join(file_name);
+        let canonical = canonical_path.to_str().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidData,
+                "Script path cannot be represented as UTF-8",
+            )
+        })?;
         Ok(Builtins {
             args,
-            dir: Builtins::get_dir(path)?,
-            path: path
-                .to_str()
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        "Script path cannot be parsed to String",
-                    )
-                })?
-                .to_owned(),
+            dir,
+            path: canonical.to_owned(),
             user: UserInfo {
                 uid: u32::from(getuid()),
                 gid: u32::from(getgid()),
