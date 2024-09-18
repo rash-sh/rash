@@ -32,7 +32,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 byte-unit = "5.1"
 console = "0.15"
-minijinja = { version = "2.2.0", features = ["loader", "json"] }
+minijinja = { version = "2.3.1", features = ["loader", "json"] }
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"] }
 exec = "0.3.1"
 fern = { version = "0.6.2", features = ["colored"] }
