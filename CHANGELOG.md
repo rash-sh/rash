@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.7.3](https://github.com/rash-sh/rash/tree/v2.7.3) - 2024-09-18
+
+### Added
+
+- ci: Add release.sh script
+
+### Fixed
+
+- vars: Make `rash.path` canonical for coherence with `rash.dir`
+
+### Build
+
+- deps: Update Rust crate **minijinja** to v2.3.1
+- deps: Update Rust crate clap to v4.5.17
+- deps: Update Rust crate serde_json to v1.0.128
+- deps: Update Rust crate serde to v1.0.210
+- deps: Update rust to v1.81
+- deps: Update Rust crate syn to v2.0.77
+- deps: Update Rust crate ignore to v0.4.23
+- deps: Remove pinned versions from `Cargo.toml`
+- docker: Update target base image version to trixie-20240904-slim
+- Remove death code
+
+### Testing
+
+- module: Add e2e for include
+
 ## [v2.7.2](https://github.com/rash-sh/rash/tree/v2.7.2) - 2024-09-16
 
 ### Fixed
