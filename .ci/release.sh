@@ -5,9 +5,6 @@ set -e
 vim Cargo.toml
 make update-version
 
-# update lock file
-cargo update -p rash_core -p rash_derive
-
 make update-changelog
 
 git add .
