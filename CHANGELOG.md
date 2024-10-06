@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.7.4](https://github.com/rash-sh/rash/tree/v2.7.4) - 2024-10-06
+
+### Documentation
+
+- vars: Fix debug function call
+
+### Build
+
+- deps: Update Rust crate clap to v4.5.18
+- deps: Update Rust crate syn to v2.0.79
+- deps: Update Rust crate tempfile to v3.13.0
+- deps: Update Rust crate regex to v1.11.0
+- deps: Update Rust crate clap to v4.5.19
+- deps: Update Rust crate serde_with to v3.10.0
+- deps: Update Rust crate serde_with to v3.11.0
+- deps: Update Rust crate ipc-channel to v0.18.3
+- Optimize release binary
+
 ## [v2.7.3](https://github.com/rash-sh/rash/tree/v2.7.3) - 2024-09-18
 
 ### Added
