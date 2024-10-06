@@ -17,6 +17,29 @@ use minijinja::{context, Value};
 #[macro_use]
 extern crate log;
 
+// Since Rust no longer uses jemalloc by default, rash will, by default,
+// use the system allocator. On Linux, this would normally be glibc's
+// allocator, which is pretty good. In particular, rash does not have a
+// particularly allocation heavy workload, so there really isn't much
+// difference (for rash's purposes) between glibc's allocator and jemalloc.
+//
+// However, when rash is built with musl, this means rash will use musl's
+// allocator, which appears to be substantially worse. (musl's goal is not to
+// have the fastest version of everything. Its goal is to be small and amenable
+// to static compilation.) Even though rash isn't particularly allocation
+// heavy, musl's allocator appears to slow down rash quite a bit. Therefore,
+// when building with musl, we use jemalloc.
+//
+// We don't unconditionally use jemalloc because it can be nice to use the
+// system's default allocator by default. Moreover, jemalloc seems to increase
+// compilation times by a bit.
+//
+// Moreover, we only do this on 64-bit systems since jemalloc doesn't support
+// i686.
+#[cfg(all(target_env = "musl", target_pointer_width = "64"))]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 /// Parse a single KEY=VALUE pair
 fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync>>
 where

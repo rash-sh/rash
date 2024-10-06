@@ -1,4 +1,4 @@
-# release workflow
+# Release workflow
 
 ```bash
 .ci/release.sh
