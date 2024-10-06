@@ -15,7 +15,7 @@ path = "src/bin/mdbook-rash.rs"
 doc = false
 
 [dependencies]
-rash_core = { path = "../rash_core", features = ["docs"], version = "2.7.4" }
+rash_core = { path = "../rash_core", features = ["docs"], version = "2.7.5" }
 log.workspace = true
 regex.workspace = true
 schemars.workspace = true
