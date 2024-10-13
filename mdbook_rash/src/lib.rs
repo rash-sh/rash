@@ -13,7 +13,7 @@ use schemars::schema::{RootSchema, SingleOrVec};
 #[macro_use]
 extern crate log;
 
-pub static SUPPORTED_RENDERER: &[&str] = &["markdown"];
+pub const SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
 static RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
