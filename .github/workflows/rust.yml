@@ -27,7 +27,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   clippy:
-    name: Clipply
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
