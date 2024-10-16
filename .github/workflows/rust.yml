@@ -42,7 +42,6 @@ jobs:
 
       - uses: clechasseur/rs-clippy-check@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           args: --locked --all-targets --all-features
 
   min_version:
@@ -67,16 +66,10 @@ jobs:
     - run: rustup component add clippy
 
     - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --locked --all-targets --all-features
+      run: cargo clippy --locked --all-targets --all-features
 
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --locked
+      run: cargo test --locked
 
     - name: Run examples
       run: |
@@ -89,8 +82,8 @@ jobs:
       matrix:
         job:
           # cross minimum glibc version is 2.32
-          - { os: ubuntu-22.04, target: aarch64-unknown-linux-gnu, use-cross: true }
-          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, use-cross: true }
+          - { os: ubuntu-22.04, target: aarch64-unknown-linux-gnu }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl }
           # use ubuntu 20.04 to keep minimum glibc version to 2.31
           - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu}
           - { os: macos-12, target: x86_64-apple-darwin}
@@ -123,11 +116,7 @@ jobs:
     - run: rustup override set ${{steps.toolchain.outputs.name}}
 
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        use-cross: ${{ matrix.job.use-cross }}
-        command: test
-        args: --locked --target=${{ matrix.job.target }}
+      run: CARGO_TARGET=${{ matrix.job.target }} make test
 
     - name: Extract crate information
       shell: bash
@@ -147,7 +136,6 @@ jobs:
       shell: bash
       run: |
         export CARGO_TARGET=${{ matrix.job.target }}
-        export CARGO_USE_CROSS=${{ matrix.job.use-cross }}
         export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${CARGO_TARGET}
         make release
         echo "::set-output name=PKG_BASE_NAME::${PKG_BASE_NAME}"
