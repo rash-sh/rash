@@ -4,6 +4,12 @@ IMAGE_VERSION ?= latest
 
 BOOK_DIR ?= .
 CARGO_TARGET ?= x86_64-unknown-linux-gnu
+CARGO_BUILD_PARAMS = --target=$(CARGO_TARGET)
+# use cargo if same target or cross if not
+CARGO += $(if $(filter $(shell uname -m)-unknown-linux-gnu,$(CARGO_TARGET)),cargo,cross)
+ifeq ($(CARGO),cross)
+	CARGO_BUILD_PARAMS +=  --target-dir $(shell pwd)/$(CARGO_TARGET_DIR)
+endif
 PKG_BASE_NAME ?= rash-${CARGO_TARGET}
 VERSION ?= master
 
@@ -27,21 +33,31 @@ update-version: */Cargo.toml
 	cargo update -p rash_core -p rash_derive && \
 	echo updated to version "$$VERSION" cargo files
 
+
+.PHONY: cross
+cross:	## install cross if needed
+	@if [ "$(CARGO)" != "cargo" ]; then  \
+		if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
+			echo CARGO_TARGET_DIR should be relative for cross compiling; \
+			exit 1; \
+		fi; \
+		cargo install cross; \
+	fi
+
 .PHONY: build
+build:	cross
 build:	## compile rash
-build:
-	cargo build --release
+	$(CARGO) build $(CARGO_BUILD_PARAMS)
 
 .PHONY: lint
 lint:	## lint code
-lint:
 	cargo clippy --locked --all-targets --all-features -- -D warnings
 	cargo fmt -- --check
 
 .PHONY: test
+test: lint cross
 test:	## run tests
-test: lint
-	cargo test
+	@$(CARGO) test $(CARGO_BUILD_PARAMS)
 
 .PHONY: test-examples
 test-examples:	## run examples and check exit code
@@ -69,19 +85,9 @@ update-changelog:	## automatically update changelog based on commits
 	git cliff -t v$(PROJECT_VERSION) -u -p CHANGELOG.md
 
 .PHONY: release
-release: CARGO_USE_CROSS ?= $(IMAGES_CARGO_USE_CROSS)
+release: cross
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
-	@if [ "$(CARGO_USE_CROSS)" = "true" ]; then  \
-		if [ "$${CARGO_TARGET_DIR}" != "$${CARGO_TARGET_DIR#/}" ]; then  \
-			echo CARGO_TARGET_DIR should be relative for cross compiling; \
-			exit 1; \
-		fi; \
-		cargo install cross; \
-		cross build --target-dir $(shell pwd)/$(CARGO_TARGET_DIR) \
-			--target=$(CARGO_TARGET) --release; \
-	else \
-		cargo build --frozen --release --target ${CARGO_TARGET}; \
-	fi
+	@$(CARGO) build --frozen --release $(CARGO_BUILD_PARAMS)
 	@if command -v "upx" &> /dev/null; then \
 		upx $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash; \
 	fi
@@ -99,7 +105,6 @@ publish:	## publish crates
 .PHONY: images
 images:	## build images
 images: CARGO_TARGET=x86_64-unknown-linux-musl
-images: IMAGES_CARGO_USE_CROSS=true
 images: release
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker buildx build -f $$DOCKERFILE \
