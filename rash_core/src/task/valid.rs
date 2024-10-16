@@ -38,22 +38,22 @@ impl TaskValid {
             .filter(|&key| is_module(key))
             .map(String::clone)
             .collect();
-            
-        match module_names.len()  {
+
+        match module_names.len() {
             0 => Err(Error::new(
-                    ErrorKind::NotFound,
-                    format!("Not module found in task: {self:?}"),
-                )),
+                ErrorKind::NotFound,
+                format!("Not module found in task: {self:?}"),
+            )),
             1 => Ok(module_names
-                    .iter()
-                    .map(String::clone)
-                    .next()
-                    //safe unwrap()
-                    .unwrap()),
-            _ =>  Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Multiple modules found in task: {self:?}"),
-                ))
+                .iter()
+                .map(String::clone)
+                .next()
+                //safe unwrap()
+                .unwrap()),
+            _ => Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Multiple modules found in task: {self:?}"),
+            )),
         }
     }
 
