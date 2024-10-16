@@ -39,22 +39,23 @@ impl TaskValid {
             .filter(|&key| is_module(key))
             .map(String::clone)
             .collect();
-        if module_names.len() > 1 {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Multiple modules found in task: {self:?}"),
-            ));
-        };
-        module_names
-            .iter()
-            .map(String::clone)
-            .next()
-            .ok_or_else(|| {
-                Error::new(
+            
+        match module_names.len()  {
+            0 => Err(Error::new(
                     ErrorKind::NotFound,
                     format!("Not module found in task: {self:?}"),
-                )
-            })
+                )),
+            1 => Ok(module_names
+                    .iter()
+                    .map(String::clone)
+                    .next()
+                    //safe unwrap()
+                    .unwrap()),
+            _ =>  Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Multiple modules found in task: {self:?}"),
+                ))
+        }
     }
 
     fn parse_array(&'_ self, attr: &Value) -> Option<String> {
