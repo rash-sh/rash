@@ -228,7 +228,7 @@ fn parse_usage(doc: &str) -> Option<Vec<String>> {
 }
 
 fn repeat_until_fill(
-    usage: String,
+    usage: &str,
     replace: &str,
     pattern: &str,
     args_len: usize,
@@ -285,7 +285,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                     // repeat sequence until fill usage
                     Some(_) => {
                         usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                            repeat_until_fill(usage.clone(), &cap[0], &cap[1], args_len, opts_len),
+                            repeat_until_fill(&usage, &cap[0], &cap[1], args_len, opts_len),
                         )));
                     }
                     None => {
@@ -323,7 +323,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                 }
                 Some((RegexMatch::Repeatable, cap)) => {
                     let repeated_usage =
-                        repeat_until_fill(usage.clone(), &cap[0], &cap[1], args_len, opts_len);
+                        repeat_until_fill(&usage, &cap[0], &cap[1], args_len, opts_len);
                     let remove_empty_repeatable = repeated_usage
                         .split_whitespace()
                         .filter(|w| *w != "[]")
@@ -381,11 +381,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                         // repeat sequence until fill usage
                         Some(_) => {
                             new_usages.insert(repeat_until_fill(
-                                usage.clone(),
-                                &cap[0],
-                                &cap[1],
-                                args_len,
-                                opts_len,
+                                &usage, &cap[0], &cap[1], args_len, opts_len,
                             ));
                         }
                         None => {
@@ -1364,7 +1360,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_fill() {
-        let usage = "foo (<a> <b>)... <c>".to_owned();
+        let usage = "foo (<a> <b>)... <c>";
         let replace = "(<a> <b>)...";
         let pattern = "<a> <b>";
 
@@ -1374,7 +1370,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_fill_simple() {
-        let usage = "foo <a>... <b>".to_owned();
+        let usage = "foo <a>... <b>";
         let replace = "<a>...";
         let pattern = "<a>";
 
@@ -1384,7 +1380,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_options() {
-        let usage = "foo {-s#-o}... <c>...".to_owned();
+        let usage = "foo {-s#-o}... <c>...";
         let replace = "{-s#-o}...";
         let pattern = "{-s#-o}";
 
@@ -1394,7 +1390,7 @@ Foo:
 
     #[test]
     fn test_repeat_until_options_expand_positional() {
-        let usage = "foo {-s#-o}... <c>...".to_owned();
+        let usage = "foo {-s#-o}... <c>...";
         let replace = "<c>...";
         let pattern = "<c>";
 
