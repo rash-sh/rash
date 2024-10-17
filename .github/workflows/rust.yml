@@ -42,7 +42,6 @@ jobs:
 
       - uses: clechasseur/rs-clippy-check@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           args: --locked --all-targets --all-features
 
   min_version:
@@ -67,16 +66,10 @@ jobs:
     - run: rustup component add clippy
 
     - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --locked --all-targets --all-features
+      run: cargo clippy --locked --all-targets --all-features
 
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --locked
+      run: cargo test --locked
 
     - name: Run examples
       run: |
@@ -122,6 +115,7 @@ jobs:
 
     - run: rustup override set ${{steps.toolchain.outputs.name}}
 
+    # TODO: replace in Makefile handling cross there
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
