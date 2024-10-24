@@ -93,7 +93,7 @@ jobs:
           - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, use-cross: true }
           # use ubuntu 20.04 to keep minimum glibc version to 2.31
           - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu}
-          - { os: macos-12, target: x86_64-apple-darwin}
+          - { os: macos-13, target: x86_64-apple-darwin}
     name: (${{ matrix.job.os }}) ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     steps:
@@ -140,7 +140,7 @@ jobs:
       with:
         install-only: true
         version: latest
-      if: matrix.job.os != 'macos-12'
+      if: matrix.job.os != 'macos-13'
 
     - name: Make release
       id: package
