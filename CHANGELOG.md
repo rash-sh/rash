@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.7.6](https://github.com/rash-sh/rash/tree/v2.7.6) - 2024-10-24
+
+### Fixed
+
+- book: Change static to const
+- ci: Clippy Github Action name typo
+- task: Delete `special.rs` file not in use
+- Formatting issues
+
+### Build
+
+- deps: Update Rust crate proc-macro2 to v1.0.87
+- deps: Update Rust crate clap to v4.5.20
+- deps: Update Rust crate proc-macro2 to v1.0.88
+- deps: Update Rust crate ipc-channel to 0.19
+- deps: Update Rust crate serde_json to v1.0.129
+- deps: Update Rust crate serde_json to v1.0.130
+- deps: Update Rust crate serde_json to v1.0.131
+- deps: Update Rust crate serde_json to v1.0.132
+- deps: Update Rust crate syn to v2.0.80
+- deps: Update Rust crate syn to v2.0.81
+- deps: Update Rust crate syn to v2.0.82
+- deps: Update rust Docker tag to v1.82.0
+- deps: Update Rust crate serde to v1.0.211
+- deps: Update Rust crate proc-macro2 to v1.0.89
+- deps: Update Rust crate serde to v1.0.212
+- deps: Update Rust crate serde to v1.0.213
+- deps: Update Rust crate syn to v2.0.83
+- deps: Update Rust crate syn to v2.0.84
+- deps: Update Rust crate syn to v2.0.85
+- deps: Update Rust crate regex to v1.11.1
+- deps: Update Rust crate fern to 0.7.0
+
+### Refactor
+
+- core: Remove String from function arg
+- Refactored get_module_name method
+
 ## [v2.7.5](https://github.com/rash-sh/rash/tree/v2.7.5) - 2024-10-06
 
 ### Build
