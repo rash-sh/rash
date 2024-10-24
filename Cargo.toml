@@ -4,12 +4,12 @@ resolver = "2"
 
 
 [workspace.package]
-version = "2.7.5"
+version = "2.7.6"
 authors = ["Pando85 <pando855@gmail.com>"]
-rust-version = "1.81"
+rust-version = "1.82"
 edition = "2021"
 license-file = "LICENSE"
-homepage = "https://rash.sh"
+homepage = "https://rash-sh.github.io"
 repository = "https://github.com/rash-sh/rash"
 readme = "README.md"
 
