@@ -1,4 +1,4 @@
-use crate::modules::{run_test, run_tests};
+use crate::cli::modules::{run_test, run_tests};
 
 use std::collections::HashMap;
 

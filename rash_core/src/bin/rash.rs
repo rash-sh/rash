@@ -11,7 +11,8 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
 
-use clap::{crate_authors, crate_description, crate_version, ArgAction, Parser};
+use clap::error::ErrorKind as ClapErrorKind;
+use clap::{crate_authors, crate_description, crate_version, ArgAction, CommandFactory, Parser};
 use minijinja::{context, Value};
 
 #[macro_use]
@@ -61,7 +62,7 @@ where
     version = crate_version!(),
     author = crate_authors!("\n"),
 )]
-struct Args {
+struct Cli {
     /// run operations with become (does not imply password prompting)
     #[arg(short, long)]
     r#become: bool,
@@ -84,8 +85,13 @@ struct Args {
     /// Verbose mode (-vv for more)
     #[arg(short, long, action = ArgAction::Count)]
     verbose: u8,
-    /// Script file to be executed
-    script_file: String,
+    /// Inline script to be executed.
+    /// If provided, <SCRIPT_FILE> will be used as filename in `rash.path` builtin.
+    #[arg(short, long)]
+    script: Option<String>,
+    /// Path to the script file to be executed.
+    /// If provided, this file will be read and used as the script content.
+    script_file: Option<String>,
     /// Additional args to be accessible rash scripts.
     ///
     /// It can be accessed from builtin `{{ rash.args }}` as list of strings or if usage is defined
@@ -119,9 +125,16 @@ fn crash_error(e: Error) {
 }
 
 fn main() {
-    let args: Args = Args::parse();
-
-    let verbose = if args.verbose == 0 {
+    let cli: Cli = Cli::parse();
+    if cli.script.is_none() && cli.script_file.is_none() {
+        let mut cmd = Cli::command();
+        cmd.error(
+            ClapErrorKind::ArgumentConflict,
+            "Please provide either <SCRIPT_FILE> or --script.",
+        )
+        .exit();
+    };
+    let verbose = if cli.verbose == 0 {
         match std::env::var("RASH_LOG_LEVEL") {
             Ok(s) => match s.as_ref() {
                 "DEBUG" => 1,
@@ -131,21 +144,25 @@ fn main() {
             _ => 0,
         }
     } else {
-        args.verbose
+        cli.verbose
     };
 
-    logger::setup_logging(verbose, &args.diff, &args.output)
-        .expect("failed to initialize logging.");
+    logger::setup_logging(verbose, &cli.diff, &cli.output).expect("failed to initialize logging.");
     trace!("start logger");
-    trace!("{:?}", &args);
-    let script_path = Path::new(&args.script_file);
-    trace!("reading tasks from: {:?}", script_path);
-    let main_file = match read_to_string(script_path) {
-        Ok(s) => s,
-        Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
+    trace!("{:?}", &cli);
+    let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());
+    let script_path = Path::new(&script_path_string);
+    let main_file = if let Some(s) = cli.script {
+        s
+    } else {
+        trace!("reading tasks from: {:?}", script_path);
+        match read_to_string(script_path) {
+            Ok(s) => s,
+            Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
+        }
     };
 
-    let script_args: Vec<&str> = args.script_args.iter().map(|s| &**s).collect();
+    let script_args: Vec<&str> = cli.script_args.iter().map(|s| &**s).collect();
     let mut new_vars = match docopt::parse(&main_file, &script_args) {
         Ok(v) => Value::from_serialize(v),
         Err(e) => match e.kind() {
@@ -158,14 +175,14 @@ fn main() {
     };
 
     let global_params = GlobalParams {
-        r#become: args.r#become,
-        become_user: &args.become_user,
-        check_mode: args.check,
+        r#become: cli.r#become,
+        become_user: &cli.become_user,
+        check_mode: cli.check,
     };
 
     match parse_file(&main_file, &global_params) {
         Ok(tasks) => {
-            let env_vars = env::load(args.environment);
+            let env_vars = env::load(cli.environment);
             new_vars = context! {..new_vars, ..env_vars};
             match Builtins::new(
                 script_args.into_iter().map(String::from).collect(),
@@ -190,5 +207,5 @@ fn main() {
 #[test]
 fn verify_cli() {
     use clap::CommandFactory;
-    Args::command().debug_assert()
+    Cli::command().debug_assert()
 }

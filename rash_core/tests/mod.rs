@@ -1,1 +1,1 @@
-mod modules;
+mod cli;
