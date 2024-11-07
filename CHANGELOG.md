@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.0](https://github.com/rash-sh/rash/tree/v2.8.0) - 2024-11-07
+
+### Added
+
+- cli: Add `script` argument for inline script
+- deps: Enable `loop_controls` feature in minijinja
+
+### Build
+
+- deps: Update Rust crate serde-error to v0.1.3
+- deps: Update Rust crate serde to v1.0.214
+
 ## [v2.7.6](https://github.com/rash-sh/rash/tree/v2.7.6) - 2024-10-24
 
 ### Fixed
