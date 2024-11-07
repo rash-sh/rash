@@ -1,7 +1,7 @@
 use std::env;
 use std::path::Path;
 
-use crate::modules::run_test;
+use crate::cli::modules::run_test;
 
 use serde_json::json;
 
