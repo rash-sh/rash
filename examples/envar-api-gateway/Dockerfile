@@ -1,4 +1,4 @@
-FROM rustagainshell/rash AS rash
+FROM ghcr.io/rash-sh/rash AS rash
 FROM nginx
 COPY --from=rash /bin/rash /bin
 

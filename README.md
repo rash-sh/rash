@@ -3,7 +3,6 @@
 # rash
 
 ![Build status](https://img.shields.io/github/actions/workflow/status/rash-sh/rash/rust.yml?branch=master)
-[![Rash Docker image](https://img.shields.io/docker/image-size/rustagainshell/rash?sort=semver)](https://cloud.docker.com/repository/docker/rustagainshell/rash)
 [![Documentation](https://docs.rs/rash_core/badge.svg)](https://docs.rs/rash_core)
 [![crates.io](https://img.shields.io/crates/v/rash_core)](https://crates.io/crates/rash_core)
 [![concept-map](https://img.shields.io/badge/design-concept--map-blue)](https://mind42.com/mindmap/f299679e-8dc5-48d8-b0f0-4d65235cdf56)

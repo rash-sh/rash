@@ -46,5 +46,5 @@ cargo install rash_core
 ## Docker
 
 ```bash
-docker run --rm -v /usr/local/bin/:/output --entrypoint /bin/cp rustagainshell/rash:latest /bin/rash /output/
+docker run --rm -v /usr/local/bin/:/output --entrypoint /bin/cp ghcr.io/rash-sh/rash:latest /bin/rash /output/
 ```
