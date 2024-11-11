@@ -47,7 +47,7 @@ cross:	## install cross if needed
 .PHONY: build
 build:	cross
 build:	## compile rash
-	$(CARGO) build $(CARGO_BUILD_PARAMS)
+	$(CARGO) build --bin rash $(CARGO_BUILD_PARAMS)
 
 .PHONY: lint
 lint:	## lint code
@@ -87,7 +87,7 @@ update-changelog:	## automatically update changelog based on commits
 .PHONY: release
 release: cross
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
-	@$(CARGO) build --frozen --release $(CARGO_BUILD_PARAMS)
+	@$(CARGO) build --frozen --bin rash --release $(CARGO_BUILD_PARAMS)
 	@if command -v "upx" &> /dev/null; then \
 		upx $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash; \
 	fi
