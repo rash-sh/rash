@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.0](https://github.com/rash-sh/rash/tree/v2.9.0) - 2024-11-11
+
+### Build
+
+- ci: Change images to GitHub registry
+- deps: Update Rust crate minijinja to v2.5.0
+  - Added a `lines` filter to split a string into lines.
+  - Added the missing `string` filter from Jinja2. mitsuhiko/minijinja#617
+  - and more: [2.5.0](https://github.com/mitsuhiko/minijinja/releases/tag/2.5.0) and
+    [2.4.0](https://github.com/mitsuhiko/minijinja/releases/tag/2.5.0)
+
+### Testing
+
+- cli: Disable e2e tests for ARM
+
 ## [v2.8.0](https://github.com/rash-sh/rash/tree/v2.8.0) - 2024-11-07
 
 ### Added
