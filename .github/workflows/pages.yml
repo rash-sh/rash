@@ -11,6 +11,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: github-pages-deploy-${{ github.ref }}
+      cancel-in-progress: false
+
     steps:
       - uses: actions/checkout@v4
 
