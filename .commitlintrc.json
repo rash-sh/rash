@@ -27,6 +27,7 @@
         "cli",
         "core",
         "deps",
+        "derive",
         "docker",
         "filter",
         "group",

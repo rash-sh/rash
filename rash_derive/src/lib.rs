@@ -31,16 +31,14 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
         .map(|field| field.ident.clone().unwrap().to_string())
         .collect();
 
-    let expanded = quote::quote! {
+    quote::quote! {
         impl #generics #name #generics #where_clause {
             /// Return field names.
             pub fn get_field_names() -> std::collections::HashSet<String> {
                 [#(#field_names),*].iter().map(ToString::to_string).map(|s| s.replace("r#", "")).collect::<std::collections::HashSet<String>>()
             }
         }
-    };
-
-    TokenStream::from(expanded)
+    }.into()
 }
 
 /// Implementation of the `#[derive(DocJsonSchema)]` derive macro.
@@ -61,7 +59,7 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
 
     let name = &input.ident;
 
-    let expanded = quote::quote! {
+    quote::quote! {
         impl #name {
             /// Return Json Schema.
             pub fn get_json_schema() -> schemars::schema::RootSchema {
@@ -72,8 +70,8 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
                 gen.into_root_schema_for::<#name>()
             }
         }
-    };
-    TokenStream::from(expanded)
+    }
+    .into()
 }
 
 #[cfg(not(doctest))]
@@ -155,7 +153,6 @@ pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
     let mut add_functions = Vec::new();
     let mut lookup_names = Vec::new();
 
-    // Iterate through each tuple and generate the corresponding function call with optional #[cfg]
     for tuple in tuples.iter() {
         if let (
             Some(Expr::Path(path)),
@@ -181,8 +178,7 @@ pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
         }
     }
 
-    // Generate the output function code
-    let output = quote! {
+    quote! {
         pub fn add_lookup_functions(env: &mut minijinja::Environment<'static>) {
             #(#add_functions)*
         }
@@ -191,8 +187,6 @@ pub fn generate_lookup_functions(input: TokenStream) -> TokenStream {
         pub const LOOKUPS: &[&str] = &[
             #(#lookup_names),*
         ];
-    };
-
-    // Convert the generated code back into a TokenStream and return it
-    output.into()
+    }
+    .into()
 }
