@@ -9,7 +9,7 @@
 ///
 /// ```yaml
 /// - debug:
-///     msg: "{{ find(paths='/') }}"
+///     msg: "{{ find({'paths': '/'}) }}"
 ///
 /// - name: Copy all files in /tmp to /tmp2
 ///   vars:
