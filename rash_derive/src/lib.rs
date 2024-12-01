@@ -1,7 +1,4 @@
-#![deny(warnings)]
 extern crate proc_macro;
-extern crate quote;
-extern crate syn;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -17,7 +14,7 @@ use syn::{parse_macro_input, punctuated::Punctuated, Expr, ExprLit, ExprTuple, L
 /// # HashSet::new()
 /// # }
 /// ```
-#[proc_macro_derive(FieldNames, attributes(field_names))]
+#[proc_macro_derive(FieldNames)]
 pub fn derive_field_names(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::ItemStruct);
 
