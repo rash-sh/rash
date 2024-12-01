@@ -27,7 +27,7 @@ struct UserInfo {
 
 /// # Examples
 ///
-// ANCHOR: examples
+/// ANCHOR: examples
 /// ```yaml
 /// - assert:
 ///     that:
@@ -37,8 +37,7 @@ struct UserInfo {
 ///       - 'rash.user.uid == 1000'
 ///       - 'rash.user.gid == 1000'
 /// ```
-// ANCHOR_END: examples
-
+/// ANCHOR_END: examples
 impl Builtins {
     pub fn new(args: Vec<String>, path: &Path) -> Result<Self> {
         let dir = Builtins::get_dir(path)?;

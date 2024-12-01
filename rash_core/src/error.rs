@@ -202,7 +202,6 @@ impl Error {
     ///     ErrorKind::Other,
     ///     invalid_data_err,
     /// );
-
     /// ```
     pub fn new<E>(kind: ErrorKind, error: E) -> Error
     where
