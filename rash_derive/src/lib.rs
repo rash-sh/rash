@@ -28,7 +28,7 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
         .map(|field| field.ident.clone().unwrap().to_string())
         .collect();
 
-    quote::quote! {
+    quote! {
         impl #generics #name #generics #where_clause {
             /// Return field names.
             pub fn get_field_names() -> std::collections::HashSet<String> {
@@ -56,7 +56,7 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
 
     let name = &input.ident;
 
-    quote::quote! {
+    quote! {
         impl #name {
             /// Return Json Schema.
             pub fn get_json_schema() -> schemars::schema::RootSchema {
