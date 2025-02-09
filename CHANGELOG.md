@@ -5,6 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.1](https://github.com/rash-sh/rash/tree/v2.9.1) - 2025-02-09
+
+### Fixed
+
+- ci: Clean `release.sh` duplicated steps
+- Cargo clippy errors
+
+### Documentation
+
+- lookup: Update find example with new minijinja sintax
+
+### Build
+
+- ci: Use mdbook version from `Cargo.lock`
+- ci: Disables concurrent builds in pages deploy
+- deps: Update Rust crate clap to v4.5.21
+- deps: Update Rust crate serde_json to v1.0.133
+- deps: Update Rust crate byte-unit to v5.1.6
+- deps: Update Rust crate mdbook to v0.4.42
+- deps: Update Rust crate serde to v1.0.215
+- deps: Update Rust crate syn to v2.0.87
+- deps: Update Rust crate tempfile to v3.14.0
+- deps: Update Rust crate prs-lib to v0.5.2
+- deps: Update Rust crate syn to v2.0.89
+- deps: Update Rust crate proc-macro2 to v1.0.92
+- deps: Update Rust crate mdbook to v0.4.43
+- deps: Update Rust crate syn to v2.0.90
+- deps: Update rust Docker tag to v1.83.0
+- deps: Update Rust crate clap to v4.5.22
+- deps: Update Rust crate clap to v4.5.23
+- deps: Update Rust crate serde to v1.0.216
+- deps: Update Rust crate chrono to v0.4.39
+- deps: Update Rust crate semver to v1.0.24
+- deps: Update Rust crate fern to v0.7.1
+- deps: Update Rust crate console to v0.15.10
+- deps: Update wagoid/commitlint-github-action action to v6.2.0
+- deps: Update Rust crate serde_json to v1.0.134
+- deps: Update Rust crate syn to v2.0.91
+- deps: Update Rust crate quote to v1.0.38
+- deps: Update Rust crate syn to v2.0.92
+- deps: Update Rust crate serde to v1.0.217
+- deps: Update Rust crate syn to v2.0.93
+- deps: Update Rust crate syn to v2.0.94
+- deps: Update Rust crate syn to v2.0.95
+- deps: Update Rust crate serde_json to v1.0.135
+- deps: Update Rust crate clap to v4.5.24
+- deps: Update Rust crate minijinja to v2.6.0
+- deps: Update Rust crate clap to v4.5.26
+- deps: Update Rust crate syn to v2.0.96
+- deps: Update Rust crate proc-macro2 to v1.0.93
+- deps: Update Rust crate env_logger to v0.11.6
+- deps: Update Rust crate serde_with to v3.12.0
+- deps: Update Rust crate itertools to 0.14
+- deps: Update Rust crate tempfile to v3.15.0
+- deps: Update rust Docker tag to v1.84.0
+- deps: Update clechasseur/rs-clippy-check action to v4
+- deps: Update wagoid/commitlint-github-action action to v6.2.1
+- deps: Update Rust crate serde_json to v1.0.136
+- deps: Update Rust crate semver to v1.0.25
+- deps: Update Rust crate serde_json to v1.0.137
+- deps: Update Rust crate clap to v4.5.27
+- deps: Update Rust crate log to v0.4.25
+- deps: Update Rust crate similar to v2.7.0
+- deps: Update Rust crate serde_json to v1.0.138
+- deps: Update rust Docker tag to v1.84.1
+- deps: Update Rust crate syn to v2.0.97
+- deps: Update Rust crate syn to v2.0.98
+- deps: Update Rust crate clap to v4.5.28
+- Compile just rash bin in make target build and release
+- Filter rash binary in AUR packages
+
+### Refactor
+
+- derive: Simplify returns with `.into()` method
+- derive: Remove dead code imports
+- derive: Reuse imports
+
 ## [v2.9.0](https://github.com/rash-sh/rash/tree/v2.9.0) - 2024-11-11
 
 ### Build
