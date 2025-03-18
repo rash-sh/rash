@@ -27,6 +27,8 @@ pub fn update_path(new_path: &Path) {
 pub fn execute_rash(args: &[&str]) -> (String, String) {
     let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
     update_path(bin_path.parent().unwrap());
+    let mocks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+    update_path(&mocks_path);
 
     let mut cmd = Command::new(bin_path);
     cmd.args(args);

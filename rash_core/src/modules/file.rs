@@ -41,9 +41,7 @@ use std::path::Path;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::JsonSchema;
-#[cfg(feature = "docs")]
-use schemars::Schema;
+use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 #[cfg(feature = "docs")]

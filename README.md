@@ -9,16 +9,21 @@
 ![Rash license](https://img.shields.io/github/license/rash-sh/rash)
 [![Rash Aur package](https://img.shields.io/aur/version/rash)](https://aur.archlinux.org/packages/rash)
 
-Rash is a lightweight, container-friendly shell scripting language that uses a declarative YAML syntax inspired by [Ansible](https://www.ansible.com/). It brings the simplicity and readability of Ansible playbooks to local scripting and container entrypoints, all in a single Rust binary with no dependencies.
+Rash is a lightweight, container-friendly shell scripting language that uses a declarative YAML
+syntax inspired by [Ansible](https://www.ansible.com/). It brings the simplicity and readability of
+Ansible playbooks to local scripting and container entrypoints, all in a single Rust binary with no
+dependencies.
 
 ## Why Rash?
 
 - **Declarative vs Imperative**: Define what your script should accomplish, not how
 - **Container-Optimized**: Single binary with no dependencies, perfect for minimal containers
 - **Lightweight**: Runs on any Linux system, even resource-constrained IoT devices
-- **Template-Powered**: Uses [MiniJinja](https://github.com/mitsuhiko/minijinja) for powerful templating capabilities
+- **Template-Powered**: Uses [MiniJinja](https://github.com/mitsuhiko/minijinja) for powerful
+  templating capabilities
 - **Intuitive Syntax**: Familiar YAML structure for those who know Ansible
-- **Built-in Command-Line Parsing**: Elegant [docopt](http://docopt.org) implementation for clean script interfaces
+- **Built-in Command-Line Parsing**: Elegant [docopt](http://docopt.org) implementation for clean
+  script interfaces
 - **Modular Design**: Focused modules for different tasks
 
 ## Example: Imperative vs Declarative
@@ -152,7 +157,8 @@ docker run --rm -v /usr/local/bin/:/output --entrypoint /bin/cp ghcr.io/rash-sh/
 
 ### Container Entrypoints
 
-Perfect for creating maintainable container entrypoints that handle environment validation, configuration management, and service initialization:
+Perfect for creating maintainable container entrypoints that handle environment validation,
+configuration management, and service initialization:
 
 ```dockerfile
 FROM alpine:3.16
@@ -210,4 +216,5 @@ For comprehensive documentation, visit:
 
 ## License
 
-Rash is distributed under the [GPL-3.0 License](https://github.com/rash-sh/rash/blob/master/LICENSE).
+Rash is distributed under the
+[GPL-3.0 License](https://github.com/rash-sh/rash/blob/master/LICENSE).

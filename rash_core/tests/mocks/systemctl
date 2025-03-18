@@ -1,0 +1,218 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Systemctl binary mock for system service management testing.
+#
+# This mock simulates the behavior of systemctl for testing purposes.
+# It provides predefined responses for different services and commands.
+#
+# Service states:
+# - httpd: running and enabled
+# - sshd: stopped but enabled
+# - nginx: stopped and disabled
+
+- name: Parse systemctl command arguments
+  set_vars:
+    command: "{{ rash.args[0] | default('') }}"
+    service: "{{ rash.args[1] | default('') }}"
+    scope: "{{ '--user' if '--user' in rash.args else ('--system' if '--system' in rash.args else 'system') }}"
+
+- name: Handle daemon-reload command
+  debug:
+    msg: ""
+  when: command == "daemon-reload"
+
+- name: Handle daemon-reexec command
+  debug:
+    msg: ""
+  when: command == "daemon-reexec"
+
+- name: Check if httpd is active
+  command:
+    cmd: "exit 0"
+  when: command == "is-active" and service == "httpd"
+
+- name: Check if sshd is active
+  command:
+    cmd: "exit 1"
+  when: command == "is-active" and service == "sshd"
+
+- name: Check if nginx is active
+  command:
+    cmd: "exit 1"
+  when: command == "is-active" and service == "nginx"
+
+- name: Default inactive for unknown services
+  command:
+    cmd: "exit 1"
+  when: command == "is-active" and service not in ["httpd", "sshd", "nginx"]
+
+- name: Check if httpd is enabled
+  command:
+    cmd: "exit 0"
+  when: command == "is-enabled" and service == "httpd"
+
+- name: Check if sshd is enabled
+  command:
+    cmd: "exit 0"
+  when: command == "is-enabled" and service == "sshd"
+
+- name: Check if nginx is enabled
+  command:
+    cmd: "exit 1"
+  when: command == "is-enabled" and service == "nginx"
+
+- name: Default disabled for unknown services
+  command:
+    cmd: "exit 1"
+  when: command == "is-enabled" and service not in ["httpd", "sshd", "nginx"]
+
+- name: Start httpd (already running - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service == "httpd"
+
+- name: Start nginx (was stopped - change)
+  debug:
+    msg: "Started {{ service }}."
+  when: command == "start" and service == "nginx"
+
+- name: Start nginx (was stopped - change) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service == "nginx"
+
+- name: Start sshd (was stopped - change)
+  debug:
+    msg: "Started {{ service }}."
+  when: command == "start" and service == "sshd"
+
+- name: Start sshd (was stopped - change) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service == "sshd"
+
+- name: Start unknown service
+  debug:
+    msg: "Started {{ service }}."
+  when: command == "start" and service not in ["httpd", "nginx", "sshd"]
+
+- name: Start unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service not in ["httpd", "nginx", "sshd"]
+
+- name: Stop httpd (was running - change)
+  debug:
+    msg: "Stopped {{ service }}."
+  when: command == "stop" and service == "httpd"
+
+- name: Stop httpd (was running - change) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service == "httpd"
+
+- name: Stop nginx (already stopped - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service == "nginx"
+
+- name: Stop sshd (already stopped - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service == "sshd"
+
+- name: Stop unknown service
+  debug:
+    msg: "Stopped {{ service }}."
+  when: command == "stop" and service not in ["httpd", "nginx", "sshd"]
+
+- name: Stop unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service not in ["httpd", "nginx", "sshd"]
+
+- name: Restart any service
+  debug:
+    msg: "Restarted {{ service }}."
+  when: command == "restart"
+
+- name: Restart any service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "restart"
+
+- name: Reload any service
+  debug:
+    msg: "Reloaded {{ service }}."
+  when: command == "reload"
+
+- name: Reload any service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "reload"
+
+- name: Enable httpd (already enabled - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "enable" and service == "httpd"
+
+- name: Enable sshd (already enabled - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "enable" and service == "sshd"
+
+- name: Enable nginx (was disabled - change)
+  debug:
+    msg: "Created symlink /etc/systemd/system/multi-user.target.wants/{{ service }}.service → /lib/systemd/system/{{ service }}.service."
+  when: command == "enable" and service == "nginx"
+
+- name: Enable nginx (was disabled - change) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "enable" and service == "nginx"
+
+- name: Enable unknown service
+  debug:
+    msg: "Created symlink /etc/systemd/system/multi-user.target.wants/{{ service }}.service → /lib/systemd/system/{{ service }}.service."
+  when: command == "enable" and service not in ["httpd", "sshd", "nginx"]
+
+- name: Enable unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "enable" and service not in ["httpd", "sshd", "nginx"]
+
+- name: Disable httpd (was enabled - change)
+  debug:
+    msg: "Removed /etc/systemd/system/multi-user.target.wants/{{ service }}.service."
+  when: command == "disable" and service == "httpd"
+
+- name: Disable httpd (was enabled - change) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "disable" and service == "httpd"
+
+- name: Disable sshd (was enabled - change)
+  debug:
+    msg: "Removed /etc/systemd/system/multi-user.target.wants/{{ service }}.service."
+  when: command == "disable" and service == "sshd"
+
+- name: Disable sshd (was enabled - change) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "disable" and service == "sshd"
+
+- name: Disable nginx (already disabled - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "disable" and service == "nginx"
+
+- name: Disable unknown service
+  debug:
+    msg: "Removed /etc/systemd/system/multi-user.target.wants/{{ service }}.service."
+  when: command == "disable" and service not in ["httpd", "sshd", "nginx"]
+
+- name: Disable unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "disable" and service not in ["httpd", "sshd", "nginx"]
+
