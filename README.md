@@ -89,7 +89,7 @@ Declarative: `entrypoint.rh`
 [docopt](http://docopt.org/) implementation included:
 
 - Easy to define interfaces for command-line app.
-- Automatically generate a parser from doc.
+- Automatically parse arguments from doc.
 
 Example:
 
