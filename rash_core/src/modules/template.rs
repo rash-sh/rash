@@ -35,9 +35,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::JsonSchema;
-#[cfg(feature = "docs")]
-use schemars::Schema;
+use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 
