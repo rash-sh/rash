@@ -27,6 +27,27 @@ pub enum RegexMatch {
     Repeatable,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct UsageCandidate {
+    /// The usage string pattern being processed
+    pub usage: String,
+    /// Flag to control whether curly braces should be ignored during regex matching
+    pub ignore_curly_braces: bool,
+}
+
+impl UsageCandidate {
+    pub fn new(usage: String, ignore_curly_braces: bool) -> Self {
+        Self {
+            usage,
+            ignore_curly_braces,
+        }
+    }
+
+    pub fn from_usage(usage: String) -> Self {
+        Self::new(usage, false)
+    }
+}
+
 fn get_vec_from_cap(cap: &Captures) -> Vec<String> {
     cap.iter()
         .filter_map(|option_match| Some(option_match?.as_str().to_owned()))
@@ -83,21 +104,27 @@ pub fn expand_brackets(s: &str) -> String {
         .unwrap_or_else(|| s.to_owned())
 }
 
-pub fn get_smallest_regex_match(usage: &str) -> Option<(RegexMatch, Vec<String>)> {
-    let matcher = &[
+pub fn get_smallest_regex_match(
+    usage: &str,
+    ignore_curly_braces: bool,
+) -> Option<(RegexMatch, Vec<String>)> {
+    let mut matchers = vec![
         (
             RegexMatch::InnerParenthesis,
             RE_INNER_PARENTHESIS.captures(usage),
         ),
         (RegexMatch::InnerBrackets, RE_INNER_BRACKETS.captures(usage)),
-        (
-            RegexMatch::InnerCurlyBraces,
-            RE_INNER_CURLY_BRACES.captures(usage),
-        ),
         (RegexMatch::Repeatable, RE_REPEATABLE.captures(usage)),
     ];
 
-    matcher
+    if !ignore_curly_braces {
+        matchers.push((
+            RegexMatch::InnerCurlyBraces,
+            RE_INNER_CURLY_BRACES.captures(usage),
+        ));
+    }
+
+    matchers
         .iter()
         .filter_map(|x| x.1.as_ref().map(|cap| (x.0, get_vec_from_cap(cap))))
         .min_by_key(|x| x.1[0].len())

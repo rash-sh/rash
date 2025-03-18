@@ -386,8 +386,14 @@ impl Options {
         new_vars_json
     }
 
-    /// Replace options in args for standard docopt usage arguments
-    pub fn expand_args(&self, args: &[String]) -> Result<Vec<String>> {
+    /// Normalize command-line options according to docopt conventions.
+    ///
+    /// This function performs the following transformations:
+    /// - Unstacks short options (e.g., `-abc` → `-a -b -c`)
+    /// - Expands short options to their long form when available (e.g., `-q` → `--quiet`)
+    /// - Normalizes option-parameter formats (e.g., `-o FILE` → `-o=FILE`)
+    /// - Handles attached parameters (e.g., `-oFILE` → `-o=FILE`)
+    pub fn normalize_options(&self, args: &[String]) -> Result<Vec<String>> {
         let mut is_antepenultimate_with_param = false;
         args.iter()
             .flat_map(|arg| arg.split('='))
@@ -453,7 +459,10 @@ impl Options {
                         })
                 } else if is_antepenultimate_with_param {
                     is_antepenultimate_with_param = false;
-                    None
+                    match previous_arg.as_str() {
+                        ")" | "]" | "|" => Some(Ok(previous_arg.to_owned())),
+                        _ => None,
+                    }
                 } else {
                     Some(Ok(previous_arg.to_owned()))
                 }
@@ -461,13 +470,18 @@ impl Options {
             .collect()
     }
 
+    /// Extend usages with the normalized representation of all available options.
+    ///
+    /// Transforms patterns containing `[options]` by substituting a compact syntax that combines all options
+    /// within curly braces separated by # characters. This creates an internal format the parser uses to
+    /// efficiently match command-line arguments against patterns with options.
     pub fn extend_usages(&self, usages: HashSet<String>) -> Option<HashSet<String>> {
         let mut options_in_usage = Vec::new();
 
         let represented_usages = usages
             .iter()
             .map(|usage| {
-                match self.expand_args(
+                match self.normalize_options(
                     &usage
                         .replace('|', " | ")
                         .split_whitespace()
@@ -522,15 +536,16 @@ impl Options {
             }
         });
 
-        let expaned_brakets_usages = replaced_options_usages.map(|usage| expand_brackets(&usage));
+        let expanded_brackets_usages = replaced_options_usages.map(|usage| expand_brackets(&usage));
 
         let mut option_groups: Vec<String> = Vec::new();
         Some(
-            expaned_brakets_usages
+            expanded_brackets_usages
                 .map(|usage| {
                     let mut new_usage = usage.clone();
                     let mut bracket_groups = usage
                         .split('[')
+                        .flat_map(|group| group.split('('))
                         // first group is non bracket group
                         .skip(1)
                         // remove empty strings
@@ -804,7 +819,7 @@ Usage: {usage}
     }
 
     #[test]
-    fn test_options_expand_args() {
+    fn test_options_normalize_options() {
         let options = Options::new(HashSet::from([
             OptionArg::WithParam {
                 short: Some("-o".to_owned()),
@@ -823,7 +838,7 @@ Usage: {usage}
 
         let args = vec!["-qo".to_owned(), "yea".to_owned(), "--sorted".to_owned()];
 
-        let result = options.expand_args(&args).unwrap();
+        let result = options.normalize_options(&args).unwrap();
         assert_eq!(
             result,
             vec![
@@ -835,7 +850,7 @@ Usage: {usage}
 
         let args = vec!["-qo".to_owned(), "yea".to_owned(), "-s".to_owned()];
 
-        let result = options.expand_args(&args).unwrap();
+        let result = options.normalize_options(&args).unwrap();
         assert_eq!(
             result,
             vec![
@@ -847,7 +862,7 @@ Usage: {usage}
 
         let args = vec!["-qoyea".to_owned(), "-s".to_owned()];
 
-        let result = options.expand_args(&args).unwrap();
+        let result = options.normalize_options(&args).unwrap();
         assert_eq!(
             result,
             vec![
@@ -859,12 +874,12 @@ Usage: {usage}
 
         let args = vec!["-sq".to_owned()];
 
-        let result = options.expand_args(&args).unwrap();
+        let result = options.normalize_options(&args).unwrap();
         assert_eq!(result, vec!["--sorted".to_owned(), "--quiet".to_owned(),],);
 
         let args = vec!["-o=yea".to_owned()];
 
-        let result = options.expand_args(&args).unwrap();
+        let result = options.normalize_options(&args).unwrap();
         assert_eq!(result, vec!["-o=yea".to_owned()]);
     }
 
@@ -974,5 +989,55 @@ Usage: {usage}
             result,
             HashSet::from(["foo {-o=<-o>} {--sorted#--quiet}".to_owned()])
         )
+    }
+
+    #[test]
+    fn test_options_extend_usage_options() {
+        let options = Options::new(HashSet::from([
+            OptionArg::Simple {
+                short: Some("-h".to_owned()),
+                long: Some("--help".to_owned()),
+            },
+            OptionArg::Simple {
+                short: Some("-s".to_owned()),
+                long: Some("--sorted".to_owned()),
+            },
+            OptionArg::Simple {
+                short: Some("-q".to_owned()),
+                long: Some("--quiet".to_owned()),
+            },
+        ]));
+
+        let usages = HashSet::from(["foo [options] [a]".to_owned()]);
+
+        let result = options.extend_usages(usages).unwrap();
+
+        let s = result
+            .iter()
+            .next()
+            .unwrap()
+            .replace("foo {", "")
+            .replace("}... [a]", "");
+        let result_options: HashSet<&str> = s.split('#').collect();
+        assert_eq!(
+            result_options,
+            HashSet::from(["--help", "--sorted", "--quiet"])
+        );
+
+        let usages = HashSet::from(["foo [options] (a|b)".to_owned()]);
+
+        let result = options.extend_usages(usages).unwrap();
+
+        let s = result
+            .iter()
+            .next()
+            .unwrap()
+            .replace("foo {", "")
+            .replace("}... (a|b)", "");
+        let result_options: HashSet<&str> = s.split('#').collect();
+        assert_eq!(
+            result_options,
+            HashSet::from(["--help", "--sorted", "--quiet"])
+        );
     }
 }
