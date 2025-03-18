@@ -12,8 +12,8 @@ use std::path::Path;
 use std::process::exit;
 
 use clap::error::ErrorKind as ClapErrorKind;
-use clap::{crate_authors, crate_description, crate_version, ArgAction, CommandFactory, Parser};
-use minijinja::{context, Value};
+use clap::{ArgAction, CommandFactory, Parser, crate_authors, crate_description, crate_version};
+use minijinja::{Value, context};
 
 #[macro_use]
 extern crate log;

@@ -33,9 +33,9 @@ use crate::jinja::lookup::utils::to_minijinja_error;
 use std::env;
 use std::result::Result as StdResult;
 
-use minijinja::{value::Kwargs, Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value};
+use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value, value::Kwargs};
 use prs_lib::crypto::{self, Config, IsContext, Proto};
-use prs_lib::{Store, STORE_DEFAULT_ROOT};
+use prs_lib::{STORE_DEFAULT_ROOT, Store};
 
 pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaError> {
     let store_path = env::var("PASSWORD_STORE_DIR").unwrap_or(STORE_DEFAULT_ROOT.to_string());

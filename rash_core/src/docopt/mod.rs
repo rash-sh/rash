@@ -1,7 +1,7 @@
 mod options;
 mod utils;
 
-use utils::{get_smallest_regex_match, RegexMatch, WORDS_REGEX, WORDS_UPPERCASE_REGEX};
+use utils::{RegexMatch, WORDS_REGEX, WORDS_UPPERCASE_REGEX, get_smallest_regex_match};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;

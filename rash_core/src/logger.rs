@@ -4,7 +4,7 @@ use std::fmt;
 use std::io;
 
 use clap::ValueEnum;
-use console::{style, Style};
+use console::{Style, style};
 use fern::FormatCallback;
 use similar::{Change, ChangeTag, TextDiff};
 

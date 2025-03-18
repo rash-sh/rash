@@ -4,7 +4,7 @@ use std::io::Write;
 use std::process;
 
 use chrono::Local;
-use clap::{crate_authors, crate_description, crate_version, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, crate_authors, crate_description, crate_version};
 use env_logger::Builder;
 use log::LevelFilter;
 use mdbook::errors::Error;

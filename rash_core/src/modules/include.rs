@@ -37,7 +37,7 @@ use crate::vars::builtin::Builtins;
 use std::fs::read_to_string;
 use std::path::Path;
 
-use minijinja::{context, Value};
+use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde::Deserialize;

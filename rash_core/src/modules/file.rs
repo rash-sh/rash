@@ -26,24 +26,24 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 use crate::utils::parse_octal;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
 use std::fs::{
-    create_dir_all, metadata, remove_dir_all, remove_file, set_permissions, File as StdFile,
-    Metadata,
+    File as StdFile, Metadata, create_dir_all, metadata, remove_dir_all, remove_file,
+    set_permissions,
 };
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
-#[cfg(feature = "docs")]
 use schemars::JsonSchema;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 #[cfg(feature = "docs")]

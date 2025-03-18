@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use criterion::{
-    criterion_group, criterion_main, AxisScale, BenchmarkId, Criterion, PlotConfiguration,
-    Throughput,
+    AxisScale, BenchmarkId, Criterion, PlotConfiguration, Throughput, criterion_group,
+    criterion_main,
 };
 
 use rash_core::docopt::parse;

@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use mdbook::book::{Book, BookItem, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{LinkPreprocessor, Preprocessor, PreprocessorContext};
-use prettytable::{format, row, Table};
+use prettytable::{Table, format, row};
 use regex::{Match, Regex};
 use schemars::schema::{RootSchema, SingleOrVec};
 

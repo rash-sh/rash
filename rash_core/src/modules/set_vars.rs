@@ -42,7 +42,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::render;
 use crate::modules::{Module, ModuleResult};
 
-use minijinja::{context, Value};
+use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::schema::RootSchema;
 use serde_yaml::Value as YamlValue;

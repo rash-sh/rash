@@ -23,13 +23,13 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff_files;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 use crate::utils::parse_octal;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::fs::{metadata, set_permissions, File, OpenOptions, Permissions};
+use std::fs::{File, OpenOptions, Permissions, metadata, set_permissions};
 use std::io::prelude::*;
 
 use std::fmt;
@@ -39,9 +39,9 @@ use std::os::unix::fs::PermissionsExt;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
-#[cfg(feature = "docs")]
 use schemars::JsonSchema;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 use tempfile::tempfile;
@@ -214,7 +214,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
                     "preserve cannot be used in with content",
-                ))
+                ));
             }
         },
         Some(s) => {
@@ -261,7 +261,7 @@ mod tests {
 
     use crate::error::ErrorKind;
 
-    use std::fs::{metadata, File};
+    use std::fs::{File, metadata};
     use std::io::Read;
     use std::os::unix::fs::PermissionsExt;
 

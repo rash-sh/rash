@@ -25,7 +25,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::jinja::lookup::utils::to_minijinja_error;
-use crate::modules::find::{find, Params};
+use crate::modules::find::{Params, find};
 
 use std::ops::Deref;
 use std::result::Result as StdResult;

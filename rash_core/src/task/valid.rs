@@ -1,6 +1,6 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{is_module, MODULES};
+use crate::modules::{MODULES, is_module};
 use crate::task::Task;
 
 use std::collections::HashSet;

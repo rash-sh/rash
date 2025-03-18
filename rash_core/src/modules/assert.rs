@@ -24,16 +24,16 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::is_render_string;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
-#[cfg(feature = "docs")]
 use schemars::JsonSchema;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 
