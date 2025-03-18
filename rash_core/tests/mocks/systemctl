@@ -1,0 +1,40 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Systemctl binary mock for system service management testing.
+#
+# Usage:
+#   ./systemctl [options]
+#   ./systemctl [options] (start|stop|restart|enable|disable|is-active|is-enabled) [<units>]...
+#   ./systemctl [options] (daemon-reload|daemon-reexec)
+#
+# Commands:
+#   start                      Start (activate) one or more units
+#   stop                       Stop (deactivate) one or more units
+#   restart                    Start or restart one or more units
+#   status                     Show runtime status of one or more units
+#   enable                     Enable one or more units
+#   disable                    Disable one or more units
+#   is-active                  Check whether units are active
+#   is-enabled                 Check whether units are enabled
+#   daemon-reload              Reload systemd manager configuration
+#   daemon-reexec              Reexecute systemd manager
+#
+# Options:
+#   -h, --help                 Show this help
+#   -t, --type=TYPE            List units of a particular type
+#   --state=STATE              List units with particular states
+#   -a, --all                  Show all units, including inactive and failed
+#   --failed                   Show only failed units
+#   --user                     Talk to the service manager of the calling user
+#   --system                   Talk to the service manager of the system
+#   -q, --quiet                Suppress output
+#   --no-pager                 Do not pipe output into a pager
+#   --no-wall                  Don't send wall message before halt/power-off/reboot
+#
+
+# daemon-reload and daemon-reexec has no output
+
+- name: test systemctl module
+  debug:
+    msg: ""
+
