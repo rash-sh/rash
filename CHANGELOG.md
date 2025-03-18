@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.2](https://github.com/rash-sh/rash/tree/v2.9.2) - 2025-03-18
+
+### Fixed
+
+- core: Fixes docopt command that contains dashes
+
+### Build
+
+- core: Update to 2024 edition
+- deps: Update Rust crate clap to v4.5.29
+- deps: Update Rust crate tempfile to v3.17.1
+- deps: Update Rust crate clap to v4.5.30
+- deps: Update strum monorepo to v0.27.1
+- deps: Update Rust crate mdbook to v0.4.45
+- deps: Update KSXGitHub/github-actions-deploy-aur action to v4
+- deps: Update Rust crate serde_json to v1.0.139
+- deps: Update Rust crate serde to v1.0.218
+- deps: Update Rust crate clap to v4.5.31
+- deps: Update Rust crate proc-macro2 to v1.0.94
+- deps: Update Rust crate serde_json to v1.0.140
+- deps: Update Rust crate quote to v1.0.39
+- deps: Update Rust crate syn to v2.0.99
+- deps: Update Rust crate semver to v1.0.26
+- deps: Update Rust crate log to v0.4.26
+- deps: Update Rust crate schemars to v0.8.22
+- deps: Update Rust crate chrono to v0.4.40
+- deps: Update Rust crate console to v0.15.11
+- deps: Update Rust crate minijinja to v2.8.0
+- deps: Update Rust crate tempfile to v3.18.0
+- deps: Update Rust crate serde to v1.0.219
+- deps: Update Rust crate syn to v2.0.100
+- deps: Update Rust crate clap to v4.5.32
+- deps: Update Rust crate quote to v1.0.40
+- deps: Update Rust crate mdbook to v0.4.47
+- deps: Update Rust crate env_logger to v0.11.7
+- deps: Update Rust crate tempfile to v3.19.0
+- deps: Update rust Docker tag to v1.85.0
+
 ## [v2.9.1](https://github.com/rash-sh/rash/tree/v2.9.1) - 2025-02-09
 
 ### Fixed
