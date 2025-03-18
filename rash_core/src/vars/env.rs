@@ -33,7 +33,9 @@ impl From<env::Vars> for Env {
 /// ```
 pub fn load(envars: Vec<(String, String)>) -> Value {
     trace!("{:?}", envars);
-    envars.into_iter().for_each(|(k, v)| env::set_var(k, v));
+    envars.into_iter().for_each(|(k, v)| unsafe {
+        env::set_var(k, v);
+    });
     Value::from_serialize(Env::from(env::vars()))
 }
 
@@ -44,9 +46,11 @@ mod tests {
     use std::env;
 
     pub fn run_test_with_envar(envar: (&str, &str), test_fn: fn()) {
-        env::set_var(envar.0, envar.1);
-        test_fn();
-        env::remove_var(envar.0);
+        unsafe {
+            env::set_var(envar.0, envar.1);
+            test_fn();
+            env::remove_var(envar.0);
+        }
     }
 
     #[test]

@@ -25,7 +25,7 @@ use crate::error::Result;
 use crate::jinja::render_string;
 use crate::modules::copy::copy_file;
 use crate::modules::copy::{Input, Params as CopyParams};
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -35,9 +35,9 @@ use std::os::unix::fs::PermissionsExt;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
-#[cfg(feature = "docs")]
 use schemars::JsonSchema;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 
@@ -110,7 +110,7 @@ mod tests {
 
     use crate::error::ErrorKind;
 
-    use std::fs::{set_permissions, File};
+    use std::fs::{File, set_permissions};
     use std::io::Write;
 
     use minijinja::context;

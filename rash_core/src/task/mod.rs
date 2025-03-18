@@ -13,9 +13,9 @@ use std::process::exit;
 use std::result::Result as StdResult;
 
 use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
-use minijinja::{context, Value};
-use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
+use minijinja::{Value, context};
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::{ForkResult, Uid, User, fork, setgid, setuid};
 use serde_error::Error as SerdeError;
 use serde_yaml::Value as YamlValue;
 
@@ -624,9 +624,10 @@ mod tests {
         let vars = context! { boo => "test" };
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(task
-            .is_changed(&ModuleResult::new(false, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            task.is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -639,9 +640,10 @@ mod tests {
         let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(task
-            .is_changed(&ModuleResult::new(false, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            task.is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -654,9 +656,11 @@ mod tests {
         let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(!task
-            .is_changed(&ModuleResult::new(true, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            !task
+                .is_changed(&ModuleResult::new(true, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -669,9 +673,11 @@ mod tests {
         let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(!task
-            .is_changed(&ModuleResult::new(false, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            !task
+                .is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -684,9 +690,11 @@ mod tests {
         let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(!task
-            .is_changed(&ModuleResult::new(false, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            !task
+                .is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -701,9 +709,10 @@ mod tests {
         let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(task
-            .is_changed(&ModuleResult::new(false, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            task.is_changed(&ModuleResult::new(false, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]
@@ -718,9 +727,11 @@ mod tests {
         let vars = context! { boo => "test"};
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
-        assert!(!task
-            .is_changed(&ModuleResult::new(true, None, None), &vars)
-            .unwrap(),);
+        assert!(
+            !task
+                .is_changed(&ModuleResult::new(true, None, None), &vars)
+                .unwrap(),
+        );
     }
 
     #[test]

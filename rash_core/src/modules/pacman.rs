@@ -48,7 +48,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 use crate::utils::default_false;
 
 #[cfg(feature = "docs")]
@@ -60,12 +60,12 @@ use std::process::{Command, Output};
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
-#[cfg(feature = "docs")]
 use schemars::JsonSchema;
+#[cfg(feature = "docs")]
+use schemars::schema::RootSchema;
 use serde::Deserialize;
-use serde_with::{serde_as, OneOrMany};
-use serde_yaml::{value, Value as YamlValue};
+use serde_with::{OneOrMany, serde_as};
+use serde_yaml::{Value as YamlValue, value};
 use shlex::split;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};

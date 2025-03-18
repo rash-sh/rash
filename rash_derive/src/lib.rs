@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Expr, ExprLit, ExprTuple, Lit, Token};
+use syn::{Expr, ExprLit, ExprTuple, Lit, Token, parse_macro_input, punctuated::Punctuated};
 
 /// Implementation of the `#[derive(FieldNames)]` derive macro.
 ///
@@ -60,11 +60,11 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
         impl #name {
             /// Return Json Schema.
             pub fn get_json_schema() -> schemars::schema::RootSchema {
-                let settings = schemars::gen::SchemaSettings::default().with(|s| {
+                let settings = schemars::r#gen::SchemaSettings::default().with(|s| {
                     s.inline_subschemas = true;
                 });
-                let gen = settings.into_generator();
-                gen.into_root_schema_for::<#name>()
+                let generator = settings.into_generator();
+                generator.into_root_schema_for::<#name>()
             }
         }
     }

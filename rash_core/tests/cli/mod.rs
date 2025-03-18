@@ -19,7 +19,9 @@ pub fn update_path(new_path: &Path) {
         .chain(env::split_paths(&path))
         .collect::<Vec<_>>();
     let new_path = env::join_paths(paths).unwrap();
-    env::set_var("PATH", new_path);
+    unsafe {
+        env::set_var("PATH", new_path);
+    }
 }
 
 pub fn execute_rash(args: &[&str]) -> (String, String) {

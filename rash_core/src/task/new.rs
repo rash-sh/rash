@@ -1,7 +1,7 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::is_module;
-use crate::task::valid::TaskValid;
 use crate::task::Task;
+use crate::task::valid::TaskValid;
 
 use serde_yaml::Value;
 

@@ -7,7 +7,7 @@ use crate::error::{Error, ErrorKind, Result};
 
 use std::sync::LazyLock;
 
-use minijinja::{context, Environment, UndefinedBehavior, Value};
+use minijinja::{Environment, UndefinedBehavior, Value, context};
 use serde_yaml::value::Value as YamlValue;
 
 const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
