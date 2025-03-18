@@ -47,7 +47,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
         format!(r"^{WORDS_REGEX}\+?$"),
         format!(r"^<{WORDS_REGEX}>|{WORDS_UPPERCASE_REGEX}\+?$"),
         // options: must be between `{}`
-        format!(r"(\{{[^\[]+?\}}|\-\-?{WORDS_REGEX})$"),
+        format!(r"(\{{[^\[]+?\}}|^\-\-?{WORDS_REGEX})$"),
     ])
     .unwrap();
 
@@ -461,6 +461,43 @@ mod tests {
                 "install": true,
                 "update": false,
                 "package_filters": vec!["foo", "boo"],
+            })
+        )
+    }
+
+    #[test]
+    fn test_parse_dash_command() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   ./systemctl (daemon-reload|daemon-reexec|help)
+#
+"#;
+
+        let args = vec!["daemon-reload"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "help": false,
+                "daemon-reload": true,
+                "daemon-reexec": false,
+            })
+        );
+
+        let args = vec!["daemon-reexec"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "help": false,
+                "daemon-reload": false,
+                "daemon-reexec": true,
             })
         )
     }
