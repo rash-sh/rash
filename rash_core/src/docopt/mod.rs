@@ -1,7 +1,9 @@
 mod options;
 mod utils;
 
-use utils::{RegexMatch, WORDS_REGEX, WORDS_UPPERCASE_REGEX, get_smallest_regex_match};
+use utils::{
+    RegexMatch, UsageCandidate, WORDS_REGEX, WORDS_UPPERCASE_REGEX, get_smallest_regex_match,
+};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
@@ -23,12 +25,12 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     let options = options::Options::parse_doc(&help_msg, &usages)?;
     trace!("options: {options:?}");
 
-    let expanded_args =
-        options.expand_args(&args.iter().copied().map(String::from).collect::<Vec<_>>())?;
+    let args_with_normalized_options =
+        options.normalize_options(&args.iter().copied().map(String::from).collect::<Vec<_>>())?;
 
     let usage_set = HashSet::from_iter(usages.iter().cloned());
 
-    let opts = expanded_args
+    let opts = args_with_normalized_options
         .iter()
         .filter(|x| x.starts_with('-'))
         .map(std::ops::Deref::deref)
@@ -40,7 +42,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
         )
     })?;
 
-    let expanded_usages = expand_usages(extended_usages, expanded_args.len(), &opts);
+    let expanded_usages = expand_usages(extended_usages, args_with_normalized_options.len(), &opts);
     trace!("expanded usages: {expanded_usages:?}");
 
     let arg_kind_set = RegexSet::new([
@@ -135,10 +137,10 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
         .iter()
         .enumerate()
         .find_map(|(usage_idx, args_def)| {
-            if expanded_args.len() != args_kinds[usage_idx].len() {
+            if args_with_normalized_options.len() != args_kinds[usage_idx].len() {
                 return None;
             };
-            expanded_args
+            args_with_normalized_options
                 .iter()
                 .enumerate()
                 .map(|(idx, arg)| match args_kinds[usage_idx][idx] {
@@ -273,69 +275,106 @@ fn is_usage(possible_usage: &str, opts: &[&str]) -> bool {
     possible_usage_opts.len() <= opts.len() && possible_usage_opts.iter().all(|x| opts.contains(x))
 }
 
+/// Expands docopt usage patterns to include all valid combinations.
+///
+/// This function processes usage patterns containing docopt syntax elements like
+/// alternatives `(a | b)`, optional elements `[c]`, and repeatable sections `...`
+/// to generate all possible concrete usage patterns.
+///
+/// The function filters out impossible usages based on the provided `args_len`,
+/// ensuring that only patterns that can match the actual number of arguments
+/// are included in the result. It also uses the `opts` parameter to validate
+/// potential matches against the actual command-line options provided by the user,
+/// discarding patterns that couldn't possibly match the input.
+///
+/// # Examples
+///
+/// "foo (a | b)" expands to ["foo a", "foo b"]
+/// "bar [--verbose]" expands to ["bar", "bar --verbose"]
+/// "baz <file>..." accommodates multiple arguments
 fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> HashSet<String> {
     let mut new_usages = HashSet::new();
-    let mut usages_iter: Box<dyn Iterator<Item = String>> = Box::new(usages.into_iter());
+    let mut usages_iter: Box<dyn Iterator<Item = UsageCandidate>> =
+        Box::new(usages.into_iter().map(UsageCandidate::from_usage));
 
     let opts_len = opts.len();
     loop {
-        if let Some(usage) = usages_iter.next() {
-            match get_smallest_regex_match(&usage.clone()) {
+        if let Some(candidate) = usages_iter.next() {
+            match get_smallest_regex_match(&candidate.usage.clone(), candidate.ignore_curly_braces)
+            {
                 Some((RegexMatch::InnerParenthesis, cap)) => match cap.get(2) {
                     // repeat sequence until fill usage
                     Some(_) => {
                         usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                            repeat_until_fill(&usage, &cap[0], &cap[1], args_len, opts_len),
+                            UsageCandidate::from_usage(repeat_until_fill(
+                                &candidate.usage,
+                                &cap[0],
+                                &cap[1],
+                                args_len,
+                                opts_len,
+                            )),
                         )));
                     }
                     None => {
                         #[allow(clippy::needless_collect)]
-                        let splitted: Vec<String> = cap[1]
+                        let splitted: Vec<UsageCandidate> = cap[1]
                             .split('|')
-                            .map(|w| usage.clone().replacen(&cap[0].to_owned(), w.trim(), 1))
+                            .map(|w| {
+                                candidate
+                                    .usage
+                                    .clone()
+                                    .replacen(&cap[0].to_owned(), w.trim(), 1)
+                            })
+                            .map(UsageCandidate::from_usage)
                             .collect();
                         usages_iter = Box::new(usages_iter.chain(splitted))
                     }
                 },
                 Some((RegexMatch::InnerBrackets, cap)) => {
                     usages_iter = Box::new(
-                        usages_iter.chain(std::iter::once(
-                            usage
+                        usages_iter.chain(std::iter::once(UsageCandidate::from_usage(
+                            candidate
+                                .usage
                                 .replacen(&cap[0].to_owned(), "", 1)
                                 .split_whitespace()
                                 .collect::<Vec<_>>()
                                 .join(" "),
-                        )),
+                        ))),
                     );
 
                     // if captured repeatable(`...`): add usage with that repeatable case
                     if cap.len() == 3 {
-                        usages_iter = Box::new(usages_iter.chain(std::iter::once(usage.replacen(
-                            &cap[0].to_owned(),
-                            &format!("{}{}", &cap[1], &cap[2]),
-                            1,
-                        ))));
+                        usages_iter = Box::new(usages_iter.chain(std::iter::once(
+                            UsageCandidate::from_usage(candidate.usage.replacen(
+                                &cap[0].to_owned(),
+                                &format!("{}{}", &cap[1], &cap[2]),
+                                1,
+                            )),
+                        )));
                     }
-                    let possible_usage = usage.replacen(&cap[0].to_owned(), &cap[1], 1);
+                    let possible_usage = candidate.usage.replacen(&cap[0].to_owned(), &cap[1], 1);
                     if is_usage(&possible_usage, opts) {
-                        usages_iter = Box::new(usages_iter.chain(std::iter::once(possible_usage)));
+                        usages_iter = Box::new(
+                            usages_iter
+                                .chain(std::iter::once(UsageCandidate::from_usage(possible_usage))),
+                        );
                     }
                 }
                 Some((RegexMatch::Repeatable, cap)) => {
                     let repeated_usage =
-                        repeat_until_fill(&usage, &cap[0], &cap[1], args_len, opts_len);
+                        repeat_until_fill(&candidate.usage, &cap[0], &cap[1], args_len, opts_len);
                     let remove_empty_repeatable = repeated_usage
                         .split_whitespace()
                         .filter(|w| *w != "[]")
                         .collect::<Vec<_>>()
                         .join(" ");
-                    usages_iter = Box::new(
-                        usages_iter.chain(std::iter::once(remove_empty_repeatable.clone())),
-                    );
+                    usages_iter = Box::new(usages_iter.chain(std::iter::once(
+                        UsageCandidate::from_usage(remove_empty_repeatable),
+                    )));
                 }
-                None if usage.contains('|') => {
+                None if candidate.usage.contains('|') => {
                     // safe unwrap: usage contains `|`
-                    let splitted = usage.split_once('|').unwrap();
+                    let splitted = candidate.usage.split_once('|').unwrap();
 
                     let left_w = splitted.0.trim_end().rsplit(' ').next().unwrap();
                     let right_w = splitted.1.trim_start().split(' ').next().unwrap();
@@ -344,7 +383,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                     let right_start = splitted.1.replace(splitted.1.trim_start(), "");
 
                     let get_usage = |x: String| {
-                        usage.clone().replacen(
+                        candidate.usage.clone().replacen(
                             &format!("{left_w}{left_end}|{right_start}{right_w}"),
                             &x,
                             1,
@@ -352,45 +391,61 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                     };
                     usages_iter = Box::new(
                         usages_iter
-                            .chain(std::iter::once(get_usage(left_w.to_owned())))
-                            .chain(std::iter::once(get_usage(right_w.to_owned()))),
+                            .chain(std::iter::once(UsageCandidate::from_usage(get_usage(
+                                left_w.to_owned(),
+                            ))))
+                            .chain(std::iter::once(UsageCandidate::from_usage(get_usage(
+                                right_w.to_owned(),
+                            )))),
                     );
                 }
                 Some((RegexMatch::InnerCurlyBraces, cap)) => {
-                    let usage_without_cap = usage
+                    let usage_without_cap = candidate
+                        .usage
                         .replacen(&cap[0].to_owned(), "", 1)
                         .split_whitespace()
                         .collect::<Vec<_>>()
                         .join(" ");
-                    usages_iter =
-                        Box::new(usages_iter.chain(std::iter::once(usage_without_cap.clone())));
+                    usages_iter = Box::new(usages_iter.chain(std::iter::once(
+                        UsageCandidate::from_usage(usage_without_cap.clone()),
+                    )));
                     if let Some((RegexMatch::InnerCurlyBraces, cap)) =
-                        get_smallest_regex_match(&usage_without_cap)
+                        get_smallest_regex_match(&usage_without_cap, false)
                     {
                         usages_iter = Box::new(
-                            usages_iter.chain(std::iter::once(
-                                usage
+                            usages_iter.chain(std::iter::once(UsageCandidate::from_usage(
+                                candidate
+                                    .usage
                                     .replacen(&cap[0].to_owned(), "", 1)
                                     .split_whitespace()
                                     .collect::<Vec<_>>()
                                     .join(" "),
-                            )),
+                            ))),
                         )
                     };
                     match cap.get(2) {
                         // repeat sequence until fill usage
                         Some(_) => {
-                            new_usages.insert(repeat_until_fill(
-                                &usage, &cap[0], &cap[1], args_len, opts_len,
-                            ));
+                            usages_iter = Box::new(usages_iter.chain(std::iter::once(
+                                UsageCandidate::from_usage(repeat_until_fill(
+                                    &candidate.usage,
+                                    &cap[0],
+                                    &cap[1],
+                                    args_len,
+                                    opts_len,
+                                )),
+                            )));
                         }
                         None => {
-                            new_usages.insert(usage);
+                            // Fix: we have to iterate avoiding `InnerCurlyBraces` matches
+                            usages_iter = Box::new(usages_iter.chain(std::iter::once(
+                                UsageCandidate::new(candidate.usage, true),
+                            )));
                         }
                     }
                 }
                 None => {
-                    new_usages.insert(usage);
+                    new_usages.insert(candidate.usage);
                 }
             };
         } else {
@@ -495,6 +550,104 @@ mod tests {
             result,
             json!(
             {
+                "help": false,
+                "daemon-reload": false,
+                "daemon-reexec": true,
+            })
+        )
+    }
+
+    #[test]
+    fn test_parse_dash_command_and_options() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   ./systemctl [options] (daemon-reload|daemon-reexec|help)
+#
+# Options:
+#   --failed                   Show only failed units
+#   -t, --type=TYPE           List units of a particular type [default: service]
+#
+"#;
+
+        let args = vec!["daemon-reload"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "failed": false,
+                    "type": "service",
+                },
+                "help": false,
+                "daemon-reload": true,
+                "daemon-reexec": false,
+            })
+        );
+
+        let args = vec!["--type=timer", "daemon-reexec"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "failed": false,
+                    "type": "timer",
+                },
+                "help": false,
+                "daemon-reload": false,
+                "daemon-reexec": true,
+            })
+        )
+    }
+
+    #[test]
+    fn test_parse_dash_command_and_options_without_place_holder() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   ./systemctl [--failed | --type ] (daemon-reload|daemon-reexec|help)
+#
+# Options:
+#   --failed                   Show only failed units
+#   -t, --type=TYPE           List units of a particular type [default: service]
+#
+"#;
+
+        let args = vec!["daemon-reload"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "failed": false,
+                    "type": "service",
+                },
+                "help": false,
+                "daemon-reload": true,
+                "daemon-reexec": false,
+            })
+        );
+
+        let args = vec!["--type=timer", "daemon-reexec"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "failed": false,
+                    "type": "timer",
+                },
                 "help": false,
                 "daemon-reload": false,
                 "daemon-reexec": true,
@@ -1388,9 +1541,47 @@ Foo:
                 "my_program.py {--quiet#--verbose} {--quiet#--verbose} INPUT+".to_owned(),
                 "my_program.py {--quiet#--verbose} {--quiet#--verbose}".to_owned(),
                 "my_program.py {--help#--sorted#-o=<-o>#} INPUT+".to_owned(),
+                "my_program.py {--quiet#--verbose} INPUT+".to_owned(),
                 "my_program.py {--help#--sorted#-o=<-o>#}".to_owned(),
+                "my_program.py {--quiet#--verbose}".to_owned(),
                 "my_program.py INPUT+".to_owned(),
                 "my_program.py".to_owned(),
+            ])
+        )
+    }
+
+    #[test]
+    fn test_expand_usages_multiple_commands() {
+        let usages = HashSet::from(["my_program.py (daemon-reload|daemon-reexec|help)".to_owned()]);
+
+        let result = expand_usages(usages, 1, &[]);
+        assert_eq!(
+            result,
+            HashSet::from([
+                "my_program.py daemon-reload".to_owned(),
+                "my_program.py daemon-reexec".to_owned(),
+                "my_program.py help".to_owned(),
+            ])
+        )
+    }
+
+    #[test]
+    fn test_expand_usages_options_and_multiple_commands() {
+        let usages = HashSet::from([
+            "my_program.py {--help#--sorted#-o=<-o>#}... (daemon-reload|daemon-reexec|help)"
+                .to_owned(),
+        ]);
+
+        let result = expand_usages(usages, 2, &["--sorted"]);
+        assert_eq!(
+            result,
+            HashSet::from([
+                "my_program.py {--help#--sorted#-o=<-o>#} daemon-reload".to_owned(),
+                "my_program.py {--help#--sorted#-o=<-o>#} daemon-reexec".to_owned(),
+                "my_program.py {--help#--sorted#-o=<-o>#} help".to_owned(),
+                "my_program.py daemon-reload".to_owned(),
+                "my_program.py daemon-reexec".to_owned(),
+                "my_program.py help".to_owned(),
             ])
         )
     }
