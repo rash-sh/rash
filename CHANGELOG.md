@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.3](https://github.com/rash-sh/rash/tree/v2.9.3) - 2025-03-20
+
+### Fixed
+
+- core: Docopt edge cases with multiple options and commands
+- core: Now docopt positional arguments in uppercase are supported
+
+### Documentation
+
+- core: Enhance docopt section with examples and clarifications
+
+### Build
+
+- deps: Update rust Docker tag to v1.85.1
+- deps: Update Rust crate tempfile to v3.19.1
+
 ## [v2.9.2](https://github.com/rash-sh/rash/tree/v2.9.2) - 2025-03-18
 
 ### Fixed
