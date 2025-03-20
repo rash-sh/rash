@@ -468,8 +468,18 @@ fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Value> {
 }
 
 fn parse_positional(arg: &str, def: &str) -> Value {
-    // safe unwrap: Must be a positional argument definition
-    let key = def.strip_prefix('<').unwrap().split_once('>').unwrap().0;
+    let key = match def.starts_with('<') {
+        // safe unwrap: Must be a positional argument definition
+        true => def
+            .strip_prefix('<')
+            .unwrap()
+            .split_once('>')
+            .unwrap()
+            .0
+            .to_owned(),
+        false => def.strip_suffix('+').unwrap_or(def).to_lowercase(),
+    };
+
     if def.ends_with('+') {
         [(key, vec![arg])].into_iter().collect()
     } else {
@@ -1660,12 +1670,33 @@ Foo:
             json!({
                 "foo": "boo",
             })
+        );
+
+        let arg_def = r"FOO";
+
+        let arg = "boo";
+        let result = parse_positional(arg, arg_def);
+        assert_eq!(
+            result,
+            json!({
+                "foo": "boo",
+            })
         )
     }
 
     #[test]
     fn test_parse_positional_repeatable() {
         let arg_def = r"<foo>+";
+
+        let arg = "boo";
+        let result = parse_positional(arg, arg_def);
+        assert_eq!(
+            result,
+            json!({
+                "foo": vec!["boo"],
+            })
+        );
+        let arg_def = r"FOO+";
 
         let arg = "boo";
         let result = parse_positional(arg, arg_def);
