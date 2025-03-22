@@ -47,6 +47,14 @@ Example: with the usage pattern `./program (start|stop|restart)`, if you call `.
 }
 ```
 
+**Note**: Command with dashes are converted to underscores in the resulting JSON. E.g., `./program my-command`:
+
+```json
+{
+  "my_command": true
+}
+```
+
 ## Option parsing
 
 Options are grouped under the `options` key in the resulting JSON:
@@ -72,6 +80,7 @@ In the example above:
 - Options with values have their string value (like `"number": "10"`)
 - Options without default values that weren't provided will be `null`
 - Short options are available with their single-letter key (like `"q": true`)
+- Options with dashes are converted to underscores in the resulting JSON
 
 **Special case - help**: The `help` option is handled specially. If help is passed as an argument or option, the program
 will show all documentation and exit with a status code of 0:
@@ -126,11 +135,19 @@ Positional arguments are parsed as strings or arrays depending on whether they'r
 ```json
 {
   "argument": "value",
-  "repeating-argument": ["value1", "value2", "value3"]
+  "repeating_argument": ["value1", "value2", "value3"]
 }
 ```
 
 If a positional argument isn't provided in the command line, it will be omitted from the variables JSON.
+
+**Note**: Command with dashes are converted to underscores in the resulting JSON. E.g., `./program <repeating-argument>...`:
+
+```json
+{
+  "repeating_argument": ["value1", "value2", "value3"]
+}
+```
 
 Examples:
 

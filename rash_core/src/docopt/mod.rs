@@ -117,15 +117,16 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, arg_def)| match args_kinds[usage_idx].get(idx) {
-                    Some(0) => Some(
+                    Some(0) => Some({
+                        let arg_def_normalized = arg_def.replace('-', "_");
                         match args_defs_expand_repeatable
                             .iter()
                             .any(|args_def| args_def.iter().filter(|&x| x == arg_def).count() > 1)
                         {
-                            true => [(arg_def, 0)].into_iter().collect(),
-                            false => [(arg_def, false)].into_iter().collect(),
-                        },
-                    ),
+                            true => [(arg_def_normalized, 0)].into_iter().collect(),
+                            false => [(arg_def_normalized, false)].into_iter().collect(),
+                        }
+                    }),
                     Some(1) | Some(2) => None,
                     _ => unreachable!(),
                 })
@@ -455,11 +456,12 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
 }
 
 fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Value> {
+    let arg_normalized = arg.replace('-', "_");
     if arg == def {
         let value = if defs.iter().filter(|&x| *x == def).count() > 1 {
-            [(arg, 1)].into_iter().collect()
+            [(arg_normalized, 1)].into_iter().collect()
         } else {
-            [(arg, true)].into_iter().collect()
+            [(arg_normalized, true)].into_iter().collect()
         };
         Some(value)
     } else {
@@ -478,7 +480,8 @@ fn parse_positional(arg: &str, def: &str) -> Value {
             .0
             .to_owned(),
         false => def.strip_suffix('+').unwrap_or(def).to_lowercase(),
-    };
+    }
+    .replace('-', "_");
 
     if def.ends_with('+') {
         [(key, vec![arg])].into_iter().collect()
@@ -531,6 +534,45 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_dash_positional() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   ./dots (install|update|help) <package-filters>...
+#
+"#;
+
+        let args = vec!["install", "foo"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "help": false,
+                "install": true,
+                "update": false,
+                "package_filters": vec!["foo"],
+            })
+        );
+
+        let args = vec!["install", "foo", "boo"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "help": false,
+                "install": true,
+                "update": false,
+                "package_filters": vec!["foo", "boo"],
+            })
+        )
+    }
+
+    #[test]
     fn test_parse_dash_command() {
         let file = r#"
 #!/usr/bin/env rash
@@ -548,8 +590,8 @@ mod tests {
             json!(
             {
                 "help": false,
-                "daemon-reload": true,
-                "daemon-reexec": false,
+                "daemon_reload": true,
+                "daemon_reexec": false,
             })
         );
 
@@ -561,8 +603,8 @@ mod tests {
             json!(
             {
                 "help": false,
-                "daemon-reload": false,
-                "daemon-reexec": true,
+                "daemon_reload": false,
+                "daemon_reexec": true,
             })
         )
     }
@@ -593,8 +635,8 @@ mod tests {
                     "type": "service",
                 },
                 "help": false,
-                "daemon-reload": true,
-                "daemon-reexec": false,
+                "daemon_reload": true,
+                "daemon_reexec": false,
             })
         );
 
@@ -610,8 +652,8 @@ mod tests {
                     "type": "timer",
                 },
                 "help": false,
-                "daemon-reload": false,
-                "daemon-reexec": true,
+                "daemon_reload": false,
+                "daemon_reexec": true,
             })
         )
     }
@@ -642,8 +684,8 @@ mod tests {
                     "type": "service",
                 },
                 "help": false,
-                "daemon-reload": true,
-                "daemon-reexec": false,
+                "daemon_reload": true,
+                "daemon_reexec": false,
             })
         );
 
@@ -659,8 +701,8 @@ mod tests {
                     "type": "timer",
                 },
                 "help": false,
-                "daemon-reload": false,
-                "daemon-reexec": true,
+                "daemon_reload": false,
+                "daemon_reexec": true,
             })
         )
     }
