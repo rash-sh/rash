@@ -9,7 +9,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
 use serde_json::Value;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use regex::{Regex, RegexSet};
 
@@ -295,164 +295,146 @@ fn is_usage(possible_usage: &str, opts: &[&str]) -> bool {
 /// "baz <file>..." accommodates multiple arguments
 fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> HashSet<String> {
     let mut new_usages = HashSet::new();
-    let mut usages_iter: Box<dyn Iterator<Item = UsageCandidate>> =
-        Box::new(usages.into_iter().map(UsageCandidate::from_usage));
+    let mut queue: VecDeque<UsageCandidate> =
+        usages.into_iter().map(UsageCandidate::from_usage).collect();
 
     let opts_len = opts.len();
-    loop {
-        if let Some(candidate) = usages_iter.next() {
-            match get_smallest_regex_match(&candidate.usage.clone(), candidate.ignore_curly_braces)
-            {
-                Some((RegexMatch::InnerParenthesis, cap)) => match cap.get(2) {
-                    // repeat sequence until fill usage
-                    Some(_) => {
-                        usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                            UsageCandidate::from_usage(repeat_until_fill(
-                                &candidate.usage,
-                                &cap[0],
-                                &cap[1],
-                                args_len,
-                                opts_len,
-                            )),
-                        )));
-                    }
-                    None => {
-                        #[allow(clippy::needless_collect)]
-                        let splitted: Vec<UsageCandidate> = cap[1]
-                            .split('|')
-                            .map(|w| {
-                                candidate
-                                    .usage
-                                    .clone()
-                                    .replacen(&cap[0].to_owned(), w.trim(), 1)
-                            })
-                            .map(UsageCandidate::from_usage)
-                            .collect();
-                        usages_iter = Box::new(usages_iter.chain(splitted))
-                    }
-                },
-                Some((RegexMatch::InnerBrackets, cap)) => {
-                    usages_iter = Box::new(
-                        usages_iter.chain(std::iter::once(UsageCandidate::from_usage(
-                            candidate
-                                .usage
-                                .replacen(&cap[0].to_owned(), "", 1)
-                                .split_whitespace()
-                                .collect::<Vec<_>>()
-                                .join(" "),
-                        ))),
-                    );
-
-                    // if captured repeatable(`...`): add usage with that repeatable case
-                    if cap.len() == 3 {
-                        usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                            UsageCandidate::from_usage(candidate.usage.replacen(
-                                &cap[0].to_owned(),
-                                &format!("{}{}", &cap[1], &cap[2]),
-                                1,
-                            )),
-                        )));
-                    }
-                    let possible_usage = candidate.usage.replacen(&cap[0].to_owned(), &cap[1], 1);
-                    if is_usage(&possible_usage, opts) {
-                        usages_iter = Box::new(
-                            usages_iter
-                                .chain(std::iter::once(UsageCandidate::from_usage(possible_usage))),
-                        );
-                    }
-                }
-                Some((RegexMatch::Repeatable, cap)) => {
-                    let repeated_usage =
-                        repeat_until_fill(&candidate.usage, &cap[0], &cap[1], args_len, opts_len);
-                    let remove_empty_repeatable = repeated_usage
-                        .split_whitespace()
-                        .filter(|w| *w != "[]")
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                        UsageCandidate::from_usage(remove_empty_repeatable),
+    while let Some(candidate) = queue.pop_front() {
+        match get_smallest_regex_match(&candidate.usage.clone(), candidate.ignore_curly_braces) {
+            Some((RegexMatch::InnerParenthesis, cap)) => match cap.get(2) {
+                // repeat sequence until fill usage
+                Some(_) => {
+                    queue.push_back(UsageCandidate::from_usage(repeat_until_fill(
+                        &candidate.usage,
+                        &cap[0],
+                        &cap[1],
+                        args_len,
+                        opts_len,
                     )));
                 }
-                None if candidate.usage.contains('|') => {
-                    // safe unwrap: usage contains `|`
-                    let splitted = candidate.usage.split_once('|').unwrap();
-
-                    let left_w = splitted.0.trim_end().rsplit(' ').next().unwrap();
-                    let right_w = splitted.1.trim_start().split(' ').next().unwrap();
-
-                    let left_end = splitted.0.replace(splitted.0.trim_end(), "");
-                    let right_start = splitted.1.replace(splitted.1.trim_start(), "");
-
-                    let get_usage = |x: String| {
-                        candidate.usage.clone().replacen(
-                            &format!("{left_w}{left_end}|{right_start}{right_w}"),
-                            &x,
-                            1,
-                        )
-                    };
-                    usages_iter = Box::new(
-                        usages_iter
-                            .chain(std::iter::once(UsageCandidate::from_usage(get_usage(
-                                left_w.to_owned(),
-                            ))))
-                            .chain(std::iter::once(UsageCandidate::from_usage(get_usage(
-                                right_w.to_owned(),
-                            )))),
-                    );
+                None => {
+                    // Add all split variants to the queue
+                    for w in cap[1].split('|') {
+                        let new_usage =
+                            candidate
+                                .usage
+                                .clone()
+                                .replacen(&cap[0].to_owned(), w.trim(), 1);
+                        queue.push_back(UsageCandidate::from_usage(new_usage));
+                    }
                 }
-                Some((RegexMatch::InnerCurlyBraces, cap)) => {
-                    let usage_without_cap = candidate
+            },
+            Some((RegexMatch::InnerBrackets, cap)) => {
+                // Add usage without the optional part
+                queue.push_back(UsageCandidate::from_usage(
+                    candidate
                         .usage
                         .replacen(&cap[0].to_owned(), "", 1)
                         .split_whitespace()
                         .collect::<Vec<_>>()
-                        .join(" ");
-                    usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                        UsageCandidate::from_usage(usage_without_cap.clone()),
+                        .join(" "),
+                ));
+
+                // if captured repeatable(`...`): add usage with that repeatable case
+                if cap.len() == 3 {
+                    queue.push_back(UsageCandidate::from_usage(candidate.usage.replacen(
+                        &cap[0].to_owned(),
+                        &format!("{}{}", &cap[1], &cap[2]),
+                        1,
                     )));
-                    if let Some((RegexMatch::InnerCurlyBraces, cap)) =
-                        get_smallest_regex_match(&usage_without_cap, false)
-                    {
-                        usages_iter = Box::new(
-                            usages_iter.chain(std::iter::once(UsageCandidate::from_usage(
-                                candidate
-                                    .usage
-                                    .replacen(&cap[0].to_owned(), "", 1)
-                                    .split_whitespace()
-                                    .collect::<Vec<_>>()
-                                    .join(" "),
-                            ))),
-                        )
-                    };
-                    match cap.get(2) {
-                        // repeat sequence until fill usage
-                        Some(_) => {
-                            usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                                UsageCandidate::from_usage(repeat_until_fill(
-                                    &candidate.usage,
-                                    &cap[0],
-                                    &cap[1],
-                                    args_len,
-                                    opts_len,
-                                )),
-                            )));
-                        }
-                        None => {
-                            // Fix: we have to iterate avoiding `InnerCurlyBraces` matches
-                            usages_iter = Box::new(usages_iter.chain(std::iter::once(
-                                UsageCandidate::new(candidate.usage, true),
-                            )));
-                        }
+                }
+
+                let possible_usage = candidate.usage.replacen(&cap[0].to_owned(), &cap[1], 1);
+                if is_usage(&possible_usage, opts) {
+                    queue.push_back(UsageCandidate::from_usage(possible_usage));
+                }
+            }
+            Some((RegexMatch::Repeatable, cap)) => {
+                let repeated_usage =
+                    repeat_until_fill(&candidate.usage, &cap[0], &cap[1], args_len, opts_len);
+                let remove_empty_repeatable = repeated_usage
+                    .split_whitespace()
+                    .filter(|w| *w != "[]")
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                queue.push_back(UsageCandidate::from_usage(remove_empty_repeatable));
+            }
+            None if candidate.usage.contains('|') => {
+                // safe unwrap: usage contains `|`
+                let splitted = candidate.usage.split_once('|').unwrap();
+
+                let left_w = splitted.0.trim_end().rsplit(' ').next().unwrap();
+                let right_w = splitted.1.trim_start().split(' ').next().unwrap();
+
+                let left_end = splitted.0.replace(splitted.0.trim_end(), "");
+                let right_start = splitted.1.replace(splitted.1.trim_start(), "");
+
+                let get_usage = |x: String| {
+                    candidate.usage.clone().replacen(
+                        &format!("{left_w}{left_end}|{right_start}{right_w}"),
+                        &x,
+                        1,
+                    )
+                };
+
+                queue.push_back(UsageCandidate::from_usage(get_usage(left_w.to_owned())));
+                queue.push_back(UsageCandidate::from_usage(get_usage(right_w.to_owned())));
+            }
+            Some((RegexMatch::InnerCurlyBraces, cap)) => {
+                let usage_without_cap = candidate
+                    .usage
+                    .replacen(&cap[0].to_owned(), "", 1)
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+
+                let opts_len = opts.len();
+                let usage_opts = usage_without_cap.split('{').count() - 1;
+                let usage_args = usage_without_cap.split_whitespace().count() - 1;
+                if usage_args == args_len
+                    || (opts_len > usage_opts && usage_without_cap.contains("..."))
+                    || (args_len > opts_len && usage_without_cap.contains('+'))
+                {
+                    queue.push_back(UsageCandidate::from_usage(usage_without_cap.clone()));
+                };
+
+                if let Some((RegexMatch::InnerCurlyBraces, cap)) =
+                    get_smallest_regex_match(&usage_without_cap, false)
+                {
+                    queue.push_back(UsageCandidate::from_usage(
+                        candidate
+                            .usage
+                            .replacen(&cap[0].to_owned(), "", 1)
+                            .split_whitespace()
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    ));
+                }
+
+                match cap.get(2) {
+                    // repeat sequence until fill usage
+                    Some(_) => {
+                        queue.push_back(UsageCandidate::from_usage(repeat_until_fill(
+                            &candidate.usage,
+                            &cap[0],
+                            &cap[1],
+                            args_len,
+                            opts_len,
+                        )));
+                    }
+                    None => {
+                        // Fix: we have to iterate avoiding `InnerCurlyBraces` matches
+                        queue.push_back(UsageCandidate::new(candidate.usage, true));
                     }
                 }
-                None => {
-                    new_usages.insert(candidate.usage);
-                }
-            };
-        } else {
-            return new_usages;
-        }
+            }
+            None => {
+                new_usages.insert(candidate.usage);
+            }
+        };
     }
+
+    new_usages
 }
 
 fn parse_required(arg: &str, def: &str, defs: &[String]) -> Option<Value> {
@@ -1317,6 +1299,155 @@ mod tests {
 
         assert_eq!(err.kind(), ErrorKind::GracefulExit)
     }
+    #[test]
+    fn test_parse_long_args_list() {
+        let file = r#"
+# Pacman binary mock for Pacman module tests.
+#
+# Usage:
+#   ./pacman.rh [options] [<packages>]...
+#
+# Options:
+#  -b, --dbpath <path>  set an alternate database location
+#  -c, --clean          remove old packages from cache directory (-cc for all)
+#  -d, --nodeps         skip dependency version checks (-dd to skip all checks)
+#  -g, --groups         view all members of a package group
+#                       (-gg to view all groups and members)
+#  -i, --info           view package information (-ii for extended information)
+#  -l, --list <repo>    view a list of packages in a repo
+#  -p, --print          print the targets instead of performing the operation
+#  -q, --quiet          show less information for query and search
+#  -r, --root <path>    set an alternate installation root
+#  -s, --search <regex> search remote repositories for matching strings
+#  -u, --sysupgrade     upgrade installed packages (-uu enables downgrades)
+#  -v, --verbose        be verbose
+#  -w, --downloadonly   download packages but do not install/upgrade anything
+#  -y, --refresh        download fresh package databases from the server
+#                       (-yy to force a refresh even if up to date)
+#      --arch <arch>    set an alternate architecture
+#      --asdeps         install packages as non-explicitly installed
+#      --asexplicit     install packages as explicitly installed
+#      --assume-installed <package=version>
+#                       add a virtual package to satisfy dependencies
+#      --cachedir <dir> set an alternate package cache location
+#      --color <when>   colourise the output
+#      --config <path>  set an alternate configuration file
+#      --confirm        always ask for confirmation
+#      --dbonly         only modify database entries, not package files
+#      --debug          display debug messages
+#      --disable-download-timeout
+#                       use relaxed timeouts for download
+#      --gpgdir <path>  set an alternate home directory for GnuPG
+#      --hookdir <dir>  set an alternate hook location
+#      --ignore <pkg>   ignore a package upgrade (can be used more than once)
+#      --ignoregroup <grp>
+#                       ignore a group upgrade (can be used more than once)
+#      --logfile <path> set an alternate log file
+#      --needed         do not reinstall up to date packages
+#      --noconfirm      do not ask for any confirmation
+#      --noprogressbar  do not show a progress bar when downloading files
+#      --noscriptlet    do not execute the install scriptlet if one exists
+#      --overwrite <glob>
+#                       overwrite conflicting files (can be used more than once)
+#      --print-format <string>
+#                       specify how the targets should be printed
+#      --sysroot        operate on a mounted guest system (root-only)
+#      --help
+    "#;
+        let args = vec![
+            "-b",
+            "yea",
+            "-cdgi",
+            "-l",
+            "boo",
+            "-p",
+            "-q",
+            "-r",
+            "yea",
+            "-s",
+            "boo",
+            "-yvwy",
+            "--arch",
+            "yea",
+            "--asdeps",
+            "--asexplicit",
+            "--assume-installed",
+            "yea",
+            "--cachedir=boo",
+            "--color",
+            "yea",
+            "--config",
+            "ye",
+            "--confirm",
+            "--dbonly",
+            "--debug",
+            "--disable-download-timeout",
+            "--gpgdir",
+            "gooo",
+            "--hookdir",
+            "assa",
+            "--ignore",
+            "yea",
+            "--ignoregroup=yea",
+            "--logfile=boo",
+            "--needed",
+            "--noconfirm",
+            "--noprogressbar",
+            "--noscriptlet",
+            "--overwrite",
+            "yea",
+            "--print-format",
+            "yea",
+            "--sysroot",
+        ];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "arch": "yea",
+                    "asdeps": true,
+                    "asexplicit": true,
+                    "assume_installed": "yea",
+                    "cachedir": "boo",
+                    "clean": true,
+                    "color": "yea",
+                    "config": "ye",
+                    "confirm": true,
+                    "dbonly": true,
+                    "dbpath": "yea",
+                    "debug": true,
+                    "disable_download_timeout": true,
+                    "downloadonly": true,
+                    "gpgdir": "gooo",
+                    "groups": true,
+                    "help": false,
+                    "hookdir": "assa",
+                    "ignore": "yea",
+                    "ignoregroup": "yea",
+                    "info": true,
+                    "list": "boo",
+                    "logfile": "boo",
+                    "needed": true,
+                    "noconfirm": true,
+                    "nodeps": true,
+                    "noprogressbar": true,
+                    "noscriptlet": true,
+                    "overwrite": "yea",
+                    "print": true,
+                    "print_format": "yea",
+                    "quiet": true,
+                    "refresh": true,
+                    "root": "yea",
+                    "search": "boo",
+                    "sysroot": true,
+                    "sysupgrade": false,
+                    "verbose": true
+                }
+            })
+        );
+    }
 
     #[test]
     fn test_parse_help() {
@@ -1597,7 +1728,6 @@ Foo:
                 "my_program.py {--help#--sorted#-o=<-o>#}".to_owned(),
                 "my_program.py {--quiet#--verbose}".to_owned(),
                 "my_program.py INPUT+".to_owned(),
-                "my_program.py".to_owned(),
             ])
         )
     }
@@ -1631,9 +1761,6 @@ Foo:
                 "my_program.py {--help#--sorted#-o=<-o>#} daemon-reload".to_owned(),
                 "my_program.py {--help#--sorted#-o=<-o>#} daemon-reexec".to_owned(),
                 "my_program.py {--help#--sorted#-o=<-o>#} help".to_owned(),
-                "my_program.py daemon-reload".to_owned(),
-                "my_program.py daemon-reexec".to_owned(),
-                "my_program.py help".to_owned(),
             ])
         )
     }
