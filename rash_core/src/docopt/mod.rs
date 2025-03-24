@@ -381,34 +381,39 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                 queue.push_back(UsageCandidate::from_usage(get_usage(right_w.to_owned())));
             }
             Some((RegexMatch::InnerCurlyBraces, cap)) => {
+                let opts_len = opts.len();
                 let usage_without_cap = candidate
                     .usage
-                    .replacen(&cap[0].to_owned(), "", 1)
+                    .replacen(&cap[0], "", 1)
                     .split_whitespace()
                     .collect::<Vec<_>>()
                     .join(" ");
 
-                let opts_len = opts.len();
-                let usage_opts = usage_without_cap.split('{').count() - 1;
-                let usage_args = usage_without_cap.split_whitespace().count() - 1;
-                if usage_args == args_len
-                    || (opts_len > usage_opts && usage_without_cap.contains("..."))
-                    || (args_len > opts_len && usage_without_cap.contains('+'))
-                {
-                    queue.push_back(UsageCandidate::from_usage(usage_without_cap.clone()));
+                let mut check_and_push = |usage: &str| {
+                    let usage_opts = usage.split('{').count() - 1;
+                    let usage_args = usage.split_whitespace().count() - 1;
+
+                    if usage_args == args_len
+                        || (opts_len > usage_opts && usage.contains("..."))
+                        || (args_len > opts_len && usage.contains('+'))
+                    {
+                        queue.push_back(UsageCandidate::from_usage(usage.to_owned()));
+                    }
                 };
 
-                if let Some((RegexMatch::InnerCurlyBraces, cap)) =
+                check_and_push(&usage_without_cap);
+
+                if let Some((RegexMatch::InnerCurlyBraces, second_cap)) =
                     get_smallest_regex_match(&usage_without_cap, false)
                 {
-                    queue.push_back(UsageCandidate::from_usage(
-                        candidate
-                            .usage
-                            .replacen(&cap[0].to_owned(), "", 1)
-                            .split_whitespace()
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    ));
+                    let usage_without_second_cap = candidate
+                        .usage
+                        .replacen(&second_cap[0], "", 1)
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ");
+
+                    check_and_push(&usage_without_second_cap);
                 }
 
                 match cap.get(2) {
@@ -1725,8 +1730,6 @@ Foo:
                 "my_program.py {--quiet#--verbose} {--quiet#--verbose}".to_owned(),
                 "my_program.py {--help#--sorted#-o=<-o>#} INPUT+".to_owned(),
                 "my_program.py {--quiet#--verbose} INPUT+".to_owned(),
-                "my_program.py {--help#--sorted#-o=<-o>#}".to_owned(),
-                "my_program.py {--quiet#--verbose}".to_owned(),
                 "my_program.py INPUT+".to_owned(),
             ])
         )
