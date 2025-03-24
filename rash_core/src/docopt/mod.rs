@@ -1,9 +1,7 @@
 mod options;
 mod utils;
 
-use utils::{
-    RegexMatch, UsageCandidate, WORDS_REGEX, WORDS_UPPERCASE_REGEX, get_smallest_regex_match,
-};
+use utils::{RegexMatch, UsageCandidate, WORDS_REGEX, WORDS_UPPERCASE_REGEX, usage_regex_match};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::merge_json;
@@ -300,7 +298,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
 
     let opts_len = opts.len();
     while let Some(candidate) = queue.pop_front() {
-        match get_smallest_regex_match(&candidate.usage.clone(), candidate.ignore_curly_braces) {
+        match usage_regex_match(&candidate.usage.clone(), candidate.ignore_curly_braces) {
             Some((RegexMatch::InnerParenthesis, cap)) => match cap.get(2) {
                 // repeat sequence until fill usage
                 Some(_) => {
@@ -404,7 +402,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                 check_and_push(&usage_without_cap);
 
                 if let Some((RegexMatch::InnerCurlyBraces, second_cap)) =
-                    get_smallest_regex_match(&usage_without_cap, false)
+                    usage_regex_match(&usage_without_cap, false)
                 {
                     let usage_without_second_cap = candidate
                         .usage
@@ -438,7 +436,6 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
             }
         };
     }
-
     new_usages
 }
 
@@ -1450,6 +1447,176 @@ mod tests {
                     "sysupgrade": false,
                     "verbose": true
                 }
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_commands_with_options_mixed_positions() {
+        let file = r#"
+    #!/usr/bin/env rash
+    #
+    # Usage:
+    #   ./tool [--verbose] (start|stop) [--force]
+    #
+    # Options:
+    #   --verbose  Show detailed output
+    #   --force    Force the operation
+    "#;
+
+        let args = vec!["--verbose", "start", "--force"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "verbose": true,
+                    "force": true,
+                },
+                "start": true,
+                "stop": false,
+            })
+        );
+
+        let args = vec!["stop", "--force"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "verbose": false,
+                    "force": true,
+                },
+                "start": false,
+                "stop": true,
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_positional_args_mixed_positions() {
+        let file = r#"
+    #!/usr/bin/env rash
+    #
+    # Usage:
+    #   ./tool <input> [--verbose] <output>
+    #
+    # Options:
+    #   --verbose  Show detailed output
+    "#;
+
+        let args = vec!["input.txt", "--verbose", "output.txt"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "verbose": true,
+                },
+                "input": "input.txt",
+                "output": "output.txt"
+            })
+        );
+
+        let args = vec!["input.txt", "output.txt"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "verbose": false,
+                },
+                "input": "input.txt",
+                "output": "output.txt"
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_complex_option_combinations() {
+        let file = r#"
+    #!/usr/bin/env rash
+    #
+    # Usage:
+    #   ./tool [options] <file>
+    #
+    # Options:
+    #   -v, --verbose            Show detailed output
+    #   -f, --format=<format>    Output format [default: json]
+    #   -r, --repeat=<n>         Repeat operation n times [default: 1]
+    #   -q, --quiet              Suppress output
+    "#;
+
+        let args = vec!["-vfyaml", "-r5", "-q", "data.txt"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "verbose": true,
+                    "format": "yaml",
+                    "repeat": "5",
+                    "quiet": true,
+                },
+                "file": "data.txt"
+            })
+        );
+
+        let args = vec!["--format=xml", "--repeat=3", "data.txt"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "verbose": false,
+                    "format": "xml",
+                    "repeat": "3",
+                    "quiet": false,
+                },
+                "file": "data.txt"
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_nested_groups_with_repeatable() {
+        let file = r#"
+    #!/usr/bin/env rash
+    #
+    # Usage:
+    #   ./tool [options] (add [<item>...] | (remove|delete) <id>)
+    #
+    # Options:
+    #   -f, --force    Force operation
+    "#;
+
+        let args = vec!["--force", "add", "item1", "item2", "item3"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "force": true
+                },
+                "add": true,
+                "remove": false,
+                "delete": false,
+                "item": ["item1", "item2", "item3"]
+            })
+        );
+
+        let args = vec!["remove", "12345"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "force": false
+                },
+                "add": false,
+                "remove": true,
+                "delete": false,
+                "id": "12345"
             })
         );
     }
