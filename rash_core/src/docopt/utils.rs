@@ -104,30 +104,29 @@ pub fn expand_brackets(s: &str) -> String {
         .unwrap_or_else(|| s.to_owned())
 }
 
-pub fn get_smallest_regex_match(
+pub fn usage_regex_match(
     usage: &str,
     ignore_curly_braces: bool,
 ) -> Option<(RegexMatch, Vec<String>)> {
-    let mut matchers = vec![
-        (
-            RegexMatch::InnerParenthesis,
-            RE_INNER_PARENTHESIS.captures(usage),
-        ),
-        (RegexMatch::InnerBrackets, RE_INNER_BRACKETS.captures(usage)),
-        (RegexMatch::Repeatable, RE_REPEATABLE.captures(usage)),
-    ];
-
-    if !ignore_curly_braces {
-        matchers.push((
-            RegexMatch::InnerCurlyBraces,
-            RE_INNER_CURLY_BRACES.captures(usage),
-        ));
+    if let Some(captures) = RE_INNER_PARENTHESIS.captures(usage) {
+        return Some((RegexMatch::InnerParenthesis, get_vec_from_cap(&captures)));
     }
 
-    matchers
-        .iter()
-        .filter_map(|x| x.1.as_ref().map(|cap| (x.0, get_vec_from_cap(cap))))
-        .min_by_key(|x| x.1[0].len())
+    if let Some(captures) = RE_INNER_BRACKETS.captures(usage) {
+        return Some((RegexMatch::InnerBrackets, get_vec_from_cap(&captures)));
+    }
+
+    if let Some(captures) = RE_REPEATABLE.captures(usage) {
+        return Some((RegexMatch::Repeatable, get_vec_from_cap(&captures)));
+    }
+
+    if !ignore_curly_braces {
+        if let Some(captures) = RE_INNER_CURLY_BRACES.captures(usage) {
+            return Some((RegexMatch::InnerCurlyBraces, get_vec_from_cap(&captures)));
+        }
+    }
+
+    None
 }
 
 pub fn split_keeping_separators(text: &str, split_chars: &[char]) -> Vec<String> {
