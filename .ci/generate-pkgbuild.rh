@@ -1,4 +1,5 @@
 #!/usr/bin/env rash
+# Usage: generate-pkgbuild.rh <target>
 
 - assert:
     that:
@@ -7,7 +8,15 @@
       - "env.PROJECT_DESCRIPTION is defined"
       - "env.PROJECT_HOMEPAGE is defined"
 
-- name: Create PKGBUILD
+- command: curl -s -L https://github.com/rash-sh/rash/releases/download/v{{ env.PROJECT_VERSION }}/rash-{{ env.PROJECT_VERSION }}-x86_64-unknown-linux-gnu.tar.gz.sha256
+  register: checksum_file
+  when: "'bin' in target"
+
+- set_vars:
+    checksum: "{{ checksum_file.output | split(' ') | first }}"
+  when: "'bin' in target"
+
+- name: Create {{ target }}
   template:
-    src: "{{ rash.dir }}/PKGBUILD.j2"
-    dest: PKGBUILD
+    src: "{{ rash.dir }}/{{ target }}.j2"
+    dest: "{{ target }}"
