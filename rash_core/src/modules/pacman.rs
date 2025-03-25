@@ -234,7 +234,7 @@ impl PacmanClient {
     #[inline]
     fn parse_installed(stdout: Vec<u8>) -> BTreeSet<String> {
         let output_string = String::from_utf8_lossy(&stdout);
-        output_string.lines().map(|s| s.to_owned()).collect()
+        output_string.lines().map(String::from).collect()
     }
 
     pub fn get_installed(&self) -> Result<BTreeSet<String>> {

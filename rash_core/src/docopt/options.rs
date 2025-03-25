@@ -264,8 +264,6 @@ impl Options {
                     //mark repeatable options
                     .replace("]...", ". ] ")
                     .replace(']', " ] ")
-                    .replace('<', " < ")
-                    .replace('>', " > ")
                     .split_whitespace()
                     // skip arg 0 (script name)
                     .skip(1)
@@ -396,7 +394,6 @@ impl Options {
     pub fn normalize_options(&self, args: &[String]) -> Result<Vec<String>> {
         let mut is_antepenultimate_with_param = false;
         args.iter()
-            .flat_map(|arg| arg.split('='))
             .flat_map(|arg| {
                 if arg.starts_with('-') && !arg.starts_with("--") {
                     let mut is_previously_added = false;
@@ -404,34 +401,37 @@ impl Options {
                         // skip `-`
                         .skip(1)
                         .flat_map(|arg_char| {
+                            if is_previously_added {
+                                return vec![];
+                            }
                             let short = format!("-{arg_char}");
                             match self.find(&short) {
                                 Some(option_arg) => {
                                     let mut result = vec![option_arg.get_simple_representation()];
-                                    if matches!(option_arg, OptionArg::WithParam { .. })
-                                        && !arg.ends_with(arg_char)
-                                    {
-                                        result.push(
-                                            arg.split_at(arg.find(arg_char).unwrap() + 1)
-                                                .1
-                                                .to_owned(),
-                                        )
-                                    };
-                                    is_previously_added = true;
+                                    if matches!(option_arg, OptionArg::WithParam { .. }) {
+                                        let split_char = match arg.contains('=') {
+                                            true => '=',
+                                            false => arg_char,
+                                        };
+                                        let param = arg.split_once(split_char).unwrap().1;
+                                        if !param.is_empty() {
+                                            result.push(param.to_owned());
+                                        }
+                                        is_previously_added = true;
+                                    }
                                     result
                                 }
                                 None => {
-                                    if is_previously_added {
-                                        vec![]
-                                    } else {
-                                        vec![short]
-                                    }
+                                    vec![short]
                                 }
                             }
                         })
                         .collect::<Vec<String>>()
                 } else {
-                    vec![arg.to_owned()]
+                    match arg.split_once('=') {
+                        Some((a, b)) => vec![a.to_owned(), b.to_owned()],
+                        None => vec![arg.to_owned()],
+                    }
                 }
             })
             .collect::<Vec<_>>()
@@ -725,6 +725,45 @@ Usage: {usage}
     }
 
     #[test]
+    fn test_options_parse_with_param_argument() {
+        let usage = "my_program.rh [--param=<value>]";
+        let file = format!(
+            r#"
+{usage}
+"#
+        );
+
+        let result = Options::parse_doc(&file, &[usage.to_owned()]).unwrap();
+
+        assert_eq!(
+            result,
+            Options::new(HashSet::from([OptionArg::WithParam {
+                short: None,
+                long: Some("--param".to_owned()),
+                default_value: None,
+            },]))
+        );
+
+        let usage = "my_program.rh [--param=VALUE]";
+        let file = format!(
+            r#"
+{usage}
+"#
+        );
+
+        let result = Options::parse_doc(&file, &[usage.to_owned()]).unwrap();
+
+        assert_eq!(
+            result,
+            Options::new(HashSet::from([OptionArg::WithParam {
+                short: None,
+                long: Some("--param".to_owned()),
+                default_value: None,
+            },]))
+        )
+    }
+
+    #[test]
     fn test_options_parse() {
         let options = Options::new(HashSet::from([OptionArg::Simple {
             short: Some("-h".to_owned()),
@@ -881,6 +920,32 @@ Usage: {usage}
 
         let result = options.normalize_options(&args).unwrap();
         assert_eq!(result, vec!["-o=yea".to_owned()]);
+
+        let args = vec!["-oyeo".to_owned()];
+
+        let result = options.normalize_options(&args).unwrap();
+        assert_eq!(result, vec!["-o=yeo".to_owned()]);
+
+        let args = vec!["-o=FOO=yea".to_owned()];
+
+        let result = options.normalize_options(&args).unwrap();
+        assert_eq!(result, vec!["-o=FOO=yea".to_owned()]);
+
+        let options = Options::new(HashSet::from([OptionArg::WithParam {
+            short: Some("-t".to_owned()),
+            long: Some("--test".to_owned()),
+            default_value: Some("all".to_owned()),
+        }]));
+
+        let args = vec!["-tall-except-one".to_owned()];
+
+        let result = options.normalize_options(&args).unwrap();
+        assert_eq!(result, vec!["--test=all-except-one".to_owned()]);
+
+        let args = vec!["--test=none".to_owned()];
+
+        let result = options.normalize_options(&args).unwrap();
+        assert_eq!(result, vec!["--test=none".to_owned()]);
     }
 
     #[test]
