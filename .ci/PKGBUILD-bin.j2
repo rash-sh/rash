@@ -1,0 +1,19 @@
+# Maintainer: Pando85 <pando855@gmail.com>
+_pkgname={{ env.PROJECT_NAME }}
+pkgname="${_pkgname}-bin"
+pkgver={{ env.PROJECT_VERSION }}
+pkgrel=1
+pkgdesc="{{ env.PROJECT_DESCRIPTION }}"
+arch=('x86_64' 'aarch64')
+url="{{ env.PROJECT_HOMEPAGE }}"
+license=('GPL')
+depends=('gcc-libs')
+provides=("${_pkgname}")
+conflicts=("${_pkgname}")
+
+source=("https://github.com/rash-sh/rash/releases/download/v${pkgver}/rash-${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz")
+sha256sums=('{{ checksum }}')
+
+package() {
+	install -Dm755 ${_pkgname} "${pkgdir}/usr/bin/${_pkgname}"
+}
