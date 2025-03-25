@@ -1622,6 +1622,82 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_combined_complex_patterns() {
+        let file = r#"
+    #!/usr/bin/env rash
+    #
+    # Usage:
+    #   ./tool deploy [--env=<environment>] [--dry-run] [<service>...]
+    #   ./tool rollback [--force] <version>
+    #   ./tool (start|stop|restart) [(--all | <service>...)]
+    #
+    # Options:
+    #   --env=<environment>  Target environment [default: dev]
+    #   --dry-run            Don't actually deploy
+    #   --force              Force the operation
+    #   --all                Apply to all services
+    "#;
+        let args = vec!["deploy", "--env=prod", "--dry-run", "web", "api", "db"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "env": "prod",
+                    "dry_run": true,
+                    "force": false,
+                    "all": false
+                },
+                "deploy": true,
+                "rollback": false,
+                "start": false,
+                "stop": false,
+                "restart": false,
+                "service": ["web", "api", "db"]
+            })
+        );
+
+        let args = vec!["start", "web", "api"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "env": "dev",
+                    "dry_run": false,
+                    "force": false,
+                    "all": false
+                },
+                "deploy": false,
+                "rollback": false,
+                "start": true,
+                "stop": false,
+                "restart": false,
+                "service": ["web", "api"]
+            })
+        );
+
+        let args = vec!["start", "--all"];
+        let result = parse(file, &args).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "options": {
+                    "env": "dev",
+                    "dry_run": false,
+                    "force": false,
+                    "all": true
+                },
+                "deploy": false,
+                "rollback": false,
+                "start": true,
+                "stop": false,
+                "restart": false
+            })
+        );
+    }
+
+    #[test]
     fn test_parse_help() {
         let file = r#"
 #!/usr/bin/env rash
