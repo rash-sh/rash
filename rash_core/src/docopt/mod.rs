@@ -909,6 +909,49 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_option_with_equal() {
+        let file = r#"
+        #!/usr/bin/env rash
+        #
+        # Usage: foo [--env=<key>]
+        #
+        "#;
+
+        let args = vec!["--env=FOO"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "env": "FOO",
+                },
+            })
+        );
+
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [--env=<key=value>]
+#
+"#;
+
+        let args = vec!["--env=FOO=BAR"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "env": "FOO=BAR",
+                },
+            })
+        );
+    }
+
+    #[test]
     fn test_parse_optional() {
         let file = r#"
 #!/usr/bin/env rash
