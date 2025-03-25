@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     fn test_options_parse_doc() {
-        let usage = "my_program.py [-hsoFILE] [--repeatable]... [--quiet | --verbose] [INPUT ...]";
+        let usage = "my_program.rh [-hsoFILE] [--repeatable]... [--quiet | --verbose] [INPUT ...]";
         let file = format!(
             r#"
 Usage: {usage}
@@ -652,7 +652,7 @@ Usage: {usage}
 
     #[test]
     fn test_options_parse_doc_without_description() {
-        let usage = "my_program.py [-hsoFILE] [--quiet | --verbose] [INPUT ...]";
+        let usage = "my_program.rh [-hsoFILE] [--quiet | --verbose] [INPUT ...]";
         let file = format!(
             r#"
 {usage}
@@ -706,7 +706,7 @@ Usage: {usage}
 
     #[test]
     fn test_options_parse_repeatable_argument() {
-        let usage = "my_program.py [--repeatable]...";
+        let usage = "my_program.rh [--repeatable]...";
         let file = format!(
             r#"
 {usage}

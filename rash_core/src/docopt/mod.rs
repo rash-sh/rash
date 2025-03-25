@@ -1010,12 +1010,12 @@ mod tests {
 #!/usr/bin/env rash
 #
 # Usage:
-#   naval_fate.py ship new <name>...
-#   naval_fate.py ship <name> move <x> <y> [--speed=<kn>]
-#   naval_fate.py ship shoot <x> <y>
-#   naval_fate.py mine (set|remove) <x> <y> [--moored|--drifting]
-#   naval_fate.py -h | --help
-#   naval_fate.py --version
+#   naval_fate.rh ship new <name>...
+#   naval_fate.rh ship <name> move <x> <y> [--speed=<kn>]
+#   naval_fate.rh ship shoot <x> <y>
+#   naval_fate.rh mine (set|remove) <x> <y> [--moored|--drifting]
+#   naval_fate.rh -h | --help
+#   naval_fate.rh --version
 #
 # Options:
 #   -h --help        Show this screen.
@@ -1158,7 +1158,7 @@ mod tests {
         let file = r#"
 #!/usr/bin/env rash
 #
-# Usage: my_program.py [-hso FILE] [--quiet | --verbose] [INPUT ...]
+# Usage: my_program.rh [-hso FILE] [--quiet | --verbose] [INPUT ...]
 #
 # -h --help    show this
 # -s --sorted  sorted output
@@ -1193,7 +1193,7 @@ mod tests {
         let file = r#"
 #!/usr/bin/env rash
 #
-# Usage: multi_word.py [options]
+# Usage: multi_word.rh [options]
 #
 # Options
 #   -h --help    show this
@@ -1959,7 +1959,7 @@ Foo:
     #[test]
     fn test_expand_usages_double_fill() {
         let usages = HashSet::from([
-            "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... [INPUT ...]"
+            "my_program.rh {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... [INPUT ...]"
                 .to_owned(),
         ]);
 
@@ -1967,28 +1967,28 @@ Foo:
         assert_eq!(
             result,
             HashSet::from([
-                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... INPUT+".to_owned(),
-                "my_program.py {--help#--sorted#-o=<-o>#} {--quiet#--verbose}...".to_owned(),
-                "my_program.py {--quiet#--verbose} {--quiet#--verbose} INPUT+".to_owned(),
-                "my_program.py {--quiet#--verbose} {--quiet#--verbose}".to_owned(),
-                "my_program.py {--help#--sorted#-o=<-o>#} INPUT+".to_owned(),
-                "my_program.py {--quiet#--verbose} INPUT+".to_owned(),
-                "my_program.py INPUT+".to_owned(),
+                "my_program.rh {--help#--sorted#-o=<-o>#} {--quiet#--verbose}... INPUT+".to_owned(),
+                "my_program.rh {--help#--sorted#-o=<-o>#} {--quiet#--verbose}...".to_owned(),
+                "my_program.rh {--quiet#--verbose} {--quiet#--verbose} INPUT+".to_owned(),
+                "my_program.rh {--quiet#--verbose} {--quiet#--verbose}".to_owned(),
+                "my_program.rh {--help#--sorted#-o=<-o>#} INPUT+".to_owned(),
+                "my_program.rh {--quiet#--verbose} INPUT+".to_owned(),
+                "my_program.rh INPUT+".to_owned(),
             ])
         )
     }
 
     #[test]
     fn test_expand_usages_multiple_commands() {
-        let usages = HashSet::from(["my_program.py (daemon-reload|daemon-reexec|help)".to_owned()]);
+        let usages = HashSet::from(["my_program.rh (daemon-reload|daemon-reexec|help)".to_owned()]);
 
         let result = expand_usages(usages, 1, &[]);
         assert_eq!(
             result,
             HashSet::from([
-                "my_program.py daemon-reload".to_owned(),
-                "my_program.py daemon-reexec".to_owned(),
-                "my_program.py help".to_owned(),
+                "my_program.rh daemon-reload".to_owned(),
+                "my_program.rh daemon-reexec".to_owned(),
+                "my_program.rh help".to_owned(),
             ])
         )
     }
@@ -1996,7 +1996,7 @@ Foo:
     #[test]
     fn test_expand_usages_options_and_multiple_commands() {
         let usages = HashSet::from([
-            "my_program.py {--help#--sorted#-o=<-o>#}... (daemon-reload|daemon-reexec|help)"
+            "my_program.rh {--help#--sorted#-o=<-o>#}... (daemon-reload|daemon-reexec|help)"
                 .to_owned(),
         ]);
 
@@ -2004,9 +2004,9 @@ Foo:
         assert_eq!(
             result,
             HashSet::from([
-                "my_program.py {--help#--sorted#-o=<-o>#} daemon-reload".to_owned(),
-                "my_program.py {--help#--sorted#-o=<-o>#} daemon-reexec".to_owned(),
-                "my_program.py {--help#--sorted#-o=<-o>#} help".to_owned(),
+                "my_program.rh {--help#--sorted#-o=<-o>#} daemon-reload".to_owned(),
+                "my_program.rh {--help#--sorted#-o=<-o>#} daemon-reexec".to_owned(),
+                "my_program.rh {--help#--sorted#-o=<-o>#} help".to_owned(),
             ])
         )
     }
