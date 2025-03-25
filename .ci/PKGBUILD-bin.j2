@@ -1,0 +1,21 @@
+# Maintainer: Pando85 <pando855@gmail.com>
+
+pkgname={{ env.PROJECT_NAME }}
+pkgver={{ env.PROJECT_VERSION }}
+pkgrel=1
+pkgdesc="{{ env.PROJECT_DESCRIPTION }}"
+
+arch=('x86_64' 'aarch64')
+url="{{ env.PROJECT_HOMEPAGE }}"
+license=('GPL')
+
+provides=("$pkgname")
+conflicts=("$pkgname")
+
+source=("https://github.com/rash-sh/rash/releases/download/v${pkgver}/rash-${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz")
+# TODO: Add checksums. E.g.: https://github.com/sane-fmt/sane-fmt/blob/master/.github/workflows/deploy.yaml
+sha256sums=('SKIP')
+
+package() {
+	install -Dm755 ${pkgname} "${pkgdir}/usr/bin/"
+}

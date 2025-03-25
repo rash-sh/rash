@@ -9,5 +9,8 @@
 
 - name: Create PKGBUILD
   template:
-    src: "{{ rash.dir }}/PKGBUILD.j2"
-    dest: PKGBUILD
+    src: "{{ rash.dir }}/{{ item }}.j2"
+    dest: "{{ item }}"
+  loop:
+    - PKGBUILD
+    - PKGBUILD-bin
