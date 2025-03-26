@@ -9,89 +9,125 @@
 ![Rash license](https://img.shields.io/github/license/rash-sh/rash)
 [![Rash Aur package](https://img.shields.io/aur/version/rash)](https://aur.archlinux.org/packages/rash)
 
-Declarative shell scripting using Rust native bindings inspired by [Ansible](https://www.ansible.com/)
+Rash is a lightweight, container-friendly shell scripting language that uses a declarative YAML syntax inspired by [Ansible](https://www.ansible.com/). It brings the simplicity and readability of Ansible playbooks to local scripting and container entrypoints, all in a single Rust binary with no dependencies.
 
-## Getting Started & Documentation
+## Why Rash?
 
-For installation and usage, see our
-[Documentation](https://rash.sh/docs/rash/master/getting-started.html#quickstart).
+- **Declarative vs Imperative**: Define what your script should accomplish, not how
+- **Container-Optimized**: Single binary with no dependencies, perfect for minimal containers
+- **Lightweight**: Runs on any Linux system, even resource-constrained IoT devices
+- **Template-Powered**: Uses [MiniJinja](https://github.com/mitsuhiko/minijinja) for powerful templating capabilities
+- **Intuitive Syntax**: Familiar YAML structure for those who know Ansible
+- **Built-in Command-Line Parsing**: Elegant [docopt](http://docopt.org) implementation for clean script interfaces
+- **Modular Design**: Focused modules for different tasks
 
-## Why Rash
+## Example: Imperative vs Declarative
 
-Manage your scripts in a declarative style.
-
-If you:
-
-- think that long bash scripts are difficult to maintain
-- love Ansible syntax to setup your environments
-
-Or use it for your local scripts!
-
-Then keep on reading.
-
-Here is Rash!
-
-### Declarative vs imperative
-
-Imperative: `entrypoint.sh`:
+### Bash (Imperative)
 
 ```bash
 #!/bin/bash
 set -e
 
+# Validate required environment variables
 REQUIRED_PARAMS="
-VAULT_URL
-VAULT_ROLE_ID
-VAULT_SECRET_ID
-VAULT_SECRET_PATH
+DATABASE_URL
+DATABASE_USER
+DATABASE_PASSWORD
+LOG_LEVEL
 "
 
 for required in $REQUIRED_PARAMS ; do
   [[ -z "${!required}" ]] && echo "$required IS NOT DEFINED" && exit 1
 done
 
-echo "[$0] Logging into Vault..."
-VAULT_TOKEN=$(curl -s $VAULT_URL/v1/auth/approle/login \
---data '{"role_id": "'$VAULT_ROLE_ID'","secret_id": "'$VAULT_SECRET_ID'"}' \
-| jq -r .auth.client_token)
+# Configure the application
+echo "[$0] Configuring application..."
+CONFIG_FILE="/app/config.json"
+cat > $CONFIG_FILE << EOF
+{
+  "database": {
+    "url": "$DATABASE_URL",
+    "user": "$DATABASE_USER",
+    "password": "$DATABASE_PASSWORD"
+  },
+  "server": {
+    "port": "${SERVER_PORT:-8080}",
+    "log_level": "$LOG_LEVEL"
+  }
+}
+EOF
 
-echo "[$0] Getting Samuel API key from Vault..."
-export APP1_API_KEY=$(curl -s -H "X-Vault-Token: $VAULT_TOKEN" \
-$VAULT_URL/v1/$VAULT_SECRET_PATH | jq -r .data.api_key)
+# Set correct permissions
+chmod 0600 $CONFIG_FILE
 
-
+echo "[$0] Starting application..."
 exec "$@"
 ```
 
-Declarative: `entrypoint.rh`
+### Rash (Declarative)
 
 ```yaml
-#!/bin/rash
+#!/usr/bin/env rash
 
 - name: Verify input parameters
   assert:
     that:
-      - env.VAULT_URL is defined
-      - env.VAULT_ROLE_ID is defined
-      - env.VAULT_SECRET_ID is defined
-      - env.VAULT_SECRET_PATH is defined
+      - env.DATABASE_URL is defined
+      - env.DATABASE_USER is defined
+      - env.DATABASE_PASSWORD is defined
+      - env.LOG_LEVEL is defined
 
-- name: launch docker CMD
+- name: Configure application
+  template:
+    src: config.j2
+    dest: /app/config.json
+    mode: "0600"
+  vars:
+    server_port: "{{ env.SERVER_PORT | default('8080') }}"
+
+- name: Launch command
   command:
-    cmd: { { rash.argv } }
+    cmd: "{{ rash.argv }}"
     transfer_pid: yes
-  env:
-    APP1_API_KEY: "{{ lookup('vault', env.VAULT_SECRET_PATH ) }}"
 ```
 
-### Docopts
+## Installation
 
-[docopt](http://docopt.org/) implementation included:
+### Binary (Linux/macOS)
 
-- Easy to define interfaces for command-line app.
-- Automatically generate a parser from doc.
+```bash
+curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
+    | grep browser_download_url \
+    | grep $(uname -m) \
+    | grep $(uname | tr '[:upper:]' '[:lower:]') \
+    | grep -v musl \
+    | cut -d '"' -f 4 \
+    | xargs curl -s -L \
+    | sudo tar xvz -C /usr/local/bin
+```
 
-Example:
+### Arch Linux (AUR)
+
+```bash
+yay -S rash
+```
+
+### Cargo
+
+```bash
+cargo install rash_core
+```
+
+### Docker
+
+```bash
+docker run --rm -v /usr/local/bin/:/output --entrypoint /bin/cp ghcr.io/rash-sh/rash:latest /bin/rash /output/
+```
+
+## Key Features
+
+### Built-in Command-Line Interface Parser
 
 ```yaml
 #!/usr/bin/env -S rash --
@@ -110,15 +146,67 @@ Example:
     src: "{{ item }}"
     dest: "{{ dest }}/{{ item | split('/') | last }}"
     mode: "{{ options.mode }}"
-  loop: "{{ source | default ([]) }}"
+  loop: "{{ source | default([]) }}"
 ```
 
-### Lightness
+### Container Entrypoints
 
-All you need to run Rash is a Linux kernel!
+Perfect for creating maintainable container entrypoints that handle environment validation, configuration management, and service initialization:
 
-You can use it in your favorite IoT chips running Linux or in containers from scratch!
+```dockerfile
+FROM alpine:3.16
 
-## Status
+# Install rash binary
+ADD https://github.com/rash-sh/rash/releases/download/v0.6.0/rash-x86_64-unknown-linux-musl.tar.gz /tmp/
+RUN tar xvzf /tmp/rash-x86_64-unknown-linux-musl.tar.gz -C /usr/local/bin && \
+    rm /tmp/rash-x86_64-unknown-linux-musl.tar.gz
 
-Stable API with few modules.
+# Add entrypoint script
+COPY entrypoint.rh /entrypoint.rh
+RUN chmod +x /entrypoint.rh
+
+ENTRYPOINT ["/entrypoint.rh"]
+```
+
+### Templating System
+
+Access environment variables and use powerful filters:
+
+```yaml
+- name: Configure application
+  template:
+    src: config.j2
+    dest: /etc/app/config.json
+  vars:
+    app_port: "{{ env.PORT | default('8080') }}"
+    app_log_level: "{{ env.LOG_LEVEL | default('info') }}"
+    database_url: "{{ env.DATABASE_URL }}"
+```
+
+### Privilege Escalation
+
+Run commands as different users with the built-in `become` functionality:
+
+```yaml
+- name: Configure system DNS
+  become: true
+  copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 208.67.222.222
+      nameserver 208.67.220.220
+```
+
+## Documentation
+
+For comprehensive documentation, visit:
+[https://rash-sh.github.io/docs/rash/master/](https://rash-sh.github.io/docs/rash/master/)
+
+## Community
+
+- GitHub: [https://github.com/rash-sh/rash](https://github.com/rash-sh/rash)
+- Report Issues: [https://github.com/rash-sh/rash/issues](https://github.com/rash-sh/rash/issues)
+
+## License
+
+Rash is distributed under the [GPL-3.0 License](https://github.com/rash-sh/rash/blob/master/LICENSE).
