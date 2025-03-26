@@ -428,9 +428,9 @@ impl Options {
                         })
                         .collect::<Vec<String>>()
                 } else {
-                    match arg.split_once('=') {
-                        Some((a, b)) => vec![a.to_owned(), b.to_owned()],
-                        None => vec![arg.to_owned()],
+                    match (arg.starts_with('-'), arg.split_once('=')) {
+                        (true, Some((a, b))) => vec![a.to_owned(), b.to_owned()],
+                        _ => vec![arg.to_owned()],
                     }
                 }
             })
@@ -946,6 +946,16 @@ Usage: {usage}
 
         let result = options.normalize_options(&args).unwrap();
         assert_eq!(result, vec!["--test=none".to_owned()]);
+
+        let args = vec!["--test".to_owned(), "none".to_owned()];
+
+        let result = options.normalize_options(&args).unwrap();
+        assert_eq!(result, vec!["--test=none".to_owned()]);
+
+        let args = vec!["--test".to_owned(), "ENV=FOO".to_owned()];
+
+        let result = options.normalize_options(&args).unwrap();
+        assert_eq!(result, vec!["--test=ENV=FOO".to_owned()]);
     }
 
     #[test]
