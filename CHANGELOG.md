@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.7](https://github.com/rash-sh/rash/tree/v2.9.7) - 2025-03-26
+
+### Fixed
+
+- core: Add hashset in expand_usages to avoid re-analyzing candidates
+- core: Allow targets and option params with `=` in docopt
+
+### Documentation
+
+- Update README with basic example
+
+### Build
+
+- deps: Update Rust crate log to v0.4.27
+
 ## [v2.9.6](https://github.com/rash-sh/rash/tree/v2.9.6) - 2025-03-25
 
 ### Fixed
