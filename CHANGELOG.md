@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- core: Improve docopt parsing performance prunning option usages
+- core: Improve docopt parsing performance pruning option usages
 - core: Replace smallest regex by ordering matches in docopt
 - core: Support option params with `=` in docopt
 
