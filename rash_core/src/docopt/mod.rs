@@ -297,7 +297,12 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
         usages.into_iter().map(UsageCandidate::from_usage).collect();
 
     let opts_len = opts.len();
+    let mut analyzed_candidates = HashSet::new();
     while let Some(candidate) = queue.pop_front() {
+        // Skip already analyzed candidates
+        if !analyzed_candidates.insert(candidate.calculate_hash()) {
+            continue;
+        }
         match usage_regex_match(&candidate.usage.clone(), candidate.ignore_curly_braces) {
             Some((RegexMatch::InnerParenthesis, cap)) => match cap.get(2) {
                 // repeat sequence until fill usage

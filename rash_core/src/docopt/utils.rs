@@ -1,6 +1,8 @@
 use itertools::Itertools;
 use regex::{Captures, Regex};
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::LazyLock;
 
 pub const WORDS_REGEX: &str = r"[a-z]+(?:[_\-][a-z]+)*";
@@ -45,6 +47,12 @@ impl UsageCandidate {
 
     pub fn from_usage(usage: String) -> Self {
         Self::new(usage, false)
+    }
+
+    pub fn calculate_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 }
 
