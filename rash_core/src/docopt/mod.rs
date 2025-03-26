@@ -936,13 +936,33 @@ mod tests {
         );
 
         let file = r#"
+        #!/usr/bin/env rash
+        #
+        # Usage: foo [--env=<key=value>]
+        #
+        "#;
+
+        let args = vec!["--env=FOO=BAR"];
+        let result = parse(file, &args).unwrap();
+
+        assert_eq!(
+            result,
+            json!(
+            {
+                "options": {
+                    "env": "FOO=BAR",
+                },
+            })
+        );
+
+        let file = r#"
 #!/usr/bin/env rash
 #
 # Usage: foo [--env=<key=value>]
 #
-"#;
+        "#;
 
-        let args = vec!["--env=FOO=BAR"];
+        let args = vec!["--env", "FOO=BAR"];
         let result = parse(file, &args).unwrap();
 
         assert_eq!(
