@@ -138,7 +138,14 @@ jobs:
         export CARGO_TARGET=${{ matrix.job.target }}
         export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${CARGO_TARGET}
         make release
-        echo "::set-output name=PKG_BASE_NAME::${PKG_BASE_NAME}"
+        echo "PKG_BASE_NAME=${PKG_BASE_NAME}" >> $GITHUB_OUTPUT
+
+    - name: Generate SHA256 hash
+      if: startsWith(github.ref, 'refs/tags/')
+      shell: bash
+      run: |
+        sha256sum ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz > ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+        cat ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
 
     - name: Publish crates
       if: startsWith(github.ref, 'refs/tags/')
@@ -166,5 +173,6 @@ jobs:
         draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
         files: |
           ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
+          ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
