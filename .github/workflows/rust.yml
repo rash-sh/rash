@@ -2,11 +2,11 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
     tags:
       - v*
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   fmt:
@@ -48,33 +48,33 @@ jobs:
     name: Minimum supported rust version
     runs-on: ubuntu-20.04
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-    - name: Extract min supported rust version
-      shell: bash
-      run: |
-        echo "MIN_SUPPORTED_RUST_VERSION=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+      - name: Extract min supported rust version
+        shell: bash
+        run: |
+          echo "MIN_SUPPORTED_RUST_VERSION=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
 
-    - name: Install rust toolchain (v${{ env.MIN_SUPPORTED_RUST_VERSION }})
-      id: toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ env.MIN_SUPPORTED_RUST_VERSION }}
+      - name: Install rust toolchain (v${{ env.MIN_SUPPORTED_RUST_VERSION }})
+        id: toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MIN_SUPPORTED_RUST_VERSION }}
 
-    - run: rustup override set ${{steps.toolchain.outputs.name}}
-    - run: rustup component add clippy
+      - run: rustup override set ${{steps.toolchain.outputs.name}}
+      - run: rustup component add clippy
 
-    - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
-      run: cargo clippy --locked --all-targets --all-features
+      - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
+        run: cargo clippy --locked --all-targets --all-features
 
-    - name: Run tests
-      run: cargo test --locked
+      - name: Run tests
+        run: cargo test --locked
 
-    - name: Run examples
-      run: |
-        cp target/debug/rash /usr/local/bin/rash
-        make test-examples
+      - name: Run examples
+        run: |
+          cp target/debug/rash /usr/local/bin/rash
+          make test-examples
 
   build:
     strategy:
@@ -85,94 +85,94 @@ jobs:
           - { os: ubuntu-22.04, target: aarch64-unknown-linux-gnu }
           - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl }
           # use ubuntu 20.04 to keep minimum glibc version to 2.31
-          - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu}
-          - { os: macos-13, target: x86_64-apple-darwin}
+          - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu }
+          - { os: macos-13, target: x86_64-apple-darwin }
     name: (${{ matrix.job.os }}) ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-    - name: Install prerequisites
-      shell: bash
-      run: |
-        case ${{ matrix.job.target }} in
-          arm-unknown-linux-*) sudo apt-get -y update ; sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
-          aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
-        esac
+      - name: Install prerequisites
+        shell: bash
+        run: |
+          case ${{ matrix.job.target }} in
+            arm-unknown-linux-*) sudo apt-get -y update ; sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+            aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
+          esac
 
-    - uses: Swatinem/rust-cache@v2
-      with:
-        # not reuse cache between different targets:
-        # https://github.com/cross-rs/cross/issues/39#issuecomment-270684223
-        key: ${{ matrix.job.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # not reuse cache between different targets:
+          # https://github.com/cross-rs/cross/issues/39#issuecomment-270684223
+          key: ${{ matrix.job.target }}
 
-    - name: Install Rust toolchain
-      id: toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.job.target }}
+      - name: Install Rust toolchain
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.job.target }}
 
-    - run: rustup override set ${{steps.toolchain.outputs.name}}
+      - run: rustup override set ${{steps.toolchain.outputs.name}}
 
-    - name: Run tests
-      run: CARGO_TARGET=${{ matrix.job.target }} make test
+      - name: Run tests
+        run: CARGO_TARGET=${{ matrix.job.target }} make test
 
-    - name: Extract crate information
-      shell: bash
-      run: |
-        echo "PROJECT_NAME=rash" >> $GITHUB_ENV
-        echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+      - name: Extract crate information
+        shell: bash
+        run: |
+          echo "PROJECT_NAME=rash" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
 
-    - name: Install UPX
-      uses: crazy-max/ghaction-upx@v3
-      with:
-        install-only: true
-        version: latest
-      if: matrix.job.os != 'macos-13'
+      - name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+          version: latest
+        if: matrix.job.os != 'macos-13'
 
-    - name: Make release
-      id: package
-      shell: bash
-      run: |
-        export CARGO_TARGET=${{ matrix.job.target }}
-        export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${CARGO_TARGET}
-        make release
-        echo "PKG_BASE_NAME=${PKG_BASE_NAME}" >> $GITHUB_OUTPUT
+      - name: Make release
+        id: package
+        shell: bash
+        run: |
+          export CARGO_TARGET=${{ matrix.job.target }}
+          export PKG_BASE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${CARGO_TARGET}
+          make release
+          echo "PKG_BASE_NAME=${PKG_BASE_NAME}" >> $GITHUB_OUTPUT
 
-    - name: Generate SHA256 hash
-      if: startsWith(github.ref, 'refs/tags/')
-      shell: bash
-      run: |
-        sha256sum ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz > ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
-        cat ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+      - name: Generate SHA256 hash
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          sha256sum ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz > ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+          cat ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
 
-    - name: Publish crates
-      if: startsWith(github.ref, 'refs/tags/')
-      env:
-        CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-      shell: bash
-      run: |
-        cargo login "${CRATES_IO_TOKEN}"
-        make publish
+      - name: Publish crates
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        shell: bash
+        run: |
+          cargo login "${CRATES_IO_TOKEN}"
+          make publish
 
-    - name: Get Changelog Entry
-      if: startsWith(github.ref, 'refs/tags/')
-      id: changelog_reader
-      uses: mindsers/changelog-reader-action@v2.2.3
-      with:
-        version: v${{ env.PROJECT_VERSION }}
-        path: ./CHANGELOG.md
+      - name: Get Changelog Entry
+        if: startsWith(github.ref, 'refs/tags/')
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v2.2.3
+        with:
+          version: v${{ env.PROJECT_VERSION }}
+          path: ./CHANGELOG.md
 
-    - name: Publish
-      uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        body: ${{ steps.changelog_reader.outputs.changes }}
-        prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
-        draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
-        files: |
-          ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
-          ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body: ${{ steps.changelog_reader.outputs.changes }}
+          prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
+          draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
+          files: |
+            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
+            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
