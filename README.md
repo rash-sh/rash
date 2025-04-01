@@ -99,6 +99,7 @@ exec "$@"
 ```bash
 curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
     | grep browser_download_url \
+    | grep -v sha256 \
     | grep $(uname -m) \
     | grep $(uname | tr '[:upper:]' '[:lower:]') \
     | grep -v musl \
