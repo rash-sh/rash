@@ -144,7 +144,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          sha256sum ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz > ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            shasum -a 256 ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz > ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+          else
+            sha256sum ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz > ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+          fi
           cat ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
 
       - name: Publish crates

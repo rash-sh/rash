@@ -17,4 +17,6 @@
 vendor
 vendor.tar.gz
 rash-*.tar.gz
+rash-*.tar.gz.sha256
 PKGBUILD
+PKGBUILD-bin
