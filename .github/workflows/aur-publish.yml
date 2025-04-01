@@ -36,6 +36,7 @@ jobs:
       run: |
         curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
           | grep browser_download_url \
+          | grep -v sha256 \
           | grep x86_64 \
           | grep linux-gnu \
           | cut -d '"' -f 4 \
