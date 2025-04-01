@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.8](https://github.com/rash-sh/rash/tree/v2.9.8) - 2025-04-01
+
+### Build
+
+- ci: Add sha256sum to release binaries
+- ci: Add AUR bin package
+- ci: Fix sha256 calc on macOs and add them to gitignore
+- deps: Update Rust crate minijinja to v2.9.0
+- deps: Update Rust crate clap to v4.5.35
+
+### Refactor
+
+- ci: Format YAML
+
 ## [v2.9.7](https://github.com/rash-sh/rash/tree/v2.9.7) - 2025-03-26
 
 ### Fixed
