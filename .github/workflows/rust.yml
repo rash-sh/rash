@@ -46,7 +46,7 @@ jobs:
 
   min_version:
     name: Minimum supported rust version
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -82,10 +82,10 @@ jobs:
       matrix:
         job:
           # cross minimum glibc version is 2.32
-          - { os: ubuntu-22.04, target: aarch64-unknown-linux-gnu }
-          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl }
-          # use ubuntu 20.04 to keep minimum glibc version to 2.31
-          - { os: ubuntu-20.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04, target: aarch64-unknown-linux-gnu }
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-musl }
+          # use ubuntu 22.04 to keep older glibc version dependency
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
           - { os: macos-13, target: x86_64-apple-darwin }
     name: (${{ matrix.job.os }}) ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
