@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.10](https://github.com/rash-sh/rash/tree/v2.9.10) - 2025-04-27
+
+### Documentation
+
+- Rename index to introduction
+
+### Build
+
+- ci: Migrate config renovate.json5
+- ci: Update ubuntu runners
+- deps: Update rust Docker tag to v1.86.0
+- deps: Update Rust crate clap to v4.5.36
+- deps: Bump crossbeam-channel from 0.5.13 to 0.5.15
+- deps: Update Rust crate clap to v4.5.37
+- deps: Update Rust crate proc-macro2 to v1.0.95
+- deps: Update Rust crate syn to v2.0.101
+- Update `ipc-channel` to `82f6c49`
+
+### Testing
+
+- ci: Remove body max line length limitation in commitlint
+
 ## [v2.9.9](https://github.com/rash-sh/rash/tree/v2.9.9) - 2025-04-01
 
 ### Build
