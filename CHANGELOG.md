@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.11](https://github.com/rash-sh/rash/tree/v2.9.11) - 2025-04-30
+
+### Documentation
+
+- Revert rename index to introduction
+
+### Build
+
+- deps: Update Rust crate chrono to v0.4.41
+
 ## [v2.9.10](https://github.com/rash-sh/rash/tree/v2.9.10) - 2025-04-27
 
 ### Documentation
