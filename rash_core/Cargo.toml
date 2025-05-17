@@ -56,7 +56,7 @@ prs-lib = { version = "0.5.1", optional = true }
 version = "0.5.0"
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.6.0"
 
 [[bench]]
 name = "docopt"
