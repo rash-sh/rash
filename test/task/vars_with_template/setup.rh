@@ -1,0 +1,14 @@
+#!/usr/bin/env rash
+
+- name: Configure application
+  vars:
+    log_level: "{{ env.LOG_LEVEL | default('INFO') }}"
+  template:
+    src: "{{ rash.dir }}/config.j2"
+    dest: /tmp/config.json
+    mode: "0600"
+
+- name: Check vars are not added to the environment
+  assert:
+    that:
+      - log_level is not defined

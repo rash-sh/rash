@@ -1,5 +1,7 @@
 #!/usr/bin/env -S rash --
-- set_vars:
+- vars:
+    local_var: "{{ rash.path }}"
+  set_vars:
     username: alice
     scores:
       - 85
@@ -9,6 +11,7 @@
       age: 30
       active: true
       name: "{{ username }}"
+    path: "{{ local_var }}"
 
 - assert:
     that:
@@ -17,3 +20,5 @@
       - profile.age == 30
       - profile.active == true
       - username == profile.name
+      - path == rash.path
+      - local_var is not defined

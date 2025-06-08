@@ -1,0 +1,9 @@
+#!/usr/bin/env rash
+
+- vars:
+    local_var: "{{ rash.path }}"
+  include: "{{ rash.dir }}/included.tasks"
+
+- assert:
+    that:
+      - local_var is not defined

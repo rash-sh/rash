@@ -1,0 +1,3 @@
+- assert:
+    that:
+      - local_var is defined
