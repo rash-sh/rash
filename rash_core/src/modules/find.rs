@@ -46,7 +46,7 @@ use regex::RegexSet;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
+use schemars::Schema;
 use serde::Deserialize;
 use serde_with::{OneOrMany, serde_as};
 use serde_yaml::{Value as YamlValue, value};
@@ -260,7 +260,7 @@ impl Module for Find {
     }
 
     #[cfg(feature = "docs")]
-    fn get_json_schema(&self) -> Option<RootSchema> {
+    fn get_json_schema(&self) -> Option<Schema> {
         Some(Params::get_json_schema())
     }
 }

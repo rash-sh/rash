@@ -43,8 +43,8 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
 ///
 /// Add a new method which returns a JsonSchema
 /// ```
-/// # use schemars::schema::RootSchema;
-/// pub fn get_json_schema() -> RootSchema
+/// # use schemars::Schema;
+/// pub fn get_json_schema() -> Schema
 /// # {
 /// #   unimplemented!()
 /// # }
@@ -59,7 +59,7 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
     quote! {
         impl #name {
             /// Return Json Schema.
-            pub fn get_json_schema() -> schemars::schema::RootSchema {
+            pub fn get_json_schema() -> schemars::Schema {
                 let settings = schemars::r#gen::SchemaSettings::default().with(|s| {
                     s.inline_subschemas = true;
                 });

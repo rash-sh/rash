@@ -43,7 +43,7 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
+use schemars::Schema;
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 #[cfg(feature = "docs")]
@@ -333,7 +333,7 @@ impl Module for File {
     }
 
     #[cfg(feature = "docs")]
-    fn get_json_schema(&self) -> Option<RootSchema> {
+    fn get_json_schema(&self) -> Option<Schema> {
         Some(Params::get_json_schema())
     }
 }

@@ -27,7 +27,7 @@ use std::sync::LazyLock;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
+use schemars::Schema;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 
@@ -99,7 +99,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     }
 
     #[cfg(feature = "docs")]
-    fn get_json_schema(&self) -> Option<RootSchema>;
+    fn get_json_schema(&self) -> Option<Schema>;
 }
 
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
