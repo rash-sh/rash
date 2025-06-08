@@ -25,7 +25,7 @@ docs = ["rash_derive/docs", "schemars"]
 passwordstore = ["prs-lib"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "2.9.11" }
+rash_derive = { path = "../rash_derive", version = "2.9.12" }
 log.workspace = true
 regex.workspace = true
 schemars = { workspace = true, optional = true }
