@@ -74,13 +74,12 @@ impl Module for Include {
                 let tasks = parse_file(&main_file, global_params)?;
                 let builtins = Builtins::deserialize(vars.get_attr("rash")?)?;
                 let include_builtins = builtins.update(script_path)?;
-                let include_vars = context! {rash => &include_builtins, ..vars};
+                let include_vars = context! {rash => &include_builtins, ..vars.clone()};
 
                 trace!("Vars: {include_vars}");
                 Context::new(tasks, include_vars.clone()).exec()?;
 
-                let new_vars = context! {rash => &builtins, ..include_vars};
-                Ok((ModuleResult::new(false, None, None), new_vars))
+                Ok((ModuleResult::new(false, None, None), vars))
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,

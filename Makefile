@@ -58,6 +58,14 @@ lint:	## lint code
 test: lint cross
 test:	## run tests
 	@$(CARGO) test $(CARGO_BUILD_PARAMS)
+	@for test in $$(find test -name '*.rh'); do \
+		echo $(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$test; \
+		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$test || exit 1; \
+	done
+	@echo
+	@echo
+	@echo
+	@echo all good!
 
 .PHONY: test-examples
 test-examples:	## run examples and check exit code

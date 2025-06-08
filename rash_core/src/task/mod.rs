@@ -194,10 +194,16 @@ impl<'a> Task<'a> {
     }
 
     fn exec_module_rendered(&self, rendered_params: &YamlValue, vars: &Value) -> Result<Value> {
+        let extended_vars = if self.module.get_name() == "set_vars" {
+            // set_vars module does not need extended vars
+            vars.clone()
+        } else {
+            self.extend_vars(vars.clone())?
+        };
         match self.module.exec(
             self.global_params,
             rendered_params.clone(),
-            vars.clone(),
+            extended_vars,
             self.check_mode,
         ) {
             Ok((result, result_vars)) => {
@@ -216,7 +222,11 @@ impl<'a> Task<'a> {
                         )
                     );
                 }
-                let mut new_vars = context! {..result_vars};
+                let mut new_vars = if self.module.get_name() == "set_vars" {
+                    context! {..result_vars}
+                } else {
+                    context! {..vars.clone()}
+                };
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
                     trace!("register {:?} in {:?}", &result, register);
