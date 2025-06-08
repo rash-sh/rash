@@ -44,7 +44,7 @@ use crate::modules::{Module, ModuleResult};
 
 use minijinja::{Value, context};
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
+use schemars::Schema;
 use serde_yaml::Value as YamlValue;
 
 #[derive(Debug)]
@@ -104,7 +104,7 @@ impl Module for SetVars {
     }
 
     #[cfg(feature = "docs")]
-    fn get_json_schema(&self) -> Option<RootSchema> {
+    fn get_json_schema(&self) -> Option<Schema> {
         None
     }
 }

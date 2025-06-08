@@ -8,7 +8,7 @@ use mdbook::errors::Error;
 use mdbook::preprocess::{LinkPreprocessor, Preprocessor, PreprocessorContext};
 use prettytable::{Table, format, row};
 use regex::{Match, Regex};
-use schemars::schema::{RootSchema, SingleOrVec};
+use schemars::Schema;
 
 #[macro_use]
 extern crate log;
@@ -58,14 +58,46 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
         .collect::<Option<Vec<(Match, Option<String>, String)>>>()
 }
 
-fn format_schema(schema: &RootSchema) -> String {
+fn get_type(val: &serde_json::Value) -> String {
+    match val.get("type") {
+        Some(t) => {
+            if t.is_array() {
+                t.as_array()
+                    .unwrap()
+                    .first()
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string()
+            } else {
+                t.as_str().unwrap_or("").to_string()
+            }
+        }
+        None => "".to_string(),
+    }
+}
+
+fn get_enum(val: &serde_json::Value) -> String {
+    val.get("enum")
+        .and_then(|e| e.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<_>>()
+                .join("<br>")
+        })
+        .unwrap_or_default()
+}
+
+fn get_description(val: &serde_json::Value) -> String {
+    val.get("description")
+        .and_then(|d| d.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn format_schema(schema: &Schema) -> String {
     let mut table = Table::new();
-
-    // safe unwrap: all Params are objects
-    let object_validation = schema.clone().schema.object.unwrap();
-    let required_values = object_validation.required;
     table.set_format(*FORMAT);
-
     table.set_titles(row![
         "Parameter",
         "Required",
@@ -74,106 +106,48 @@ fn format_schema(schema: &RootSchema) -> String {
         "Description"
     ]);
 
-    if let Some(subschema) = schema.clone().schema.subschemas {
-        if let Some(schema_objects) = subschema.one_of {
-            for schema in schema_objects {
-                let schema_object = schema.into_object();
-                let metadata = schema_object.metadata;
-                let description = metadata
-                    .and_then(|x| x.description)
-                    .unwrap_or_else(|| "".to_owned());
-                for property in schema_object.object.unwrap().properties {
-                    let name = property.0;
-                    let schema_object = property.1.into_object();
-                    let value = schema_object
-                        .enum_values
-                        .map(|x| {
-                            x.into_iter()
-                                .map(|i| {
-                                    serde_yaml::to_value(i)
-                                        .unwrap()
-                                        .as_str()
-                                        .unwrap()
-                                        .to_owned()
-                                })
-                                .collect::<Vec<String>>()
-                                .join("<br>")
-                        })
-                        .unwrap_or_else(|| "".to_owned());
+    let root = schema;
+    let properties = root.get("properties").and_then(|p| p.as_object());
+    let required = root
+        .get("required")
+        .and_then(|r| r.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    if let Some(one_of) = root.get("oneOf").and_then(|o| o.as_array()) {
+        for schema in one_of {
+            let description = get_description(schema);
+            if let Some(props) = schema.get("properties").and_then(|p| p.as_object()) {
+                for (name, prop_schema) in props {
+                    let value = get_enum(prop_schema);
                     table.add_row(row![
                         name,
-                        match required_values.contains(&name) {
-                            true => "true",
-                            false => "",
-                        },
-                        schema_object
-                            .instance_type
-                            .map(|s| {
-                                let t = match s {
-                                    SingleOrVec::Vec(v) => v[0],
-                                    SingleOrVec::Single(x) => *x,
-                                };
-                                serde_yaml::to_value(t)
-                                    .unwrap()
-                                    .as_str()
-                                    .unwrap()
-                                    .to_owned()
-                            })
-                            .unwrap_or_else(|| "".to_owned()),
+                        if required.contains(name) { "true" } else { "" },
+                        get_type(prop_schema),
                         value,
-                        description
+                        description.clone()
                     ]);
                 }
             }
         }
-    };
+    }
 
-    for property in object_validation.properties.into_iter() {
-        let name = property.0;
-        let schema_object = property.1.into_object();
-        let metadata = schema_object.metadata;
-        let description = metadata
-            .and_then(|x| x.description)
-            .unwrap_or_else(|| "".to_owned());
-
-        let value = schema_object
-            .enum_values
-            .map(|x| {
-                x.into_iter()
-                    .map(|i| {
-                        serde_yaml::to_value(i)
-                            .unwrap()
-                            .as_str()
-                            .unwrap()
-                            .to_owned()
-                    })
-                    .collect::<Vec<String>>()
-                    .join("<br>")
-            })
-            .unwrap_or_else(|| "".to_owned());
-        table.add_row(row![
-            name,
-            match required_values.contains(&name) {
-                true => "true",
-                false => "",
-            },
-            schema_object
-                .instance_type
-                .map(|s| {
-                    let t = match s {
-                        SingleOrVec::Vec(v) => v[0],
-                        SingleOrVec::Single(x) => *x,
-                    };
-                    serde_yaml::to_value(t)
-                        .unwrap()
-                        .as_str()
-                        .unwrap()
-                        .to_owned()
-                })
-                .unwrap_or_else(|| "".to_owned()),
-            value,
-            description
-        ]);
+    if let Some(props) = properties {
+        for (name, prop_schema) in props {
+            let value = get_enum(prop_schema);
+            let description = get_description(prop_schema);
+            table.add_row(row![
+                name,
+                if required.contains(name) { "true" } else { "" },
+                get_type(prop_schema),
+                value,
+                description
+            ]);
+        }
     }
     format!("{table}")
 }

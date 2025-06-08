@@ -39,7 +39,7 @@ use std::path::Path;
 
 use minijinja::{Value, context};
 #[cfg(feature = "docs")]
-use schemars::schema::RootSchema;
+use schemars::Schema;
 use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 
@@ -89,7 +89,7 @@ impl Module for Include {
     }
 
     #[cfg(feature = "docs")]
-    fn get_json_schema(&self) -> Option<RootSchema> {
+    fn get_json_schema(&self) -> Option<Schema> {
         None
     }
 }
