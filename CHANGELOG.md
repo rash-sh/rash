@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.12](https://github.com/rash-sh/rash/tree/v2.9.12) - 2025-06-08
+
+### Fixed
+
+- task: Include task vars on module exec
+
+### Documentation
+
+- Fix index ref in Rash book
+
+### Build
+
+- deps: Update Rust crate nix to 0.30
+- deps: Update Rust crate nix to v0.30.1
+- deps: Update Rust crate minijinja to v2.10.1
+- deps: Update Rust crate minijinja to v2.10.2
+- deps: Update Rust crate clap to v4.5.38
+- deps: Update rust Docker tag to v1.87.0
+- deps: Update Rust crate criterion to 0.6.0
+- deps: Update Rust crate clap to v4.5.39
+- Update nix package to 0.30 and Cargo.lock
+
 ## [v2.9.11](https://github.com/rash-sh/rash/tree/v2.9.11) - 2025-04-30
 
 ### Documentation
