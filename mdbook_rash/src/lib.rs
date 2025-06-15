@@ -89,10 +89,20 @@ fn get_enum(val: &serde_json::Value) -> String {
 }
 
 fn get_description(val: &serde_json::Value) -> String {
+    use regex::Regex;
+    let re = Regex::new(r"\s+").unwrap();
     val.get("description")
         .and_then(|d| d.as_str())
-        .unwrap_or("")
-        .to_string()
+        .map(|s| {
+            // Replace all whitespace sequences (including newlines) with single spaces
+            // and remove any remaining line breaks or carriage returns
+            re.replace_all(s, " ")
+                .replace(['\n', '\r'], " ")
+                .replace("  ", " ")
+                .trim()
+                .to_string()
+        })
+        .unwrap_or_default()
 }
 
 fn format_schema(schema: &Schema) -> String {
@@ -118,18 +128,48 @@ fn format_schema(schema: &Schema) -> String {
         })
         .unwrap_or_default();
 
+    let add_properties = |table: &mut Table, props: &serde_json::Map<String, serde_json::Value>| {
+        for (name, prop_schema) in props {
+            let value = get_enum(prop_schema);
+            let description = get_description(prop_schema);
+
+            table.add_row(row![
+                name,
+                if required.contains(name) {
+                    "true".to_string()
+                } else {
+                    "".to_string()
+                },
+                get_type(prop_schema),
+                value,
+                description
+            ]);
+        }
+    };
+
     if let Some(one_of) = root.get("oneOf").and_then(|o| o.as_array()) {
         for schema in one_of {
-            let description = get_description(schema);
+            let variant_description = get_description(schema);
             if let Some(props) = schema.get("properties").and_then(|p| p.as_object()) {
+                // For oneOf variants, we need to apply the variant's description to its properties
                 for (name, prop_schema) in props {
                     let value = get_enum(prop_schema);
+                    // Use the variant's description if the property doesn't have one
+                    let mut prop_description = get_description(prop_schema);
+                    if prop_description.is_empty() && !variant_description.is_empty() {
+                        prop_description = variant_description.clone();
+                    }
+
                     table.add_row(row![
                         name,
-                        if required.contains(name) { "true" } else { "" },
+                        if required.contains(name) {
+                            "true".to_string()
+                        } else {
+                            "".to_string()
+                        },
                         get_type(prop_schema),
                         value,
-                        description.clone()
+                        prop_description
                     ]);
                 }
             }
@@ -137,18 +177,9 @@ fn format_schema(schema: &Schema) -> String {
     }
 
     if let Some(props) = properties {
-        for (name, prop_schema) in props {
-            let value = get_enum(prop_schema);
-            let description = get_description(prop_schema);
-            table.add_row(row![
-                name,
-                if required.contains(name) { "true" } else { "" },
-                get_type(prop_schema),
-                value,
-                description
-            ]);
-        }
+        add_properties(&mut table, props);
     }
+
     format!("{table}")
 }
 
@@ -288,4 +319,57 @@ pub fn run(_ctx: &PreprocessorContext, book: Book) -> Result<Book, Error> {
 
     preprocess_rash(&mut processed_book, true);
     Ok(processed_book)
+}
+
+#[cfg(test)]
+mod prettytable_wrap_test {
+    use prettytable::{Table, row};
+
+    #[test]
+    fn test_long_description_row() {
+        let mut table = Table::new();
+        table.set_titles(row![
+            "Parameter",
+            "Required",
+            "Type",
+            "Values",
+            "Description"
+        ]);
+        table.add_row(row![
+            "argv",
+            "",
+            "array",
+            "",
+            "Passes the command arguments as a list rather than a string. Only the string or the list form can be provided, not both."
+        ]);
+        table.add_row(row![
+            "transfer_pid",
+            "",
+            "boolean",
+            "",
+            "Execute command as PID 1. Note: from this point on, your rash script execution is transferred to the command."
+        ]);
+        println!("{}", table);
+    }
+}
+
+#[cfg(test)]
+mod schema_debug_test {
+    use super::*;
+
+    #[test]
+    fn debug_command_schema() {
+        if let Some(command_module) = MODULES.get("command") {
+            if let Some(schema) = command_module.get_json_schema() {
+                println!("=== COMMAND SCHEMA ===");
+                println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+                println!("=== END COMMAND SCHEMA ===");
+
+                let table_output = format_schema(&schema);
+                println!("=== TABLE OUTPUT ===");
+                println!("{}", table_output);
+                println!("=== END TABLE OUTPUT ===");
+            }
+        }
+    }
 }
