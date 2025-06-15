@@ -55,6 +55,11 @@ impl<'a> Context<'a> {
 
         Ok(context)
     }
+
+    /// Get a reference to the variables
+    pub fn get_vars(&self) -> &Value {
+        &self.vars
+    }
 }
 
 /// [`task::Task`] parameters that can be set globally

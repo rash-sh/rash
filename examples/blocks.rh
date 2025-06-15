@@ -1,0 +1,240 @@
+#!/usr/bin/env rash
+# Block directive examples and testing
+
+# Example 1: Basic block functionality
+- name: Simple block example
+  block:
+    - name: First task in block
+      debug:
+        msg: "Executing first task in the block"
+
+    - name: Second task in block
+      debug:
+        msg: "Executing second task in the block"
+
+    - name: Create a temporary file
+      copy:
+        content: "Block example content"
+        dest: "/tmp/block_example.txt"
+
+# Example 2: Block with rescue (error handling)
+- name: Block with error handling
+  block:
+    - name: Task that will succeed
+      debug:
+        msg: "This task should succeed"
+
+    - name: Create a file that might fail
+      copy:
+        content: "Test content"
+        dest: "/tmp/test_file.txt"
+
+    - name: Simulate potential failure with assertion
+      assert:
+        that:
+          - "true"  # This will pass
+
+  rescue:
+    - name: This rescue won't run since block succeeds
+      debug:
+        msg: "ERROR: This rescue task should not run because the block succeeded"
+
+# Example 3: Block that fails and uses rescue
+- name: Block that fails and triggers rescue
+  block:
+    - name: Task before failure
+      debug:
+        msg: "This runs before the failure"
+
+    - name: Task that will fail
+      assert:
+        that:
+          - "false"  # This will fail
+
+    - name: This task won't run due to failure
+      debug:
+        msg: "This should not run due to previous failure"
+
+  rescue:
+    - name: Handle the failure
+      debug:
+        msg: "SUCCESS: Caught the failure and handling it in rescue"
+
+    - name: Log the error details
+      debug:
+        msg: "The block failed as expected, rescue is working"
+
+# Example 4: Block with always section
+- name: Block with always cleanup
+  block:
+    - name: Main block task
+      debug:
+        msg: "Executing main block task"
+
+    - name: Create temporary file for cleanup demo
+      copy:
+        content: "Temporary content for cleanup demo"
+        dest: "/tmp/cleanup_demo.txt"
+
+  always:
+    - name: Cleanup task (always runs)
+      debug:
+        msg: "This cleanup task always runs regardless of success/failure"
+
+    - name: Remove temporary file
+      command:
+        cmd: "rm -f /tmp/cleanup_demo.txt"
+
+# Example 5: Block with both rescue and always
+- name: Complete block example with rescue and always
+  block:
+    - name: Task in main block
+      debug:
+        msg: "Task executing in main block"
+
+    - name: Create a file
+      copy:
+        content: "Content for rescue/always demo"
+        dest: "/tmp/rescue_always_demo.txt"
+
+  rescue:
+    - name: Rescue task (only runs on failure)
+      debug:
+        msg: "This rescue won't run since the block succeeds"
+
+  always:
+    - name: Always cleanup
+      debug:
+        msg: "This always section runs regardless of success/failure"
+
+    - name: Clean up the demo file
+      command:
+        cmd: "rm -f /tmp/rescue_always_demo.txt"
+
+# Example 6: Nested blocks
+- name: Nested blocks demonstration
+  block:
+    - name: Outer block - first task
+      debug:
+        msg: "Starting outer block execution"
+
+    - name: Inner block (nested)
+      block:
+        - name: Inner block task 1
+          debug:
+            msg: "Executing first task in inner block"
+
+        - name: Inner block task 2
+          debug:
+            msg: "Executing second task in inner block"
+
+        - name: Create inner file
+          copy:
+            content: "Inner block content"
+            dest: "/tmp/inner_block.txt"
+
+      rescue:
+        - name: Inner block rescue
+          debug:
+            msg: "Inner block rescue (shouldn't run)"
+
+      always:
+        - name: Inner block cleanup
+          debug:
+            msg: "Inner block cleanup executing"
+
+        - name: Remove inner file
+          command:
+            cmd: "rm -f /tmp/inner_block.txt"
+
+    - name: Outer block - after inner block
+      debug:
+        msg: "Continuing outer block after inner block completion"
+
+  rescue:
+    - name: Outer block rescue
+      debug:
+        msg: "Outer block rescue (shouldn't run)"
+
+  always:
+    - name: Outer block cleanup
+      debug:
+        msg: "Outer block cleanup executing"
+
+# Example 7: Block with conditional execution
+- name: Conditional block example
+  when: "true"  # Always execute this block
+  block:
+    - name: Conditional task 1
+      debug:
+        msg: "This task runs because the block condition is true"
+
+    - name: Conditional task 2
+      when: "rash.system is defined"
+      debug:
+        msg: "This task runs if system info is available"
+
+# Example 8: Block demonstrating variable scope
+- name: Block with variable scope
+  vars:
+    block_var: "block_value"
+    shared_var: "initial_value"
+  block:
+    - name: Use block variables
+      debug:
+        msg: "Block variable: {{ block_var }}, Shared variable: {{ shared_var }}"
+
+    - name: Modify shared variable
+      set_vars:
+        shared_var: "modified_in_block"
+
+    - name: Show modified variable
+      debug:
+        msg: "Modified shared variable: {{ shared_var }}"
+
+  always:
+    - name: Check variable in always section
+      debug:
+        msg: "Always section executed successfully"
+
+# Example 9: Block with loops (if supported)
+- name: Block with iteration context
+  vars:
+    items: ["item1", "item2", "item3"]
+  block:
+    - name: Process items
+      debug:
+        msg: "Processing item: {{ item }}"
+      loop: "{{ items }}"
+
+# Example 10: Error recovery pattern
+- name: Error recovery with multiple attempts
+  block:
+    - name: Attempt risky operation
+      debug:
+        msg: "Attempting a risky operation that might fail"
+
+    # Simulate a task that might fail
+    - name: Risky task
+      assert:
+        that:
+          - "env.FORCE_FAILURE is not defined"  # Will succeed unless FORCE_FAILURE is set
+
+  rescue:
+    - name: Recovery attempt
+      debug:
+        msg: "Primary operation failed, attempting recovery"
+
+    - name: Fallback operation
+      debug:
+        msg: "Executing fallback operation"
+
+  always:
+    - name: Log completion
+      debug:
+        msg: "Block execution completed (with or without errors)"
+
+# Final message
+- name: Block examples completed
+  debug:
+    msg: "All block directive examples have been executed successfully!"
