@@ -1,0 +1,133 @@
+#!/usr/bin/env rash
+
+- name: Test rescue with debug module
+  debug:
+    msg: "This task will succeed"
+  rescue:
+    - name: This rescue won't run
+      debug:
+        msg: "Debug task succeeded, so rescue won't execute"
+
+- name: Test rescue with command that might fail
+  command:
+    cmd: "exit 1"  # This will fail
+  ignore_errors: false
+  rescue:
+    - name: Handle command failure
+      debug:
+        msg: "Command failed as expected, rescue is running"
+
+- name: Test always with file module
+  file:
+    path: "/tmp/test_file"
+    state: touch
+  always:
+    - name: Cleanup after file operation
+      debug:
+        msg: "File operation completed, running cleanup"
+
+- name: Test command with both rescue and always
+  command:
+    cmd: "echo 'Hello from main task'"
+  rescue:
+    - name: Handle any failures
+      debug:
+        msg: "This rescue won't run since command succeeded"
+  always:
+    - name: Always run this
+      debug:
+        msg: "This always runs regardless of success/failure"
+
+- name: Test copy with rescue and always
+  copy:
+    content: "Test content"
+    dest: "/tmp/test_copy.txt"
+  rescue:
+    - name: Handle copy failure
+      debug:
+        msg: "Copy failed, cleaning up"
+      file:
+        path: "/tmp/test_copy.txt"
+        state: absent
+  always:
+    - name: Log copy attempt
+      debug:
+        msg: "Copy operation attempted to /tmp/test_copy.txt"
+
+- name: Test rescue/always with loop
+  debug:
+    msg: "Processing item: {{ item }}"
+  loop:
+    - item1
+    - item2
+    - item3
+  rescue:
+    - name: Handle loop item failure
+      debug:
+        msg: "Failed processing item: {{ item }}"
+  always:
+    - name: Log processed item
+      debug:
+        msg: "Processed (or attempted to process) item: {{ item }}"
+
+- name: Test nested rescue/always in rescue section
+  command:
+    cmd: "exit 1"  # This will fail
+  rescue:
+    - name: First level rescue
+      debug:
+        msg: "First rescue running"
+      rescue:
+        - name: Nested rescue
+          debug:
+            msg: "This nested rescue won't run since debug succeeds"
+      always:
+        - name: Nested always
+          debug:
+            msg: "This nested always will run"
+  always:
+    - name: Top level always
+      debug:
+        msg: "Top level always runs regardless"
+
+- name: Test template with rescue/always
+  template:
+    src: /dev/null  # This will likely fail
+    dest: /tmp/test_template.txt
+  rescue:
+    - name: Handle template failure
+      debug:
+        msg: "Template task failed, creating fallback"
+      copy:
+        content: "Fallback content"
+        dest: /tmp/test_template.txt
+  always:
+    - name: Verify template result
+      debug:
+        msg: "Template operation completed"
+
+- name: Test find with always
+  find:
+    paths:
+      - /tmp
+    patterns:
+      - "test_*.txt"
+  register: found_files
+  always:
+    - name: Report findings
+      debug:
+        msg: "Find operation completed successfully"
+
+- name: Final cleanup
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/test_file
+    - /tmp/test_copy.txt
+    - /tmp/test_template.txt
+  ignore_errors: true
+  always:
+    - name: Report cleanup completion
+      debug:
+        msg: "Cleanup completed for {{ item }}"

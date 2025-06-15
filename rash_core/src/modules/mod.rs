@@ -1,4 +1,5 @@
 mod assert;
+mod block;
 mod command;
 mod copy;
 mod debug;
@@ -14,6 +15,7 @@ mod template;
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::assert::Assert;
+use crate::modules::block::Block;
 use crate::modules::command::Command;
 use crate::modules::copy::Copy;
 use crate::modules::debug::Debug;
@@ -109,6 +111,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
         (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
+        (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),

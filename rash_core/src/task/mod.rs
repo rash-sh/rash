@@ -61,6 +61,10 @@ pub struct Task<'a> {
     vars: Option<YamlValue>,
     /// Template expression passed directly without {{ }}; if false skip task execution.
     when: Option<String>,
+    /// Rescue tasks to execute if the main task or block fails.
+    rescue: Option<YamlValue>,
+    /// Always tasks to execute regardless of success or failure.
+    always: Option<YamlValue>,
     /// Global parameters.
     global_params: &'a GlobalParams<'a>,
 }
@@ -119,6 +123,17 @@ impl<'a> Task<'a> {
                 self.module.force_string_on_params(),
             ),
             YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, &extended_vars)?)),
+            YamlValue::Sequence(_) => {
+                // For sequence parameters (like block tasks), pass through without string rendering
+                if self.module.get_name() == "block" {
+                    Ok(original_params)
+                } else {
+                    Err(Error::new(
+                        ErrorKind::InvalidData,
+                        format!("{original_params:?} must be a mapping or a string"),
+                    ))
+                }
+            }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("{original_params:?} must be a mapping or a string"),
@@ -207,7 +222,8 @@ impl<'a> Task<'a> {
             self.check_mode,
         ) {
             Ok((result, result_vars)) => {
-                if self.module.get_name() != "include" {
+                // Don't show output for control flow modules like include and block
+                if self.module.get_name() != "include" && self.module.get_name() != "block" {
                     let output = result.get_output();
                     let target = match self.is_changed(&result, &result_vars)? {
                         true => "changed",
@@ -361,6 +377,11 @@ impl<'a> Task<'a> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
 
+        // Handle rescue and always for ANY task (not just blocks)
+        if self.rescue.is_some() || self.always.is_some() {
+            return self.exec_with_rescue_always(vars);
+        }
+
         if self.r#loop.is_some() {
             let mut ctx = vars.clone();
             for item in self.render_iterator(vars)?.into_iter() {
@@ -398,6 +419,215 @@ impl<'a> Task<'a> {
     /// [`Module`]: ../modules/trait.Module.html
     pub fn get_module(&self) -> &dyn Module {
         self.module
+    }
+
+    /// Execute a task with comprehensive rescue and always handling.
+    ///
+    /// This method implements a try-catch-finally pattern similar to exception handling:
+    /// - Try: Execute the main task (any module type)
+    /// - Catch: If task fails, execute rescue tasks (if defined)
+    /// - Finally: Always execute always tasks (if defined)
+    ///
+    /// The method uses functional programming patterns to handle each stage
+    /// and provides detailed error context for debugging.
+    fn exec_with_rescue_always(&self, vars: Value) -> Result<Value> {
+        let initial_vars = vars;
+
+        // Stage 1: Execute main task and capture result
+        let (main_result, post_main_vars) = match self.exec_main_task(initial_vars.clone()) {
+            Ok(success_vars) => {
+                trace!("Main task execution succeeded");
+                (Ok(()), success_vars)
+            }
+            Err(task_error) => {
+                warn!("Main task execution failed: {}", task_error);
+                (Err(task_error), initial_vars)
+            }
+        };
+
+        // Stage 2: Handle rescue tasks if main task failed
+        let (rescue_result, post_rescue_vars) = match (&main_result, &self.rescue) {
+            (Err(_), Some(rescue_tasks)) => {
+                info!("Executing rescue tasks due to main task failure");
+                match self.execute_task_sequence(rescue_tasks, post_main_vars.clone()) {
+                    Ok(rescue_vars) => {
+                        info!("Rescue tasks executed successfully");
+                        (Ok(()), rescue_vars)
+                    }
+                    Err(rescue_error) => {
+                        error!("Rescue tasks failed: {}", rescue_error);
+                        (Err(rescue_error), post_main_vars)
+                    }
+                }
+            }
+            (Err(_), None) => {
+                trace!("Main task failed but no rescue tasks defined");
+                (Ok(()), post_main_vars) // No rescue available, but continue to always
+            }
+            (Ok(_), _) => {
+                trace!("Main task succeeded, skipping rescue tasks");
+                (Ok(()), post_main_vars) // Task succeeded, no rescue needed
+            }
+        };
+
+        // Stage 3: Always execute always tasks if present
+        let final_vars = match &self.always {
+            Some(always_tasks) => {
+                trace!("Executing always tasks");
+                match self.execute_task_sequence(always_tasks, post_rescue_vars) {
+                    Ok(always_vars) => {
+                        trace!("Always tasks executed successfully");
+                        always_vars
+                    }
+                    Err(always_error) => {
+                        error!("Always tasks failed: {}", always_error);
+                        // Always tasks failing is critical - propagate the error
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            format!("Always section failed: {}", always_error),
+                        ));
+                    }
+                }
+            }
+            None => {
+                trace!("No always tasks to execute");
+                post_rescue_vars
+            }
+        };
+
+        // Stage 4: Determine final result based on execution stages
+        match (&main_result, &rescue_result) {
+            (Ok(_), Ok(_)) => {
+                // Main task succeeded (rescue wasn't needed)
+                Ok(final_vars)
+            }
+            (Ok(_), Err(_)) => {
+                // This case shouldn't happen (rescue only runs when main task fails)
+                // But handle it gracefully anyway
+                warn!("Unexpected state: main task succeeded but rescue reported failure");
+                Ok(final_vars)
+            }
+            (Err(_main_error), Ok(_)) => {
+                // Main task failed but rescue handled it successfully
+                debug!("Task execution recovered through rescue tasks");
+                Ok(final_vars)
+            }
+            (Err(main_error), Err(_)) => {
+                // Main task failed and rescue also failed (or no rescue)
+                if self.rescue.is_some() {
+                    Err(Error::new(
+                        ErrorKind::Other,
+                        format!(
+                            "Task execution failed and rescue tasks could not recover: {}",
+                            main_error
+                        ),
+                    ))
+                } else {
+                    Err(Error::new(
+                        ErrorKind::Other,
+                        format!(
+                            "Task execution failed with no rescue defined: {}",
+                            main_error
+                        ),
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Execute a sequence of tasks defined in YAML format.
+    ///
+    /// This is a helper method that provides consistent task sequence execution
+    /// for rescue and always sections. It includes proper error handling and
+    /// variable propagation.
+    fn execute_task_sequence(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Value> {
+        match tasks_yaml {
+            YamlValue::Sequence(tasks) => {
+                if tasks.is_empty() {
+                    warn!("Empty task sequence provided");
+                    return Ok(vars);
+                }
+
+                let mut current_vars = vars;
+                for (index, task_yaml) in tasks.iter().enumerate() {
+                    match Task::new(task_yaml, self.global_params) {
+                        Ok(task) => match task.exec(current_vars) {
+                            Ok(new_vars) => {
+                                current_vars = new_vars;
+                                trace!("Task {} in sequence completed successfully", index);
+                            }
+                            Err(task_error) => {
+                                error!("Task {} in sequence failed: {}", index, task_error);
+                                return Err(Error::new(
+                                    ErrorKind::Other,
+                                    format!(
+                                        "Task sequence failed at index {}: {}",
+                                        index, task_error
+                                    ),
+                                ));
+                            }
+                        },
+                        Err(parse_error) => {
+                            error!(
+                                "Failed to parse task {} in sequence: {}",
+                                index, parse_error
+                            );
+                            return Err(Error::new(
+                                ErrorKind::InvalidData,
+                                format!("Invalid task at index {}: {}", index, parse_error),
+                            ));
+                        }
+                    }
+                }
+                Ok(current_vars)
+            }
+            _ => Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Task sequence must be a YAML array, got: {:?}", tasks_yaml),
+            )),
+        }
+    }
+
+    /// Execute rescue tasks - this is now just an alias for consistency.
+    #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
+    #[allow(dead_code)]
+    fn execute_rescue_tasks(&self, rescue_tasks: &YamlValue, vars: Value) -> Result<Value> {
+        self.execute_task_sequence(rescue_tasks, vars)
+    }
+
+    /// Execute always tasks - this is now just an alias for consistency.
+    #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
+    #[allow(dead_code)]
+    fn execute_always_tasks(&self, always_tasks: &YamlValue, vars: Value) -> Result<Value> {
+        self.execute_task_sequence(always_tasks, vars)
+    }
+
+    /// Execute a task list - this is now just an alias for consistency.
+    #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
+    #[allow(dead_code)]
+    fn execute_task_list(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Value> {
+        self.execute_task_sequence(tasks_yaml, vars)
+    }
+
+    /// Execute the main task with proper loop handling.
+    ///
+    /// This method handles both single task execution and looped task execution,
+    /// providing the foundation for rescue/always error handling patterns.
+    fn exec_main_task(&self, vars: Value) -> Result<Value> {
+        if self.r#loop.is_some() {
+            // Handle loops - execute the task for each iteration
+            let mut ctx = vars.clone();
+            for item in self.render_iterator(vars)?.into_iter() {
+                let new_ctx = context! {item => &item, ..ctx};
+                trace!("pre execute loop: {:?}", &new_ctx);
+                ctx = self.exec_module(new_ctx)?;
+                trace!("post execute loop: {:?}", &ctx);
+            }
+            Ok(ctx)
+        } else {
+            // Single task execution
+            self.exec_module(vars)
+        }
     }
 }
 
