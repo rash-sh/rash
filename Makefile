@@ -49,10 +49,38 @@ build:	cross
 build:	## compile rash
 	$(CARGO) build --bin rash $(CARGO_BUILD_PARAMS)
 
-.PHONY: lint
-lint:	## lint code
-	cargo clippy --locked --all-targets --all-features -- -D warnings
+# Pre-commit targets
+.PHONY: pre-commit-install
+pre-commit-install: ## install pre-commit hooks
+	pre-commit install
+	pre-commit install --hook-type commit-msg
+
+.PHONY: pre-commit
+pre-commit: ## run pre-commit on all files
+	pre-commit run --all-files
+
+# Rust formatting and linting targets
+.PHONY: fmt
+fmt: ## format Rust code using cargo fmt
+	cargo fmt
+
+.PHONY: fmt-check
+fmt-check: ## check Rust code formatting
 	cargo fmt -- --check
+
+.PHONY: clippy
+clippy: ## run clippy linter on Rust code
+	cargo clippy --all-targets --all-features -- -D warnings
+
+.PHONY: clippy-fix
+clippy-fix: ## run clippy with automatic fixes
+	cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings
+
+.PHONY: lint
+lint: fmt-check clippy ## run all linting checks (fmt + clippy)
+
+.PHONY: lint-fix
+lint-fix: fmt clippy-fix ## run all linting with automatic fixes
 
 .PHONY: test
 test: lint cross

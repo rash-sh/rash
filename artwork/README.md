@@ -6,5 +6,3 @@ These artworks were commissioned and produced by [@ateneatla](https://github.com
 much appreciated!
 
 These artworks are licensed as CC-BY-NC-ND.
-
-

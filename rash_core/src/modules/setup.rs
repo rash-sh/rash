@@ -320,7 +320,7 @@ mod tests {
     fn test_parse_params_single_file() {
         let yaml: YamlValue = serde_yaml::from_str(
             r#"
-            from: 
+            from:
               - config.json
             "#,
         )

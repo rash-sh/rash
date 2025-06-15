@@ -21,36 +21,36 @@ jobs:
             pkgbuild: PKGBUILD-bin
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Extract crate information
-      shell: bash
-      run: |
-        echo "PROJECT_NAME=rash" >> $GITHUB_ENV
-        echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-        echo "PROJECT_DESCRIPTION=$(sed -n 's/^description = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
-        echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
+      - name: Extract crate information
+        shell: bash
+        run: |
+          echo "PROJECT_NAME=rash" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_DESCRIPTION=$(sed -n 's/^description = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
+          echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' rash_core/Cargo.toml)" >> $GITHUB_ENV
 
-    - name: Create PKGBUILD
-      shell: bash
-      run: |
-        curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
-          | grep browser_download_url \
-          | grep -v sha256 \
-          | grep x86_64 \
-          | grep linux-gnu \
-          | cut -d '"' -f 4 \
-          | xargs curl -L \
-          | tar xvz -C /usr/local/bin
-        .ci/generate-pkgbuild.rh ${{ matrix.package.pkgbuild }}
+      - name: Create PKGBUILD
+        shell: bash
+        run: |
+          curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \
+            | grep browser_download_url \
+            | grep -v sha256 \
+            | grep x86_64 \
+            | grep linux-gnu \
+            | cut -d '"' -f 4 \
+            | xargs curl -L \
+            | tar xvz -C /usr/local/bin
+          .ci/generate-pkgbuild.rh ${{ matrix.package.pkgbuild }}
 
-    - name: Publish AUR package
-      uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
-      with:
-        pkgname: ${{ matrix.package.name }}
-        pkgbuild: ./${{ matrix.package.pkgbuild }}
-        commit_username: ${{ secrets.AUR_USERNAME }}
-        commit_email: ${{ secrets.AUR_EMAIL }}
-        ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-        commit_message: Update ${{ matrix.package.name }} AUR package to version ${{ env.PROJECT_VERSION }}
-        ssh_keyscan_types: rsa,ed25519
+      - name: Publish AUR package
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        with:
+          pkgname: ${{ matrix.package.name }}
+          pkgbuild: ./${{ matrix.package.pkgbuild }}
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update ${{ matrix.package.name }} AUR package to version ${{ env.PROJECT_VERSION }}
+          ssh_keyscan_types: rsa,ed25519

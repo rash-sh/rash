@@ -16,4 +16,3 @@
   command:
     cmd: "echo fake-php-fpm"
     transfer_pid: true
-

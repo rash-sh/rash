@@ -27,4 +27,3 @@
   file:
     state: absent
     path: /tmp/random
-

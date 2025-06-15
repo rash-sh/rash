@@ -1,11 +1,11 @@
 name: Commitlint
 on:
   push:
-    branches: [ master ]
+    branches: [master]
     tags:
       - v*
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 permissions:
   contents: read

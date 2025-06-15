@@ -215,4 +215,3 @@
   command:
     cmd: "exit 0"
   when: command == "disable" and service not in ["httpd", "sshd", "nginx"]
-
