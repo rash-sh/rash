@@ -15,8 +15,8 @@
               <outline text="user" _icon="progress_100"/>
             </outline>
           </outline>
-          <outline text="Jinja" _note="Minijinja engine">
-            <outline text="Lookup" _note="https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Flookup"/>
+          <outline text="Jinja" _icon="progress_100" _note="Minijinja engine">
+            <outline text="Lookup" _icon="progress_50" _note="https://github.com/rash-sh/rash/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Flookup"/>
             <outline text="Filter" _note="https://github.com/rash-sh/rash/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2Ffilter"/>
           </outline>
           <outline text="Tasks" _icon="progress_100">
@@ -33,12 +33,12 @@
                     <outline text="name"/>
                     <outline text="ModuleKind::Special::Include"/>
                   </outline>
-                  <outline text="Include">
+                  <outline text="Include" _icon="progress_100">
                     <outline text="name: include"/>
                     <outline text="exec_fn"/>
                   </outline>
-                  <outline text="Group" _note="&lt;div&gt;group tasks with similar fields (when, changed_when, ignore_errors)&lt;/div&gt;">
-                    <outline text="name: group"/>
+                  <outline text="Block" _icon="progress_100" _note="&lt;div&gt;group tasks with similar fields (when, changed_when, ignore_errors)&lt;/div&gt;">
+                    <outline text="name: block"/>
                     <outline text="exec_fn"/>
                   </outline>
                   <outline text="Handlers">
