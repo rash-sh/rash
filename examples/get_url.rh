@@ -1,0 +1,74 @@
+#!/usr/bin/env rash
+
+# get_url module examples - demonstrating file downloads with Rash
+
+- name: Simple file download
+  get_url:
+    url: https://httpbin.org/base64/SGVsbG8gV29ybGQh
+    dest: /tmp/hello.txt
+    mode: '0644'
+
+- name: Download file to a directory (will use original filename)
+  get_url:
+    url: https://httpbin.org/base64/VGhpcyBpcyBhIHRlc3QgZmlsZQ==
+    dest: /tmp/
+
+- name: Download file with basic authentication
+  get_url:
+    url: https://httpbin.org/basic-auth/user/pass
+    dest: /tmp/auth_test.json
+    url_username: user
+    url_password: pass
+    force_basic_auth: true
+
+- name: Download file with custom headers
+  get_url:
+    url: https://httpbin.org/headers
+    dest: /tmp/headers_response.json
+    headers:
+      User-Agent: "rash-get-url-module"
+      X-Custom-Header: "test-value"
+
+- name: Download file with checksum verification
+  get_url:
+    url: https://httpbin.org/base64/SGVsbG8gV29ybGQh
+    dest: /tmp/verified_file.txt
+    checksum: sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
+    # Note: This is the actual SHA256 of the response content
+
+- name: Download with backup and force update
+  get_url:
+    url: https://httpbin.org/uuid
+    dest: /tmp/uuid_file.json
+    backup: true
+    force: true
+
+- name: Download with timeout
+  get_url:
+    url: https://httpbin.org/delay/1
+    dest: /tmp/delayed_response.json
+    timeout: 5
+
+- name: Download without SSL verification (use with caution)
+  get_url:
+    url: https://httpbin.org/get
+    dest: /tmp/no_ssl_verify.json
+    validate_certs: false
+
+- name: Register download result and show it
+  get_url:
+    url: https://httpbin.org/json
+    dest: /tmp/sample_json.json
+  register: download_result
+
+- name: Display download result
+  debug:
+    var: download_result
+
+# Example showing diff functionality
+# Run with --diff flag to see content differences when files change
+- name: Download content for diff demo
+  get_url:
+    url: https://httpbin.org/base64/SGVsbG8gZnJvbSBSYXNoIQ==
+    dest: /tmp/diff_demo.txt
+    force: true
