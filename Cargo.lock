@@ -936,13 +936,13 @@ dependencies = [
 
 [[package]]
 name = "ipc-channel"
-version = "0.19.0"
-source = "git+https://github.com/servo/ipc-channel?rev=82f6c49096b116208861f928862f9eefaf47c3c9#82f6c49096b116208861f928862f9eefaf47c3c9"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b1c98b70019c830a1fc39cecfe1f60ff99c4122f0a189697c810c90ec545c14"
 dependencies = [
  "bincode",
  "crossbeam-channel",
  "fnv",
- "lazy_static",
  "libc",
  "mio",
  "rand 0.9.1",
