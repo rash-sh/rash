@@ -86,4 +86,3 @@ jobs:
           [ "$VERSION" == "master" ] && VERSION=latest
 
           IMAGE_VERSION=$VERSION make push-images
-

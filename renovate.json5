@@ -3,6 +3,11 @@
   extends: [
     'config:recommended',
   ],
+  'pre-commit': {
+    enabled: true,
+    commitMessagePrefix: 'pre-commit: ',
+    branchPrefix: 'pre-commit-',
+  },
   packageRules: [
     {
       commitMessagePrefix: 'build(deps): ',

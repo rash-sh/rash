@@ -21,4 +21,3 @@ access.format = "%t \"%m %r%Q%q\" %s %f %{seconds}d %{mega}M %C%%"
 slowlog = /proc/self/fd/2
 
 rlimit_files = {{ env.FPM_RLIMIT_FILES | default(2048) }}
-
