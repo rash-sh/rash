@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v2.13.0](https://github.com/rash-sh/rash/tree/v2.13.0) - 2025-06-15
+
+### Added
+
+- ci: Add pre-commit and deprecate cargo-husky
+- module: Add lineinfile
+
+### Fixed
+
+- module: Show diff on permissions change for copy module
+
+### Documentation
+
+- Update concept map
+- Fix changelog of v2.12.0
+
+### Build
+
+- deps: Update Rust crate ipc-channel to v0.20.0
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v40.56.3
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
