@@ -44,6 +44,17 @@ use serde::Deserialize;
 use serde_yaml::Value as YamlValue;
 use tempfile::tempfile;
 
+/// Display permission diff in Ansible-like format
+fn diff_permissions(old_mode: u32, new_mode: u32) {
+    let old_octal = format!("{:04o}", old_mode & 0o7777);
+    let new_octal = format!("{:04o}", new_mode & 0o7777);
+
+    let before = format!("mode={}", old_octal);
+    let after = format!("mode={}", new_octal);
+
+    diff_files(&before, &after);
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
@@ -85,9 +96,13 @@ fn change_permissions(
     check_mode: bool,
 ) -> Result<bool> {
     let masked_mode = mode & 0o7777;
+    let current_mode = dest_permissions.mode() & 0o7777;
 
     // & 0o7777 to remove lead 100: 100644 -> 644
-    if dest_permissions.mode() & 0o7777 != masked_mode {
+    if current_mode != masked_mode {
+        // Show permission diff
+        diff_permissions(dest_permissions.mode(), mode);
+
         if !check_mode {
             trace!("changing mode: {:o}", mode);
             let mut dest_permissions_copy = dest_permissions;
