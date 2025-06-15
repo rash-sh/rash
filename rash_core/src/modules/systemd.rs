@@ -402,10 +402,7 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         if should_be_enabled {
             let enable_result = client.enable(service_name)?;
             if enable_result.changed {
-                diff(
-                    "enabled: false -> true".to_string(),
-                    "enabled: true".to_string(),
-                );
+                diff("enabled: false".to_string(), "enabled: true".to_string());
                 if let Some(output) = enable_result.output {
                     output_messages.push(output);
                 }
@@ -414,10 +411,7 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         } else {
             let disable_result = client.disable(service_name)?;
             if disable_result.changed {
-                diff(
-                    "enabled: true -> false".to_string(),
-                    "enabled: false".to_string(),
-                );
+                diff("enabled: true".to_string(), "enabled: false".to_string());
                 if let Some(output) = disable_result.output {
                     output_messages.push(output);
                 }
@@ -431,10 +425,7 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         Some(State::Started) => {
             let start_result = client.start(service_name)?;
             if start_result.changed {
-                diff(
-                    "state: stopped -> started".to_string(),
-                    "state: started".to_string(),
-                );
+                diff("state: stopped".to_string(), "state: started".to_string());
                 if let Some(output) = start_result.output {
                     output_messages.push(output);
                 }
@@ -444,10 +435,7 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         Some(State::Stopped) => {
             let stop_result = client.stop(service_name)?;
             if stop_result.changed {
-                diff(
-                    "state: started -> stopped".to_string(),
-                    "state: stopped".to_string(),
-                );
+                diff("state: started".to_string(), "state: stopped".to_string());
                 if let Some(output) = stop_result.output {
                     output_messages.push(output);
                 }
@@ -457,10 +445,6 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         Some(State::Restarted) => {
             let restart_result = client.restart(service_name)?;
             if restart_result.changed {
-                diff(
-                    "state: restarted".to_string(),
-                    "state: restarted".to_string(),
-                );
                 if let Some(output) = restart_result.output {
                     output_messages.push(output);
                 }
@@ -470,7 +454,6 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         Some(State::Reloaded) => {
             let reload_result = client.reload(service_name)?;
             if reload_result.changed {
-                diff("state: reloaded".to_string(), "state: reloaded".to_string());
                 if let Some(output) = reload_result.output {
                     output_messages.push(output);
                 }
