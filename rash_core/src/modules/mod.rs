@@ -7,6 +7,7 @@ pub mod find;
 mod include;
 mod pacman;
 mod set_vars;
+mod setup;
 mod template;
 
 use crate::context::GlobalParams;
@@ -20,6 +21,7 @@ use crate::modules::find::Find;
 use crate::modules::include::Include;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
+use crate::modules::setup::Setup;
 use crate::modules::template::Template;
 
 use std::collections::HashMap;
@@ -113,6 +115,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
+        (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
     ]
     .into_iter()

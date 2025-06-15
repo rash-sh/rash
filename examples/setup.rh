@@ -1,0 +1,70 @@
+#!/usr/bin/env -S rash --
+#
+# Setup module example - Load variables from configuration files
+# Demonstrates loading .env, YAML, and JSON files into template context
+#
+
+- name: Create temporary config files
+  command:
+    cmd: mktemp -d
+  register: temp_dir
+
+- name: Create .env file
+  copy:
+    content: |
+      APP_NAME=myapp
+      DEBUG=true
+      PORT=8080
+    dest: "{{ temp_dir.output | trim }}/.env"
+
+- name: Create YAML config
+  copy:
+    content: |
+      database:
+        host: localhost
+        port: 5432
+      features:
+        - auth
+        - logging
+    dest: "{{ temp_dir.output | trim }}/config.yaml"
+
+- name: Load configuration from files
+  setup:
+    from:
+      - "{{ temp_dir.output | trim }}/.env"
+      - "{{ temp_dir.output | trim }}/config.yaml"
+
+- name: Debug loaded context
+  debug:
+    msg: "{{ debug() }}"
+
+- name: Verify loaded variables
+  assert:
+    that:
+      - env.APP_NAME == "myapp"
+      - env.DEBUG == "true"
+      - env.PORT == "8080"
+      - database.host == "localhost"
+      - database.port == 5432
+      - features | length == 2
+
+- name: Show loaded configuration
+  debug:
+    msg: |
+      Loaded configuration:
+      App: {{ env.APP_NAME }} (Debug: {{ env.DEBUG }}, Port: {{ env.PORT }})
+      Database: {{ database.host }}:{{ database.port }}
+      Features: {{ features | join(', ') }}
+
+- name: Test empty setup
+  setup: {}
+  register: empty_result
+
+- name: Verify empty setup
+  assert:
+    that:
+      - empty_result.changed == false
+
+- name: Cleanup
+  command:
+    cmd: "rm -rf {{ temp_dir.output | trim }}"
