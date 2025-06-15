@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.10.0](https://github.com/rash-sh/rash/tree/v2.10.0) - 2025-06-15
+
+### Added
+
+- module: Add setup module for loading variables from config files
+
+### Build
+
+- deps: Update Rust crate tempfile to v3.20.0
+- deps: Update Rust crate mdbook to v0.4.51
+- deps: Update Rust crate schemars to 0.9
+- deps: Update Rust crate clap to v4.5.40
+- deps: Update Rust crate syn to v2.0.102
+- deps: Update Rust crate syn to v2.0.103
+- deps: Update Rust crate serde_with to v3.13.0
+
 ## [v2.9.12](https://github.com/rash-sh/rash/tree/v2.9.12) - 2025-06-08
 
 ### Fixed
