@@ -1,0 +1,70 @@
+#!/usr/bin/env -S rash --
+#
+# lineinfile module example
+#
+# This example demonstrates the basic functionality of the lineinfile module:
+# - Adding lines to files
+# - Replacing lines using regular expressions
+# - Removing lines using regular expressions
+#
+# Usage:
+#   lineinfile.rh
+
+- name: Create initial configuration file
+  copy:
+    content: |
+      # Example configuration
+      debug=false
+      timeout=30
+      port=8080
+      # End of config
+    dest: /tmp/config.txt
+
+- name: Show initial file content
+  command: cat /tmp/config.txt
+
+- name: Add new setting to configuration
+  lineinfile:
+    path: /tmp/config.txt
+    line: "max_connections=100"
+    state: present
+
+- name: Update debug setting using regexp
+  lineinfile:
+    path: /tmp/config.txt
+    regexp: "^debug="
+    line: "debug=true"
+    state: present
+
+- name: Replace port setting
+  lineinfile:
+    path: /tmp/config.txt
+    regexp: "^port="
+    line: "port=9090"
+    state: present
+
+- name: Remove timeout setting
+  lineinfile:
+    path: /tmp/config.txt
+    regexp: "^timeout="
+    state: absent
+
+- name: Show final configuration
+  command: cat /tmp/config.txt
+
+- name: Test idempotency - run same operations again
+  lineinfile:
+    path: /tmp/config.txt
+    line: "max_connections=100"
+    state: present
+  register: idempotent_test
+
+- name: Verify no change was made (idempotent)
+  assert:
+    that:
+      - not idempotent_test.changed
+
+- name: Clean up
+  file:
+    path: /tmp/config.txt
+    state: absent
