@@ -1,0 +1,83 @@
+#!/usr/bin/env rash
+
+# URI module examples - demonstrating HTTP/HTTPS requests with Rash
+
+- name: Simple GET request to check if a website is accessible
+  uri:
+    url: https://httpbin.org/get
+    method: GET
+
+- name: GET request with content return and registration
+  uri:
+    url: https://httpbin.org/get
+    method: GET
+    return_content: true
+  register: get_response
+
+- name: Display the response content
+  debug:
+    var: get_response
+
+- name: POST request with JSON data
+  uri:
+    url: https://httpbin.org/post
+    method: POST
+    body: '{"message": "Hello from Rash!", "timestamp": "2024"}'
+    headers:
+      Content-Type: application/json
+      User-Agent: rash-uri-module
+    status_code: [200, 201]
+
+- name: GET request with custom headers
+  uri:
+    url: https://httpbin.org/headers
+    method: GET
+    headers:
+      X-Custom-Header: "rash-test"
+      Accept: application/json
+    return_content: true
+  register: headers_response
+
+- name: Basic authentication example
+  uri:
+    url: https://httpbin.org/basic-auth/testuser/testpass
+    method: GET
+    url_username: testuser
+    url_password: testpass
+    force_basic_auth: true
+    return_content: true
+
+- name: Request with custom timeout
+  uri:
+    url: https://httpbin.org/delay/2
+    method: GET
+    timeout: 5
+    return_content: true
+
+- name: Request accepting multiple status codes
+  uri:
+    url: https://httpbin.org/status/201
+    method: GET
+    status_code: [200, 201, 202]
+
+- name: PUT request with data
+  uri:
+    url: https://httpbin.org/put
+    method: PUT
+    body: '{"updated": true, "data": "new value"}'
+    headers:
+      Content-Type: application/json
+    return_content: true
+
+- name: Check SSL certificate validation (will fail with self-signed certs)
+  uri:
+    url: https://httpbin.org/get
+    method: GET
+    validate_certs: true
+
+- name: Example with certificate validation disabled (use with caution)
+  uri:
+    url: https://httpbin.org/get
+    method: GET
+    validate_certs: false
+    return_content: true
