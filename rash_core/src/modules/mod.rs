@@ -6,6 +6,7 @@ mod debug;
 mod file;
 pub mod find;
 mod include;
+mod lineinfile;
 mod pacman;
 mod set_vars;
 mod setup;
@@ -22,6 +23,7 @@ use crate::modules::debug::Debug;
 use crate::modules::file::File;
 use crate::modules::find::Find;
 use crate::modules::include::Include;
+use crate::modules::lineinfile::Lineinfile;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
@@ -118,6 +120,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
+        (
+            Lineinfile.get_name(),
+            Box::new(Lineinfile) as Box<dyn Module>,
+        ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
