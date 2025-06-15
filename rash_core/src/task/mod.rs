@@ -222,11 +222,12 @@ impl<'a> Task<'a> {
                         )
                     );
                 }
-                let mut new_vars = if self.module.get_name() == "set_vars" {
-                    context! {..result_vars}
-                } else {
-                    context! {..vars.clone()}
-                };
+                let mut new_vars =
+                    if self.module.get_name() == "set_vars" || self.module.get_name() == "setup" {
+                        context! {..result_vars}
+                    } else {
+                        context! {..vars.clone()}
+                    };
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
                     trace!("register {:?} in {:?}", &result, register);
