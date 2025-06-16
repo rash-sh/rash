@@ -8,7 +8,11 @@
       - "env.PROJECT_DESCRIPTION is defined"
       - "env.PROJECT_HOMEPAGE is defined"
 
-- command: curl -s -L https://github.com/rash-sh/rash/releases/download/v{{ env.PROJECT_VERSION }}/rash-{{ env.PROJECT_VERSION }}-x86_64-unknown-linux-gnu.tar.gz.sha256
+- name: Get binary checksum
+  uri:
+    url: https://github.com/rash-sh/rash/releases/download/v{{ env.PROJECT_VERSION }}/rash-{{ env.PROJECT_VERSION }}-x86_64-unknown-linux-gnu.tar.gz.sha256
+    method: GET
+    return_content: true
   register: checksum_file
   when: "'bin' in target"
 
