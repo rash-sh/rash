@@ -1,9 +1,11 @@
+mod error_utils;
 #[cfg(feature = "docs")]
 pub mod lookup;
 #[cfg(not(feature = "docs"))]
 mod lookup;
 
 use crate::error::{Error, ErrorKind, Result};
+use error_utils::handle_template_error;
 
 use std::sync::LazyLock;
 
@@ -97,9 +99,16 @@ fn skip_omit(x: String) -> Result<String> {
 pub fn render_string(s: &str, vars: &Value) -> Result<String> {
     let mut env = MINIJINJA_ENV.clone();
     trace!("rendering {:?}", &s);
-    env.add_template("t", s)?;
-    let tmpl = env.get_template("t")?;
-    tmpl.render(vars).map(skip_omit)?
+
+    env.add_template("t", s)
+        .map_err(|e| handle_template_error(e, s, vars))?;
+    let tmpl = env
+        .get_template("t")
+        .map_err(|e| handle_template_error(e, s, vars))?;
+
+    tmpl.render(vars)
+        .map(skip_omit)
+        .map_err(|e| handle_template_error(e, s, vars))?
 }
 
 #[inline(always)]
@@ -206,5 +215,68 @@ mod tests {
 
         let result = render_string(string, &context! {package_filters => "yea"}).unwrap();
         assert_eq!(result, "yea");
+    }
+
+    #[test]
+    fn test_render_string_undefined_variable_error() {
+        // Test single undefined variable
+        let error = render_string("{{ undefined_var }}", &context! {}).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::JinjaRenderError);
+        assert!(
+            error
+                .to_string()
+                .contains("undefined variable 'undefined_var'")
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("in template: {{ undefined_var }}")
+        );
+
+        // Test undefined variable with defined variables present
+        let error = render_string(
+            "{{ defined_var }} and {{ undefined_var }}",
+            &context! {defined_var => "hello"},
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::JinjaRenderError);
+        assert!(
+            error
+                .to_string()
+                .contains("undefined variable 'undefined_var'")
+        );
+        assert!(error.to_string().contains("in template:"));
+
+        // Test nested undefined variable
+        let error = render_string("{{ foo.bar }}", &context! {}).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::JinjaRenderError);
+        assert!(error.to_string().contains("undefined variable 'foo.bar'"));
+
+        // Test that variables with default filter don't cause undefined errors
+        let result =
+            render_string("{{ missing_var | default('fallback') }}", &context! {}).unwrap();
+        assert_eq!(result, "fallback");
+    }
+
+    #[test]
+    fn test_render_string_operation_errors() {
+        // Test integer conversion error
+        let error = render_string("{{ 'not_a_number' | int }}", &context! {}).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::JinjaRenderError);
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("invalid operation"));
+
+        // Test float conversion error
+        let error = render_string("{{ 'not_a_float' | float }}", &context! {}).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::JinjaRenderError);
+        let error_msg = error.to_string();
+        assert!(error_msg.contains("invalid operation"));
+
+        // Test that successful conversions still work
+        let result = render_string("{{ '42' | int }}", &context! {}).unwrap();
+        assert_eq!(result, "42");
+
+        let result = render_string("{{ '3.14' | float }}", &context! {}).unwrap();
+        assert_eq!(result, "3.14");
     }
 }
