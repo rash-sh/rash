@@ -265,7 +265,7 @@ impl<'a> Task<'a> {
                             // Find vars that are in extended_vars but not in original vars
                             for (key, value) in ext_map {
                                 if !orig_map.contains_key(&key)
-                                    || orig_map.get(&key) != Some(&value)
+                                    || !orig_map.get(&key).map_or(false, |v| v.eq(&value))
                                 {
                                     block_level_vars.insert(key, value);
                                 }
