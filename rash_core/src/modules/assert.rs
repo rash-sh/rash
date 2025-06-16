@@ -76,10 +76,10 @@ impl Module for Assert {
         optional_params: YamlValue,
         vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((
             verify_conditions(parse_params(optional_params)?, &vars)?,
-            vars,
+            None, // Assert module doesn't add variables to context
         ))
     }
 

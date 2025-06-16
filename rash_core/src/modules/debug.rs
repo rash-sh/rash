@@ -85,8 +85,8 @@ impl Module for Debug {
         optional_params: YamlValue,
         vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        Ok((debug(parse_params(optional_params)?, &vars)?, vars))
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        Ok((debug(parse_params(optional_params)?, &vars)?, None))
     }
 
     #[cfg(feature = "docs")]

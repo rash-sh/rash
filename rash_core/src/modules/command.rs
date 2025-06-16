@@ -73,7 +73,7 @@ pub enum Required {
     Argv(Vec<String>),
 }
 
-fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Value)> {
+fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Option<Value>)> {
     let args_vec = match params.required {
         Required::Cmd(s) => s
             .split_whitespace()
@@ -108,9 +108,9 @@ impl Module for Command {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         let params: Params = match optional_params.as_str() {
             Some(s) => Params {
                 chdir: None,
@@ -121,9 +121,15 @@ impl Module for Command {
         };
 
         match params.transfer_pid {
-            Some(true) => exec_transferring_pid(params),
+            Some(true) => {
+                let (result, _) = exec_transferring_pid(params)?;
+                Ok((result, None))
+            }
             None | Some(false) => match params.transfer_pid {
-                Some(true) => exec_transferring_pid(params),
+                Some(true) => {
+                    let (result, _) = exec_transferring_pid(params)?;
+                    Ok((result, None))
+                }
                 None | Some(false) => {
                     let mut cmd = match params.required.clone() {
                         Required::Cmd(cmd) => {
@@ -181,7 +187,7 @@ impl Module for Command {
                             output: module_output,
                             extra,
                         },
-                        vars,
+                        None, // Command module doesn't add variables to context
                     ))
                 }
             },

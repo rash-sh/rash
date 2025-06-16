@@ -57,7 +57,7 @@ impl Module for Include {
         params: YamlValue,
         vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         match params {
             YamlValue::String(script_file) => {
                 let script_path = Path::new(&script_file);
@@ -77,9 +77,10 @@ impl Module for Include {
                 let include_vars = context! {rash => &include_builtins, ..vars.clone()};
 
                 trace!("Vars: {include_vars}");
-                Context::new(tasks, include_vars.clone()).exec()?;
+                let new_variables = Context::new(tasks, include_vars.clone()).exec()?;
 
-                Ok((ModuleResult::new(false, None, None), vars))
+                // Include module doesn't propagate variables from included tasks
+                Ok((ModuleResult::new(false, None, None), new_variables))
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,

@@ -270,9 +270,9 @@ impl Module for GetUrl {
         &self,
         _: &GlobalParams,
         params: YamlValue,
-        vars: Value,
+        _vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         let params: Params = parse_params(params)?;
 
         // Parse destination path
@@ -332,7 +332,7 @@ impl Module for GetUrl {
                     )),
                     extra: None,
                 },
-                vars,
+                None,
             ));
         }
 
@@ -346,7 +346,7 @@ impl Module for GetUrl {
                     )),
                     extra: None,
                 },
-                vars,
+                None,
             ));
         }
 
@@ -464,7 +464,7 @@ impl Module for GetUrl {
                 )),
                 extra,
             },
-            vars,
+            None,
         ))
     }
 

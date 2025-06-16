@@ -61,8 +61,8 @@ impl Module for SetVars {
         params: YamlValue,
         vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        let mut new_vars = vars.clone();
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        let mut new_vars = context! {};
 
         match params {
             YamlValue::Mapping(map) => {
@@ -99,7 +99,7 @@ impl Module for SetVars {
                 output: None,
                 extra: None,
             },
-            new_vars,
+            Some(new_vars),
         ))
     }
 

@@ -86,13 +86,13 @@ impl Module for Template {
         optional_params: YamlValue,
         vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((
             copy_file(
                 render_content(parse_params(optional_params)?, vars.clone())?,
                 check_mode,
             )?,
-            vars,
+            None,
         ))
     }
 

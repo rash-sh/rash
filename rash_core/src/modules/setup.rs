@@ -47,10 +47,10 @@ use std::path::Path;
 use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
 
-#[derive(Debug, PartialEq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
@@ -243,29 +243,6 @@ fn load_and_merge_files(file_paths: &[String], context: Value) -> Result<(Vec<St
     Ok((loaded_files, final_context))
 }
 
-fn setup_context(params: Params, vars: Value) -> Result<(ModuleResult, Value)> {
-    if params.from.is_empty() {
-        return Ok((
-            ModuleResult::new(false, None, Some("No files specified to load".to_string())),
-            vars,
-        ));
-    }
-
-    let (loaded_files, new_vars) = load_and_merge_files(&params.from, vars)?;
-
-    Ok((
-        ModuleResult::new(
-            !loaded_files.is_empty(),
-            None,
-            Some(format!(
-                "Loaded variables from: {}",
-                loaded_files.join(", ")
-            )),
-        ),
-        new_vars,
-    ))
-}
-
 #[derive(Debug)]
 pub struct Setup;
 
@@ -280,13 +257,83 @@ impl Module for Setup {
         optional_params: YamlValue,
         vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        setup_context(parse_params(optional_params)?, vars)
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        let params: Params = parse_params(optional_params)?;
+
+        if params.from.is_empty() {
+            return Ok((
+                ModuleResult::new(false, None, Some("No files specified to load".to_string())),
+                None,
+            ));
+        }
+
+        let (loaded_files, merged_vars) = load_and_merge_files(&params.from, vars.clone())?;
+
+        // Calculate only the new variables that were loaded
+        let new_variables = calculate_new_variables_setup(&vars, &merged_vars)?;
+
+        Ok((
+            ModuleResult::new(
+                !loaded_files.is_empty(),
+                None,
+                Some(format!(
+                    "Loaded variables from: {}",
+                    loaded_files.join(", ")
+                )),
+            ),
+            new_variables,
+        ))
     }
 
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<Schema> {
         Some(Params::get_json_schema())
+    }
+}
+
+/// Calculate the difference between original and merged variables
+/// Returns only the new variables that were loaded from files
+fn calculate_new_variables_setup(original: &Value, merged: &Value) -> Result<Option<Value>> {
+    // Convert both values to JSON for easier comparison
+    let original_json: serde_json::Value = serde_json::to_value(original).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Serialization error: {}", e),
+        )
+    })?;
+    let merged_json: serde_json::Value = serde_json::to_value(merged).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Serialization error: {}", e),
+        )
+    })?;
+
+    if original_json == merged_json {
+        return Ok(None);
+    }
+
+    match (original_json, merged_json) {
+        (serde_json::Value::Object(orig_map), serde_json::Value::Object(merged_map)) => {
+            let mut new_vars = serde_json::Map::new();
+
+            for (key, value) in merged_map {
+                // Include new keys or keys with different values
+                if !orig_map.contains_key(&key) || orig_map.get(&key) != Some(&value) {
+                    new_vars.insert(key, value);
+                }
+            }
+
+            if new_vars.is_empty() {
+                Ok(None)
+            } else {
+                let result = Value::from_serialize(serde_json::Value::Object(new_vars));
+                Ok(Some(result))
+            }
+        }
+        _ => {
+            // If structure changed completely, return the merged result
+            Ok(Some(merged.clone()))
+        }
     }
 }
 
@@ -418,14 +465,18 @@ api:
 
     #[test]
     fn test_setup_context_no_files() {
+        let setup = Setup;
         let params = Params { from: vec![] };
         let vars = context! { existing => "value" };
+        let yaml_params = serde_yaml::to_value(&params).unwrap();
 
-        let (result, new_vars) = setup_context(params, vars.clone()).unwrap();
+        let (result, new_vars) = setup
+            .exec(&GlobalParams::default(), yaml_params, vars.clone(), false)
+            .unwrap();
 
         assert!(!result.get_changed());
         assert!(result.get_output().unwrap().contains("No files specified"));
-        assert_eq!(new_vars, vars);
+        assert_eq!(new_vars, None);
     }
 
     #[test]
@@ -441,6 +492,7 @@ api:
         writeln!(yaml_file, "  debug: true").unwrap();
         yaml_file.flush().unwrap(); // Ensure data is written to disk
 
+        let setup = Setup;
         let params = Params {
             from: vec![
                 env_file.path().to_str().unwrap().to_string(),
@@ -448,8 +500,11 @@ api:
             ],
         };
         let vars = context! { existing => "value", env => context! {} };
+        let yaml_params = serde_yaml::to_value(&params).unwrap();
 
-        let (result, new_vars) = setup_context(params, vars).unwrap();
+        let (result, new_vars) = setup
+            .exec(&GlobalParams::default(), yaml_params, vars.clone(), false)
+            .unwrap();
 
         assert!(result.get_changed());
         assert!(
@@ -459,6 +514,11 @@ api:
                 .contains("Loaded variables from")
         );
 
+        // Check that new variables were returned
+        assert!(new_vars.is_some());
+        let new_vars = new_vars.unwrap();
+
+        // Check env variables were loaded
         assert_eq!(
             new_vars
                 .get_attr("env")
@@ -477,10 +537,9 @@ api:
                 .to_string(),
             "8080"
         );
-        assert_eq!(
-            new_vars.get_attr("existing").unwrap().as_str().unwrap(),
-            "value"
-        );
+
+        // Check that config was loaded as top-level variable
+        assert!(new_vars.get_attr("config").is_ok());
     }
 
     #[test]

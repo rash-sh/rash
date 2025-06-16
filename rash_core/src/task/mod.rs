@@ -219,14 +219,14 @@ impl<'a> Task<'a> {
         match self.module.exec(
             self.global_params,
             rendered_params.clone(),
-            extended_vars,
+            extended_vars.clone(),
             self.check_mode,
         ) {
-            Ok((result, result_vars)) => {
+            Ok((result, new_vars_opt)) => {
                 // Don't show output for control flow modules like include and block
                 if module_name != "include" && module_name != "block" {
                     let output = result.get_output();
-                    let target = match self.is_changed(&result, &result_vars)? {
+                    let target = match self.is_changed(&result, vars)? {
                         true => "changed",
                         false => "ok",
                     };
@@ -239,14 +239,49 @@ impl<'a> Task<'a> {
                         )
                     );
                 }
-                let mut new_vars = if module_name == "set_vars"
-                    || module_name == "setup"
-                    || module_name == "block"
-                {
-                    context! {..result_vars}
-                } else {
-                    context! {..vars.clone()}
-                };
+
+                // Merge new variables into existing context
+                // Start with original vars (not extended_vars) so task-level vars don't leak
+                let mut new_vars = vars.clone();
+                if let Some(new_variables) = new_vars_opt {
+                    new_vars = context! {..new_variables, ..new_vars};
+                }
+
+                // Special handling for block module: include block-level vars in the result
+                // Block-level vars are in extended_vars but not in original vars
+                if module_name == "block" {
+                    // Calculate which vars were added by extend_vars (block-level vars)
+                    if let (Ok(original_json), Ok(extended_json)) = (
+                        serde_json::to_value(vars),
+                        serde_json::to_value(&extended_vars),
+                    ) {
+                        if let (
+                            serde_json::Value::Object(orig_map),
+                            serde_json::Value::Object(ext_map),
+                        ) = (original_json, extended_json)
+                        {
+                            let mut block_level_vars = serde_json::Map::new();
+
+                            // Find vars that are in extended_vars but not in original vars
+                            for (key, value) in ext_map {
+                                if !orig_map.contains_key(&key)
+                                    || orig_map.get(&key) != Some(&value)
+                                {
+                                    block_level_vars.insert(key, value);
+                                }
+                            }
+
+                            if !block_level_vars.is_empty() {
+                                let block_vars_value = Value::from_serialize(
+                                    serde_json::Value::Object(block_level_vars),
+                                );
+                                new_vars = context! {..block_vars_value, ..new_vars};
+                            }
+                        }
+                    }
+                }
+
+                // Handle register if present
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
                     trace!("register {:?} in {:?}", &result, register);

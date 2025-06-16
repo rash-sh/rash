@@ -53,27 +53,29 @@ impl Module for Block {
     fn get_name(&self) -> &str {
         "block"
     }
-
     fn exec(
         &self,
         global_params: &GlobalParams,
         params: YamlValue,
         vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         match params {
             YamlValue::Sequence(task_yamls) => {
                 trace!("Block module executing {} tasks", task_yamls.len());
 
                 let tasks = self.parse_tasks_from_yaml(&task_yamls, global_params)?;
 
-                let context = Context::new(tasks, vars);
-                let result_context = context.exec()?;
+                // Execute tasks with the provided vars context (which includes block-level vars)
+                let context = Context::new(tasks, vars.clone());
+                let new_variables = context.exec()?;
 
                 // Block is a control structure, so it doesn't display its own output
                 let module_result = ModuleResult::new(false, None, None);
 
-                Ok((module_result, result_context.get_vars().clone()))
+                // Return all new variables from the block execution
+                // Note: Block-level vars are handled in the task execution system
+                Ok((module_result, new_variables))
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,

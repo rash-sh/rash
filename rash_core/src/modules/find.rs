@@ -251,10 +251,10 @@ impl Module for Find {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        Ok((find(parse_params(optional_params)?)?, vars))
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        Ok((find(parse_params(optional_params)?)?, None))
     }
 
     #[cfg(feature = "docs")]

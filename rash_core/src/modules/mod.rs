@@ -92,14 +92,18 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     /// This method is responsible for performing the module's core logic.
     /// It accepts a set of YAML parameters and additional variables, then
     /// runs the module's functionality. The result includes both the outcome
-    /// of the execution and any potential changes made to the variables.
+    /// of the execution and any new variables to be added to the context.
+    ///
+    /// Returns:
+    /// - ModuleResult: Contains execution results (changed, output, extra)
+    /// - Option<Value>: New variables to merge into the context (None if no new vars)
     fn exec(
         &self,
         global_params: &GlobalParams,
         params: YamlValue,
         vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)>;
+    ) -> Result<(ModuleResult, Option<Value>)>;
 
     /// Determines if the module requires its parameters to be treated as strings.
     ///

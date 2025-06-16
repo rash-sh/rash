@@ -256,10 +256,10 @@ impl Module for Copy {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        Ok((copy_file(parse_params(optional_params)?, check_mode)?, vars))
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        Ok((copy_file(parse_params(optional_params)?, check_mode)?, None))
     }
 
     #[cfg(feature = "docs")]
