@@ -1,0 +1,45 @@
+#!/usr/bin/env rash
+- name: Set global variable before block
+  set_vars:
+    global_var: "global_value"
+    existing_var: "original_value"
+
+- name: Block with scoped variables
+  vars:
+    block_var: "block_value"
+  block:
+    - name: Task with block-scoped variables
+      vars:
+        existing_var: "modified_in_block"
+      assert:
+        that:
+          - block_var is defined
+          - existing_var is defined
+
+    - name: Register a variable in the block
+      vars:
+        block_task_var: "another_value"
+      debug:
+        msg: "Registering task result"
+      register: block_task_result
+
+- name: Verify global variable preserved
+  assert:
+    that:
+      - global_var == "global_value"
+
+- name: Verify existing variable not modified by block
+  assert:
+    that:
+      - existing_var == "original_value"
+
+- name: Verify block variables don't leak
+  assert:
+    that:
+      - block_var is defined
+      - block_task_var is not defined
+
+- name: Verify registered variable persists
+  assert:
+    that:
+      - block_task_result is defined

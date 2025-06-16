@@ -209,7 +209,8 @@ impl<'a> Task<'a> {
     }
 
     fn exec_module_rendered(&self, rendered_params: &YamlValue, vars: &Value) -> Result<Value> {
-        let extended_vars = if self.module.get_name() == "set_vars" {
+        let module_name = self.module.get_name();
+        let extended_vars = if module_name == "set_vars" {
             // set_vars module does not need extended vars
             vars.clone()
         } else {
@@ -223,7 +224,7 @@ impl<'a> Task<'a> {
         ) {
             Ok((result, result_vars)) => {
                 // Don't show output for control flow modules like include and block
-                if self.module.get_name() != "include" && self.module.get_name() != "block" {
+                if module_name != "include" && module_name != "block" {
                     let output = result.get_output();
                     let target = match self.is_changed(&result, &result_vars)? {
                         true => "changed",
@@ -238,12 +239,14 @@ impl<'a> Task<'a> {
                         )
                     );
                 }
-                let mut new_vars =
-                    if self.module.get_name() == "set_vars" || self.module.get_name() == "setup" {
-                        context! {..result_vars}
-                    } else {
-                        context! {..vars.clone()}
-                    };
+                let mut new_vars = if module_name == "set_vars"
+                    || module_name == "setup"
+                    || module_name == "block"
+                {
+                    context! {..result_vars}
+                } else {
+                    context! {..vars.clone()}
+                };
                 if self.register.is_some() {
                     let register = self.register.as_ref().unwrap();
                     trace!("register {:?} in {:?}", &result, register);
