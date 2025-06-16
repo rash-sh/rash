@@ -28,5 +28,18 @@
         '/.*/',
       ],
     },
+    {
+      matchPackageNames: [
+        'renovatebot/pre-commit-hooks',
+      ],
+      automerge: true,
+      automergeType: 'pr',
+      ignoreTests: false,
+      platformAutomerge: true,
+      schedule: [
+        'after 4am and before 10am on the first day of the month',
+      ],
+      enabled: true,
+    },
   ],
 }
