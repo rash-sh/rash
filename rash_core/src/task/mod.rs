@@ -380,7 +380,6 @@ impl<'a> Task<'a> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
 
-        // Handle rescue and always for ANY task (not just blocks)
         if self.rescue.is_some() || self.always.is_some() {
             return self.exec_with_rescue_always(vars);
         }
@@ -554,22 +553,30 @@ impl<'a> Task<'a> {
                 let mut current_vars = vars;
                 for (index, task_yaml) in tasks.iter().enumerate() {
                     match Task::new(task_yaml, self.global_params) {
-                        Ok(task) => match task.exec(current_vars) {
-                            Ok(new_vars) => {
-                                current_vars = new_vars;
-                                trace!("Task {} in sequence completed successfully", index);
+                        Ok(task) => {
+                            info!(target: "task",
+                                "[{}:{}] - ",
+                                current_vars.get_attr("rash")?.get_attr("path")?,
+                                task.get_rendered_name(current_vars.clone())
+                                    .unwrap_or_else(|_| task.get_module().get_name().to_owned()),
+                            );
+                            match task.exec(current_vars) {
+                                Ok(new_vars) => {
+                                    current_vars = new_vars;
+                                    trace!("Task {} in sequence completed successfully", index);
+                                }
+                                Err(task_error) => {
+                                    error!("Task {} in sequence failed: {}", index, task_error);
+                                    return Err(Error::new(
+                                        ErrorKind::Other,
+                                        format!(
+                                            "Task sequence failed at index {}: {}",
+                                            index, task_error
+                                        ),
+                                    ));
+                                }
                             }
-                            Err(task_error) => {
-                                error!("Task {} in sequence failed: {}", index, task_error);
-                                return Err(Error::new(
-                                    ErrorKind::Other,
-                                    format!(
-                                        "Task sequence failed at index {}: {}",
-                                        index, task_error
-                                    ),
-                                ));
-                            }
-                        },
+                        }
                         Err(parse_error) => {
                             error!(
                                 "Failed to parse task {} in sequence: {}",
