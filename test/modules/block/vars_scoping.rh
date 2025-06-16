@@ -36,7 +36,7 @@
 - name: Verify block variables don't leak
   assert:
     that:
-      - block_var is defined
+      - block_var is not defined
       - block_task_var is not defined
 
 - name: Verify registered variable persists

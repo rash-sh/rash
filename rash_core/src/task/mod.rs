@@ -239,11 +239,64 @@ impl<'a> Task<'a> {
                         )
                     );
                 }
-                let mut new_vars = if module_name == "set_vars"
-                    || module_name == "setup"
-                    || module_name == "block"
-                {
+                let mut new_vars = if module_name == "set_vars" || module_name == "setup" {
                     context! {..result_vars}
+                } else if module_name == "block" {
+                    // For blocks, only preserve variables that weren't declared in the block's vars
+                    // Start with original vars and only add registered variables and new variables
+                    // that were not part of the task-level vars
+                    let mut filtered_vars = vars.clone();
+
+                    // Check if there are task-level vars that should be filtered out
+                    if let Some(task_vars) = self.vars.clone() {
+                        // Get the names of variables declared in task vars
+                        let rendered_task_vars = match render(task_vars.clone(), vars) {
+                            Ok(v) => Value::from_serialize(v),
+                            Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
+                            Err(e) => return Err(e),
+                        };
+
+                        // Only add variables from result_vars that are not task vars
+                        // This preserves registered variables and other legitimate block outputs
+                        // while filtering out task-level vars that should be block-scoped
+                        if let Ok(result_obj) = serde_yaml::to_value(&result_vars) {
+                            if let Ok(task_vars_obj) = serde_yaml::to_value(&rendered_task_vars) {
+                                if let (
+                                    YamlValue::Mapping(result_map),
+                                    YamlValue::Mapping(task_vars_map),
+                                ) = (result_obj, task_vars_obj)
+                                {
+                                    for (key, value) in result_map {
+                                        if let YamlValue::String(key_str) = &key {
+                                            // Only preserve if not a task var
+                                            if !task_vars_map.contains_key(&key) {
+                                                let minijinja_value = Value::from_serialize(&value);
+                                                let v: Value =
+                                                    [(key_str.as_str(), minijinja_value)]
+                                                        .into_iter()
+                                                        .collect();
+                                                filtered_vars = context! { ..v, ..filtered_vars };
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Fallback: use result_vars as-is if we can't parse as mappings
+                                    filtered_vars = context! { ..result_vars, ..filtered_vars };
+                                }
+                            } else {
+                                // Fallback: use result_vars as-is if task_vars can't be serialized
+                                filtered_vars = context! { ..result_vars, ..filtered_vars };
+                            }
+                        } else {
+                            // Fallback: use result_vars as-is if result_vars can't be serialized
+                            filtered_vars = context! { ..result_vars, ..filtered_vars };
+                        }
+                    } else {
+                        // No task vars, so preserve all result_vars
+                        filtered_vars = context! { ..result_vars, ..filtered_vars };
+                    }
+
+                    filtered_vars
                 } else {
                     context! {..vars.clone()}
                 };

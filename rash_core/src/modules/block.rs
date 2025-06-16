@@ -4,7 +4,8 @@
 /// This module allows grouping tasks together for execution.
 /// Similar to Ansible's block directive.
 ///
-/// Note: `vars` declared in a block are added to the parent context.
+/// Note: `vars` declared in a block are scoped to that block and do not persist to the parent context.
+/// However, registered variables from tasks within the block will persist.
 ///
 /// ## Attributes
 ///
