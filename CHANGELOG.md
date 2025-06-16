@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.14.1](https://github.com/rash-sh/rash/tree/v2.14.1) - 2025-06-16
+
+### Fixed
+
+- module: Propagate variables to parent scope in module block
+- task: Render name for `always` and `rescue` tasks
+
+### Build
+
+- ci: Fix package URL on AUR description and use uri module
+- ci: Auto update pre-commit once a month automatically
+- deps: Update Rust crate sha2 to v0.10.9
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v40.57.1
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v40.59.0
+
+### Testing
+
+- ci: Skip Rust hooks on pre-commit workflow
+- ci: Deprecate commitlint workflow
+- ci: Remove uri and get_url examples
+- module: Simplify httpbin.org dependand examples
+
 ## [v2.14.0](https://github.com/rash-sh/rash/tree/v2.14.0) - 2025-06-15
 
 ### Added
