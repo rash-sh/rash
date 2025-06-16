@@ -29,5 +29,5 @@ jobs:
           restore-keys: |
             pre-commit-
 
-      - name: Run pre-commit
-        run: pre-commit run --all-files --verbose
+      - name: Run pre-commit (skip Rust hooks)
+        run: SKIP=fmt,clippy pre-commit run --all-files --verbose

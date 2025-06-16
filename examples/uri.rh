@@ -14,4 +14,3 @@
 - name: Display the response content
   debug:
     var: get_response
-
