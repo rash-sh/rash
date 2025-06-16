@@ -4,6 +4,8 @@
 /// This module allows grouping tasks together for execution.
 /// Similar to Ansible's block directive.
 ///
+/// Note: `vars` declared in a block are added to the parent context.
+///
 /// ## Attributes
 ///
 /// ```yaml
@@ -63,10 +65,8 @@ impl Module for Block {
             YamlValue::Sequence(task_yamls) => {
                 trace!("Block module executing {} tasks", task_yamls.len());
 
-                // Parse tasks from YAML
                 let tasks = self.parse_tasks_from_yaml(&task_yamls, global_params)?;
 
-                // Execute tasks in context
                 let context = Context::new(tasks, vars);
                 let result_context = context.exec()?;
 
