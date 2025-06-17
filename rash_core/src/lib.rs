@@ -35,7 +35,11 @@ mod tests {
             "#;
 
         let global_params = GlobalParams::default();
-        let context = Context::new(parse_file(file, &global_params).unwrap(), env::load(vec![]));
+        let context = Context::new(
+            parse_file(file, &global_params).unwrap(),
+            env::load(vec![]),
+            None,
+        );
         let last_context = context.exec().unwrap();
 
         assert!(last_context.tasks.is_empty());

@@ -59,10 +59,10 @@ impl Module for SetVars {
         &self,
         _: &GlobalParams,
         params: YamlValue,
-        vars: Value,
+        vars: &Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        let mut new_vars = vars.clone();
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        let mut new_vars = context! {};
 
         match params {
             YamlValue::Mapping(map) => {
@@ -76,7 +76,7 @@ impl Module for SetVars {
                         })?;
                         let value: Value = [(
                             key,
-                            Value::from_serialize(render(hash_map.1.clone(), &vars)?),
+                            Value::from_serialize(render(hash_map.1.clone(), vars)?),
                         )]
                         .into_iter()
                         .collect();
@@ -99,7 +99,7 @@ impl Module for SetVars {
                 output: None,
                 extra: None,
             },
-            new_vars,
+            Some(new_vars),
         ))
     }
 

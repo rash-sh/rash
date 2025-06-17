@@ -1,9 +1,9 @@
+use crate::task::Tasks;
 /// Context
 ///
 /// Preserve state between executions
-use crate::error::Result;
-use crate::task::Tasks;
-use minijinja::Value;
+use crate::{error::Result, jinja::merge_option};
+use minijinja::{Value, context};
 
 /// Main data structure in `rash`.
 /// It contents all [`task::Tasks`] with their [`vars::Vars`] to be executed
@@ -14,6 +14,8 @@ use minijinja::Value;
 pub struct Context<'a> {
     pub tasks: Tasks<'a>,
     vars: Value,
+    /// Variables added to the context for the current scope of execution.
+    scoped_vars: Option<Value>,
 }
 
 impl<'a> Context<'a> {
@@ -21,8 +23,12 @@ impl<'a> Context<'a> {
     ///
     /// [`task::Tasks`]: ../task/type.Tasks.html
     /// [`vars::Vars`]: ../vars/type.Vars.html
-    pub fn new(tasks: Tasks<'a>, vars: Value) -> Self {
-        Context { tasks, vars }
+    pub fn new(tasks: Tasks<'a>, vars: Value, scope_vars: Option<Value>) -> Self {
+        Context {
+            tasks,
+            vars,
+            scoped_vars: scope_vars,
+        }
     }
 
     /// Execute all Tasks in Context until empty.
@@ -46,10 +52,21 @@ impl<'a> Context<'a> {
                 context.tasks.len(),
             );
 
-            let vars = next_task.exec(context.vars.clone())?;
+            let new_vars = next_task.exec(context.vars.clone())?;
+            let vars = merge_option(context.vars.clone(), new_vars.clone());
+
+            let scoped_vars_value = [context.scoped_vars, new_vars]
+                .into_iter()
+                .fold(context! {}, merge_option);
+            let scoped_vars = if scoped_vars_value == context!() {
+                None
+            } else {
+                Some(scoped_vars_value)
+            };
             context = Self {
                 tasks: next_tasks,
                 vars,
+                scoped_vars,
             };
         }
 
@@ -59,6 +76,11 @@ impl<'a> Context<'a> {
     /// Get a reference to the variables
     pub fn get_vars(&self) -> &Value {
         &self.vars
+    }
+
+    /// Get a reference to the variables
+    pub fn get_scoped_vars(&self) -> Option<&Value> {
+        self.scoped_vars.as_ref()
     }
 }
 

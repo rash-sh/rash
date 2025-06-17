@@ -58,22 +58,22 @@ impl Module for Block {
         &self,
         global_params: &GlobalParams,
         params: YamlValue,
-        vars: Value,
+        vars: &Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         match params {
             YamlValue::Sequence(task_yamls) => {
                 trace!("Block module executing {} tasks", task_yamls.len());
 
                 let tasks = self.parse_tasks_from_yaml(&task_yamls, global_params)?;
 
-                let context = Context::new(tasks, vars);
+                let context = Context::new(tasks, vars.clone(), None);
                 let result_context = context.exec()?;
 
                 // Block is a control structure, so it doesn't display its own output
                 let module_result = ModuleResult::new(false, None, None);
 
-                Ok((module_result, result_context.get_vars().clone()))
+                Ok((module_result, result_context.get_scoped_vars().cloned()))
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
@@ -138,7 +138,7 @@ mod tests {
         let params = YamlValue::Sequence(vec![]);
         let vars = context! {};
 
-        let result = block.exec(&global_params, params, vars, false);
+        let result = block.exec(&global_params, params, &vars, false);
         assert!(result.is_ok());
 
         let (module_result, _final_vars) = result.unwrap();
@@ -152,7 +152,7 @@ mod tests {
         let params = YamlValue::String("not a sequence".to_string());
         let vars = context! {};
 
-        let result = block.exec(&global_params, params, vars, false);
+        let result = block.exec(&global_params, params, &vars, false);
         assert!(result.is_err());
 
         let error_message = result.unwrap_err().to_string();

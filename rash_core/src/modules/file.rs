@@ -321,12 +321,12 @@ impl Module for File {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: &Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((
             define_file(parse_params(optional_params)?, check_mode)?,
-            vars,
+            None,
         ))
     }
 
