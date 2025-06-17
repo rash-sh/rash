@@ -4,8 +4,12 @@ pub mod lookup;
 #[cfg(not(feature = "docs"))]
 mod lookup;
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::{
+    error::{Error, ErrorKind, Result},
+    utils::merge_json,
+};
 use error_utils::handle_template_error;
+use serde::Deserialize;
 
 use std::sync::LazyLock;
 
@@ -122,6 +126,17 @@ pub fn is_render_string(s: &str, vars: &Value) -> Result<bool> {
         "false" => Ok(false),
         _ => Ok(true),
     }
+}
+
+pub fn merge_option(a: Value, b: Option<Value>) -> Value {
+    if let Some(b) = b { merge(a, b) } else { a }
+}
+
+pub fn merge(a: Value, b: Value) -> Value {
+    let mut a_json_value: serde_json::Value = serde_json::Value::deserialize(a).unwrap();
+    let b_json_value: serde_json::Value = serde_json::Value::deserialize(b).unwrap();
+    merge_json(&mut a_json_value, b_json_value);
+    Value::from_serialize(a_json_value)
 }
 
 #[cfg(test)]

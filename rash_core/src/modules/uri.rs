@@ -174,9 +174,9 @@ impl Module for Uri {
         &self,
         _: &GlobalParams,
         params: YamlValue,
-        vars: Value,
+        _vars: &Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         let params: Params = parse_params(params)?;
 
         let response = make_request(&params)?;
@@ -245,7 +245,7 @@ impl Module for Uri {
                 output,
                 extra,
             },
-            vars,
+            None,
         ))
     }
 

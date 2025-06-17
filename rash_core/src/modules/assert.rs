@@ -74,12 +74,12 @@ impl Module for Assert {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        vars: &Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((
-            verify_conditions(parse_params(optional_params)?, &vars)?,
-            vars,
+            verify_conditions(parse_params(optional_params)?, vars)?,
+            None,
         ))
     }
 

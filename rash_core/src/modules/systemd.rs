@@ -153,10 +153,10 @@ impl Module for Systemd {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: &Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        Ok((systemd(parse_params(optional_params)?, check_mode)?, vars))
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        Ok((systemd(parse_params(optional_params)?, check_mode)?, None))
     }
 
     fn force_string_on_params(&self) -> bool {

@@ -229,12 +229,12 @@ impl Module for Lineinfile {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: &Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((
             lineinfile(parse_params(optional_params)?, check_mode)?,
-            vars,
+            None,
         ))
     }
 

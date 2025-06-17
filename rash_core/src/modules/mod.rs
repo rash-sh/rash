@@ -97,9 +97,9 @@ pub trait Module: Send + Sync + std::fmt::Debug {
         &self,
         global_params: &GlobalParams,
         params: YamlValue,
-        vars: Value,
+        vars: &Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)>;
+    ) -> Result<(ModuleResult, Option<Value>)>;
 
     /// Determines if the module requires its parameters to be treated as strings.
     ///

@@ -210,14 +210,11 @@ fn merge_context_with_regular_vars(
     }
 }
 
-fn load_and_merge_files(file_paths: &[String], context: Value) -> Result<(Vec<String>, Value)> {
+fn load_and_merge_files(file_paths: &[String]) -> Result<(Vec<String>, Value)> {
     let mut loaded_files = Vec::with_capacity(file_paths.len());
 
     // Convert context to JSON for easier manipulation
-    let mut context_json: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_value(serde_json::to_value(&context).unwrap_or_default())
-            .unwrap_or_default();
-
+    let mut context_json: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
     for file_path in file_paths {
         match load_file_vars_with_type(file_path) {
             Ok((file_vars, is_env_file)) => {
@@ -238,20 +235,19 @@ fn load_and_merge_files(file_paths: &[String], context: Value) -> Result<(Vec<St
         }
     }
 
-    // Convert back to minijinja Value
     let final_context = Value::from_serialize(context_json);
     Ok((loaded_files, final_context))
 }
 
-fn setup_context(params: Params, vars: Value) -> Result<(ModuleResult, Value)> {
+fn setup_context(params: Params) -> Result<(ModuleResult, Option<Value>)> {
     if params.from.is_empty() {
         return Ok((
             ModuleResult::new(false, None, Some("No files specified to load".to_string())),
-            vars,
+            None,
         ));
     }
 
-    let (loaded_files, new_vars) = load_and_merge_files(&params.from, vars)?;
+    let (loaded_files, new_vars) = load_and_merge_files(&params.from)?;
 
     Ok((
         ModuleResult::new(
@@ -262,7 +258,7 @@ fn setup_context(params: Params, vars: Value) -> Result<(ModuleResult, Value)> {
                 loaded_files.join(", ")
             )),
         ),
-        new_vars,
+        Some(new_vars),
     ))
 }
 
@@ -278,10 +274,10 @@ impl Module for Setup {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        _vars: &Value,
         _check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
-        setup_context(parse_params(optional_params)?, vars)
+    ) -> Result<(ModuleResult, Option<Value>)> {
+        setup_context(parse_params(optional_params)?)
     }
 
     #[cfg(feature = "docs")]
@@ -293,7 +289,6 @@ impl Module for Setup {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use minijinja::context;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -419,13 +414,12 @@ api:
     #[test]
     fn test_setup_context_no_files() {
         let params = Params { from: vec![] };
-        let vars = context! { existing => "value" };
 
-        let (result, new_vars) = setup_context(params, vars.clone()).unwrap();
+        let (result, new_vars) = setup_context(params).unwrap();
 
         assert!(!result.get_changed());
         assert!(result.get_output().unwrap().contains("No files specified"));
-        assert_eq!(new_vars, vars);
+        assert_eq!(new_vars, None);
     }
 
     #[test]
@@ -447,9 +441,9 @@ api:
                 yaml_file.path().to_str().unwrap().to_string(),
             ],
         };
-        let vars = context! { existing => "value", env => context! {} };
 
-        let (result, new_vars) = setup_context(params, vars).unwrap();
+        let (result, optional_new_vars) = setup_context(params).unwrap();
+        let new_vars = optional_new_vars.unwrap();
 
         assert!(result.get_changed());
         assert!(
@@ -476,10 +470,6 @@ api:
                 .unwrap()
                 .to_string(),
             "8080"
-        );
-        assert_eq!(
-            new_vars.get_attr("existing").unwrap().as_str().unwrap(),
-            "value"
         );
     }
 

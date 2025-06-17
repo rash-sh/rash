@@ -3,7 +3,9 @@ mod valid;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::jinja::{is_render_string, render, render_force_string, render_map, render_string};
+use crate::jinja::{
+    is_render_string, merge_option, render, render_force_string, render_map, render_string,
+};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 
@@ -192,7 +194,7 @@ impl<'a> Task<'a> {
         rendered_params: &YamlValue,
         vars: &Value,
         user: User,
-    ) -> Result<Value> {
+    ) -> Result<Option<Value>> {
         match setgid(user.gid) {
             Ok(_) => match setuid(user.uid) {
                 Ok(_) => self.exec_module_rendered(rendered_params, vars),
@@ -208,25 +210,25 @@ impl<'a> Task<'a> {
         }
     }
 
-    fn exec_module_rendered(&self, rendered_params: &YamlValue, vars: &Value) -> Result<Value> {
+    fn exec_module_rendered(
+        &self,
+        rendered_params: &YamlValue,
+        vars: &Value,
+    ) -> Result<Option<Value>> {
         let module_name = self.module.get_name();
-        let extended_vars = if module_name == "set_vars" {
-            // set_vars module does not need extended vars
-            vars.clone()
-        } else {
-            self.extend_vars(vars.clone())?
-        };
+        let extended_vars = self.extend_vars(vars.clone())?;
+
         match self.module.exec(
             self.global_params,
             rendered_params.clone(),
-            extended_vars,
+            &extended_vars,
             self.check_mode,
         ) {
             Ok((result, result_vars)) => {
                 // Don't show output for control flow modules like include and block
                 if module_name != "include" && module_name != "block" {
                     let output = result.get_output();
-                    let target = match self.is_changed(&result, &result_vars)? {
+                    let target = match self.is_changed(&result, &extended_vars)? {
                         true => "changed",
                         false => "ok",
                     };
@@ -239,35 +241,36 @@ impl<'a> Task<'a> {
                         )
                     );
                 }
-                let mut new_vars = if module_name == "set_vars"
-                    || module_name == "setup"
-                    || module_name == "block"
-                {
-                    context! {..result_vars}
-                } else {
-                    context! {..vars.clone()}
-                };
-                if self.register.is_some() {
-                    let register = self.register.as_ref().unwrap();
+
+                let register_vars = self.register.clone().map(|register| {
                     trace!("register {:?} in {:?}", &result, register);
-                    let v: Value = [(register, Value::from_serialize(&result))]
+                    [(register, Value::from_serialize(&result))]
                         .into_iter()
-                        .collect();
-                    new_vars = context! { ..v, ..new_vars};
-                }
+                        .collect::<Value>()
+                });
+
+                let new_vars_value = [result_vars, register_vars]
+                    .into_iter()
+                    .fold(context! {}, merge_option);
+                let new_vars = if new_vars_value == context! {} {
+                    None
+                } else {
+                    Some(new_vars_value)
+                };
+
                 Ok(new_vars)
             }
             Err(e) => match self.ignore_errors {
                 Some(is_true) if is_true => {
                     info!(target: "ignoring", "{}", e);
-                    Ok(vars.clone())
+                    Ok(None)
                 }
                 _ => Err(e),
             },
         }
     }
 
-    fn exec_module(&self, vars: Value) -> Result<Value> {
+    fn exec_module(&self, vars: Value) -> Result<Option<Value>> {
         if self.is_exec(&vars)? {
             let rendered_params = self.render_params(vars.clone())?;
 
@@ -346,17 +349,16 @@ impl<'a> Task<'a> {
                                 }?;
                                 trace!("receive result");
                                 rx.recv()
-                                    .unwrap_or_else(|e| {
-                                        Err(SerdeError::new(&Error::new(
-                                            ErrorKind::Other,
-                                            // ipc::IpcError doesn't implement std::error:Error
-                                            format!("{e:?}"),
-                                        )))
+                                    .map_err(|e| Error::new(ErrorKind::Other, format!("{e:?}")))
+                                    .and_then(|result| {
+                                        result.map_err(|e| {
+                                            Error::new(ErrorKind::Other, format!("{e:?}"))
+                                        })
                                     })
-                                    .map(|s| serde_json::from_str(&s))
-                                    .map_err(|e| Error::new(ErrorKind::Other, e))?
-                                    .map(Value::from_serialize::<Value>)
-                                    .map_err(|e| Error::new(ErrorKind::Other, e))
+                                    .and_then(|s| {
+                                        serde_json::from_str::<Option<Value>>(&s)
+                                            .map_err(|e| Error::new(ErrorKind::Other, e))
+                                    })
                             }
                             Err(e) => Err(Error::new(ErrorKind::Other, e)),
                         }
@@ -368,7 +370,7 @@ impl<'a> Task<'a> {
             }
         } else {
             debug!("skipping");
-            Ok(vars)
+            Ok(None)
         }
     }
 
@@ -376,7 +378,7 @@ impl<'a> Task<'a> {
     ///
     /// [`Module`]: ../modules/trait.Module.html
     /// [`Vars`]: ../vars/struct.Vars.html
-    pub fn exec(&self, vars: Value) -> Result<Value> {
+    pub fn exec(&self, vars: Value) -> Result<Option<Value>> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
 
@@ -384,18 +386,7 @@ impl<'a> Task<'a> {
             return self.exec_with_rescue_always(vars);
         }
 
-        if self.r#loop.is_some() {
-            let mut ctx = vars.clone();
-            for item in self.render_iterator(vars)?.into_iter() {
-                let new_ctx = context! {item => &item, ..ctx};
-                trace!("pre execute loop: {:?}", &new_ctx);
-                ctx = self.exec_module(new_ctx)?;
-                trace!("post execute loop: {:?}", &ctx);
-            }
-            Ok(ctx)
-        } else {
-            Ok(self.exec_module(vars)?)
-        }
+        self.exec_main_task(vars)
     }
 
     /// Return name.
@@ -432,23 +423,23 @@ impl<'a> Task<'a> {
     ///
     /// The method uses functional programming patterns to handle each stage
     /// and provides detailed error context for debugging.
-    fn exec_with_rescue_always(&self, vars: Value) -> Result<Value> {
+    fn exec_with_rescue_always(&self, vars: Value) -> Result<Option<Value>> {
         let initial_vars = vars;
 
         // Stage 1: Execute main task and capture result
-        let (main_result, post_main_vars) = match self.exec_main_task(initial_vars.clone()) {
+        let (main_result, main_vars) = match self.exec_main_task(initial_vars.clone()) {
             Ok(success_vars) => {
                 trace!("Main task execution succeeded");
                 (Ok(()), success_vars)
             }
             Err(task_error) => {
                 warn!("Main task execution failed: {}", task_error);
-                (Err(task_error), initial_vars)
+                (Err(task_error), None)
             }
         };
 
-        // Stage 2: Handle rescue tasks if main task failed
-        let (rescue_result, post_rescue_vars) = match (&main_result, &self.rescue) {
+        let post_main_vars = merge_option(initial_vars, main_vars.clone());
+        let (rescue_result, rescue_vars) = match (&main_result, &self.rescue) {
             (Err(_), Some(rescue_tasks)) => {
                 info!("Executing rescue tasks due to main task failure");
                 match self.execute_task_sequence(rescue_tasks, post_main_vars.clone()) {
@@ -458,22 +449,22 @@ impl<'a> Task<'a> {
                     }
                     Err(rescue_error) => {
                         error!("Rescue tasks failed: {}", rescue_error);
-                        (Err(rescue_error), post_main_vars)
+                        (Err(rescue_error), None)
                     }
                 }
             }
             (Err(_), None) => {
                 trace!("Main task failed but no rescue tasks defined");
-                (Ok(()), post_main_vars) // No rescue available, but continue to always
+                (Ok(()), main_vars.clone()) // No rescue available, but continue to always
             }
             (Ok(_), _) => {
                 trace!("Main task succeeded, skipping rescue tasks");
-                (Ok(()), post_main_vars) // Task succeeded, no rescue needed
+                (Ok(()), main_vars.clone()) // Task succeeded, no rescue needed
             }
         };
 
-        // Stage 3: Always execute always tasks if present
-        let final_vars = match &self.always {
+        let post_rescue_vars = merge_option(post_main_vars, rescue_vars.clone());
+        let always_vars = match &self.always {
             Some(always_tasks) => {
                 trace!("Executing always tasks");
                 match self.execute_task_sequence(always_tasks, post_rescue_vars) {
@@ -493,26 +484,34 @@ impl<'a> Task<'a> {
             }
             None => {
                 trace!("No always tasks to execute");
-                post_rescue_vars
+                None
             }
         };
 
+        let all_vars_value = [main_vars, rescue_vars, always_vars]
+            .into_iter()
+            .fold(context! {}, merge_option);
+        let all_vars = if all_vars_value == context! {} {
+            None
+        } else {
+            Some(all_vars_value)
+        };
         // Stage 4: Determine final result based on execution stages
         match (&main_result, &rescue_result) {
             (Ok(_), Ok(_)) => {
                 // Main task succeeded (rescue wasn't needed)
-                Ok(final_vars)
+                Ok(all_vars)
             }
             (Ok(_), Err(_)) => {
                 // This case shouldn't happen (rescue only runs when main task fails)
                 // But handle it gracefully anyway
                 warn!("Unexpected state: main task succeeded but rescue reported failure");
-                Ok(final_vars)
+                Ok(all_vars)
             }
             (Err(_main_error), Ok(_)) => {
                 // Main task failed but rescue handled it successfully
                 debug!("Task execution recovered through rescue tasks");
-                Ok(final_vars)
+                Ok(all_vars)
             }
             (Err(main_error), Err(_)) => {
                 // Main task failed and rescue also failed (or no rescue)
@@ -542,15 +541,16 @@ impl<'a> Task<'a> {
     /// This is a helper method that provides consistent task sequence execution
     /// for rescue and always sections. It includes proper error handling and
     /// variable propagation.
-    fn execute_task_sequence(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Value> {
+    fn execute_task_sequence(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Option<Value>> {
         match tasks_yaml {
             YamlValue::Sequence(tasks) => {
                 if tasks.is_empty() {
                     warn!("Empty task sequence provided");
-                    return Ok(vars);
+                    return Ok(None);
                 }
 
                 let mut current_vars = vars;
+                let mut current_new_vars = context! {};
                 for (index, task_yaml) in tasks.iter().enumerate() {
                     match Task::new(task_yaml, self.global_params) {
                         Ok(task) => {
@@ -560,9 +560,11 @@ impl<'a> Task<'a> {
                                 task.get_rendered_name(current_vars.clone())
                                     .unwrap_or_else(|_| task.get_module().get_name().to_owned()),
                             );
-                            match task.exec(current_vars) {
+                            match task.exec(current_vars.clone()) {
                                 Ok(new_vars) => {
-                                    current_vars = new_vars;
+                                    current_vars = context! {..current_vars, ..new_vars.clone()};
+                                    current_new_vars =
+                                        context! {..current_new_vars, ..new_vars.clone()};
                                     trace!("Task {} in sequence completed successfully", index);
                                 }
                                 Err(task_error) => {
@@ -589,7 +591,7 @@ impl<'a> Task<'a> {
                         }
                     }
                 }
-                Ok(current_vars)
+                Ok(Some(current_new_vars))
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
@@ -601,21 +603,21 @@ impl<'a> Task<'a> {
     /// Execute rescue tasks - this is now just an alias for consistency.
     #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
     #[allow(dead_code)]
-    fn execute_rescue_tasks(&self, rescue_tasks: &YamlValue, vars: Value) -> Result<Value> {
+    fn execute_rescue_tasks(&self, rescue_tasks: &YamlValue, vars: Value) -> Result<Option<Value>> {
         self.execute_task_sequence(rescue_tasks, vars)
     }
 
     /// Execute always tasks - this is now just an alias for consistency.
     #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
     #[allow(dead_code)]
-    fn execute_always_tasks(&self, always_tasks: &YamlValue, vars: Value) -> Result<Value> {
+    fn execute_always_tasks(&self, always_tasks: &YamlValue, vars: Value) -> Result<Option<Value>> {
         self.execute_task_sequence(always_tasks, vars)
     }
 
     /// Execute a task list - this is now just an alias for consistency.
     #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
     #[allow(dead_code)]
-    fn execute_task_list(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Value> {
+    fn execute_task_list(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Option<Value>> {
         self.execute_task_sequence(tasks_yaml, vars)
     }
 
@@ -623,17 +625,25 @@ impl<'a> Task<'a> {
     ///
     /// This method handles both single task execution and looped task execution,
     /// providing the foundation for rescue/always error handling patterns.
-    fn exec_main_task(&self, vars: Value) -> Result<Value> {
+    fn exec_main_task(&self, vars: Value) -> Result<Option<Value>> {
         if self.r#loop.is_some() {
             // Handle loops - execute the task for each iteration
-            let mut ctx = vars.clone();
-            for item in self.render_iterator(vars)?.into_iter() {
+            let mut new_vars = context! {};
+            for item in self.render_iterator(vars.clone())?.into_iter() {
+                let ctx = context! {..vars.clone(), ..new_vars.clone()};
                 let new_ctx = context! {item => &item, ..ctx};
                 trace!("pre execute loop: {:?}", &new_ctx);
-                ctx = self.exec_module(new_ctx)?;
-                trace!("post execute loop: {:?}", &ctx);
+                let loop_vars = self.exec_module(new_ctx)?;
+                if let Some(v) = loop_vars {
+                    new_vars = context! {..new_vars, ..v};
+                }
+                trace!("post execute loop: {:?}", &new_vars);
             }
-            Ok(ctx)
+            if new_vars == context! {} {
+                Ok(None)
+            } else {
+                Ok(Some(new_vars))
+            }
         } else {
             // Single task execution
             self.exec_module(vars)
@@ -1000,10 +1010,7 @@ mod tests {
         let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
         let task = Task::from(yaml);
         let result = task.exec(vars).unwrap();
-        let expected = context! {
-            item => 3,
-        };
-        assert_eq!(result, expected);
+        assert_eq!(result, None);
     }
 
     #[test]
@@ -1052,35 +1059,7 @@ mod tests {
 
         let vars = context! {};
         let result = task.exec(vars.clone()).unwrap();
-        assert_eq!(result, vars);
-    }
-
-    #[test]
-    fn test_task_execute_keep_vars() {
-        let s0 = r#"
-            name: task 1
-            command: echo foo
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-
-        let vars = context! {buu => "boo"};
-        let result = task.exec(vars.clone()).unwrap();
-        assert_eq!(result, vars);
-
-        let s0 = r#"
-            name: task 1
-            debug:
-              msg: "foo"
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-
-        let vars = context! {buu => "boo"};
-        let result = task.exec(vars.clone()).unwrap();
-        assert_eq!(result, vars);
+        assert_eq!(result, None);
     }
 
     #[test]
@@ -1096,24 +1075,13 @@ mod tests {
 
         let vars = context! {};
         let result = task.exec(vars.clone()).unwrap();
-        assert!(result.get_attr("yea").map(|x| !x.is_undefined()).unwrap());
-    }
-
-    // check item is removed from vars after task loop execution
-    #[test]
-    fn test_task_execute_item_var_removed() {
-        let s0 = r#"
-            name: task 1
-            command: echo foo
-            loop: "{{ range(3) }}"
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-
-        let vars = context! {};
-        let result = task.exec(vars.clone()).unwrap();
-        assert!(result.get_attr("item").map(|x| !x.is_undefined()).unwrap());
+        assert!(
+            result
+                .unwrap()
+                .get_attr("yea")
+                .map(|x| !x.is_undefined())
+                .unwrap()
+        );
     }
 
     #[test]

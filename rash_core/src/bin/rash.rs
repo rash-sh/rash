@@ -192,7 +192,7 @@ fn main() {
                 Err(e) => crash_error(e),
             };
             trace!("Vars: {new_vars}");
-            match Context::new(tasks, new_vars).exec() {
+            match Context::new(tasks, new_vars, None).exec() {
                 Ok(_) => (),
                 Err(context_error) => match context_error.kind() {
                     ErrorKind::EmptyTaskStack => (),

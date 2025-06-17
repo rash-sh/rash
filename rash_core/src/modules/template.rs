@@ -54,7 +54,7 @@ pub struct Params {
     mode: Option<String>,
 }
 
-fn render_content(params: Params, vars: Value) -> Result<CopyParams> {
+fn render_content(params: Params, vars: &Value) -> Result<CopyParams> {
     let mode = match params.mode.as_deref() {
         Some("preserve") => {
             let src_metadata = metadata(&params.src)?;
@@ -66,7 +66,7 @@ fn render_content(params: Params, vars: Value) -> Result<CopyParams> {
     };
 
     Ok(CopyParams {
-        input: Input::Content(render_string(&read_to_string(params.src)?, &vars)?),
+        input: Input::Content(render_string(&read_to_string(params.src)?, vars)?),
         dest: params.dest.clone(),
         mode,
     })
@@ -84,15 +84,15 @@ impl Module for Template {
         &self,
         _: &GlobalParams,
         optional_params: YamlValue,
-        vars: Value,
+        vars: &Value,
         check_mode: bool,
-    ) -> Result<(ModuleResult, Value)> {
+    ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((
             copy_file(
-                render_content(parse_params(optional_params)?, vars.clone())?,
+                render_content(parse_params(optional_params)?, vars)?,
                 check_mode,
             )?,
-            vars,
+            None,
         ))
     }
 
@@ -207,7 +207,7 @@ mod tests {
                 dest: "/tmp/buu.txt".to_owned(),
                 mode: Some("0644".to_owned()),
             },
-            vars,
+            &vars,
         )
         .unwrap();
 
@@ -242,7 +242,7 @@ mod tests {
                 dest: "/tmp/buu.txt".to_owned(),
                 mode: Some("preserve".to_owned()),
             },
-            vars,
+            &vars,
         )
         .unwrap();
 

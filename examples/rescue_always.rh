@@ -54,22 +54,6 @@
       debug:
         msg: "Copy operation attempted to /tmp/test_copy.txt"
 
-- name: Test rescue/always with loop
-  debug:
-    msg: "Processing item: {{ item }}"
-  loop:
-    - item1
-    - item2
-    - item3
-  rescue:
-    - name: Handle loop item failure
-      debug:
-        msg: "Failed processing item: {{ item }}"
-  always:
-    - name: Log processed item
-      debug:
-        msg: "Processed (or attempted to process) item: {{ item }}"
-
 - name: Test nested rescue/always in rescue section
   command:
     cmd: "exit 1"  # This will fail
@@ -117,17 +101,3 @@
     - name: Report findings
       debug:
         msg: "Find operation completed successfully"
-
-- name: Final cleanup
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /tmp/test_file
-    - /tmp/test_copy.txt
-    - /tmp/test_template.txt
-  ignore_errors: true
-  always:
-    - name: Report cleanup completion
-      debug:
-        msg: "Cleanup completed for {{ item }}"
