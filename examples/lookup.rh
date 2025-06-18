@@ -3,3 +3,11 @@
   debug:
     var: item | replace(rash.dir, '.')
   loop: "{{ find({'paths': rash.dir}) }}"
+
+- name: read README file
+  debug:
+    msg: "README content (first 100 chars): {{ file('README.md')[:100] }}"
+
+- name: read file with custom stripping
+  debug:
+    msg: "File content without end whitespace stripping: '{{ file('README.md', rstrip=false)[:50] }}...'"
