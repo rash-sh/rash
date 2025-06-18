@@ -3,6 +3,7 @@ mod password;
 #[cfg(feature = "passwordstore")]
 mod passwordstore;
 mod pipe;
+mod vault;
 
 mod utils;
 
@@ -12,5 +13,6 @@ generate_lookup_functions!(
     (find, false),
     (password, false),
     (passwordstore, true),
-    (pipe, false)
+    (pipe, false),
+    (vault, false)
 );
