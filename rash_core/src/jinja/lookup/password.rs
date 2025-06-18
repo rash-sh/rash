@@ -52,8 +52,8 @@ use std::result::Result as StdResult;
 
 use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value, value::Kwargs};
 use rand::SeedableRng;
+use rand::prelude::*;
 use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
 
 const DEFAULT_LENGTH: usize = 20;
 const ASCII_LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
@@ -163,7 +163,7 @@ fn build_charset(chars: Option<&Vec<String>>) -> StdResult<String, MinijinjaErro
 }
 
 fn generate_random_password(charset: &str, length: usize) -> StdResult<String, MinijinjaError> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let chars: Vec<char> = charset.chars().collect();
 
     let password: String = (0..length)
