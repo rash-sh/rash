@@ -1,0 +1,55 @@
+#!/usr/bin/env rash
+
+# Simple and cool examples of pipe lookup
+# Shows practical system tasks and smart automation
+
+- name: Welcome message
+  debug:
+    msg: "👋 Welcome {{ pipe('whoami') }}! Today is {{ pipe('date +\"%A, %B %d\"') }}"
+
+- name: Check disk usage and take action
+  vars:
+    disk_usage: "{{ pipe('df / | grep -o \"[0-9]*%\" | tr -d \"%\"') }}"
+  block:
+    - name: Show current disk usage
+      debug:
+        msg: "💾 Root filesystem is {{ disk_usage }}% full"
+
+    - name: Clean temporary files (when disk > 80%)
+      debug:
+        msg: "🧹 Cleaning temporary files..."
+      when: disk_usage | int > 80
+
+    - name: Find large files to review (when disk > 80%)
+      debug:
+        msg: "📁 Large files found:\n{{ pipe('find /var/log -type f -size +100M -ls 2>/dev/null | head -5') }}"
+      when: disk_usage | int > 80
+
+    - name: All good message (when disk <= 80%)
+      debug:
+        msg: "✅ Disk usage is healthy!"
+      when: disk_usage | int <= 80
+
+- name: Quick system overview
+  debug:
+    msg: |
+      🖥️  System: {{ pipe('hostname') }}
+      ⚡ Load: {{ pipe('uptime | cut -d, -f4-') }}
+      🏠 You are in: {{ pipe('pwd | sed "s|$HOME|~|"') }}
+      📦 Files here: {{ pipe('ls -1 | wc -l') }}
+
+- name: Git status (if in a repository)
+  vars:
+    git_status: "{{ pipe('git status --porcelain 2>/dev/null | wc -l') }}"
+    branch: "{{ pipe('git branch --show-current 2>/dev/null') }}"
+  debug:
+    msg: "🌿 On branch '{{ branch }}' with {{ git_status }} uncommitted changes"
+  when: branch != ""
+
+- name: Create backup filename with style
+  vars:
+    timestamp: "{{ pipe('date +%Y%m%d_%H%M%S') }}"
+    hostname: "{{ pipe('hostname') }}"
+    backup_name: "{{ hostname }}_backup_{{ timestamp }}.tar.gz"
+  debug:
+    msg: "💾 Suggested backup name: {{ backup_name }}"
