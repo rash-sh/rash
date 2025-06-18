@@ -41,7 +41,7 @@ ignore = "0.4"
 ipc-channel = "0.20.0"
 itertools = "0.14"
 nix = { version = "0.30", features = ["process", "user"] }
-rand = "0.8"
+rand = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 serde-error = "0.1.2"
 serde_with = "3.8"
