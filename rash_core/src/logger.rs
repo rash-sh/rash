@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
+use crate::utils::get_terminal_width;
 
 use std::fmt;
 use std::io;
@@ -28,10 +29,6 @@ impl fmt::Display for Line {
             None => write!(f, "    "),
         }
     }
-}
-
-fn get_terminal_width() -> usize {
-    term_size::dimensions().map(|(w, _)| w).unwrap_or(80)
 }
 
 /// Print iterator.

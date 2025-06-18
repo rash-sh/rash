@@ -1,5 +1,102 @@
 use crate::error::{Error, ErrorKind, Result};
 
+/// Get the width of the terminal.
+///
+/// This function attempts to determine the terminal width using multiple approaches:
+/// 1. Environment variables: Check COLUMNS and TERM_WIDTH
+/// 2. Use ioctl system call to get terminal size directly
+/// 3. Try tput command as fallback
+/// 4. Fallback to 80 columns
+pub fn get_terminal_width() -> usize {
+    // Try environment variables first
+    for env_var in ["COLUMNS", "TERM_WIDTH"] {
+        if let Ok(columns) = std::env::var(env_var) {
+            if let Ok(width) = columns.parse::<usize>() {
+                if width > 0 {
+                    return width;
+                }
+            }
+        }
+    }
+
+    // Try to get terminal size using direct ioctl system call
+    #[cfg(unix)]
+    {
+        if let Some(width) = get_terminal_width_ioctl() {
+            return width;
+        }
+    }
+
+    // Try to get terminal size using tput command as fallback
+    #[cfg(unix)]
+    {
+        if let Some(width) = get_terminal_width_tput() {
+            return width;
+        }
+    }
+
+    // Default fallback
+    80
+}
+
+#[cfg(unix)]
+fn get_terminal_width_tput() -> Option<usize> {
+    use std::process::Command;
+
+    // Try to use tput command to get terminal width
+    if let Ok(output) = Command::new("tput").arg("cols").output() {
+        if output.status.success() {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            if let Ok(width) = output_str.trim().parse::<usize>() {
+                if width > 0 {
+                    return Some(width);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(unix)]
+fn get_terminal_width_ioctl() -> Option<usize> {
+    use std::mem;
+    use std::os::fd::{AsRawFd, RawFd};
+
+    // Define winsize struct that matches system struct
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    struct WinSize {
+        ws_row: u16,
+        ws_col: u16,
+        ws_xpixel: u16,
+        ws_ypixel: u16,
+    }
+
+    // TIOCGWINSZ ioctl request constant
+    use nix::libc::{TIOCGWINSZ, ioctl};
+
+    // Try stdout, stderr, then stdin
+    let fds: [RawFd; 3] = [
+        std::io::stdout().as_raw_fd(),
+        std::io::stderr().as_raw_fd(),
+        std::io::stdin().as_raw_fd(),
+    ];
+
+    for &fd in &fds {
+        let mut ws: WinSize = unsafe { mem::zeroed() };
+
+        // Use nix crate's ioctl wrapper with proper type casting
+        let result = unsafe { ioctl(fd, TIOCGWINSZ as _, &mut ws as *mut WinSize as *mut _) };
+
+        if result == 0 && ws.ws_col > 0 {
+            return Some(ws.ws_col as usize);
+        }
+    }
+
+    None
+}
+
 pub fn parse_octal(s: &str) -> Result<u32> {
     match s.len() {
         3 => u32::from_str_radix(s, 8).map_err(|e| Error::new(ErrorKind::InvalidData, e)),
@@ -177,5 +274,49 @@ mod tests {
             a.get("a").unwrap(),
             &json!({ "b": { "c": vec![1, 2, 3, 4], "e": "world" } })
         );
+    }
+
+    #[test]
+    fn test_get_terminal_width() {
+        // Test that get_terminal_width returns a reasonable value
+        let width = get_terminal_width();
+        assert!(
+            width >= 80,
+            "Terminal width should be at least 80, got {}",
+            width
+        );
+        assert!(
+            width <= 1000,
+            "Terminal width should be reasonable, got {}",
+            width
+        );
+    }
+
+    #[test]
+    fn test_get_terminal_width_with_env() {
+        // Test with COLUMNS environment variable
+        unsafe {
+            std::env::set_var("COLUMNS", "120");
+        }
+        let width = get_terminal_width();
+        // Clean up before assertion to avoid affecting other tests
+        unsafe {
+            std::env::remove_var("COLUMNS");
+        }
+        assert_eq!(width, 120);
+    }
+
+    #[test]
+    fn test_get_terminal_width_fallback() {
+        // Test fallback behavior with invalid env var
+        unsafe {
+            std::env::set_var("TERM_WIDTH", "invalid");
+        }
+        let width = get_terminal_width();
+        // Should fall back to 80 or get actual terminal width
+        assert!(width >= 80);
+        unsafe {
+            std::env::remove_var("TERM_WIDTH");
+        }
     }
 }
