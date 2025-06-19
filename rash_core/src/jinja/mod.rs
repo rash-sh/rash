@@ -63,7 +63,8 @@ fn _render(value: YamlValue, vars: &Value, force_string: bool) -> Result<YamlVal
             if force_string {
                 Ok(YamlValue::String(rendered.to_string()))
             } else {
-                Ok(serde_yaml::from_str(rendered)?)
+                Ok(serde_yaml::from_str(rendered)
+                    .unwrap_or(YamlValue::String(rendered.to_string())))
             }
         }
         YamlValue::Number(_) => Ok(value),
