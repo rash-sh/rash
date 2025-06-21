@@ -35,6 +35,11 @@ jobs:
           # Strip git ref prefix from version
           FULL_VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
 
+          # If FULL_VERSION is 'master', set it to 'latest'
+          if [ "$FULL_VERSION" = "master" ]; then
+            FULL_VERSION="latest"
+          fi
+
           # Strip patch from version
           VERSION=$(echo "${FULL_VERSION}" | sed  's/^v\([0-9]\+\)\.\([0-9]\+\)\.[0-9]\+/v\1.\2/')
 
