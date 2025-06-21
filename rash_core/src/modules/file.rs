@@ -43,7 +43,7 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             path: /yea
             state: file
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_path() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             mode: "0644"
             state: file
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             path: foo
             state: directory
@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_invalid_mode() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             mode:
               yea: boo
@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_state() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             path: foo
         "#,

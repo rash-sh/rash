@@ -68,7 +68,7 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_json;
-use serde_yaml::{Value as YamlValue, value};
+use serde_norway::{Value as YamlValue, value};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -493,7 +493,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             name: httpd
             state: started
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_daemon_reload() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             daemon_reload: true
             "#,
@@ -543,7 +543,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             name: httpd
             state: started

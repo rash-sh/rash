@@ -45,7 +45,7 @@ use crate::modules::{Module, ModuleResult};
 use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::Schema;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 
 #[derive(Debug)]
 pub struct SetVars;

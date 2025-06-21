@@ -6,7 +6,7 @@ use std::result;
 
 use minijinja::Error as JinjaError;
 use nix::Error as NixError;
-use serde_yaml::Error as YamlError;
+use serde_norway::Error as YamlError;
 
 /// A specialized type `rash` operations.
 pub type Result<T> = result::Result<T, Error>;
@@ -132,9 +132,9 @@ impl From<io::Error> for Error {
 }
 
 impl From<YamlError> for Error {
-    /// Converts a serde_yaml::Error into an [`Error`].
+    /// Converts a serde_norway::Error into an [`Error`].
     ///
-    /// This conversion allocates a new error with a custom representation of serde_yaml error.
+    /// This conversion allocates a new error with a custom representation of serde_norway error.
     ///
     ///
     /// [`Error`]: ../error/struct.Error.html

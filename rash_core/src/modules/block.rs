@@ -44,7 +44,7 @@ use crate::task::{Task, Tasks};
 use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::Schema;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 
 #[derive(Debug)]
 pub struct Block;
@@ -119,7 +119,7 @@ mod tests {
     use super::*;
     use crate::context::GlobalParams;
     use minijinja::context;
-    use serde_yaml;
+    use serde_norway;
 
     fn create_test_global_params() -> GlobalParams<'static> {
         GlobalParams::default()
@@ -182,7 +182,7 @@ mod tests {
         debug:
           msg: test message
         "#;
-        let task_yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let task_yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_yamls = vec![task_yaml];
 
         let result = block.parse_tasks_from_yaml(&task_yamls, &global_params);

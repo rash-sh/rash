@@ -5,7 +5,7 @@ use crate::task::Task;
 
 use std::collections::HashSet;
 
-use serde_yaml::Value;
+use serde_norway::Value;
 
 /// TaskValid is a ProtoTask with verified attrs: one module with valid attrs
 #[derive(Debug)]
@@ -142,7 +142,7 @@ impl TaskValid {
 mod tests {
     use super::*;
     use crate::context::GlobalParams;
-    use serde_yaml::Value as YamlValue;
+    use serde_norway::Value as YamlValue;
 
     fn create_test_global_params() -> GlobalParams<'static> {
         GlobalParams::default()
@@ -159,7 +159,7 @@ mod tests {
             debug:
               msg: rescue
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -188,7 +188,7 @@ mod tests {
             debug:
               msg: always
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -221,7 +221,7 @@ mod tests {
             debug:
               msg: always
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -267,7 +267,7 @@ mod tests {
             debug:
               msg: always
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -289,7 +289,7 @@ mod tests {
             debug:
               msg: main
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -309,7 +309,7 @@ mod tests {
         debug:
           msg: test
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -334,7 +334,7 @@ mod tests {
             debug:
               msg: "Copy failed, cleaning up"
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -359,7 +359,7 @@ mod tests {
             debug:
               msg: "Always running cleanup"
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -391,7 +391,7 @@ mod tests {
             debug:
               msg: "Cleaning up after loop item: {{ item }}"
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 
@@ -414,7 +414,7 @@ mod tests {
         rescue: []
         always: []
         "#;
-        let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
         let task_valid = TaskValid::new(&yaml);
         let global_params = create_test_global_params();
 

@@ -3,7 +3,7 @@ use crate::modules::is_module;
 use crate::task::Task;
 use crate::task::valid::TaskValid;
 
-use serde_yaml::Value;
+use serde_norway::Value;
 
 /// TaskNew is a new task without a verified Yaml
 #[derive(Debug)]
