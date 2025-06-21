@@ -62,8 +62,8 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
+use serde_norway::{Value as YamlValue, value};
 use serde_with::{OneOrMany, serde_as};
-use serde_yaml::{Value as YamlValue, value};
 use shlex::split;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             name: rustup
             state: present
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_all_values() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             executable: yay
             extra_args: "--nodeps --nodeps"
@@ -458,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             name: rustup
             foo: yea

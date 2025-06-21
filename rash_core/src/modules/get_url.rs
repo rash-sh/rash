@@ -72,8 +72,8 @@ use reqwest::blocking::{Client, Response};
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_json::json;
-use serde_yaml::Value as YamlValue;
-use serde_yaml::value;
+use serde_norway::Value as YamlValue;
+use serde_norway::value;
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -477,7 +477,7 @@ impl Module for GetUrl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml::from_str;
+    use serde_norway::from_str;
 
     #[test]
     fn test_parse_params_simple() {

@@ -41,7 +41,7 @@ use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::Schema;
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 
 #[derive(Debug)]
 pub struct Include;

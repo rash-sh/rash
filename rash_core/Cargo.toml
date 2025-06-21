@@ -30,7 +30,7 @@ log.workspace = true
 regex.workspace = true
 schemars = { workspace = true, optional = true }
 serde_json.workspace = true
-serde_yaml.workspace = true
+serde_norway.workspace = true
 byte-unit = "5.1"
 console = "0.15"
 minijinja = { version = "2.5.0", features = ["loader", "json", "loop_controls"] }

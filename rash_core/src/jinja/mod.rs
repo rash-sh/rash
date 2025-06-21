@@ -14,7 +14,7 @@ use serde::Deserialize;
 use std::sync::LazyLock;
 
 use minijinja::{Environment, UndefinedBehavior, Value, context};
-use serde_yaml::value::Value as YamlValue;
+use serde_norway::value::Value as YamlValue;
 
 const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
 
@@ -30,8 +30,12 @@ fn init_env() -> Environment<'static> {
 static MINIJINJA_ENV: LazyLock<Environment<'static>> = LazyLock::new(init_env);
 
 #[inline(always)]
-pub fn render_map(map: serde_yaml::Mapping, vars: &Value, force_string: bool) -> Result<YamlValue> {
-    let mut rendered_map = serde_yaml::Mapping::new();
+pub fn render_map(
+    map: serde_norway::Mapping,
+    vars: &Value,
+    force_string: bool,
+) -> Result<YamlValue> {
+    let mut rendered_map = serde_norway::Mapping::new();
     let mut current_vars = vars.clone();
 
     for (k, v) in map.iter() {
@@ -63,7 +67,7 @@ fn _render(value: YamlValue, vars: &Value, force_string: bool) -> Result<YamlVal
             if force_string {
                 Ok(YamlValue::String(rendered.to_string()))
             } else {
-                Ok(serde_yaml::from_str(rendered)
+                Ok(serde_norway::from_str(rendered)
                     .unwrap_or(YamlValue::String(rendered.to_string())))
             }
         }
@@ -146,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_render_map() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             yea: "{{ boo }}"
             "#,
@@ -158,7 +162,7 @@ mod tests {
             false,
         )
         .unwrap();
-        let expected: YamlValue = serde_yaml::from_str(
+        let expected: YamlValue = serde_norway::from_str(
             r#"
             yea: 1
             "#,
@@ -166,7 +170,7 @@ mod tests {
         .unwrap();
         assert_eq!(r_yaml, expected);
 
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             yea: "{{ boo }}"
             fuu: "{{ zoo | default(omit) }}"
@@ -179,7 +183,7 @@ mod tests {
             false,
         )
         .unwrap();
-        let expected: YamlValue = serde_yaml::from_str(
+        let expected: YamlValue = serde_norway::from_str(
             r#"
             yea: 2
             "#,

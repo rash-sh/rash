@@ -27,4 +27,4 @@ mdbook = { version = "0.4.37", default-features = false }
 prettytable-rs = "^0.10"
 semver = "1.0"
 serde_json.workspace = true
-serde_yaml.workspace = true
+serde_norway.workspace = true

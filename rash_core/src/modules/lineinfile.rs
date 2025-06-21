@@ -48,7 +48,7 @@ use regex::Regex;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             path: "/tmp/test.txt"
             line: "test line"

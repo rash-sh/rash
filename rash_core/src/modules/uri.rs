@@ -56,8 +56,8 @@ use reqwest::blocking::{Client, Response};
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
-use serde_yaml::value;
+use serde_norway::Value as YamlValue;
+use serde_norway::value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -258,7 +258,7 @@ impl Module for Uri {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml::from_str;
+    use serde_norway::from_str;
 
     #[test]
     fn test_parse_params_simple() {

@@ -46,8 +46,8 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
-use serde_yaml::value;
+use serde_norway::Value as YamlValue;
+use serde_norway::value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             cmd: "ls"
             transfer_pid: false
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_without_cmd_or_argv() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             transfer_pid: false
             "#,
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             cmd: "ls"
             yea: boo

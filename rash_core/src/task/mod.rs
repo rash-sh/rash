@@ -19,7 +19,7 @@ use minijinja::{Value, context};
 use nix::sys::wait::{WaitStatus, waitpid};
 use nix::unistd::{ForkResult, Uid, User, fork, setgid, setuid};
 use serde_error::Error as SerdeError;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 
 /// Main structure at definition level which prepares [`Module`] executions.
 ///
@@ -85,7 +85,7 @@ impl<'a> Task<'a> {
     /// [`Task`] fields.
     ///
     /// [`Task`]: struct.Task.html
-    /// [`Value`]: ../../serde_yaml/enum.Value.html
+    /// [`Value`]: ../../serde_norway/enum.Value.html
     pub fn new(yaml: &YamlValue, global_params: &'a GlobalParams) -> Result<Self> {
         trace!("new task: {:?}", yaml);
         TaskNew::from(yaml)
@@ -171,7 +171,7 @@ impl<'a> Task<'a> {
         let extended_vars = self.extend_vars(context! {item => "",..vars})?;
         match loop_some.as_str() {
             Some(s) => {
-                let value: YamlValue = serde_yaml::from_str(&render_string(s, &extended_vars)?)?;
+                let value: YamlValue = serde_norway::from_str(&render_string(s, &extended_vars)?)?;
                 match value.as_str() {
                     Some(_) => Ok(vec![value]),
                     None => Task::get_iterator(&value, extended_vars),
@@ -666,7 +666,7 @@ impl From<YamlValue> for Task<'_> {
 }
 
 pub fn parse_file<'a>(tasks_file: &str, global_params: &'a GlobalParams) -> Result<Tasks<'a>> {
-    let tasks: Vec<YamlValue> = serde_yaml::from_str(tasks_file)?;
+    let tasks: Vec<YamlValue> = serde_norway::from_str(tasks_file)?;
     tasks
         .into_iter()
         .map(|task| Task::new(&task, global_params))
@@ -688,7 +688,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
 
         assert_eq!(task.name.unwrap(), "Test task");
@@ -702,7 +702,7 @@ mod tests {
             no_module: 'example'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task_err = Task::new(&yaml, &GlobalParams::default()).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
@@ -715,7 +715,7 @@ mod tests {
             invalid_attr: 'foo'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task_err = Task::new(&yaml, &GlobalParams::default()).unwrap_err();
         assert_eq!(task_err.kind(), ErrorKind::InvalidData);
     }
@@ -728,7 +728,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
     }
@@ -741,7 +741,7 @@ mod tests {
             "#
         .to_owned();
         let vars = Value::from_serialize(vec![("boo", "false")]);
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -754,7 +754,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -767,7 +767,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! {};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -782,7 +782,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
     }
@@ -797,7 +797,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
 
@@ -810,7 +810,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! {};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
 
@@ -823,7 +823,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! {};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
 
@@ -836,7 +836,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! {};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
     }
@@ -851,7 +851,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(task.is_exec(&vars).unwrap());
     }
@@ -867,7 +867,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! {};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
             task.render_iterator(vars).unwrap(),
@@ -883,7 +883,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test" };
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             task.is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -899,7 +899,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             task.is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -915,7 +915,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             !task
@@ -932,7 +932,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             !task
@@ -949,7 +949,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             !task
@@ -968,7 +968,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             task.is_changed(&ModuleResult::new(false, None, None), &vars)
@@ -986,7 +986,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(
             !task
@@ -1007,7 +1007,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! {};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         let result = task.exec(vars).unwrap();
         assert_eq!(result, None);
@@ -1021,7 +1021,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
             task.render_iterator(vars).unwrap(),
@@ -1039,7 +1039,7 @@ mod tests {
             "#
         .to_owned();
         let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_yaml::from_str(&s).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert_eq!(
             task.render_iterator(vars).unwrap(),
@@ -1054,7 +1054,7 @@ mod tests {
             command: echo foo
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
 
         let vars = context! {};
@@ -1070,7 +1070,7 @@ mod tests {
             register: yea
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
 
         let vars = context! {};
@@ -1106,7 +1106,7 @@ mod tests {
               foo: boo
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task_0 = Task::from(yaml);
 
         assert_eq!(tasks[0].name, task_0.name);
@@ -1118,7 +1118,7 @@ mod tests {
             command: boo
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s1).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s1).unwrap();
         let task_1 = Task::from(yaml);
         assert_eq!(tasks[1].name, task_1.name);
         assert_eq!(tasks[1].params, task_1.params);
@@ -1133,7 +1133,7 @@ mod tests {
               cmd: ls {{ directory }}
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = Value::from_serialize(
             [("directory", "boo"), ("xuu", "zoo")]
@@ -1157,7 +1157,7 @@ mod tests {
               foo: boo
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {};
 
@@ -1175,7 +1175,7 @@ mod tests {
               foo: '{{ directory }}'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {
             directory => "boo",
@@ -1197,7 +1197,7 @@ mod tests {
               foo: '{{ boo }}'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {
             directory => "boo",
@@ -1218,7 +1218,7 @@ mod tests {
               - foo: boo
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {};
 
@@ -1240,7 +1240,7 @@ mod tests {
                 - 13
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {};
 
@@ -1258,7 +1258,7 @@ mod tests {
               all: '{{ boo + buu }}'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {boo => &[1, 23], buu => &[13]};
 
@@ -1281,7 +1281,7 @@ mod tests {
               all: '{{ boo + buu }}'
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {};
 
@@ -1296,7 +1296,7 @@ mod tests {
             command: ls {{ directory }}
             "#
         .to_owned();
-        let yaml: YamlValue = serde_yaml::from_str(&s0).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
         let task = Task::from(yaml);
         let vars = context! {
             directory => "boo",

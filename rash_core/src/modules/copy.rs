@@ -41,7 +41,7 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 use tempfile::tempfile;
 
 /// Display permission diff in Ansible-like format
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             content: "boo"
             dest: "/tmp/buu.txt"
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_mode_int() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             content: "boo"
             dest: "/tmp/buu.txt"
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_no_mode() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             content: "boo"
             dest: "/tmp/buu.txt"
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_src_field() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             src: "/tmp/a"
             dest: "/tmp/buu.txt"
@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_content_and_src() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             content: "boo"
             src: "/tmp/a"
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             random: "boo"
             src: "/tmp/a"

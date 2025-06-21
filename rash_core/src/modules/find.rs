@@ -46,8 +46,8 @@ use regex::RegexSet;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
+use serde_norway::{Value as YamlValue, value};
 use serde_with::{OneOrMany, serde_as};
-use serde_yaml::{Value as YamlValue, value};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             paths: /var/log
             recurse: false
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_default() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             paths: /var/log
             "#,
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_random_field() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             paths: /var/log
             yea: boo
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_one_or_many() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             paths:
               - /foo

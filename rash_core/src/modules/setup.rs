@@ -48,7 +48,7 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize, Clone)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -163,7 +163,7 @@ fn load_env_vars(content: &str) -> Result<serde_json::Value> {
 }
 
 fn load_yaml_vars(content: &str) -> Result<serde_json::Value> {
-    let yaml_value: YamlValue = serde_yaml::from_str(content)
+    let yaml_value: YamlValue = serde_norway::from_str(content)
         .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Invalid YAML: {}", e)))?;
 
     serde_json::to_value(yaml_value).map_err(|e| {
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_parse_params() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             from:
               - .env
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_single_file() {
-        let yaml: YamlValue = serde_yaml::from_str(
+        let yaml: YamlValue = serde_norway::from_str(
             r#"
             from:
               - config.json
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_empty() {
-        let yaml: YamlValue = serde_yaml::from_str("{}").unwrap();
+        let yaml: YamlValue = serde_norway::from_str("{}").unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params, Params { from: vec![] });
     }

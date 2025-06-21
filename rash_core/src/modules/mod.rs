@@ -41,7 +41,7 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::Schema;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value as YamlValue;
+use serde_norway::Value as YamlValue;
 
 /// Return values of a [`Module`] execution.
 ///
@@ -151,7 +151,7 @@ where
     for<'a> P: Deserialize<'a>,
 {
     trace!("parse params: {:?}", yaml);
-    serde_yaml::from_value(yaml).map_err(|e| Error::new(ErrorKind::InvalidData, e))
+    serde_norway::from_value(yaml).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 
 #[inline(always)]
