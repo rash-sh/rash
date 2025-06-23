@@ -60,7 +60,7 @@ pub fn derive_doc_json_schema(input: TokenStream) -> TokenStream {
         impl #name {
             /// Return Json Schema.
             pub fn get_json_schema() -> schemars::Schema {
-                let settings = schemars::r#gen::SchemaSettings::default().with(|s| {
+                let settings = schemars::generate::SchemaSettings::default().with(|s| {
                     s.inline_subschemas = true;
                 });
                 let generator = settings.into_generator();
