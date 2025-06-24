@@ -189,13 +189,22 @@ impl PacmanClient {
         force: bool,
         extra_args: Option<String>,
         check_mode: bool,
-    ) -> Self {
-        PacmanClient {
+    ) -> Result<Self> {
+        if !executable.exists() || !executable.is_file() {
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                format!(
+                    "Error: pacman executable not found at '{}'. Please provide a valid path.",
+                    executable.display()
+                ),
+            ));
+        }
+        Ok(PacmanClient {
             executable: executable.to_path_buf(),
             force,
             extra_args,
             check_mode,
-        }
+        })
     }
 
     fn get_cmd(&self) -> Command {
@@ -344,7 +353,7 @@ fn pacman(params: Params, check_mode: bool) -> Result<ModuleResult> {
         params.force.unwrap(),
         params.extra_args,
         check_mode,
-    );
+    )?;
 
     if params.update_cache.unwrap() {
         client.update_cache()?;

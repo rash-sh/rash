@@ -227,3 +227,23 @@ pacman:
 
     assert!(!stderr.is_empty());
 }
+
+#[test]
+fn test_pacman_executable_not_found() {
+    let script_text = r#"
+#!/usr/bin/env rash
+- name: test pacman module
+  pacman:
+    executable: pacman.rh
+    name:
+      - rash
+    state: sync
+        "#
+    .to_string();
+    let args = ["--output", "raw"];
+    let (_, stderr) = run_test(&script_text, &args);
+
+    assert!(stderr.lines().last().unwrap().contains(
+        "Error: pacman executable not found at 'pacman.rh'. Please provide a valid path."
+    ));
+}
