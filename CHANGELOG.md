@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.16.0](https://github.com/rash-sh/rash/tree/v2.16.0) - 2025-06-25
+
+### Added
+
+- module: Add dereference param to copy
+
+### Fixed
+
+- module: Improve error message on exec not found for pacman module
+
+### Documentation
+
+- ci: Replace master with latest on pages
+
+### Build
+
+- core: Replace serde-yaml with serde-norway
+- deps: Update Rust crate syn to v2.0.104
+- deps: Update Rust crate schemars to v1
+- deps: Fix schemars import on  rash_derive
+- deps: Update Rust crate schemars to v1.0.1
+
 ## [v2.15.0](https://github.com/rash-sh/rash/tree/v2.15.0) - 2025-06-19
 
 ### Added
