@@ -69,6 +69,7 @@ fn render_content(params: Params, vars: &Value) -> Result<CopyParams> {
         input: Input::Content(render_string(&read_to_string(params.src)?, vars)?),
         dest: params.dest.clone(),
         mode,
+        dereference: true, // default to true for template module
     })
 }
 
