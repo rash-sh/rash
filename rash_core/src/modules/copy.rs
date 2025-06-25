@@ -33,9 +33,12 @@ use std::fs::{File, OpenOptions, Permissions, metadata, set_permissions};
 use std::io::prelude::*;
 
 use std::fmt;
+use std::fs;
 use std::io::Result as IoResult;
 use std::io::{BufReader, Write};
+use std::os::unix::fs as unix_fs;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -67,6 +70,14 @@ pub struct Params {
     /// The mode may also be the special string `preserve`.
     /// `preserve` means that the file will be given the same permissions as the source file.
     pub mode: Option<String>,
+    /// Whether to follow symlinks when copying. If false and the source is a symlink, the symlink itself is copied.
+    /// [default: true]
+    #[serde(default = "default_dereference")]
+    pub dereference: bool,
+}
+
+fn default_dereference() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -178,7 +189,26 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
     let desired_content = match params.input.clone() {
         Input::Content(s) => Content::Str(s),
-        Input::Src(src) => {
+        Input::Src(ref src) => {
+            let src_path = Path::new(src);
+            if !params.dereference {
+                let meta = fs::symlink_metadata(src_path)?;
+                if meta.file_type().is_symlink() {
+                    // If destination exists, remove it first
+                    if Path::new(&params.dest).exists() && !check_mode {
+                        fs::remove_file(&params.dest)?;
+                    }
+                    if !check_mode {
+                        let target = fs::read_link(src_path)?;
+                        unix_fs::symlink(&target, &params.dest)?;
+                    }
+                    return Ok(ModuleResult {
+                        changed: true,
+                        output: Some(params.dest),
+                        extra: None,
+                    });
+                }
+            }
             let file = File::open(src)?;
             let mut buf_reader = BufReader::new(file);
             read_content(&mut buf_reader)?
@@ -297,6 +327,7 @@ mod tests {
                 input: Input::Content("boo".to_owned()),
                 dest: "/tmp/buu.txt".to_owned(),
                 mode: Some("0600".to_owned()),
+                dereference: true,
             }
         );
     }
@@ -318,6 +349,7 @@ mod tests {
                 input: Input::Content("boo".to_owned()),
                 dest: "/tmp/buu.txt".to_owned(),
                 mode: Some("0600".to_owned()),
+                dereference: true,
             }
         );
     }
@@ -338,6 +370,7 @@ mod tests {
                 input: Input::Content("boo".to_owned()),
                 dest: "/tmp/buu.txt".to_owned(),
                 mode: None,
+                dereference: true,
             }
         );
     }
@@ -358,6 +391,7 @@ mod tests {
                 input: Input::Src("/tmp/a".to_owned()),
                 dest: "/tmp/buu.txt".to_owned(),
                 mode: None,
+                dereference: true,
             }
         );
     }
@@ -407,6 +441,7 @@ mod tests {
                 input: Input::Content("test\n".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: None,
+                dereference: true,
             },
             false,
         )
@@ -453,6 +488,7 @@ mod tests {
                 input: Input::Src(file_src_path.to_str().unwrap().to_owned()),
                 dest: file_dest_path.to_str().unwrap().to_owned(),
                 mode: Some("preserve".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -506,6 +542,7 @@ mod tests {
                 input: Input::Src(file_src_path.to_str().unwrap().to_owned()),
                 dest: file_dest_path.to_str().unwrap().to_owned(),
                 mode: Some("preserve".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -545,6 +582,7 @@ mod tests {
                 input: Input::Content("fu".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -584,6 +622,7 @@ mod tests {
                 input: Input::Content("fu".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             true,
         )
@@ -622,6 +661,7 @@ mod tests {
                 input: Input::Content("zoo".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -661,6 +701,7 @@ mod tests {
                 input: Input::Src(src_path.into_os_string().into_string().unwrap()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -698,6 +739,7 @@ mod tests {
                 input: Input::Content("zoo".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             true,
         )
@@ -730,6 +772,7 @@ mod tests {
                 input: Input::Content("zoo".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0600".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -772,6 +815,7 @@ mod tests {
                 input: Input::Content("zoo".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0600".to_owned()),
+                dereference: true,
             },
             true,
         )
@@ -819,6 +863,7 @@ mod tests {
                 input: Input::Content("zoo".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -863,6 +908,7 @@ mod tests {
                 input: Input::Content("zoo\n".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -905,6 +951,7 @@ mod tests {
                 input: Input::Content("zoo".to_owned()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             true,
         )
@@ -952,6 +999,7 @@ mod tests {
                 input: Input::Src(src_path.into_os_string().into_string().unwrap()),
                 dest: file_path.to_str().unwrap().to_owned(),
                 mode: Some("0400".to_owned()),
+                dereference: true,
             },
             false,
         )
@@ -977,5 +1025,113 @@ mod tests {
                 extra: None,
             }
         );
+    }
+
+    #[test]
+    fn test_copy_file_symlink_dereference_false() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+        // Create source file
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "symlinked").unwrap();
+        }
+        // Create symlink
+        symlink(&src_path, &link_path).unwrap();
+        // Copy the symlink itself, not the target
+        let output = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        // dest should be a symlink
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_symlink());
+        let target = std::fs::read_link(&dest_path).unwrap();
+        assert_eq!(target, src_path);
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_file_symlink_dereference_true() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+        // Create source file
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "symlinked").unwrap();
+        }
+        // Create symlink
+        symlink(&src_path, &link_path).unwrap();
+        // Copy the file pointed to by the symlink
+        let output = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+        // dest should be a regular file with the same content as src
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_file());
+        let mut contents = String::new();
+        File::open(&dest_path)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+        assert_eq!(contents, "symlinked\n");
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_file_symlink_overwrite_existing_file() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+        // Create source file
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "symlinked").unwrap();
+        }
+        // Create symlink
+        symlink(&src_path, &link_path).unwrap();
+        // Create a file at dest_path
+        {
+            let mut file = File::create(&dest_path).unwrap();
+            writeln!(file, "old").unwrap();
+        }
+        // Copy the symlink itself, not the target
+        let output = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        // dest should be a symlink
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_symlink());
+        let target = std::fs::read_link(&dest_path).unwrap();
+        assert_eq!(target, src_path);
+        assert!(output.changed);
     }
 }
