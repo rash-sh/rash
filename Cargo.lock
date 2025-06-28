@@ -1572,7 +1572,7 @@ dependencies = [
  "prettytable-rs",
  "rash_core",
  "regex",
- "schemars 1.0.1",
+ "schemars 1.0.3",
  "semver",
  "serde_json",
  "serde_norway",
@@ -2132,7 +2132,7 @@ dependencies = [
  "rash_derive",
  "regex",
  "reqwest",
- "schemars 1.0.1",
+ "schemars 1.0.3",
  "serde",
  "serde-error",
  "serde_json",
@@ -2154,7 +2154,7 @@ version = "2.16.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "schemars 1.0.1",
+ "schemars 1.0.3",
  "syn 2.0.104",
 ]
 
@@ -2486,9 +2486,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe8c9d1c68d67dd9f97ecbc6f932b60eb289c5dbddd8aa1405484a8fd2fcd984"
+checksum = "1375ba8ef45a6f15d83fa8748f1079428295d403d6ea991d09ab100155fbc06d"
 dependencies = [
  "dyn-clone",
  "ref-cast",
@@ -2499,9 +2499,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ca9fcb757952f8e8629b9ab066fc62da523c46c2b247b1708a3be06dd82530b"
+checksum = "2b13ed22d6d49fe23712e068770b5c4df4a693a2b02eeff8e7ca3135627a24f6"
 dependencies = [
  "proc-macro2",
  "quote",
