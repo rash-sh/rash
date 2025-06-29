@@ -32,7 +32,7 @@ schemars = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_norway.workspace = true
 byte-unit = "5.1"
-console = "0.15"
+console = "0.16"
 minijinja = { version = "2.5.0", features = ["loader", "json", "loop_controls"] }
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"] }
 exec = "0.3.1"
