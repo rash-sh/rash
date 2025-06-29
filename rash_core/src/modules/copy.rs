@@ -52,8 +52,8 @@ fn diff_permissions(old_mode: u32, new_mode: u32) {
     let old_octal = format!("{:04o}", old_mode & 0o7777);
     let new_octal = format!("{:04o}", new_mode & 0o7777);
 
-    let before = format!("mode={}", old_octal);
-    let after = format!("mode={}", new_octal);
+    let before = format!("mode={old_octal}");
+    let after = format!("mode={new_octal}");
 
     diff_files(&before, &after);
 }
@@ -115,7 +115,7 @@ fn change_permissions(
         diff_permissions(dest_permissions.mode(), mode);
 
         if !check_mode {
-            trace!("changing mode: {:o}", mode);
+            trace!("changing mode: {mode:o}");
             let mut dest_permissions_copy = dest_permissions;
             dest_permissions_copy.set_mode(mode);
             set_permissions(dest, dest_permissions_copy)?;
@@ -134,7 +134,7 @@ enum Content {
 impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Content::Str(s) => write!(f, "{}", s),
+            Content::Str(s) => write!(f, "{s}"),
             Content::Bytes(_) => Ok(()),
         }
     }
@@ -167,7 +167,7 @@ fn read_content<R: BufRead + Seek>(buf_reader: &mut R) -> IoResult<Content> {
 }
 
 pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
-    trace!("params: {:?}", params);
+    trace!("params: {params:?}");
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.open(&params.dest).or_else(|_| {
         if !check_mode {

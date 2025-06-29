@@ -51,19 +51,19 @@ use log::trace;
 use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value, value::Kwargs};
 
 pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaError> {
-    trace!("file lookup - reading file: '{}'", path);
+    trace!("file lookup - reading file: '{path}'");
 
     // Get optional parameters
     let lstrip: bool = options.get::<Option<bool>>("lstrip")?.unwrap_or(false);
     let rstrip: bool = options.get::<Option<bool>>("rstrip")?.unwrap_or(true);
 
-    trace!("file lookup - lstrip: {}, rstrip: {}", lstrip, rstrip);
+    trace!("file lookup - lstrip: {lstrip}, rstrip: {rstrip}");
 
     // Read file contents
     let content = fs::read_to_string(&path).map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to read file '{}': {}", path, e),
+            format!("Failed to read file '{path}': {e}"),
         )
     })?;
 

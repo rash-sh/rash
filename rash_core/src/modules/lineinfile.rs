@@ -80,7 +80,7 @@ pub enum State {
 }
 
 pub fn lineinfile(params: Params, check_mode: bool) -> Result<ModuleResult> {
-    trace!("params: {:?}", params);
+    trace!("params: {params:?}");
 
     let state = params.state.unwrap_or_default();
 
@@ -131,14 +131,14 @@ pub fn lineinfile(params: Params, check_mode: bool) -> Result<ModuleResult> {
             if let Some(regexp_str) = &params.regexp {
                 // Try to find and replace existing line matching regexp
                 let regex = Regex::new(regexp_str).map_err(|e| {
-                    Error::new(ErrorKind::InvalidData, format!("Invalid regexp: {}", e))
+                    Error::new(ErrorKind::InvalidData, format!("Invalid regexp: {e}"))
                 })?;
 
                 let mut found_match = false;
                 for existing_line in &mut lines {
                     if regex.is_match(existing_line) {
                         if existing_line != line_to_add {
-                            trace!("replacing line: {} -> {}", existing_line, line_to_add);
+                            trace!("replacing line: {existing_line} -> {line_to_add}");
                             *existing_line = line_to_add.clone();
                             changed = true;
                         }
@@ -149,14 +149,14 @@ pub fn lineinfile(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
                 if !found_match {
                     // No matching line found, add the new line
-                    trace!("adding line: {}", line_to_add);
+                    trace!("adding line: {line_to_add}");
                     lines.push(line_to_add.clone());
                     changed = true;
                 }
             } else {
                 // No regexp provided, check if line already exists
                 if !lines.contains(line_to_add) {
-                    trace!("adding line: {}", line_to_add);
+                    trace!("adding line: {line_to_add}");
                     lines.push(line_to_add.clone());
                     changed = true;
                 }
@@ -164,9 +164,8 @@ pub fn lineinfile(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
         State::Absent => {
             let regexp_str = params.regexp.as_ref().unwrap();
-            let regex = Regex::new(regexp_str).map_err(|e| {
-                Error::new(ErrorKind::InvalidData, format!("Invalid regexp: {}", e))
-            })?;
+            let regex = Regex::new(regexp_str)
+                .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Invalid regexp: {e}")))?;
 
             let original_len = lines.len();
             lines.retain(|line| !regex.is_match(line));

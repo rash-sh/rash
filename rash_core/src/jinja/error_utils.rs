@@ -54,12 +54,9 @@ pub fn handle_template_error(e: MiniJinjaError, template: &str, vars: &Value) ->
         MiniJinjaErrorKind::UndefinedError => {
             let variable_name = extract_undefined_variable_from_template(template, vars);
             if let Some(var_name) = variable_name {
-                format!(
-                    "undefined variable '{}' in template: {}",
-                    var_name, template
-                )
+                format!("undefined variable '{var_name}' in template: {template}")
             } else {
-                format!("undefined variable in template: {}", template)
+                format!("undefined variable in template: {template}")
             }
         }
         _ => enhance_template_text(&e.to_string(), template),
@@ -73,7 +70,7 @@ fn enhance_template_text(error_msg: &str, template: &str) -> String {
 
     TEMPLATE_REGEX
         .replace_all(error_msg, |_caps: &Captures| {
-            format!("in template: {}", template)
+            format!("in template: {template}")
         })
         .into_owned()
 }
@@ -145,7 +142,7 @@ mod tests {
         ];
 
         for (template_str, expected_msg_part) in test_cases {
-            println!("Testing template: {}", template_str);
+            println!("Testing template: {template_str}");
 
             // Add template - this might fail for syntax errors
             if let Ok(()) = env.add_template("test", template_str) {
@@ -164,14 +161,11 @@ mod tests {
                         // Check that our error enhancement worked
                         assert!(
                             error_msg.contains(expected_msg_part),
-                            "Error message '{}' should contain '{}'",
-                            error_msg,
-                            expected_msg_part
+                            "Error message '{error_msg}' should contain '{expected_msg_part}'"
                         );
                         assert!(
                             error_msg.contains("template:"),
-                            "Error message should contain template context: {}",
-                            error_msg
+                            "Error message should contain template context: {error_msg}"
                         );
                     }
                 }

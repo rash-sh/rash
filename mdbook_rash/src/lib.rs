@@ -187,8 +187,8 @@ fn replace_matches(captures: Vec<(Match, Option<String>, String)>, ch: &mut Chap
     for capture in captures.iter() {
         if capture.2 == "include_module_index" {
             let mut indexes_vec = MODULES
-                .iter()
-                .map(|(name, _)| format!("- [{name}](./module_{name}.html)"))
+                .keys()
+                .map(|name| format!("- [{name}](./module_{name}.html)"))
                 .collect::<Vec<String>>();
             indexes_vec.sort();
             let indexes_body = indexes_vec.join("\n");
@@ -349,7 +349,7 @@ mod prettytable_wrap_test {
             "",
             "Execute command as PID 1. Note: from this point on, your rash script execution is transferred to the command."
         ]);
-        println!("{}", table);
+        println!("{table}");
     }
 }
 
@@ -367,7 +367,7 @@ mod schema_debug_test {
 
                 let table_output = format_schema(&schema);
                 println!("=== TABLE OUTPUT ===");
-                println!("{}", table_output);
+                println!("{table_output}");
                 println!("=== END TABLE OUTPUT ===");
             }
         }

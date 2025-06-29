@@ -117,7 +117,7 @@ fn make_request(params: &Params) -> Result<Response> {
         .map_err(|e| {
             Error::new(
                 ErrorKind::InvalidData,
-                format!("Failed to create HTTP client: {}", e),
+                format!("Failed to create HTTP client: {e}"),
             )
         })?;
 
@@ -155,7 +155,7 @@ fn make_request(params: &Params) -> Result<Response> {
     let response = request_builder.send().map_err(|e| {
         Error::new(
             ErrorKind::SubprocessFail,
-            format!("HTTP request failed: {}", e),
+            format!("HTTP request failed: {e}"),
         )
     })?;
 
@@ -205,7 +205,7 @@ impl Module for Uri {
             Some(response.text().map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidData,
-                    format!("Failed to read response body: {}", e),
+                    format!("Failed to read response body: {e}"),
                 )
             })?)
         } else {

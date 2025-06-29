@@ -156,7 +156,7 @@ impl Module for Command {
                         .output()
                         .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
 
-                    trace!("exec - output: {:?}", output);
+                    trace!("exec - output: {output:?}");
                     let stderr = String::from_utf8_lossy(&output.stderr);
 
                     if !output.status.success() {

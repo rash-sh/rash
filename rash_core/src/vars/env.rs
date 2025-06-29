@@ -32,7 +32,7 @@ impl From<env::Vars> for Env {
 /// let vars = load(vec![("foo".to_owned(), "boo".to_owned())]);
 /// ```
 pub fn load(envars: Vec<(String, String)>) -> Value {
-    trace!("{:?}", envars);
+    trace!("{envars:?}");
     envars.into_iter().for_each(|(k, v)| unsafe {
         env::set_var(k, v);
     });

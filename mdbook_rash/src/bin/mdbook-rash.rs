@@ -59,7 +59,7 @@ fn main() {
     if let Some(sub_args) = matches.subcommand_matches("supports") {
         handle_supports(sub_args);
     } else if let Err(e) = handle_preprocessing() {
-        error!("{}", e);
+        error!("{e}");
         process::exit(1);
     }
 }

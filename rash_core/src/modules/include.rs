@@ -65,10 +65,7 @@ impl Module for Include {
                 trace!("reading tasks from: {script_path:?}");
 
                 let main_file = read_to_string(script_path).map_err(|e| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Error reading file: {:?}", e),
-                    )
+                    Error::new(ErrorKind::InvalidData, format!("Error reading file: {e:?}"))
                 })?;
 
                 let tasks = parse_file(&main_file, global_params)?;

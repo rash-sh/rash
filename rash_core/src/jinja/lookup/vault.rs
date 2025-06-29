@@ -131,7 +131,7 @@ pub fn function(secret: String, options: Kwargs) -> StdResult<Value, MinijinjaEr
     let rt = tokio::runtime::Runtime::new().map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to create async runtime: {}", e),
+            format!("Failed to create async runtime: {e}"),
         )
     })?;
 
@@ -188,7 +188,7 @@ pub fn function(secret: String, options: Kwargs) -> StdResult<Value, MinijinjaEr
             _ => {
                 return Err(MinijinjaError::new(
                     MinijinjaErrorKind::InvalidOperation,
-                    format!("Unsupported auth method: {}", auth_method_str),
+                    format!("Unsupported auth method: {auth_method_str}"),
                 ));
             }
         };
@@ -243,7 +243,7 @@ async fn authenticate_userpass(
         .map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("Userpass authentication failed: {}", e),
+                format!("Userpass authentication failed: {e}"),
             )
         })?;
 
@@ -254,21 +254,21 @@ async fn authenticate_userpass(
             .unwrap_or_else(|_| "Unknown error".to_string());
         return Err(MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Userpass authentication failed: {}", error_text),
+            format!("Userpass authentication failed: {error_text}"),
         ));
     }
 
     let response_text = response.text().await.map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to read userpass response: {}", e),
+            format!("Failed to read userpass response: {e}"),
         )
     })?;
 
     let json_response: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to parse userpass response: {}", e),
+            format!("Failed to parse userpass response: {e}"),
         )
     })?;
 
@@ -306,7 +306,7 @@ async fn authenticate_approle(
         .map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("AppRole authentication failed: {}", e),
+                format!("AppRole authentication failed: {e}"),
             )
         })?;
 
@@ -317,21 +317,21 @@ async fn authenticate_approle(
             .unwrap_or_else(|_| "Unknown error".to_string());
         return Err(MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("AppRole authentication failed: {}", error_text),
+            format!("AppRole authentication failed: {error_text}"),
         ));
     }
 
     let response_text = response.text().await.map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to read approle response: {}", e),
+            format!("Failed to read approle response: {e}"),
         )
     })?;
 
     let json_response: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to parse approle response: {}", e),
+            format!("Failed to parse approle response: {e}"),
         )
     })?;
 
@@ -365,7 +365,7 @@ async fn authenticate_jwt(url: &str, jwt: &str, role: &str) -> StdResult<String,
         .map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("JWT authentication failed: {}", e),
+                format!("JWT authentication failed: {e}"),
             )
         })?;
 
@@ -376,21 +376,21 @@ async fn authenticate_jwt(url: &str, jwt: &str, role: &str) -> StdResult<String,
             .unwrap_or_else(|_| "Unknown error".to_string());
         return Err(MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("JWT authentication failed: {}", error_text),
+            format!("JWT authentication failed: {error_text}"),
         ));
     }
 
     let response_text = response.text().await.map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to read jwt response: {}", e),
+            format!("Failed to read jwt response: {e}"),
         )
     })?;
 
     let json_response: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to parse jwt response: {}", e),
+            format!("Failed to parse jwt response: {e}"),
         )
     })?;
 
@@ -425,12 +425,12 @@ async fn fetch_secret(
         .map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("Failed to configure Vault client: {}", e),
+                format!("Failed to configure Vault client: {e}"),
             )
         })?;
 
     // Try making a direct HTTP request to Vault API
-    let vault_path = format!("{}/data/{}", mount, path);
+    let vault_path = format!("{mount}/data/{path}");
     let full_url = format!("{}/v1/{}", url.trim_end_matches('/'), vault_path);
 
     let http_client = reqwest::Client::new();
@@ -451,7 +451,7 @@ async fn fetch_secret(
     let response = request.send().await.map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("HTTP request failed: {}", e),
+            format!("HTTP request failed: {e}"),
         )
     })?;
 
@@ -459,14 +459,14 @@ async fn fetch_secret(
     let response_text = response.text().await.map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to read response text: {}", e),
+            format!("Failed to read response text: {e}"),
         )
     })?;
 
     if !status.is_success() {
         return Err(MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Vault returned status {}: {}", status, response_text),
+            format!("Vault returned status {status}: {response_text}"),
         ));
     }
 
@@ -474,7 +474,7 @@ async fn fetch_secret(
     let json_response: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
         MinijinjaError::new(
             MinijinjaErrorKind::InvalidOperation,
-            format!("Failed to parse JSON response: {}", e),
+            format!("Failed to parse JSON response: {e}"),
         )
     })?;
 
@@ -513,7 +513,7 @@ async fn fetch_secret(
         } else {
             Err(MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("Field '{}' not found in secret", field_name),
+                format!("Field '{field_name}' not found in secret"),
             ))
         }
     } else {

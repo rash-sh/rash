@@ -127,7 +127,7 @@ fn calculate_file_checksum(path: &Path, algorithm: &str) -> Result<String> {
     let contents = fs::read(path).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Failed to read file for checksum: {}", e),
+            format!("Failed to read file for checksum: {e}"),
         )
     })?;
 
@@ -139,7 +139,7 @@ fn calculate_file_checksum(path: &Path, algorithm: &str) -> Result<String> {
         }
         _ => Err(Error::new(
             ErrorKind::InvalidData,
-            format!("Unsupported checksum algorithm: {}", algorithm),
+            format!("Unsupported checksum algorithm: {algorithm}"),
         )),
     }
 }
@@ -169,7 +169,7 @@ fn create_backup(file_path: &Path) -> Result<Option<String>> {
     fs::copy(file_path, &backup_path).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Failed to create backup: {}", e),
+            format!("Failed to create backup: {e}"),
         )
     })?;
 
@@ -184,7 +184,7 @@ fn make_request(params: &Params) -> Result<Response> {
         .map_err(|e| {
             Error::new(
                 ErrorKind::InvalidData,
-                format!("Failed to create HTTP client: {}", e),
+                format!("Failed to create HTTP client: {e}"),
             )
         })?;
 
@@ -205,7 +205,7 @@ fn make_request(params: &Params) -> Result<Response> {
     let response = request_builder.send().map_err(|e| {
         Error::new(
             ErrorKind::SubprocessFail,
-            format!("HTTP request failed: {}", e),
+            format!("HTTP request failed: {e}"),
         )
     })?;
 
@@ -225,7 +225,7 @@ fn set_file_permissions(path: &Path, mode: &str) -> Result<()> {
     let mode_int = u32::from_str_radix(mode, 8).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Invalid mode format '{}': {}", mode, e),
+            format!("Invalid mode format '{mode}': {e}"),
         )
     })?;
 
@@ -233,7 +233,7 @@ fn set_file_permissions(path: &Path, mode: &str) -> Result<()> {
     fs::set_permissions(path, permissions).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Failed to set file permissions: {}", e),
+            format!("Failed to set file permissions: {e}"),
         )
     })?;
 
@@ -246,7 +246,7 @@ fn get_file_metadata(path: &Path) -> Result<serde_json::Value> {
     let metadata = fs::metadata(path).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Failed to get file metadata: {}", e),
+            format!("Failed to get file metadata: {e}"),
         )
     })?;
 
@@ -361,7 +361,7 @@ impl Module for GetUrl {
                 fs::create_dir_all(parent).map_err(|e| {
                     Error::new(
                         ErrorKind::InvalidData,
-                        format!("Failed to create parent directories: {}", e),
+                        format!("Failed to create parent directories: {e}"),
                     )
                 })?;
             }
@@ -372,7 +372,7 @@ impl Module for GetUrl {
         let content = response.bytes().map_err(|e| {
             Error::new(
                 ErrorKind::InvalidData,
-                format!("Failed to read response body: {}", e),
+                format!("Failed to read response body: {e}"),
             )
         })?;
 
@@ -395,15 +395,12 @@ impl Module for GetUrl {
         let mut file = File::create(&file_path).map_err(|e| {
             Error::new(
                 ErrorKind::InvalidData,
-                format!("Failed to create file: {}", e),
+                format!("Failed to create file: {e}"),
             )
         })?;
 
         file.write_all(&content).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to write file: {}", e),
-            )
+            Error::new(ErrorKind::InvalidData, format!("Failed to write file: {e}"))
         })?;
 
         // Set file permissions if specified
@@ -422,8 +419,7 @@ impl Module for GetUrl {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
                     format!(
-                        "Checksum verification failed. Expected: {}, Got: {}",
-                        expected_hash, actual_hash
+                        "Checksum verification failed. Expected: {expected_hash}, Got: {actual_hash}"
                     ),
                 ));
             }

@@ -70,7 +70,7 @@ pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaErro
             Err(e) => {
                 return Err(MinijinjaError::new(
                     MinijinjaErrorKind::InvalidOperation,
-                    format!("Failed to read password file '{}': {}", path, e),
+                    format!("Failed to read password file '{path}': {e}"),
                 ));
             }
         }
@@ -100,7 +100,7 @@ pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaErro
                 fs::create_dir_all(parent).map_err(|e| {
                     MinijinjaError::new(
                         MinijinjaErrorKind::InvalidOperation,
-                        format!("Failed to create directory for password file: {}", e),
+                        format!("Failed to create directory for password file: {e}"),
                     )
                 })?;
             }
@@ -109,14 +109,14 @@ pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaErro
         let mut file = fs::File::create(&path).map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("Failed to create password file '{}': {}", path, e),
+                format!("Failed to create password file '{path}': {e}"),
             )
         })?;
 
         file.write_all(password.as_bytes()).map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("Failed to write password to file '{}': {}", path, e),
+                format!("Failed to write password to file '{path}': {e}"),
             )
         })?;
     }
@@ -217,7 +217,7 @@ mod tests {
     fn test_build_charset_ascii_letters() {
         let chars = vec!["ascii_letters".to_string()];
         let charset = build_charset(Some(&chars)).unwrap();
-        assert_eq!(charset, format!("{}{}", ASCII_LOWERCASE, ASCII_UPPERCASE));
+        assert_eq!(charset, format!("{ASCII_LOWERCASE}{ASCII_UPPERCASE}"));
     }
 
     #[test]

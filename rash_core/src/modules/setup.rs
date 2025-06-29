@@ -68,7 +68,7 @@ fn load_file_vars_with_type(file_path: &str) -> Result<(serde_json::Value, bool)
     let content = read_to_string(path).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Failed to read file '{}': {}", file_path, e),
+            format!("Failed to read file '{file_path}': {e}"),
         )
     })?;
 
@@ -159,24 +159,24 @@ fn load_env_vars(content: &str) -> Result<serde_json::Value> {
     }
 
     serde_json::to_value(vars)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("serde_json error: {}", e)))
+        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("serde_json error: {e}")))
 }
 
 fn load_yaml_vars(content: &str) -> Result<serde_json::Value> {
     let yaml_value: YamlValue = serde_norway::from_str(content)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Invalid YAML: {}", e)))?;
+        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Invalid YAML: {e}")))?;
 
     serde_json::to_value(yaml_value).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("YAML conversion error: {}", e),
+            format!("YAML conversion error: {e}"),
         )
     })
 }
 
 fn load_json_vars(content: &str) -> Result<serde_json::Value> {
     serde_json::from_str(content)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Invalid JSON: {}", e)))
+        .map_err(|e| Error::new(ErrorKind::InvalidData, format!("Invalid JSON: {e}")))
 }
 
 fn merge_context_with_env_vars(
@@ -229,7 +229,7 @@ fn load_and_merge_files(file_paths: &[String]) -> Result<(Vec<String>, Value)> {
             Err(e) => {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
-                    format!("Failed to load '{}': {}", file_path, e),
+                    format!("Failed to load '{file_path}': {e}"),
                 ));
             }
         }

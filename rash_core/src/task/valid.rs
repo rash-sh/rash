@@ -65,7 +65,7 @@ impl TaskValid {
                     .map(|x| self.parse_bool_or_string(x))
                     .collect::<Option<Vec<String>>>()?
                     .iter()
-                    .map(|s| format!("({})", s))
+                    .map(|s| format!("({s})"))
                     .collect::<Vec<String>>()
                     .join(" and "),
             ),

@@ -282,13 +282,11 @@ mod tests {
         let width = get_terminal_width();
         assert!(
             width >= 80,
-            "Terminal width should be at least 80, got {}",
-            width
+            "Terminal width should be at least 80, got {width}"
         );
         assert!(
             width <= 1000,
-            "Terminal width should be reasonable, got {}",
-            width
+            "Terminal width should be reasonable, got {width}"
         );
     }
 
