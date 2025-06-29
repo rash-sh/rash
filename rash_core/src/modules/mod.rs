@@ -150,7 +150,7 @@ pub fn parse_params<P>(yaml: YamlValue) -> Result<P>
 where
     for<'a> P: Deserialize<'a>,
 {
-    trace!("parse params: {:?}", yaml);
+    trace!("parse params: {yaml:?}");
     serde_norway::from_value(yaml).map_err(|e| Error::new(ErrorKind::InvalidData, e))
 }
 

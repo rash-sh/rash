@@ -102,7 +102,7 @@ struct Cli {
 
 /// Log all errors recursively
 fn log_inner_errors(e: &dyn StdError) {
-    error!("{}", e);
+    error!("{e}");
     if let Some(source_error) = e.source() {
         log_inner_errors(source_error)
     }
@@ -113,7 +113,7 @@ fn log_inner_errors(e: &dyn StdError) {
 ///
 /// [`Error`]: ../rash_core/error/struct.Error.html
 fn crash_error(e: Error) {
-    error!("{}", e);
+    error!("{e}");
     let exit_code = e.raw_os_error().unwrap_or(1);
 
     if let Some(inner_error) = e.into_inner() {
@@ -155,7 +155,7 @@ fn main() {
     let main_file = if let Some(s) = cli.script {
         s
     } else {
-        trace!("reading tasks from: {:?}", script_path);
+        trace!("reading tasks from: {script_path:?}");
         match read_to_string(script_path) {
             Ok(s) => s,
             Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
@@ -167,7 +167,7 @@ fn main() {
         Ok(v) => Value::from_serialize(v),
         Err(e) => match e.kind() {
             ErrorKind::GracefulExit => {
-                info!("{}", e);
+                info!("{e}");
                 return;
             }
             _ => return crash_error(e),

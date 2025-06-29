@@ -52,7 +52,7 @@ use log::trace;
 use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value};
 
 pub fn function(command: String) -> StdResult<Value, MinijinjaError> {
-    trace!("pipe lookup - executing command: '{}'", command);
+    trace!("pipe lookup - executing command: '{command}'");
 
     // Execute the command using shell
     let output = StdCommand::new("/bin/sh")
@@ -62,11 +62,11 @@ pub fn function(command: String) -> StdResult<Value, MinijinjaError> {
         .map_err(|e| {
             MinijinjaError::new(
                 MinijinjaErrorKind::InvalidOperation,
-                format!("Failed to execute command '{}': {}", command, e),
+                format!("Failed to execute command '{command}': {e}"),
             )
         })?;
 
-    trace!("pipe lookup - command output: {:?}", output);
+    trace!("pipe lookup - command output: {output:?}");
 
     // Check if the command was successful
     if !output.status.success() {
@@ -86,7 +86,7 @@ pub fn function(command: String) -> StdResult<Value, MinijinjaError> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result = stdout.trim_end().to_string();
 
-    trace!("pipe lookup - returning: '{}'", result);
+    trace!("pipe lookup - returning: '{result}'");
     Ok(Value::from(result))
 }
 

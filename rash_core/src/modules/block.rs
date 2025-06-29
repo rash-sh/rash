@@ -106,7 +106,7 @@ impl Block {
                 Task::new(task_yaml, global_params).map_err(|e| {
                     Error::new(
                         ErrorKind::InvalidData,
-                        format!("Failed to parse task at index {}: {}", index, e),
+                        format!("Failed to parse task at index {index}: {e}"),
                     )
                 })
             })

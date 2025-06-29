@@ -110,11 +110,11 @@ fn format_change<T: similar::DiffableStr + ?Sized>(change: Change<&T>) -> String
         ChangeTag::Equal => format!("  {change}"),
         ChangeTag::Delete => Style::new()
             .red()
-            .apply_to(format!("- {s}", s = change,))
+            .apply_to(format!("- {change}",))
             .to_string(),
         ChangeTag::Insert => Style::new()
             .green()
-            .apply_to(format!("+ {s}", s = change,))
+            .apply_to(format!("+ {change}",))
             .to_string(),
     }
 }

@@ -87,7 +87,7 @@ impl<'a> Task<'a> {
     /// [`Task`]: struct.Task.html
     /// [`Value`]: ../../serde_norway/enum.Value.html
     pub fn new(yaml: &YamlValue, global_params: &'a GlobalParams) -> Result<Self> {
-        trace!("new task: {:?}", yaml);
+        trace!("new task: {yaml:?}");
         TaskNew::from(yaml)
             .validate_attrs()?
             .get_task(global_params)
@@ -262,7 +262,7 @@ impl<'a> Task<'a> {
             }
             Err(e) => match self.ignore_errors {
                 Some(is_true) if is_true => {
-                    info!(target: "ignoring", "{}", e);
+                    info!(target: "ignoring", "{e}");
                     Ok(None)
                 }
                 _ => Err(e),
@@ -322,14 +322,14 @@ impl<'a> Task<'a> {
                                     user,
                                 );
 
-                                trace!("send result: {:?}", result);
+                                trace!("send result: {result:?}");
                                 tx.send(
                                     result
                                         .map(|v| serde_json::to_string(&v))?
                                         .map_err(|e| SerdeError::new(&e)),
                                 )
                                 .unwrap_or_else(|e| {
-                                    error!("child failed to send result: {}", e);
+                                    error!("child failed to send result: {e}");
                                     exit(1)
                                 });
                                 exit(0);
@@ -433,7 +433,7 @@ impl<'a> Task<'a> {
                 (Ok(()), success_vars)
             }
             Err(task_error) => {
-                warn!("Main task execution failed: {}", task_error);
+                warn!("Main task execution failed: {task_error}");
                 (Err(task_error), None)
             }
         };
@@ -448,7 +448,7 @@ impl<'a> Task<'a> {
                         (Ok(()), rescue_vars)
                     }
                     Err(rescue_error) => {
-                        error!("Rescue tasks failed: {}", rescue_error);
+                        error!("Rescue tasks failed: {rescue_error}");
                         (Err(rescue_error), None)
                     }
                 }
@@ -473,11 +473,11 @@ impl<'a> Task<'a> {
                         always_vars
                     }
                     Err(always_error) => {
-                        error!("Always tasks failed: {}", always_error);
+                        error!("Always tasks failed: {always_error}");
                         // Always tasks failing is critical - propagate the error
                         return Err(Error::new(
                             ErrorKind::Other,
-                            format!("Always section failed: {}", always_error),
+                            format!("Always section failed: {always_error}"),
                         ));
                     }
                 }
@@ -519,17 +519,13 @@ impl<'a> Task<'a> {
                     Err(Error::new(
                         ErrorKind::Other,
                         format!(
-                            "Task execution failed and rescue tasks could not recover: {}",
-                            main_error
+                            "Task execution failed and rescue tasks could not recover: {main_error}"
                         ),
                     ))
                 } else {
                     Err(Error::new(
                         ErrorKind::Other,
-                        format!(
-                            "Task execution failed with no rescue defined: {}",
-                            main_error
-                        ),
+                        format!("Task execution failed with no rescue defined: {main_error}"),
                     ))
                 }
             }
@@ -565,28 +561,24 @@ impl<'a> Task<'a> {
                                     current_vars = context! {..current_vars, ..new_vars.clone()};
                                     current_new_vars =
                                         context! {..current_new_vars, ..new_vars.clone()};
-                                    trace!("Task {} in sequence completed successfully", index);
+                                    trace!("Task {index} in sequence completed successfully");
                                 }
                                 Err(task_error) => {
-                                    error!("Task {} in sequence failed: {}", index, task_error);
+                                    error!("Task {index} in sequence failed: {task_error}");
                                     return Err(Error::new(
                                         ErrorKind::Other,
                                         format!(
-                                            "Task sequence failed at index {}: {}",
-                                            index, task_error
+                                            "Task sequence failed at index {index}: {task_error}"
                                         ),
                                     ));
                                 }
                             }
                         }
                         Err(parse_error) => {
-                            error!(
-                                "Failed to parse task {} in sequence: {}",
-                                index, parse_error
-                            );
+                            error!("Failed to parse task {index} in sequence: {parse_error}");
                             return Err(Error::new(
                                 ErrorKind::InvalidData,
-                                format!("Invalid task at index {}: {}", index, parse_error),
+                                format!("Invalid task at index {index}: {parse_error}"),
                             ));
                         }
                     }
@@ -595,7 +587,7 @@ impl<'a> Task<'a> {
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Task sequence must be a YAML array, got: {:?}", tasks_yaml),
+                format!("Task sequence must be a YAML array, got: {tasks_yaml:?}"),
             )),
         }
     }
