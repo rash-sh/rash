@@ -190,15 +190,6 @@ impl PacmanClient {
         extra_args: Option<String>,
         check_mode: bool,
     ) -> Result<Self> {
-        if !executable.exists() || !executable.is_file() {
-            return Err(Error::new(
-                ErrorKind::NotFound,
-                format!(
-                    "Error: pacman executable not found at '{}'. Please provide a valid path.",
-                    executable.display()
-                ),
-            ));
-        }
         Ok(PacmanClient {
             executable: executable.to_path_buf(),
             force,
@@ -225,7 +216,13 @@ impl PacmanClient {
         };
         let output = cmd
             .output()
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+            .map_err(|e| Error::new(
+                ErrorKind::SubprocessFail,
+                format!(
+                    "Failed to execute '{}': {e}. The executable may not be installed or not in the PATH.",
+                    self.executable.display()
+                ),
+            ))?;
         trace!("command: `{cmd:?}`");
         trace!("{output:?}");
 
@@ -501,6 +498,39 @@ linux61-zfs
                 "linux61-zfs".to_owned(),
             ])
         );
+    }
+
+    #[test]
+    fn test_pacman_client_new_with_nonexistent_executable() {
+        use std::path::Path;
+        let result = PacmanClient::new(
+            Path::new("definitely-not-a-real-executable"),
+            false,
+            None,
+            false,
+        );
+        // Should succeed, as existence is not checked at construction
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_pacman_client_exec_cmd_with_nonexistent_executable() {
+        use std::process::Command;
+        let client = PacmanClient::new(
+            Path::new("definitely-not-a-real-executable"),
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+        let mut cmd = Command::new(&client.executable);
+        let result = client.exec_cmd(&mut cmd, true);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("Failed to execute"));
+        assert!(msg.contains("definitely-not-a-real-executable"));
+        assert!(msg.contains("not in the PATH"));
     }
     // PacmanClient cannot be tested because it needs rash for run a mock of pacman
 }

@@ -234,7 +234,7 @@ fn test_pacman_executable_not_found() {
 #!/usr/bin/env rash
 - name: test pacman module
   pacman:
-    executable: pacman.rh
+    executable: non-existent-pacman.rh
     name:
       - rash
     state: sync
@@ -244,6 +244,6 @@ fn test_pacman_executable_not_found() {
     let (_, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.lines().last().unwrap().contains(
-        "Error: pacman executable not found at 'pacman.rh'. Please provide a valid path."
+        "Failed to execute 'non-existent-pacman.rh': No such file or directory (os error 2). The executable may not be installed or not in the PATH."
     ));
 }
