@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.16.1](https://github.com/rash-sh/rash/tree/v2.16.1) - 2025-06-30
+
+### Fixed
+
+- module: Improve cmd error and remove Pacman executable detection
+- Cargo clippy errors 1.88
+
+### Build
+
+- deps: Update Rust crate schemars to v1.0.3
+- deps: Update rust Docker tag to v1.88.0
+- deps: Update Rust crate console to 0.16
+- deps: Update Rust crate minijinja to v2.11.0
+
 ## [v2.16.0](https://github.com/rash-sh/rash/tree/v2.16.0) - 2025-06-25
 
 ### Added
