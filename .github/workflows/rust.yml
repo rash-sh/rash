@@ -40,7 +40,7 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
       - run: rustup component add clippy
 
-      - uses: clechasseur/rs-clippy-check@v4
+      - uses: clechasseur/rs-clippy-check@v5
         with:
           args: --locked --all-targets --all-features
 
