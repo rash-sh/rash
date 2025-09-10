@@ -444,19 +444,19 @@ fn systemd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
         Some(State::Restarted) => {
             let restart_result = client.restart(service_name)?;
-            if restart_result.changed {
-                if let Some(output) = restart_result.output {
-                    output_messages.push(output);
-                }
+            if restart_result.changed
+                && let Some(output) = restart_result.output
+            {
+                output_messages.push(output);
             }
             changed |= restart_result.changed;
         }
         Some(State::Reloaded) => {
             let reload_result = client.reload(service_name)?;
-            if reload_result.changed {
-                if let Some(output) = reload_result.output {
-                    output_messages.push(output);
-                }
+            if reload_result.changed
+                && let Some(output) = reload_result.output
+            {
+                output_messages.push(output);
             }
             changed |= reload_result.changed;
         }

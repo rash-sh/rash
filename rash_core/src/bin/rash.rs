@@ -116,10 +116,10 @@ fn crash_error(e: Error) {
     error!("{e}");
     let exit_code = e.raw_os_error().unwrap_or(1);
 
-    if let Some(inner_error) = e.into_inner() {
-        if let Some(source_error) = inner_error.source() {
-            log_inner_errors(source_error)
-        }
+    if let Some(inner_error) = e.into_inner()
+        && let Some(source_error) = inner_error.source()
+    {
+        log_inner_errors(source_error)
     }
     exit(exit_code)
 }

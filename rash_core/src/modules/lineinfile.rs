@@ -193,10 +193,10 @@ pub fn lineinfile(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
         if !check_mode {
             // Create parent directories if they don't exist
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = path.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent)?;
             }
 
             // Write the new content
