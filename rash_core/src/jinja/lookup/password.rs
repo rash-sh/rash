@@ -95,15 +95,15 @@ pub fn function(path: String, options: Kwargs) -> StdResult<Value, MinijinjaErro
 
     // Store password if not /dev/null
     if path != "/dev/null" {
-        if let Some(parent) = Path::new(&path).parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent).map_err(|e| {
-                    MinijinjaError::new(
-                        MinijinjaErrorKind::InvalidOperation,
-                        format!("Failed to create directory for password file: {e}"),
-                    )
-                })?;
-            }
+        if let Some(parent) = Path::new(&path).parent()
+            && !parent.exists()
+        {
+            fs::create_dir_all(parent).map_err(|e| {
+                MinijinjaError::new(
+                    MinijinjaErrorKind::InvalidOperation,
+                    format!("Failed to create directory for password file: {e}"),
+                )
+            })?;
         }
 
         let mut file = fs::File::create(&path).map_err(|e| {

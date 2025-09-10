@@ -309,14 +309,14 @@ impl Module for GetUrl {
         let mut backup_file = None;
 
         // Check existing file checksum if provided
-        if let Some(checksum_param) = &params.checksum {
-            if file_exists {
-                let (algorithm, expected_hash) = parse_checksum(checksum_param)?;
-                let actual_hash = calculate_file_checksum(&file_path, &algorithm)?;
+        if let Some(checksum_param) = &params.checksum
+            && file_exists
+        {
+            let (algorithm, expected_hash) = parse_checksum(checksum_param)?;
+            let actual_hash = calculate_file_checksum(&file_path, &algorithm)?;
 
-                if actual_hash == expected_hash && !params.force {
-                    should_download = false;
-                }
+            if actual_hash == expected_hash && !params.force {
+                should_download = false;
             }
         }
 
@@ -356,15 +356,15 @@ impl Module for GetUrl {
         }
 
         // Create parent directories if they don't exist
-        if let Some(parent) = file_path.parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent).map_err(|e| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Failed to create parent directories: {e}"),
-                    )
-                })?;
-            }
+        if let Some(parent) = file_path.parent()
+            && !parent.exists()
+        {
+            fs::create_dir_all(parent).map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Failed to create parent directories: {e}"),
+                )
+            })?;
         }
 
         // Download the file

@@ -442,10 +442,10 @@ async fn fetch_secret(
     }
 
     // Add namespace header (Vault Enterprise feature)
-    if let Some(ns) = namespace {
-        if !ns.is_empty() {
-            request = request.header("X-Vault-Namespace", ns);
-        }
+    if let Some(ns) = namespace
+        && !ns.is_empty()
+    {
+        request = request.header("X-Vault-Namespace", ns);
     }
 
     let response = request.send().await.map_err(|e| {

@@ -359,17 +359,17 @@ mod schema_debug_test {
 
     #[test]
     fn debug_command_schema() {
-        if let Some(command_module) = MODULES.get("command") {
-            if let Some(schema) = command_module.get_json_schema() {
-                println!("=== COMMAND SCHEMA ===");
-                println!("{}", serde_json::to_string_pretty(&schema).unwrap());
-                println!("=== END COMMAND SCHEMA ===");
+        if let Some(command_module) = MODULES.get("command")
+            && let Some(schema) = command_module.get_json_schema()
+        {
+            println!("=== COMMAND SCHEMA ===");
+            println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+            println!("=== END COMMAND SCHEMA ===");
 
-                let table_output = format_schema(&schema);
-                println!("=== TABLE OUTPUT ===");
-                println!("{table_output}");
-                println!("=== END TABLE OUTPUT ===");
-            }
+            let table_output = format_schema(&schema);
+            println!("=== TABLE OUTPUT ===");
+            println!("{table_output}");
+            println!("=== END TABLE OUTPUT ===");
         }
     }
 }

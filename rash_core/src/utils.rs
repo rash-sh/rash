@@ -10,12 +10,11 @@ use crate::error::{Error, ErrorKind, Result};
 pub fn get_terminal_width() -> usize {
     // Try environment variables first
     for env_var in ["COLUMNS", "TERM_WIDTH"] {
-        if let Ok(columns) = std::env::var(env_var) {
-            if let Ok(width) = columns.parse::<usize>() {
-                if width > 0 {
-                    return width;
-                }
-            }
+        if let Ok(columns) = std::env::var(env_var)
+            && let Ok(width) = columns.parse::<usize>()
+            && width > 0
+        {
+            return width;
         }
     }
 
@@ -44,14 +43,14 @@ fn get_terminal_width_tput() -> Option<usize> {
     use std::process::Command;
 
     // Try to use tput command to get terminal width
-    if let Ok(output) = Command::new("tput").arg("cols").output() {
-        if output.status.success() {
-            let output_str = String::from_utf8_lossy(&output.stdout);
-            if let Ok(width) = output_str.trim().parse::<usize>() {
-                if width > 0 {
-                    return Some(width);
-                }
-            }
+    if let Ok(output) = Command::new("tput").arg("cols").output()
+        && output.status.success()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        if let Ok(width) = output_str.trim().parse::<usize>()
+            && width > 0
+        {
+            return Some(width);
         }
     }
 

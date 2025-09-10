@@ -128,10 +128,8 @@ pub fn usage_regex_match(
         return Some((RegexMatch::Repeatable, get_vec_from_cap(&captures)));
     }
 
-    if !ignore_curly_braces {
-        if let Some(captures) = RE_INNER_CURLY_BRACES.captures(usage) {
-            return Some((RegexMatch::InnerCurlyBraces, get_vec_from_cap(&captures)));
-        }
+    if !ignore_curly_braces && let Some(captures) = RE_INNER_CURLY_BRACES.captures(usage) {
+        return Some((RegexMatch::InnerCurlyBraces, get_vec_from_cap(&captures)));
     }
 
     None
