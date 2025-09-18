@@ -39,7 +39,7 @@ static FORMAT: LazyLock<format::TableFormat> = LazyLock::new(|| {
         .build()
 });
 
-fn get_matches(ch: &Chapter) -> Option<Vec<(Match, Option<String>, String)>> {
+fn get_matches(ch: &Chapter) -> Option<Vec<(Match<'_>, Option<String>, String)>> {
     RE.captures_iter(&ch.content)
         .map(|cap| match (cap.get(0), cap.get(1), cap.get(2)) {
             (Some(origin), Some(typ), rest) => match (typ.as_str(), rest) {
