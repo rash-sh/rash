@@ -158,7 +158,7 @@ jobs:
           CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         shell: bash
         run: |
-          cargo login "${CRATES_IO_TOKEN}"
+          echo "${CRATES_IO_TOKEN}" | cargo login
           make publish
 
       - name: Get Changelog Entry
