@@ -2,8 +2,92 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v2.16.2](https://github.com/rash-sh/rash/tree/v2.16.2) - 2025-10-13
+
+### Fixed
+
+- ci: Add fmt and clippy for build tests
+- Make clippy 1.89 happy
+- Make clippy 1.90 happy
+
+### Documentation
+
+- Add copilot instructions
+
+### Build
+
+- ci: Fix cargo login token
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v40.62.1
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v41
+- deps: Update Rust crate schemars to v1.0.4
+- deps: Update Rust crate clap to v4.5.41
+- deps: Update Rust crate serde_json to v1.0.141
+- deps: Update Rust crate rand to v0.9.2
+- deps: Update Rust crate reqwest to v0.12.22
+- deps: Update Rust crate serde_with to v3.14.0
+- deps: Update Rust crate tokio to v1.46.1
+- deps: Update Rust crate mdbook to v0.4.52
+- deps: Update strum monorepo to v0.27.2
+- deps: Update Rust crate criterion to 0.7.0
+- deps: Update Rust crate tokio to v1.47.0
+- deps: Update Rust crate ipc-channel to v0.20.1
+- deps: Update Rust crate clap to v4.5.42
+- deps: Update Rust crate serde_json to v1.0.142
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v41.43.0
+- deps: Update Rust crate tokio to v1.47.1
+- deps: Update Rust crate clap to v4.5.43
+- deps: Update Rust crate clap to v4.5.44
+- deps: Update Rust crate proc-macro2 to v1.0.97
+- deps: Update Rust crate clap to v4.5.45
+- deps: Bump slab from 0.4.10 to 0.4.11
+- deps: Update Rust crate reqwest to v0.12.23
+- deps: Update actions/checkout action to v5
+- deps: Update pre-commit hook pre-commit/pre-commit-hooks to v6
+- deps: Update rust Docker tag to v1.89.0
+- deps: Update Rust crate syn to v2.0.105
+- deps: Update Rust crate syn to v2.0.106
+- deps: Update Rust crate proc-macro2 to v1.0.98
+- deps: Update Rust crate proc-macro2 to v1.0.101
+- deps: Update Rust crate serde_json to v1.0.143
+- deps: Update Rust crate prs-lib to v0.5.3
+- deps: Update Rust crate tempfile to v3.21.0
+- deps: Update Rust crate minijinja to v2.12.0
+- deps: Update Rust crate regex to v1.11.2
+- deps: Update Rust crate clap to v4.5.46
+- deps: Update Rust crate clap to v4.5.47
+- deps: Update Rust crate log to v0.4.28
+- deps: Update actions/setup-python action to v6
+- deps: Update clechasseur/rs-clippy-check action to v5
+- deps: Update Rust crate tempfile to v3.22.0
+- deps: Update Rust crate chrono to v0.4.42
+- deps: Update Rust crate console to v0.16.1
+- deps: Update Rust crate prs-lib to v0.5.4
+- deps: Update Cargo.lock
+- deps: Update Rust crate serde to v1.0.220
+- deps: Update Rust crate serde_json to v1.0.144
+- deps: Update Rust crate serde to v1.0.221
+- deps: Update Rust crate semver to v1.0.27
+- deps: Update Rust crate serde_json to v1.0.145
+- deps: Update Rust crate serde to v1.0.223
+- deps: Update Rust crate serde to v1.0.224
+- deps: Update Rust crate serde to v1.0.225
+- deps: Update Rust crate ipc-channel to v0.20.2
+- deps: Update rust Docker tag to v1.90.0
+- deps: Update Rust crate clap to v4.5.48
+- deps: Update Rust crate serde_with to v3.14.1
+- deps: Update Rust crate serde to v1.0.226
+- deps: Update Rust crate regex to v1.11.3
+- deps: Update Rust crate tempfile to v3.23.0
+- deps: Update pre-commit hook alessandrojcm/commitlint-pre-commit-hook to v9.23.0
+- deps: Update Rust crate serde to v1.0.228
+- deps: Update Rust crate quote to v1.0.41
+- deps: Update Rust crate serde_with to v3.15.0
+- deps: Update Rust crate regex to v1.12.1
+- deps: Update Rust crate clap to v4.5.49
+- deps: Update Rust crate regex to v1.12.2
 
 ## [v2.16.1](https://github.com/rash-sh/rash/tree/v2.16.1) - 2025-06-30
 
@@ -38,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - core: Replace serde-yaml with serde-norway
 - deps: Update Rust crate syn to v2.0.104
 - deps: Update Rust crate schemars to v1
-- deps: Fix schemars import on  rash_derive
+- deps: Fix schemars import on rash_derive
 - deps: Update Rust crate schemars to v1.0.1
 
 ## [v2.15.0](https://github.com/rash-sh/rash/tree/v2.15.0) - 2025-06-19
