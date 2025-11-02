@@ -3,9 +3,9 @@
 // env (GNU coreutils) 8.25
 // And it `-S` support was introduced in coreutils 8.30:
 // https://lists.gnu.org/archive/html/info-gnu/2018-07/msg00001.html
-#[cfg(all(not(target_arch = "aarch64"), not(target_arch = "arm")))]
+#[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
 mod args;
-#[cfg(all(not(target_arch = "aarch64"), not(target_arch = "arm")))]
+#[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
 mod modules;
 
 use std::env;

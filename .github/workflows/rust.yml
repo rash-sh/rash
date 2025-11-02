@@ -130,7 +130,7 @@ jobs:
         with:
           install-only: true
           version: latest
-        if: matrix.job.os != 'macos-13'
+        if: startsWith(matrix.job.os, 'macos') == false
 
       - name: Make release
         id: package
