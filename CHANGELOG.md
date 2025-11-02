@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.17.2](https://github.com/rash-sh/rash/tree/v2.17.2) - 2025-11-02
+
+### Documentation
+
+- Remove unnecessary changelog header and intro to avoid repetition ([066b822](https://github.com/rash-sh/rash/commit/066b822874912deded2aeaff625564ae39d5e487))
+- Fix weights for correct TOC rendering ([5b70763](https://github.com/rash-sh/rash/commit/5b707634a01051a313eca5dfe21d04874c5ea3eb))
+
 ## [v2.17.1](https://github.com/rash-sh/rash/tree/v2.17.1) - 2025-11-02
 
 ### Fixed
