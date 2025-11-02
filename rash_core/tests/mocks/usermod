@@ -1,0 +1,50 @@
+#!/usr/bin/env -S rash --
+#
+# usermod mock for user module tests
+#
+# Usage:
+#   usermod [options] <username>
+#
+# Options:
+#   -u --uid=UID          New user ID
+#   -g --gid=GID          New primary group ID
+#   -G --groups=GROUPS    New supplementary groups (comma-separated)
+#   -a --append           Append to groups (ignored in mock)
+#   -c --comment=COMMENT  New user comment/description
+#   -d --home=HOME        New home directory path
+#   -s --shell=SHELL      New login shell
+#   -p --password=PASS    New encrypted password (ignored in mock)
+
+- name: Ensure passwd file exists
+  file:
+    path: "{{ env.RASH_TEST_PASSWD_FILE | default('/tmp/rash_test_passwd') }}"
+    state: touch
+
+- name: Check if user exists and get entry
+  set_vars:
+    passwd_file: "{{ env.RASH_TEST_PASSWD_FILE | default('/tmp/rash_test_passwd') }}"
+    user_exists: "{{ (username + ':') in file(passwd_file) }}"
+
+- name: Exit with error if user doesn't exist
+  command:
+    cmd: "sh -c 'echo \"usermod: user {{ username }} does not exist\" >&2; exit 6'"
+  when: not user_exists
+
+- name: Get current user entry fields
+  command:
+    cmd: "awk -F: '/^{{ username }}:/ {print $3\":\"$4\":\"$5\":\"$6\":\"$7; exit}' '{{ passwd_file }}'"
+  register: current_entry
+  when: user_exists
+
+- name: Parse current fields
+  set_vars:
+    current_parts: "{{ current_entry.output | trim | split(':') | list }}"
+  when: user_exists
+
+- name: Update user in passwd file
+  lineinfile:
+    path: "{{ passwd_file }}"
+    regexp: "^{{ username }}:"
+    line: "{{ username }}:x:{{ current_parts[0] if (options.uid | string) == 'none' else options.uid }}:{{ current_parts[1] if (options.gid | string) == 'none' else options.gid }}:{{ current_parts[2] if (options.comment | string) == 'none' else options.comment }}:{{ current_parts[3] if (options.home | string) == 'none' else options.home }}:{{ current_parts[4] if (options.shell | string) == 'none' else options.shell }}"
+    state: present
+  when: user_exists

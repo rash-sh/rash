@@ -1,0 +1,74 @@
+#!/usr/bin/env -S rash --
+#
+# user module example
+#
+# This example demonstrates the basic functionality of the user module:
+# - Creating users with specific properties
+# - Modifying user attributes
+# - Removing users
+#
+# Note: This example requires root privileges to run.
+#
+# Usage:
+#   sudo user.rh
+
+- name: Create a regular user
+  user:
+    name: appuser
+    state: present
+    uid: 2000
+    shell: /bin/bash
+    comment: Application User
+    home: /home/appuser
+    create_home: true
+
+- name: Create a system user for a service
+  user:
+    name: serviceuser
+    state: present
+    system: true
+    shell: /usr/sbin/nologin
+    comment: Service Account
+    create_home: false
+
+- name: Add user to supplementary groups
+  user:
+    name: appuser
+    state: present
+    groups:
+      - docker
+      - sudo
+    append: true
+
+- name: Modify user shell
+  user:
+    name: appuser
+    state: present
+    shell: /bin/zsh
+  register: modify_result
+
+- name: Verify user was modified
+  assert:
+    that:
+      - modify_result.changed
+
+- name: Run modification again to test idempotency
+  user:
+    name: appuser
+    state: present
+    shell: /bin/zsh
+  register: idempotent_result
+
+- name: Verify no change on second run (idempotent)
+  assert:
+    that:
+      - not idempotent_result.changed
+
+- name: Remove users
+  user:
+    name: "{{ item }}"
+    state: absent
+    remove: true
+  loop:
+    - appuser
+    - serviceuser
