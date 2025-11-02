@@ -17,12 +17,12 @@ pub const SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
 static RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r#"(?x)                                                # insignificant whitespace mode
-        \{\s*                                                  # link opening parens and whitespace
-        \$([a-zA-Z0-9_]+)                                      # link type
-        (?:\s+                                                 # separating whitespace
-        ([a-zA-Z0-9\s_.,\*\{\}\[\]\(\)\|'\-\\/`"\#+=:/\\]+))?  # all doc
-        \s*\}                                                  # whitespace and link closing parens"#
+        r#"(?x)                                                   # insignificant whitespace mode
+        \{\s*                                                     # link opening parens and whitespace
+        \$([a-zA-Z0-9_]+)                                         # link type
+        (?:\s+                                                    # separating whitespace
+        ([a-zA-Z0-9\s_.,\*\{\}\[\]\(\)\|'\-\\/`"\#+=:/\\%^?]+))?  # all doc
+        \s*\}                                                     # whitespace and link closing parens"#
     )
     .unwrap()
 });
@@ -48,7 +48,7 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match<'_>, Option<String>, String)>>
                     Some(content.as_str().replace("/// ", "").replace("///", "")),
                     typ.as_str().to_owned(),
                 )),
-                ("include_module_index" | "include_doc" | "include_lookup_index", _) => {
+                ("include_module_index" | "include_lookup_index", _) => {
                     Some((origin, None, typ.as_str().to_owned()))
                 }
                 _ => None,
