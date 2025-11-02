@@ -47,13 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - deps: Update Rust crate prs-lib to v0.5.5 ([ff4bf4e](https://github.com/rash-sh/rash/commit/ff4bf4e4d52aa2ecb9b693c35bb3fd917ed583a6))
 - deps: Update pre-commit hook renovatebot/pre-commit-hooks to v41.168.3 ([39405b6](https://github.com/rash-sh/rash/commit/39405b63c14c40c111f268a876bac404f2128e9f))
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
-adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [v2.16.2](https://github.com/rash-sh/rash/tree/v2.16.2) - 2025-10-13
 
 ### Fixed
