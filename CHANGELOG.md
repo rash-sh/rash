@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v2.17.0](https://github.com/rash-sh/rash/tree/v2.17.0) - 2025-11-02
+
+### Added
+
+- module: Add user ([73b1cdf](https://github.com/rash-sh/rash/commit/73b1cdf2c661f81e8ce248cf046a58d14c5da133))
+- module: Add group ([cd87762](https://github.com/rash-sh/rash/commit/cd8776260a7529f571b295e2648c42c3a441762e))
+
+### Fixed
+
+- task: Remove sum logic for number fields in var merge ([5f0cb7e](https://github.com/rash-sh/rash/commit/5f0cb7e1400ef4e5bdbdeeb98de67ea3614c4805))
+
+### Documentation
+
+- module: Add chars `%^?` to match regex in include_docs ([fed4e2f](https://github.com/rash-sh/rash/commit/fed4e2f6dbd0dea53a0241c0257bbf2e423c5bac))
+- Add commit ID links in CHANGELOG.md ([1289df2](https://github.com/rash-sh/rash/commit/1289df296784b4531d019bb109fc0ac7f1548064))
+
+### Build
+
+- ci: Change Apple build to arm64 and update to macos-15 ([e87238a](https://github.com/rash-sh/rash/commit/e87238a08e2f3d027446cfa0c8085ba238048f5d))
+  - **BREAKING**: Apple x86_64 binary is deprecated.
+- deps: Update Rust crate tokio to v1.48.0 ([9253965](https://github.com/rash-sh/rash/commit/9253965fc1aafcc7151c7b3e97e1f5012fd8de87))
+- deps: Update Rust crate reqwest to v0.12.24 ([88a4047](https://github.com/rash-sh/rash/commit/88a40475e53cb6f2a4a1088b76b753036c48b62a))
+- deps: Update Rust crate ignore to v0.4.24 ([5b02011](https://github.com/rash-sh/rash/commit/5b020118dc506e224cd0b47cc143c336d41fd0a8))
+- deps: Update Rust crate syn to v2.0.107 ([e88e7d1](https://github.com/rash-sh/rash/commit/e88e7d1f912af820338c728cf7dd3857efb99e41))
+- deps: Update Rust crate clap to v4.5.50 ([8aae268](https://github.com/rash-sh/rash/commit/8aae2687ddb680b64a46e7097260cab0b4f81212))
+- deps: Update Rust crate serde_with to v3.15.1 ([1231b26](https://github.com/rash-sh/rash/commit/1231b2676142e6f308e4aeb538514f244232dc61))
+- deps: Update Rust crate syn to v2.0.108 ([00835aa](https://github.com/rash-sh/rash/commit/00835aac5b6c531e4dedd8c5f8bc3f53318c0cbf))
+- deps: Update Rust crate proc-macro2 to v1.0.102 ([c330722](https://github.com/rash-sh/rash/commit/c3307225c46d46efd9c44035b87909a023c6ed0e))
+- deps: Update Rust crate proc-macro2 to v1.0.103 ([13c8a2e](https://github.com/rash-sh/rash/commit/13c8a2e9660c8dea2da8b720b2dac68c5f8aa151))
+- deps: Update Rust crate clap to v4.5.51 ([e646bca](https://github.com/rash-sh/rash/commit/e646bca2f6e030887be2415dc5eca71ffcfc0a91))
+- deps: Update Rust crate ignore to v0.4.25 ([29777d9](https://github.com/rash-sh/rash/commit/29777d9ba2a9f04a26dde36a754c408f3d2069a6))
+- deps: Update rust Docker tag to v1.91.0 ([7c58d08](https://github.com/rash-sh/rash/commit/7c58d0899a5cf380590a27ac83690e0d9d22da58))
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v41.168.1 ([27100f9](https://github.com/rash-sh/rash/commit/27100f95a47cffeb74ed02cd8a20dac6b05bbeef))
+- deps: Update Rust crate prs-lib to v0.5.5 ([ff4bf4e](https://github.com/rash-sh/rash/commit/ff4bf4e4d52aa2ecb9b693c35bb3fd917ed583a6))
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v41.168.3 ([39405b6](https://github.com/rash-sh/rash/commit/39405b63c14c40c111f268a876bac404f2128e9f))
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
