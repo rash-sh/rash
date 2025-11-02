@@ -1,9 +1,10 @@
+mod group;
 mod include;
 mod pacman;
 mod systemd;
 mod user;
 
-use super::execute_rash;
+use super::execute_rash_with_env;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -15,6 +16,15 @@ pub fn run_tests(
     scripts: HashMap<&str, &str>,
     entrypoint: &str,
     args: &[&str],
+) -> (String, String) {
+    run_tests_with_env(scripts, entrypoint, args, &[])
+}
+
+pub fn run_tests_with_env(
+    scripts: HashMap<&str, &str>,
+    entrypoint: &str,
+    args: &[&str],
+    env_vars: &[(&str, &str)],
 ) -> (String, String) {
     let tmp_dir = tempdir().unwrap();
 
@@ -28,11 +38,19 @@ pub fn run_tests(
     let mut args_with_entrypoint = args.to_vec();
     args_with_entrypoint.push(entrypoint_path.to_str().unwrap());
 
-    execute_rash(&args_with_entrypoint)
+    execute_rash_with_env(&args_with_entrypoint, env_vars)
 }
 
 pub fn run_test(content: &str, args: &[&str]) -> (String, String) {
+    run_test_with_env(content, args, &[])
+}
+
+pub fn run_test_with_env(
+    content: &str,
+    args: &[&str],
+    env_vars: &[(&str, &str)],
+) -> (String, String) {
     let entrypoint = "script.rh";
     let scripts = HashMap::from([(entrypoint, content)]);
-    run_tests(scripts, entrypoint, args)
+    run_tests_with_env(scripts, entrypoint, args, env_vars)
 }

@@ -25,6 +25,10 @@ pub fn update_path(new_path: &Path) {
 }
 
 pub fn execute_rash(args: &[&str]) -> (String, String) {
+    execute_rash_with_env(args, &[])
+}
+
+pub fn execute_rash_with_env(args: &[&str], env_vars: &[(&str, &str)]) -> (String, String) {
     let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
     update_path(bin_path.parent().unwrap());
     let mocks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
@@ -32,6 +36,11 @@ pub fn execute_rash(args: &[&str]) -> (String, String) {
 
     let mut cmd = Command::new(bin_path);
     cmd.args(args);
+
+    // Pass provided environment variables to subprocess
+    for (key, value) in env_vars {
+        cmd.env(key, value);
+    }
 
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();

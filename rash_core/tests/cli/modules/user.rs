@@ -1,8 +1,8 @@
-use crate::cli::modules::run_test;
-use std::sync::atomic::{AtomicU32, Ordering};
+use crate::cli::modules::run_test_with_env;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 // Global counter for unique test file names
-static TEST_COUNTER: AtomicU32 = AtomicU32::new(0);
+static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 // Helper function to get a unique passwd file for this test
 fn get_unique_passwd_file() -> String {
@@ -18,9 +18,6 @@ fn test_user_create() {
     let _ = std::fs::remove_file(&passwd_file);
 
     // Set environment variable for this test
-    unsafe {
-        std::env::set_var("RASH_TEST_PASSWD_FILE", &passwd_file);
-    }
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -35,7 +32,11 @@ fn test_user_create() {
     .to_string();
 
     let args = ["--diff"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[("RASH_TEST_PASSWD_FILE", &passwd_file)],
+    );
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     assert!(
@@ -61,9 +62,6 @@ fn test_user_create() {
 
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
-    unsafe {
-        std::env::remove_var("RASH_TEST_PASSWD_FILE");
-    }
 }
 
 #[test]
@@ -74,9 +72,6 @@ fn test_user_create_system() {
     let _ = std::fs::remove_file(&passwd_file);
 
     // Set environment variable for this test
-    unsafe {
-        std::env::set_var("RASH_TEST_PASSWD_FILE", &passwd_file);
-    }
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -89,7 +84,11 @@ fn test_user_create_system() {
     .to_string();
 
     let args = ["--diff"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[("RASH_TEST_PASSWD_FILE", &passwd_file)],
+    );
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     assert!(
@@ -107,9 +106,6 @@ fn test_user_create_system() {
 
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
-    unsafe {
-        std::env::remove_var("RASH_TEST_PASSWD_FILE");
-    }
 }
 
 #[test]
@@ -125,9 +121,6 @@ fn test_user_delete() {
     .expect("Failed to create test passwd file");
 
     // Set environment variable for this test
-    unsafe {
-        std::env::set_var("RASH_TEST_PASSWD_FILE", &passwd_file);
-    }
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -140,7 +133,11 @@ fn test_user_delete() {
     .to_string();
 
     let args = ["--diff"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[("RASH_TEST_PASSWD_FILE", &passwd_file)],
+    );
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     assert!(
@@ -158,9 +155,6 @@ fn test_user_delete() {
 
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
-    unsafe {
-        std::env::remove_var("RASH_TEST_PASSWD_FILE");
-    }
 }
 
 #[test]
@@ -171,9 +165,6 @@ fn test_user_delete_nonexistent() {
     let _ = std::fs::remove_file(&passwd_file);
 
     // Set environment variable for this test
-    unsafe {
-        std::env::set_var("RASH_TEST_PASSWD_FILE", &passwd_file);
-    }
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -185,7 +176,11 @@ fn test_user_delete_nonexistent() {
     .to_string();
 
     let args = ["--diff"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[("RASH_TEST_PASSWD_FILE", &passwd_file)],
+    );
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     // User doesn't exist, so should be "ok" not "changed"
@@ -197,9 +192,6 @@ fn test_user_delete_nonexistent() {
 
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
-    unsafe {
-        std::env::remove_var("RASH_TEST_PASSWD_FILE");
-    }
 }
 
 #[test]
@@ -210,9 +202,6 @@ fn test_user_with_groups() {
     let _ = std::fs::remove_file(&passwd_file);
 
     // Set environment variable for this test
-    unsafe {
-        std::env::set_var("RASH_TEST_PASSWD_FILE", &passwd_file);
-    }
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -228,7 +217,11 @@ fn test_user_with_groups() {
     .to_string();
 
     let args = ["--diff"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[("RASH_TEST_PASSWD_FILE", &passwd_file)],
+    );
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     assert!(
@@ -246,9 +239,6 @@ fn test_user_with_groups() {
 
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
-    unsafe {
-        std::env::remove_var("RASH_TEST_PASSWD_FILE");
-    }
 }
 
 #[test]
@@ -264,9 +254,6 @@ fn test_user_modify() {
     .expect("Failed to create test passwd file");
 
     // Set environment variable for this test
-    unsafe {
-        std::env::set_var("RASH_TEST_PASSWD_FILE", &passwd_file);
-    }
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -281,7 +268,11 @@ fn test_user_modify() {
     .to_string();
 
     let args = ["--diff"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[("RASH_TEST_PASSWD_FILE", &passwd_file)],
+    );
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     assert!(
@@ -311,7 +302,4 @@ fn test_user_modify() {
 
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
-    unsafe {
-        std::env::remove_var("RASH_TEST_PASSWD_FILE");
-    }
 }

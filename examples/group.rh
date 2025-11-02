@@ -1,0 +1,64 @@
+#!/usr/bin/env -S rash --
+#
+# group module example
+#
+# This example demonstrates the basic functionality of the group module:
+# - Creating groups with specific properties
+# - Modifying group attributes
+# - Removing groups
+#
+# Note: This example requires root privileges to run.
+#
+# Usage:
+#   sudo group.rh
+
+- name: Create a regular group
+  group:
+    name: developers
+    state: present
+    gid: 3000
+
+- name: Create a system group for a service
+  group:
+    name: servicegroup
+    state: present
+    system: true
+
+- name: Create another group
+  group:
+    name: testers
+    state: present
+    gid: 3001
+
+- name: Modify group GID
+  group:
+    name: testers
+    state: present
+    gid: 3002
+  register: modify_result
+
+- name: Verify group was modified
+  assert:
+    that:
+      - modify_result.changed
+
+- name: Run modification again to test idempotency
+  group:
+    name: testers
+    state: present
+    gid: 3002
+  register: idempotent_result
+
+- name: Verify no change on second run (idempotent)
+  assert:
+    that:
+      - not idempotent_result.changed
+
+- name: Remove groups
+  group:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - developers
+    - testers
+    - servicegroup

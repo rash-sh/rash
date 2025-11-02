@@ -1,0 +1,32 @@
+#!/usr/bin/env -S rash --
+#
+# groupadd mock for group module tests
+#
+# Usage:
+#   groupadd [options] <groupname>
+#
+# Options:
+#   -g --gid=GID      Group ID
+#   -r --system       Create system group
+
+- name: Ensure group file exists
+  file:
+    path: "{{ env.RASH_TEST_GROUP_FILE | default('/tmp/rash_test_group') }}"
+    state: touch
+
+- name: Check if group already exists
+  set_vars:
+    group_file: "{{ env.RASH_TEST_GROUP_FILE | default('/tmp/rash_test_group') }}"
+    group_exists: "{{ (groupname + ':') in file(group_file) }}"
+
+- name: Exit with error if group already exists
+  command:
+    cmd: "sh -c 'echo \"groupadd: group {{ groupname }} already exists\" >&2; exit 9'"
+  when: group_exists
+
+- name: Add group to group file
+  lineinfile:
+    path: "{{ group_file }}"
+    line: "{{ groupname }}:x:{{ ('999' if options.system else '1000') if (options.gid | string) == 'none' else options.gid }}:"
+    state: present
+  when: not group_exists
