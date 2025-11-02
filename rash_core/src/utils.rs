@@ -108,7 +108,17 @@ pub fn parse_octal(s: &str) -> Result<u32> {
     }
 }
 
+#[inline]
 pub fn merge_json(a: &mut serde_json::Value, b: serde_json::Value) {
+    generic_merge_json(a, b, true);
+}
+
+#[inline]
+pub fn merge_json_without_sum(a: &mut serde_json::Value, b: serde_json::Value) {
+    generic_merge_json(a, b, false);
+}
+
+fn generic_merge_json(a: &mut serde_json::Value, b: serde_json::Value, sum_values: bool) {
     if let (Some(a_map), Some(b_map)) = (a.as_object_mut(), b.as_object()) {
         for (k, v) in b_map {
             match (a_map.get_mut(k), &v) {
@@ -116,13 +126,13 @@ pub fn merge_json(a: &mut serde_json::Value, b: serde_json::Value) {
                     a_arr.extend(b_arr.clone());
                 }
                 (Some(serde_json::Value::Number(a_num)), serde_json::Value::Number(b_num))
-                    if a_num.is_u64() && b_num.is_u64() =>
+                    if a_num.is_u64() && b_num.is_u64() && sum_values =>
                 {
                     let sum = a_num.as_u64().unwrap() + b_num.as_u64().unwrap();
                     a_map.insert(k.to_string(), serde_json::Value::from(sum));
                 }
                 (Some(a_val), _) => {
-                    merge_json(a_val, v.clone());
+                    generic_merge_json(a_val, v.clone(), sum_values);
                 }
                 (None, _) => {
                     a_map.insert(k.to_string(), v.clone());
