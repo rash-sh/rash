@@ -1,0 +1,40 @@
+#!/usr/bin/env -S rash --
+#
+# useradd mock for user module tests
+#
+# Usage:
+#   useradd [options] <username>
+#
+# Options:
+#   -u --uid=UID          User ID
+#   -g --gid=GID          Primary group ID
+#   -G --groups=GROUPS    Supplementary groups (comma-separated)
+#   -c --comment=COMMENT  User comment/description
+#   -d --home=HOME        Home directory path
+#   -s --shell=SHELL      Login shell
+#   -r --system           Create system account
+#   -m --create-home      Create home directory (ignored in mock)
+#   -M --no-create-home   Do not create home directory (ignored in mock)
+#   -p --password=PASS    Encrypted password (ignored in mock)
+
+- name: Ensure passwd file exists
+  file:
+    path: "{{ env.RASH_TEST_PASSWD_FILE | default('/tmp/rash_test_passwd') }}"
+    state: touch
+
+- name: Check if user already exists
+  set_vars:
+    passwd_file: "{{ env.RASH_TEST_PASSWD_FILE | default('/tmp/rash_test_passwd') }}"
+    user_exists: "{{ (username + ':') in file(passwd_file) }}"
+
+- name: Exit with error if user already exists
+  command:
+    cmd: "sh -c 'echo \"useradd: user {{ username }} already exists\" >&2; exit 9'"
+  when: user_exists
+
+- name: Add user to passwd file
+  lineinfile:
+    path: "{{ passwd_file }}"
+    line: "{{ username }}:x:{{ ('999' if options.system else '1000') if (options.uid | string) == 'none' else options.uid }}:{{ ('999' if options.system else '1000') if (options.gid | string) == 'none' else options.gid }}:{{ '' if (options.comment | string) == 'none' else options.comment }}:{{ ('/var/lib/' + username if options.system else '/home/' + username) if (options.home | string) == 'none' else options.home }}:{{ '/bin/sh' if (options.shell | string) == 'none' else options.shell }}"
+    state: present
+  when: not user_exists

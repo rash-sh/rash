@@ -1,6 +1,7 @@
 mod include;
 mod pacman;
 mod systemd;
+mod user;
 
 use super::execute_rash;
 

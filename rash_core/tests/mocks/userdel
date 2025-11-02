@@ -1,0 +1,32 @@
+#!/usr/bin/env -S rash --
+#
+# userdel mock for user module tests
+#
+# Usage:
+#   userdel [options] <username>
+#
+# Options:
+#   -r --remove           Remove home directory (ignored in mock)
+#   -f --force            Force removal (ignored in mock)
+
+- name: Ensure passwd file exists
+  file:
+    path: "{{ env.RASH_TEST_PASSWD_FILE | default('/tmp/rash_test_passwd') }}"
+    state: touch
+
+- name: Check if user exists
+  set_vars:
+    passwd_file: "{{ env.RASH_TEST_PASSWD_FILE | default('/tmp/rash_test_passwd') }}"
+    user_exists: "{{ (username + ':') in file(passwd_file) }}"
+
+- name: Exit with error if user doesn't exist
+  command:
+    cmd: "sh -c 'echo \"userdel: user {{ username }} does not exist\" >&2; exit 6'"
+  when: not user_exists
+
+- name: Remove user from passwd file
+  lineinfile:
+    path: "{{ passwd_file }}"
+    regexp: "^{{ username }}:"
+    state: absent
+  when: user_exists
