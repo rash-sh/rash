@@ -48,7 +48,7 @@ fn get_matches(ch: &Chapter) -> Option<Vec<(Match<'_>, Option<String>, String)>>
                     Some(content.as_str().replace("/// ", "").replace("///", "")),
                     typ.as_str().to_owned(),
                 )),
-                ("include_module_index" | "include_lookup_index", _) => {
+                ("include_module_index" | "include_doc" | "include_lookup_index", _) => {
                     Some((origin, None, typ.as_str().to_owned()))
                 }
                 _ => None,
@@ -221,7 +221,7 @@ indent: true
 "#,
                     name = name,
                     weight = (new_section_number.clone().first().unwrap() + 1) * 1000
-                        + ((ch.sub_items.len() + 1) * 100) as u32,
+                        + ((ch.sub_items.len() + 1) * 10) as u32,
                     parameters = parameters,
                 )
                 .to_owned();
