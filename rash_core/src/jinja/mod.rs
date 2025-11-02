@@ -6,7 +6,7 @@ mod lookup;
 
 use crate::{
     error::{Error, ErrorKind, Result},
-    utils::merge_json,
+    utils::merge_json_without_sum,
 };
 use error_utils::handle_template_error;
 use serde::Deserialize;
@@ -140,7 +140,7 @@ pub fn merge_option(a: Value, b: Option<Value>) -> Value {
 pub fn merge(a: Value, b: Value) -> Value {
     let mut a_json_value: serde_json::Value = serde_json::Value::deserialize(a).unwrap();
     let b_json_value: serde_json::Value = serde_json::Value::deserialize(b).unwrap();
-    merge_json(&mut a_json_value, b_json_value);
+    merge_json_without_sum(&mut a_json_value, b_json_value);
     Value::from_serialize(a_json_value)
 }
 
