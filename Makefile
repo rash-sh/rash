@@ -99,7 +99,7 @@ test:	## run tests
 test-examples:	## run examples and check exit code
 	@for example in $$(find examples -not -path 'examples/envar-api-gateway/*' \
 		-not -path 'examples/diff.rh' -not -path 'examples/dotfiles/*' \
-		-not -path 'examples/user.rh' -name '*.rh'); do \
+		-not -path 'examples/user.rh' -not -path 'examples/group.rh' -name '*.rh'); do \
 		echo $$example; \
 		$$example || exit 1; \
 	done

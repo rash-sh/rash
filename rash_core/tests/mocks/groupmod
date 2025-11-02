@@ -1,0 +1,43 @@
+#!/usr/bin/env -S rash --
+#
+# groupmod mock for group module tests
+#
+# Usage:
+#   groupmod [options] <groupname>
+#
+# Options:
+#   -g --gid=GID      New group ID
+
+- name: Ensure group file exists
+  file:
+    path: "{{ env.RASH_TEST_GROUP_FILE | default('/tmp/rash_test_group') }}"
+    state: touch
+
+- name: Check if group exists
+  set_vars:
+    group_file: "{{ env.RASH_TEST_GROUP_FILE | default('/tmp/rash_test_group') }}"
+    group_exists: "{{ (groupname + ':') in file(group_file) }}"
+
+- name: Exit with error if group doesn't exist
+  command:
+    cmd: "sh -c 'echo \"groupmod: group {{ groupname }} does not exist\" >&2; exit 6'"
+  when: not group_exists
+
+- name: Get current group entry fields
+  command:
+    cmd: "awk -F: '/^{{ groupname }}:/ {print $3\":\"$4; exit}' '{{ group_file }}'"
+  register: current_entry
+  when: group_exists
+
+- name: Parse current fields
+  set_vars:
+    current_parts: "{{ current_entry.output | trim | split(':') | list }}"
+  when: group_exists
+
+- name: Update group in group file
+  lineinfile:
+    path: "{{ group_file }}"
+    regexp: "^{{ groupname }}:"
+    line: "{{ groupname }}:x:{{ current_parts[0] if (options.gid | string) == 'none' else options.gid }}:{{ current_parts[1] }}"
+    state: present
+  when: group_exists

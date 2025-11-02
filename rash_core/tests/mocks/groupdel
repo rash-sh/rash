@@ -1,0 +1,28 @@
+#!/usr/bin/env -S rash --
+#
+# groupdel mock for group module tests
+#
+# Usage:
+#   groupdel <groupname>
+
+- name: Ensure group file exists
+  file:
+    path: "{{ env.RASH_TEST_GROUP_FILE | default('/tmp/rash_test_group') }}"
+    state: touch
+
+- name: Check if group exists
+  set_vars:
+    group_file: "{{ env.RASH_TEST_GROUP_FILE | default('/tmp/rash_test_group') }}"
+    group_exists: "{{ (groupname + ':') in file(group_file) }}"
+
+- name: Exit with error if group doesn't exist
+  command:
+    cmd: "sh -c 'echo \"groupdel: group {{ groupname }} does not exist\" >&2; exit 6'"
+  when: not group_exists
+
+- name: Remove group from group file
+  lineinfile:
+    path: "{{ group_file }}"
+    regexp: "^{{ groupname }}:"
+    state: absent
+  when: group_exists
