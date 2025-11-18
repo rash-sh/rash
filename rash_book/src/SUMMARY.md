@@ -4,6 +4,7 @@
 
 - [Getting Started](getting-started.md)
 - [Installation](installation.md)
+- [CLI Reference](cli.md)
 - [Tasks](tasks.md)
 - [Modules](modules.md)
 - [Vars](vars.md)
