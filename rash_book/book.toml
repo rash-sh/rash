@@ -1,7 +1,6 @@
 [book]
 authors = ["Pando85 <pando855@gmail.com>"]
 language = "en"
-multilingual = false
 src = "src"
 title = "Rash book"
 

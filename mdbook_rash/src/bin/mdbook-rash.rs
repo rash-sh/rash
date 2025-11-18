@@ -7,8 +7,8 @@ use chrono::Local;
 use clap::{Arg, ArgMatches, Command, crate_authors, crate_description, crate_version};
 use env_logger::Builder;
 use log::LevelFilter;
-use mdbook::errors::Error;
-use mdbook::preprocess::CmdPreprocessor;
+use mdbook_preprocessor::errors::Error;
+use mdbook_preprocessor::parse_input;
 
 #[macro_use]
 extern crate log;
@@ -65,15 +65,15 @@ fn main() {
 }
 
 fn handle_preprocessing() -> Result<(), Error> {
-    let (ctx, book) = CmdPreprocessor::parse_input(io::stdin()).expect("Invalid book input.");
+    let (ctx, book) = parse_input(io::stdin()).expect("Invalid book input.");
     let calling_ver = semver::Version::parse(&ctx.mdbook_version).unwrap();
-    let library_ver = semver::Version::parse(mdbook::MDBOOK_VERSION).unwrap();
+    let library_ver = semver::Version::parse(mdbook_core::MDBOOK_VERSION).unwrap();
 
     if calling_ver != library_ver {
         error!(
             "Warning: The mdbook-rash plugin was built against version {} of mdbook, \
             but we're being called from version {}",
-            mdbook::MDBOOK_VERSION,
+            mdbook_core::MDBOOK_VERSION,
             ctx.mdbook_version
         );
     }

@@ -26,7 +26,7 @@ jobs:
       - run: rustup component add rustfmt
 
       - run: |
-          MDBOOK_VERSION=$(grep -A 1 'name = "mdbook"' Cargo.lock | grep 'version' | awk -F '"' '{print $2}')
+          MDBOOK_VERSION=$(grep -A 1 'name = "mdbook-core"' Cargo.lock | grep 'version' | awk -F '"' '{print $2}')
           cargo install mdbook --version ${MDBOOK_VERSION}
 
           GH_PAGES_DIR=./rash_book/rash-sh.github.io
