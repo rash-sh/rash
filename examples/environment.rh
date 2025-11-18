@@ -1,0 +1,24 @@
+#!/usr/bin/env rash
+
+# Example showing how to use environment variables in tasks
+
+- name: run command with environment variable
+  command: echo "Hello, $NAME!"
+  environment:
+    NAME: World
+
+- name: use multiple environment variables
+  command: printenv GREETING MESSAGE
+  environment:
+    GREETING: Hello
+    MESSAGE: "from Rash"
+
+- name: use templated environment variables with vars
+  vars:
+    custom_value: "from vars"
+  command: echo "$DYNAMIC_VAR"
+  environment:
+    DYNAMIC_VAR: "Value {{ custom_value }}"
+
+- name: verify environment variables don't persist
+  command: test -z "$NAME" && echo "Environment variable not persistent"

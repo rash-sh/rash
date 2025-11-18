@@ -1,0 +1,46 @@
+#!/usr/bin/env rash
+
+# Test basic environment variable injection
+- name: test basic environment variable
+  command: echo $FOO
+  environment:
+    FOO: bar
+  register: result
+
+- assert:
+    that:
+      - result.output | trim == "bar"
+
+# Test environment variable with Jinja templating
+- name: test environment variable with template
+  command: echo $GREETING
+  environment:
+    GREETING: "Hello {{ name }}"
+  vars:
+    name: World
+  register: result2
+
+- assert:
+    that:
+      - result2.output | trim == "Hello World"
+
+# Test multiple environment variables
+- name: test multiple environment variables
+  command: echo "$VAR1 $VAR2"
+  environment:
+    VAR1: first
+    VAR2: second
+  register: result3
+
+- assert:
+    that:
+      - result3.output | trim == "first second"
+
+# Test that environment variables don't persist
+- name: test env var is not persistent
+  command: test -z "$FOO" && echo "empty"
+  register: result4
+
+- assert:
+    that:
+      - result4.output | trim == "empty"

@@ -11,6 +11,8 @@ use crate::task::new::TaskNew;
 
 use rash_derive::FieldNames;
 
+use std::collections::HashMap;
+use std::env;
 use std::process::exit;
 use std::result::Result as StdResult;
 
@@ -67,6 +69,8 @@ pub struct Task<'a> {
     rescue: Option<YamlValue>,
     /// Always tasks to execute regardless of success or failure.
     always: Option<YamlValue>,
+    /// Environment variables to inject for this task.
+    environment: Option<YamlValue>,
     /// Global parameters.
     global_params: &'a GlobalParams<'a>,
 }
@@ -143,6 +147,43 @@ impl<'a> Task<'a> {
         }
     }
 
+    fn render_environment(&self, vars: &Value) -> Result<Vec<(String, String)>> {
+        trace!("environment: {:?}", &self.environment);
+        match &self.environment {
+            Some(env_yaml) => {
+                let extended_vars = self.extend_vars(vars.clone())?;
+                match env_yaml.as_mapping() {
+                    Some(mapping) => {
+                        let mut env_vars = Vec::new();
+                        for (key, value) in mapping.iter() {
+                            let key_str = key.as_str().ok_or_else(|| {
+                                Error::new(
+                                    ErrorKind::InvalidData,
+                                    format!("Environment key must be a string: {key:?}"),
+                                )
+                            })?;
+                            let rendered_value = match value.as_str() {
+                                Some(s) => render_string(s, &extended_vars)?,
+                                None => {
+                                    // For non-string values, convert to string
+                                    serde_json::to_string(value)
+                                        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
+                                }
+                            };
+                            env_vars.push((key_str.to_owned(), rendered_value));
+                        }
+                        Ok(env_vars)
+                    }
+                    None => Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "environment must be a mapping",
+                    )),
+                }
+            }
+            None => Ok(Vec::new()),
+        }
+    }
+
     fn is_exec(&self, vars: &Value) -> Result<bool> {
         trace!("when: {:?}", &self.when);
         match &self.when {
@@ -195,17 +236,91 @@ impl<'a> Task<'a> {
         vars: &Value,
         user: User,
     ) -> Result<Option<Value>> {
+        // Environment variables need to be set before changing user
+        let extended_vars = self.extend_vars(vars.clone())?;
+        let env_vars = self.render_environment(&extended_vars)?;
+
+        for (key, value) in &env_vars {
+            trace!(
+                "setting environment variable (with user): {}={}",
+                key, value
+            );
+            // SAFETY: We're setting environment variables for task execution.
+            // This is safe as long as no other threads are modifying env vars concurrently.
+            unsafe {
+                env::set_var(key, value);
+            }
+        }
+
         match setgid(user.gid) {
             Ok(_) => match setuid(user.uid) {
-                Ok(_) => self.exec_module_rendered(rendered_params, vars),
+                Ok(_) => {
+                    // After changing user, call the inner module exec directly
+                    let module_name = self.module.get_name();
+
+                    let result = self.module.exec(
+                        self.global_params,
+                        rendered_params.clone(),
+                        &extended_vars,
+                        self.check_mode,
+                    );
+
+                    match result {
+                        Ok((result, result_vars)) => {
+                            if module_name != "include" && module_name != "block" {
+                                let output = result.get_output();
+                                let target = match self.is_changed(&result, &extended_vars)? {
+                                    true => "changed",
+                                    false => "ok",
+                                };
+                                let target_empty = &format!(
+                                    "{}{}",
+                                    target,
+                                    if output.is_none() { "_empty" } else { "" }
+                                );
+                                info!(target: target_empty,
+                                    "{}",
+                                    output.unwrap_or_else(
+                                        || "".to_owned()
+                                    )
+                                );
+                            }
+
+                            let register_vars = self.register.clone().map(|register| {
+                                trace!("register {:?} in {:?}", &result, register);
+                                [(register, Value::from_serialize(&result))]
+                                    .into_iter()
+                                    .collect::<Value>()
+                            });
+
+                            let new_vars_value = [result_vars, register_vars]
+                                .into_iter()
+                                .fold(context! {}, merge_option);
+                            let new_vars = if new_vars_value == context! {} {
+                                None
+                            } else {
+                                Some(new_vars_value)
+                            };
+
+                            Ok(new_vars)
+                        }
+                        Err(e) => match self.ignore_errors {
+                            Some(is_true) if is_true => {
+                                info!(target: "ignoring", "{e}");
+                                Ok(None)
+                            }
+                            _ => Err(e),
+                        },
+                    }
+                }
                 Err(_) => Err(Error::new(
                     ErrorKind::Other,
-                    format!("gid cannot be changed to {}", user.gid),
+                    format!("uid cannot be changed to {}", user.uid),
                 )),
             },
             Err(_) => Err(Error::new(
                 ErrorKind::Other,
-                format!("uid cannot be changed to {}", user.uid),
+                format!("gid cannot be changed to {}", user.gid),
             )),
         }
     }
@@ -218,12 +333,41 @@ impl<'a> Task<'a> {
         let module_name = self.module.get_name();
         let extended_vars = self.extend_vars(vars.clone())?;
 
-        match self.module.exec(
+        // Render and set environment variables
+        let env_vars = self.render_environment(&extended_vars)?;
+        let mut original_env: HashMap<String, Option<String>> = HashMap::new();
+
+        for (key, value) in &env_vars {
+            trace!("setting environment variable: {}={}", key, value);
+            // Save original value (if it exists)
+            original_env.insert(key.clone(), env::var(key).ok());
+            // Set new value
+            // SAFETY: We're setting environment variables for task execution.
+            // This is safe as long as no other threads are modifying env vars concurrently.
+            unsafe {
+                env::set_var(key, value);
+            }
+        }
+
+        let result = self.module.exec(
             self.global_params,
             rendered_params.clone(),
             &extended_vars,
             self.check_mode,
-        ) {
+        );
+
+        // Restore original environment
+        for (key, original_value) in original_env {
+            // SAFETY: Restoring environment variables to their original state.
+            unsafe {
+                match original_value {
+                    Some(value) => env::set_var(&key, value),
+                    None => env::remove_var(&key),
+                }
+            }
+        }
+
+        match result {
             Ok((result, result_vars)) => {
                 // Don't show output for control flow modules like include and block
                 if module_name != "include" && module_name != "block" {
