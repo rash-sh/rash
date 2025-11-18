@@ -3,9 +3,10 @@ use rash_core::modules::MODULES;
 
 use std::sync::LazyLock;
 
-use mdbook::book::{Book, BookItem, Chapter};
-use mdbook::errors::Error;
-use mdbook::preprocess::{LinkPreprocessor, Preprocessor, PreprocessorContext};
+use mdbook_core::book::{Book, BookItem, Chapter};
+use mdbook_driver::builtin_preprocessors::LinkPreprocessor;
+use mdbook_preprocessor::errors::Error;
+use mdbook_preprocessor::{Preprocessor, PreprocessorContext};
 use prettytable::{Table, format, row};
 use regex::{Match, Regex};
 use schemars::Schema;
