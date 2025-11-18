@@ -6,6 +6,8 @@
 #[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
 mod args;
 #[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
+mod environment;
+#[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
 mod modules;
 
 use std::env;

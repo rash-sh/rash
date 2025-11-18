@@ -133,6 +133,10 @@ impl TaskValid {
                 .attrs
                 .get("always")
                 .map(|_| self.attrs["always"].clone()),
+            environment: self
+                .attrs
+                .get("environment")
+                .map(|_| self.attrs["environment"].clone()),
             global_params,
         })
     }
