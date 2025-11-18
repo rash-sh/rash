@@ -1,0 +1,83 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# dconf - A simple configuration system.
+#
+# Usage:
+#   dconf read <key>
+#   dconf write <key> <value>
+#   dconf reset <key>
+#
+# Commands:
+#   read              Read the value of a key
+#   write             Write a value to a key
+#   reset             Reset/remove a key
+#
+# Arguments:
+#   <key>             Key path (e.g. /org/gnome/desktop/interface/clock-format)
+#   <value>           Value to write (GVariant format)
+
+- name: Set state file path
+  set_vars:
+    state_file: "{{ env.DCONF_MOCK_STATE_FILE | default('/tmp/rash_dconf_mock_state') }}"
+
+- name: Initialize state file with default values if needed
+  command:
+    argv:
+      - bash
+      - -c
+      - |
+        if [ ! -f "{{ state_file }}" ]; then
+          cat > "{{ state_file }}" << 'EOF'
+        /org/gnome/desktop/interface/clock-format='24h'
+        /org/gnome/desktop/interface/gtk-theme='Adwaita'
+        /org/gnome/desktop/interface/cursor-theme='Adwaita'
+        /org/gnome/desktop/interface/icon-theme='Adwaita'
+        /org/gnome/desktop/input-sources/sources=[('xkb', 'us')]
+        EOF
+        fi
+
+- name: Read key value
+  when: read
+  command:
+    argv:
+      - bash
+      - -c
+      - |
+        line=$(grep "^{{ key }}=" "{{ state_file }}" 2>/dev/null)
+        if [ -n "$line" ]; then
+          echo "$line" | cut -d'=' -f2-
+        fi
+
+- name: Write key value
+  when: write
+  block:
+    - name: Ensure state file exists
+      file:
+        path: "{{ state_file }}"
+        state: touch
+
+    - name: Remove existing key entry if present
+      lineinfile:
+        path: "{{ state_file }}"
+        regexp: "^{{ key }}="
+        state: absent
+
+    - name: Add new key-value pair
+      lineinfile:
+        path: "{{ state_file }}"
+        line: "{{ key }}={{ value }}"
+        state: present
+
+- name: Reset key
+  when: reset
+  block:
+    - name: Ensure state file exists
+      file:
+        path: "{{ state_file }}"
+        state: touch
+
+    - name: Remove key from state
+      lineinfile:
+        path: "{{ state_file }}"
+        regexp: "^{{ key }}="
+        state: absent

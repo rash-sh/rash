@@ -2,6 +2,7 @@ mod assert;
 mod block;
 mod command;
 mod copy;
+mod dconf;
 mod debug;
 mod file;
 pub mod find;
@@ -23,6 +24,7 @@ use crate::modules::assert::Assert;
 use crate::modules::block::Block;
 use crate::modules::command::Command;
 use crate::modules::copy::Copy;
+use crate::modules::dconf::Dconf;
 use crate::modules::debug::Debug;
 use crate::modules::file::File;
 use crate::modules::find::Find;
@@ -124,6 +126,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
+        (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
