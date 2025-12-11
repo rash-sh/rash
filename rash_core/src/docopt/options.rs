@@ -367,8 +367,8 @@ impl Options {
                         json!(0)
                     }
                     OptionArg::WithParam { default_value, .. } => {
-                        if default_value.is_some() {
-                            json!(default_value.unwrap())
+                        if let Some(v) = default_value {
+                            json!(v)
                         } else {
                             json!(null)
                         }
