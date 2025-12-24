@@ -164,7 +164,6 @@ fn get_user_info(username: &str) -> Option<UserInfo> {
 }
 
 /// Get supplementary groups for a user from /etc/group
-#[allow(dead_code)]
 fn get_user_groups(username: &str) -> Vec<String> {
     let mut groups = Vec::new();
 
@@ -255,11 +254,27 @@ fn build_usermod_command(params: &Params, current: &UserInfo) -> Vec<String> {
     if let Some(ref groups) = params.groups
         && !groups.is_empty()
     {
-        if params.append.unwrap_or(false) {
-            cmd.push("-a".to_string());
+        // Determine which groups need to be added
+        let groups_to_add = if params.append.unwrap_or(false) {
+            // In append mode, only add groups the user doesn't already have
+            let current_groups = get_user_groups(&params.name);
+            groups
+                .iter()
+                .filter(|g| !current_groups.contains(g))
+                .cloned()
+                .collect::<Vec<_>>()
+        } else {
+            // In replace mode, always set groups
+            groups.clone()
+        };
+
+        if !groups_to_add.is_empty() {
+            if params.append.unwrap_or(false) {
+                cmd.push("-a".to_string());
+            }
+            cmd.push("-G".to_string());
+            cmd.push(groups_to_add.join(","));
         }
-        cmd.push("-G".to_string());
-        cmd.push(groups.join(","));
     }
     if let Some(ref home) = params.home
         && home != &current.home
@@ -306,7 +321,7 @@ fn exec_user_command(cmd: &[String], check_mode: bool) -> Result<(ModuleResult, 
         return Ok((
             ModuleResult {
                 changed: true,
-                output: Some(format!("[CHECK_MODE] Would run: {}", cmd.join(" "))),
+                output: Some(format!("Would run: {}", cmd.join(" "))),
                 extra: None,
             },
             None,
