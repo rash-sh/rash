@@ -158,7 +158,7 @@ fn exec_group_command(cmd: &[String], check_mode: bool) -> Result<(ModuleResult,
         return Ok((
             ModuleResult {
                 changed: true,
-                output: Some(format!("[CHECK_MODE] Would run: {}", cmd.join(" "))),
+                output: Some(format!("Would run: {}", cmd.join(" "))),
                 extra: None,
             },
             None,

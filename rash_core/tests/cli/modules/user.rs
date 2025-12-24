@@ -303,3 +303,130 @@ fn test_user_modify() {
     // Cleanup
     let _ = std::fs::remove_file(&passwd_file);
 }
+
+// Helper function to get a unique group file for this test
+fn get_unique_group_file() -> String {
+    let test_id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+    format!("/tmp/rash_test_group_{}", test_id)
+}
+
+#[test]
+fn test_user_append_groups_already_present() {
+    let passwd_file = get_unique_passwd_file();
+    let group_file = get_unique_group_file();
+
+    // Setup: Create a user in passwd file
+    let _ = std::fs::remove_file(&passwd_file);
+    let _ = std::fs::remove_file(&group_file);
+    std::fs::write(
+        &passwd_file,
+        "groupuser:x:1010:1010:Group User:/home/groupuser:/bin/bash\n",
+    )
+    .expect("Failed to create test passwd file");
+
+    // Setup: Create group file where the user is already a member of docker, wheel, and audio
+    std::fs::write(
+        &group_file,
+        "docker:x:100:groupuser,otheruser\nwheel:x:101:groupuser\naudio:x:102:groupuser\nvideo:x:103:someoneelse\n",
+    )
+    .expect("Failed to create test group file");
+
+    // Try to append docker and wheel groups - user already has these
+    let script_text = r#"
+#!/usr/bin/env rash
+- name: test user module append groups already present
+  user:
+    name: groupuser
+    state: present
+    groups:
+      - docker
+      - wheel
+    append: true
+        "#
+    .to_string();
+
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[
+            ("RASH_TEST_PASSWD_FILE", &passwd_file),
+            ("RASH_TEST_GROUP_FILE", &group_file),
+        ],
+    );
+
+    assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
+    // User already has both groups, so should be "ok" not "changed"
+    assert!(
+        stdout.contains("ok"),
+        "stdout should contain 'ok' (no change needed) when groups are already present, got: {}",
+        stdout
+    );
+    assert!(
+        !stdout.contains("changed"),
+        "stdout should NOT contain 'changed' when groups are already present, got: {}",
+        stdout
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_file(&passwd_file);
+    let _ = std::fs::remove_file(&group_file);
+}
+
+#[test]
+fn test_user_append_groups_partially_present() {
+    let passwd_file = get_unique_passwd_file();
+    let group_file = get_unique_group_file();
+
+    // Setup: Create a user in passwd file
+    let _ = std::fs::remove_file(&passwd_file);
+    let _ = std::fs::remove_file(&group_file);
+    std::fs::write(
+        &passwd_file,
+        "partialuser:x:1011:1011:Partial User:/home/partialuser:/bin/bash\n",
+    )
+    .expect("Failed to create test passwd file");
+
+    // Setup: Create group file where the user is only a member of docker (not wheel)
+    std::fs::write(
+        &group_file,
+        "docker:x:100:partialuser\nwheel:x:101:otheruser\naudio:x:102:partialuser\n",
+    )
+    .expect("Failed to create test group file");
+
+    // Try to append docker and wheel groups - user only has docker
+    let script_text = r#"
+#!/usr/bin/env rash
+- name: test user module append groups partially present
+  user:
+    name: partialuser
+    state: present
+    groups:
+      - docker
+      - wheel
+    append: true
+        "#
+    .to_string();
+
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test_with_env(
+        &script_text,
+        &args,
+        &[
+            ("RASH_TEST_PASSWD_FILE", &passwd_file),
+            ("RASH_TEST_GROUP_FILE", &group_file),
+        ],
+    );
+
+    assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
+    // User needs wheel group, so should be "changed"
+    assert!(
+        stdout.contains("changed"),
+        "stdout should contain 'changed' when some groups need to be added, got: {}",
+        stdout
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_file(&passwd_file);
+    let _ = std::fs::remove_file(&group_file);
+}
