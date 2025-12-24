@@ -166,8 +166,69 @@ fn read_content<R: BufRead + Seek>(buf_reader: &mut R) -> IoResult<Content> {
     }
 }
 
+/// Copy a symlink to dest. Returns `Some(ModuleResult)` if src is a symlink, `None` otherwise.
+fn copy_symlink(src: &str, dest: &str, check_mode: bool) -> Result<Option<ModuleResult>> {
+    let src_path = Path::new(src);
+    let dest_path = Path::new(dest);
+
+    let src_meta = fs::symlink_metadata(src_path)?;
+    if !src_meta.file_type().is_symlink() {
+        return Ok(None);
+    }
+
+    let src_target = fs::read_link(src_path)?;
+
+    match fs::symlink_metadata(dest_path) {
+        Ok(dest_meta) if dest_meta.file_type().is_symlink() => {
+            let dest_target = fs::read_link(dest_path)?;
+            if dest_target == src_target {
+                return Ok(Some(ModuleResult {
+                    changed: false,
+                    output: Some(dest.to_owned()),
+                    extra: None,
+                }));
+            }
+            diff_files(
+                format!("symlink -> {}", dest_target.display()),
+                format!("symlink -> {}", src_target.display()),
+            );
+            if !check_mode {
+                fs::remove_file(dest_path)?;
+                unix_fs::symlink(&src_target, dest_path)?;
+            }
+        }
+        Ok(_) => {
+            diff_files("file", format!("symlink -> {}", src_target.display()));
+            if !check_mode {
+                fs::remove_file(dest_path)?;
+                unix_fs::symlink(&src_target, dest_path)?;
+            }
+        }
+        Err(_) => {
+            diff_files("(absent)", format!("symlink -> {}", src_target.display()));
+            if !check_mode {
+                unix_fs::symlink(&src_target, dest_path)?;
+            }
+        }
+    }
+
+    Ok(Some(ModuleResult {
+        changed: true,
+        output: Some(dest.to_owned()),
+        extra: None,
+    }))
+}
+
 pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
+
+    if let Input::Src(ref src) = params.input
+        && !params.dereference
+        && let Some(result) = copy_symlink(src, &params.dest, check_mode)?
+    {
+        return Ok(result);
+    }
+
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.open(&params.dest).or_else(|_| {
         if !check_mode {
@@ -190,25 +251,6 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let desired_content = match params.input.clone() {
         Input::Content(s) => Content::Str(s),
         Input::Src(ref src) => {
-            let src_path = Path::new(src);
-            if !params.dereference {
-                let meta = fs::symlink_metadata(src_path)?;
-                if meta.file_type().is_symlink() {
-                    // If destination exists, remove it first
-                    if Path::new(&params.dest).exists() && !check_mode {
-                        fs::remove_file(&params.dest)?;
-                    }
-                    if !check_mode {
-                        let target = fs::read_link(src_path)?;
-                        unix_fs::symlink(&target, &params.dest)?;
-                    }
-                    return Ok(ModuleResult {
-                        changed: true,
-                        output: Some(params.dest),
-                        extra: None,
-                    });
-                }
-            }
             let file = File::open(src)?;
             let mut buf_reader = BufReader::new(file);
             read_content(&mut buf_reader)?
@@ -1109,14 +1151,12 @@ mod tests {
             let mut file = File::create(&src_path).unwrap();
             writeln!(file, "symlinked").unwrap();
         }
-        // Create symlink
         symlink(&src_path, &link_path).unwrap();
-        // Create a file at dest_path
         {
             let mut file = File::create(&dest_path).unwrap();
             writeln!(file, "old").unwrap();
         }
-        // Copy the symlink itself, not the target
+
         let output = copy_file(
             Params {
                 input: Input::Src(link_path.to_str().unwrap().to_owned()),
@@ -1127,11 +1167,248 @@ mod tests {
             false,
         )
         .unwrap();
-        // dest should be a symlink
+
         let meta = std::fs::symlink_metadata(&dest_path).unwrap();
         assert!(meta.file_type().is_symlink());
         let target = std::fs::read_link(&dest_path).unwrap();
         assert_eq!(target, src_path);
         assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_file_symlink_idempotent() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "symlinked").unwrap();
+        }
+        symlink(&src_path, &link_path).unwrap();
+
+        let output1 = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(output1.changed);
+
+        let output2 = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(!output2.changed);
+
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_symlink());
+        assert_eq!(std::fs::read_link(&dest_path).unwrap(), src_path);
+    }
+
+    #[test]
+    fn test_copy_file_symlink_to_unreadable_file() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "secret").unwrap();
+            let mut permissions = file.metadata().unwrap().permissions();
+            permissions.set_mode(0o000);
+            set_permissions(&src_path, permissions).unwrap();
+        }
+        symlink(&src_path, &link_path).unwrap();
+
+        let output = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(output.changed);
+
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_symlink());
+        assert_eq!(std::fs::read_link(&dest_path).unwrap(), src_path);
+
+        let mut permissions = std::fs::metadata(&src_path).unwrap().permissions();
+        permissions.set_mode(0o644);
+        set_permissions(&src_path, permissions).unwrap();
+    }
+
+    #[test]
+    fn test_copy_file_symlink_idempotent_unreadable_target() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "secret").unwrap();
+            let mut permissions = file.metadata().unwrap().permissions();
+            permissions.set_mode(0o000);
+            set_permissions(&src_path, permissions).unwrap();
+        }
+        symlink(&src_path, &link_path).unwrap();
+
+        let output1 = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(output1.changed);
+
+        let output2 = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(!output2.changed);
+
+        let mut permissions = std::fs::metadata(&src_path).unwrap().permissions();
+        permissions.set_mode(0o644);
+        set_permissions(&src_path, permissions).unwrap();
+    }
+
+    #[test]
+    fn test_copy_file_symlink_overwrite_different_symlink() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let other_path = dir.path().join("other.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "source").unwrap();
+        }
+        {
+            let mut file = File::create(&other_path).unwrap();
+            writeln!(file, "other").unwrap();
+        }
+
+        symlink(&src_path, &link_path).unwrap();
+        symlink(&other_path, &dest_path).unwrap();
+
+        let output = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(output.changed);
+
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_symlink());
+        assert_eq!(std::fs::read_link(&dest_path).unwrap(), src_path);
+    }
+
+    #[test]
+    fn test_copy_file_symlink_check_mode() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "symlinked").unwrap();
+        }
+        symlink(&src_path, &link_path).unwrap();
+
+        let output = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            true,
+        )
+        .unwrap();
+        assert!(output.changed);
+        assert!(!dest_path.exists());
+    }
+
+    #[test]
+    fn test_copy_file_symlink_idempotent_readonly_target() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let src_path = dir.path().join("src.txt");
+        let link_path = dir.path().join("link.txt");
+        let dest_path = dir.path().join("dest.txt");
+
+        {
+            let mut file = File::create(&src_path).unwrap();
+            writeln!(file, "readonly content").unwrap();
+            let mut permissions = file.metadata().unwrap().permissions();
+            permissions.set_mode(0o444);
+            set_permissions(&src_path, permissions).unwrap();
+        }
+        symlink(&src_path, &link_path).unwrap();
+
+        let output1 = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(output1.changed);
+
+        let output2 = copy_file(
+            Params {
+                input: Input::Src(link_path.to_str().unwrap().to_owned()),
+                dest: dest_path.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: false,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(!output2.changed);
+
+        let meta = std::fs::symlink_metadata(&dest_path).unwrap();
+        assert!(meta.file_type().is_symlink());
+        assert_eq!(std::fs::read_link(&dest_path).unwrap(), src_path);
     }
 }
