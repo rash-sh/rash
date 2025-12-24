@@ -152,8 +152,36 @@ jobs:
           fi
           cat ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
 
-      - name: Publish crates
+      - name: Upload release artifacts
         if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.job.target }}
+          path: |
+            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
+            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+
+  publish:
+    name: Publish Release
+    needs: build
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Extract crate information
+        shell: bash
+        run: |
+          echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Publish crates
         env:
           CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
         shell: bash
@@ -162,22 +190,20 @@ jobs:
           make publish
 
       - name: Get Changelog Entry
-        if: startsWith(github.ref, 'refs/tags/')
         id: changelog_reader
         uses: mindsers/changelog-reader-action@v2.2.3
         with:
           version: v${{ env.PROJECT_VERSION }}
           path: ./CHANGELOG.md
 
-      - name: Publish
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           body: ${{ steps.changelog_reader.outputs.changes }}
           prerelease: ${{ steps.changelog_reader.outputs.status == 'prereleased' }}
           draft: ${{ steps.changelog_reader.outputs.status == 'unreleased' }}
           files: |
-            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
-            ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
+            *.tar.gz
+            *.tar.gz.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
