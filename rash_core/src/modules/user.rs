@@ -386,7 +386,7 @@ impl Module for User {
                         Ok((
                             ModuleResult {
                                 changed: false,
-                                output: Some("No changes needed".to_string()),
+                                output: None,
                                 extra: None,
                             },
                             None,
