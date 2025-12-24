@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.17.3](https://github.com/rash-sh/rash/tree/v2.17.3) - 2025-12-24
+
+### Added
+
+- jinja: Add minijinja unicode, urlencode and builtins features ([8e9a58d](https://github.com/rash-sh/rash/commit/8e9a58d38585b86ecbed08245fcf75e02551f180))
+- module: Add dconf ([433cf6e](https://github.com/rash-sh/rash/commit/433cf6e34ef2be997cd84ba8bd9e7f5a6c29d3ba))
+- task: Add environment variable support ([cff2133](https://github.com/rash-sh/rash/commit/cff21339222792af31aeea20f3000fc5ef351677))
+
+### Fixed
+
+- module: Handle symlinks in copy module ([ca13add](https://github.com/rash-sh/rash/commit/ca13add368c76b024464b5e8d1dc0cbaabc12764))
+- module: Skip usermod when appending groups user already has in user module ([f5decda](https://github.com/rash-sh/rash/commit/f5decdad2a63490d1d4bbcf86b2762ff2234b4d8))
+- Ensure CHANGELOG commit IDs are correct on release process ([4ee202d](https://github.com/rash-sh/rash/commit/4ee202d35edd24acf74c30d2b4bf9dda5250d303))
+- Make clippy happy ([87e6d8b](https://github.com/rash-sh/rash/commit/87e6d8b37028219182c0303da80998e56e157efd))
+
+### Documentation
+
+- Add comprehensive CLI reference documentation ([e389d71](https://github.com/rash-sh/rash/commit/e389d71b1b9f2bf21b883fdedf0707c9f27be2f3))
+
+### Build
+
+- deps: Update Rust crate syn to v2.0.109 ([0071d14](https://github.com/rash-sh/rash/commit/0071d1424219a482490e594cd41f7077e90f2dc5))
+- deps: Update Rust crate schemars to v1.1.0 ([70923d6](https://github.com/rash-sh/rash/commit/70923d6634ae7ae75012108755b72464bb0e2c5c))
+- deps: Update Rust crate quote to v1.0.42 ([f7b3246](https://github.com/rash-sh/rash/commit/f7b3246aaea712c8147d18763c07d5f3b14c196a))
+- deps: Update Rust crate syn to v2.0.110 ([3ad6cd6](https://github.com/rash-sh/rash/commit/3ad6cd602871d6f23a8f7be08389cc01c94d872c))
+- deps: Update rust Docker tag to v1.91.1 ([cac9fb2](https://github.com/rash-sh/rash/commit/cac9fb2ea2a654ce35e657267d7f413871f518cb))
+- deps: Update Rust crate clap to v4.5.52 ([594b37b](https://github.com/rash-sh/rash/commit/594b37b653fb20b68c1056d09d9a326b0a39983e))
+- deps: Update Rust crate serde_with to v3.16.0 ([5948636](https://github.com/rash-sh/rash/commit/594863645fe9705e704e13fa8d10eac8323b108a))
+- deps: Upgrade mdbook to 0.5 ([eb89556](https://github.com/rash-sh/rash/commit/eb895563c2f1ca458057f693995de340790fa57a))
+- deps: Update Rust crate clap to v4.5.53 ([3661f5e](https://github.com/rash-sh/rash/commit/3661f5ec8e63d3a6faf9df3e247423447e0b6f26))
+- deps: Update actions/checkout action to v6 ([95e1d47](https://github.com/rash-sh/rash/commit/95e1d477ebdc9768c20fb4931a79d3e756d0a7e5))
+- deps: Update Rust crate syn to v2.0.111 ([9f63991](https://github.com/rash-sh/rash/commit/9f639910a2b1b60534a34b1ac03af836eeed3d72))
+- deps: Update Rust crate serde_with to v3.16.1 ([22851f6](https://github.com/rash-sh/rash/commit/22851f6e3dd79f47cf53b97ae36ccbe110660996))
+- deps: Update Rust crate minijinja to v2.13.0 ([1853875](https://github.com/rash-sh/rash/commit/185387553376a0df58fbd9f75a24ae0596adcc1b))
+- deps: Update Rust crate criterion to 0.8.0 ([7fbe8cd](https://github.com/rash-sh/rash/commit/7fbe8cd9a85c0494a6623d3357a7c18192ac3575))
+- deps: Update Rust crate byte-unit to v5.2.0 ([2b0595b](https://github.com/rash-sh/rash/commit/2b0595bfb4c5fda73afb6499cb17f1f753772664))
+- deps: Update Rust crate mdbook-driver to v0.5.1 ([6781027](https://github.com/rash-sh/rash/commit/6781027e9ebfa2ba58150d76fa944d354f425c52))
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v42 ([a609c07](https://github.com/rash-sh/rash/commit/a609c07eb36913df97665ce2302199ec6fcd42d3))
+- deps: Update Rust crate reqwest to v0.12.25 ([1d9d5a5](https://github.com/rash-sh/rash/commit/1d9d5a5eae0c6d92ebcf880618ae8dd55bc65f8d))
+- deps: Update Rust crate criterion to v0.8.1 ([2c3abf5](https://github.com/rash-sh/rash/commit/2c3abf5fb4294a1c85092c664f01d0742e646d1a))
+- deps: Update Rust crate log to v0.4.29 ([c1fc352](https://github.com/rash-sh/rash/commit/c1fc352185c826ff899cd9a69ead5ee818e2541f))
+- deps: Update rust Docker tag to v1.92.0 ([94829a3](https://github.com/rash-sh/rash/commit/94829a3768bb165981dab59a83f9f39d33473f97))
+- deps: Update actions/cache action to v5 ([4f41923](https://github.com/rash-sh/rash/commit/4f41923d16e5c8f88ded9739598c652736e07223))
+- deps: Update Rust crate mdbook-driver to v0.5.2 ([76c4612](https://github.com/rash-sh/rash/commit/76c46124e82efedaeb7022551b007a9abecbfb65))
+- deps: Update Rust crate minijinja to v2.14.0 ([0ffcca2](https://github.com/rash-sh/rash/commit/0ffcca27cae72ef898baf3bcea79a4b38f30d41b))
+- deps: Update Rust crate reqwest to v0.12.26 ([4c6e9ca](https://github.com/rash-sh/rash/commit/4c6e9caa07874d31f3f353836c429357d2038c04))
+- deps: Update Rust crate console to v0.16.2 ([31e19e7](https://github.com/rash-sh/rash/commit/31e19e715e3eb9377ee9e212da4d701f047249be))
+- deps: Update Rust crate serde_json to v1.0.146 ([df37a23](https://github.com/rash-sh/rash/commit/df37a23d2511c978d94cbb9a8c5ea57a099e34ed))
+- deps: Update Rust crate serde_json to v1.0.147 ([6a99218](https://github.com/rash-sh/rash/commit/6a992186193d02c63d810815ab7d1ab608677fb5))
+- deps: Update Rust crate tempfile to v3.24.0 ([4e161ce](https://github.com/rash-sh/rash/commit/4e161ce5e073a8dc9a65ce2c427a346cae07a48c))
+- deps: Update Rust crate reqwest to v0.12.28 ([c625710](https://github.com/rash-sh/rash/commit/c625710b0e6c9a36e3a8d5a4a306f29bb8012b3b))
+
 ## [v2.17.2](https://github.com/rash-sh/rash/tree/v2.17.2) - 2025-11-02
 
 ### Documentation
