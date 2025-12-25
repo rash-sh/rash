@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.17.5](https://github.com/rash-sh/rash/tree/v2.17.5) - 2025-12-25
+
+### Fixed
+
+- module: Remove output message when no changes in user and group ([ad2e590](https://github.com/rash-sh/rash/commit/ad2e5907e38362bd85c6bb38281d25661af533a5))
+
 ## [v2.17.4](https://github.com/rash-sh/rash/tree/v2.17.4) - 2025-12-24
 
 ### Build
