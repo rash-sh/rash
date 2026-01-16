@@ -199,7 +199,11 @@ impl<'a> Task<'a> {
         match value.as_sequence() {
             Some(v) => Ok(v
                 .iter()
-                .map(|item| render_force_string(item.clone(), &vars))
+                .filter_map(|item| match render_force_string(item.clone(), &vars) {
+                    Ok(rendered) => Some(Ok(rendered)),
+                    Err(e) if e.kind() == ErrorKind::OmitParam => None,
+                    Err(e) => Some(Err(e)),
+                })
                 .collect::<Result<Vec<YamlValue>>>()?),
             None => Err(Error::new(ErrorKind::NotFound, "loop is not iterable")),
         }
@@ -1180,6 +1184,40 @@ mod tests {
         assert_eq!(
             task.render_iterator(vars).unwrap(),
             vec![YamlValue::from("test"), YamlValue::from(2)]
+        );
+    }
+
+    #[test]
+    fn test_render_iterator_with_omit() {
+        let s: String = r#"
+            command: 'example'
+            loop:
+              - "first"
+              - "{{ 'second' if include_second else omit }}"
+              - "third"
+            "#
+        .to_owned();
+
+        // Test with omit - should filter out the second item
+        let vars = context! { include_second => false };
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(
+            task.render_iterator(vars).unwrap(),
+            vec![YamlValue::from("first"), YamlValue::from("third")]
+        );
+
+        // Test without omit - should include all items
+        let vars = context! { include_second => true };
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        assert_eq!(
+            task.render_iterator(vars).unwrap(),
+            vec![
+                YamlValue::from("first"),
+                YamlValue::from("second"),
+                YamlValue::from("third")
+            ]
         );
     }
 
