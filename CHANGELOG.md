@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.17.6](https://github.com/rash-sh/rash/tree/v2.17.6) - 2026-01-16
+
+### Fixed
+
+- task: Skip omit values in loop iteration ([280a763](https://github.com/rash-sh/rash/commit/280a763fad4ca5a998e843a28b08dca4a163656d))
+
+### Build
+
+- deps: Update Rust crate schemars to v1.2.0 ([dfe3cbb](https://github.com/rash-sh/rash/commit/dfe3cbbb74aee0309611b8610bc59eb24bee9dbf))
+- deps: Update Rust crate serde_json to v1.0.148 ([77b00d1](https://github.com/rash-sh/rash/commit/77b00d14ea75cfdf76a8f8588efe59bd0815919b))
+- deps: Update Rust crate proc-macro2 to v1.0.104 ([8cea2fe](https://github.com/rash-sh/rash/commit/8cea2fec752f25b4d17a397848a79bcbd3cd3f6b))
+- deps: Update Rust crate syn to v2.0.112 ([e3ec278](https://github.com/rash-sh/rash/commit/e3ec27868df7559eb6e51bfe853b9dff67437a1d))
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v42.69.2 ([dc8ffd8](https://github.com/rash-sh/rash/commit/dc8ffd8c103204e3caf706562b9b9b33c646fb4a))
+- deps: Update Rust crate clap to v4.5.54 ([4000bdb](https://github.com/rash-sh/rash/commit/4000bdb0a6ee3567abb2f50e1bd9ccbd4d05a9bc))
+- deps: Update Rust crate syn to v2.0.113 ([a80bda0](https://github.com/rash-sh/rash/commit/a80bda0984e813938b2a24a0614f20989f5d15d0))
+- deps: Update Rust crate proc-macro2 to v1.0.105 ([aed866e](https://github.com/rash-sh/rash/commit/aed866ee6d393ef0bd0c1f757dc6f6f4240b7a20))
+- deps: Update Rust crate quote to v1.0.43 ([fa8c671](https://github.com/rash-sh/rash/commit/fa8c6715c4540622d66929e1874ea7320b9f00fb))
+- deps: Update Rust crate serde_json to v1.0.149 ([54d9876](https://github.com/rash-sh/rash/commit/54d9876cef83782278294d8410b59e8295e1ad84))
+- deps: Update Rust crate syn to v2.0.114 ([ec83012](https://github.com/rash-sh/rash/commit/ec83012ab28138e1a40bf9edf4334a7900d2c029))
+- deps: Update Rust crate chrono to v0.4.43 ([f162779](https://github.com/rash-sh/rash/commit/f162779ae5a458c7e5d1007156e2f145ddc79fa9))
+- deps: Update Rust crate prs-lib to v0.5.6 ([c82186c](https://github.com/rash-sh/rash/commit/c82186c1a7d696f941c9b4a16b130b24146ec223))
+- deps: Update Rust crate tokio to v1.49.0 ([6b0549a](https://github.com/rash-sh/rash/commit/6b0549a5c5f5528bfb2fd1541b7fb6cc7d2dc0c1))
+- deps: Update pre-commit hook adrienverge/yamllint to v1.38.0 ([9a548fb](https://github.com/rash-sh/rash/commit/9a548fb11e2908dc364322e9f6a28530b8f38192))
+- deps: Update pre-commit hook alessandrojcm/commitlint-pre-commit-hook to v9.24.0 ([5032aa2](https://github.com/rash-sh/rash/commit/5032aa29abaefa8c740c0fdf8f7d9940741287a3))
+
 ## [v2.17.5](https://github.com/rash-sh/rash/tree/v2.17.5) - 2025-12-25
 
 ### Fixed
