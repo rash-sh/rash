@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.17.7](https://github.com/rash-sh/rash/tree/v2.17.7) - 2026-01-20
+
+### Fixed
+
+- deps: Fix reqwest feature name for v0.13 compatibility ([2bc2393](https://github.com/rash-sh/rash/commit/2bc2393f8f88f1e4f79f493bebdbc28bb68a4ccc))
+
+### Build
+
+- deps: Update Rust crate reqwest to 0.13 ([95f3be9](https://github.com/rash-sh/rash/commit/95f3be9e82bb8424a3ebec48081a479fac3ba92f))
+- deps: Update pre-commit hook renovatebot/pre-commit-hooks to v42.84.0 ([f5b00f7](https://github.com/rash-sh/rash/commit/f5b00f7ba7d9aa5d1e397e2085941569c4e4de99))
+- deps: Update Rust crate prs-lib to v0.5.7 ([0bd028b](https://github.com/rash-sh/rash/commit/0bd028b75e0607d8006f3d8dc4e043e6048a5659))
+
 ## [v2.17.6](https://github.com/rash-sh/rash/tree/v2.17.6) - 2026-01-16
 
 ### Fixed
