@@ -125,7 +125,8 @@ update-changelog:	## automatically update changelog based on commits
 release: cross
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
 	@$(CARGO) build --frozen --bin rash --release $(CARGO_BUILD_PARAMS)
-	@if command -v "upx" &> /dev/null; then \
+	@if echo "$(CARGO_TARGET)" | grep -q "linux" \
+		&& command -v "upx" >/dev/null 2>&1; then \
 		upx $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash; \
 	fi
 	@tar -czf $(PKG_BASE_NAME).tar.gz -C $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release rash && \

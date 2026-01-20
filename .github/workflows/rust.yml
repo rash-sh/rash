@@ -82,8 +82,9 @@ jobs:
       matrix:
         job:
           # cross minimum glibc version is 2.32
-          - {os: ubuntu-24.04, target: aarch64-unknown-linux-gnu}
           - {os: ubuntu-24.04, target: x86_64-unknown-linux-musl}
+          - {os: ubuntu-24.04, target: x86_64-unknown-freebsd}
+          - {os: ubuntu-24.04, target: aarch64-unknown-linux-gnu}
           # use ubuntu 22.04 to keep older glibc version dependency
           - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu}
           - {os: macos-15, target: aarch64-apple-darwin}
@@ -117,6 +118,7 @@ jobs:
       - run: rustup component add rustfmt clippy
 
       - name: Run tests
+        if: matrix.job.target != 'x86_64-unknown-freebsd'
         run: CARGO_TARGET=${{ matrix.job.target }} make test
 
       - name: Extract crate information
@@ -130,7 +132,7 @@ jobs:
         with:
           install-only: true
           version: latest
-        if: startsWith(matrix.job.os, 'macos') == false
+        if: contains(matrix.job.target, 'linux')
 
       - name: Make release
         id: package
