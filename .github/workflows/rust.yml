@@ -82,8 +82,9 @@ jobs:
       matrix:
         job:
           # cross minimum glibc version is 2.32
-          - {os: ubuntu-24.04, target: aarch64-unknown-linux-gnu}
           - {os: ubuntu-24.04, target: x86_64-unknown-linux-musl}
+          - {os: ubuntu-24.04, target: x86_64-unknown-freebsd}
+          - {os: ubuntu-24.04, target: aarch64-unknown-linux-gnu}
           # use ubuntu 22.04 to keep older glibc version dependency
           - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu}
           - {os: macos-15, target: aarch64-apple-darwin}
