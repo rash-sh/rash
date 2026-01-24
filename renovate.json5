@@ -19,6 +19,18 @@
       matchUpdateTypes: [
         'patch',
       ],
+      automerge: true,
+      automergeType: 'pr',
+      ignoreTests: false,
+      platformAutomerge: true,
+      matchPackageNames: [
+        '/.*/',
+      ],
+    },
+    {
+      matchUpdateTypes: [
+        'minor',
+      ],
       matchCurrentVersion: '!/^0/',
       automerge: true,
       automergeType: 'pr',
