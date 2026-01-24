@@ -40,10 +40,10 @@ fern = { version = "0.7.0", features = ["colored"] }
 ignore = "0.4"
 ipc-channel = "0.20.0"
 itertools = "0.14"
-nix = { version = "0.30", features = ["process", "user"] }
+nix = { version = "0.31", features = ["process", "user"] }
 prs-lib = { version = "0.5.1", optional = true }
 rand = "0.9"
- reqwest = { version = "0.13", features = ["json", "blocking", "rustls"], default-features = false }
+reqwest = { version = "0.13", features = ["json", "blocking", "rustls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_with = "3.8"
 serde-error = "0.1.2"
