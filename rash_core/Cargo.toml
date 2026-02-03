@@ -38,7 +38,7 @@ clap = { workspace = true, features = ["std", "color", "derive", "cargo"] }
 exec = "0.3.1"
 fern = { version = "0.7.0", features = ["colored"] }
 ignore = "0.4"
-ipc-channel = "0.20.0"
+ipc-channel = "0.21.0"
 itertools = "0.14"
 nix = { version = "0.31", features = ["process", "user"] }
 prs-lib = { version = "0.5.1", optional = true }
