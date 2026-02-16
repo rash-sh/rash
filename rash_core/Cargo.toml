@@ -55,6 +55,7 @@ strum_macros = "0.27.0"
 tokio = { version = "1.45", features = ["rt-multi-thread"] }
 tempfile = "3.10"
 vaultrs = "0.7"
+walkdir = "2.5"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.0"

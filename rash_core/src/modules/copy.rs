@@ -29,9 +29,10 @@ use crate::utils::parse_octal;
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::fs::{File, OpenOptions, Permissions, metadata, set_permissions};
+use std::fs::{File, OpenOptions, Permissions, create_dir_all, metadata, set_permissions};
 use std::io::prelude::*;
 
+use std::collections::HashSet;
 use std::fmt;
 use std::fs;
 use std::io::Result as IoResult;
@@ -166,7 +167,6 @@ fn read_content<R: BufRead + Seek>(buf_reader: &mut R) -> IoResult<Content> {
     }
 }
 
-/// Copy a symlink to dest. Returns `Some(ModuleResult)` if src is a symlink, `None` otherwise.
 fn copy_symlink(src: &str, dest: &str, check_mode: bool) -> Result<Option<ModuleResult>> {
     let src_path = Path::new(src);
     let dest_path = Path::new(dest);
@@ -219,14 +219,173 @@ fn copy_symlink(src: &str, dest: &str, check_mode: bool) -> Result<Option<Module
     }))
 }
 
+fn dest_is_directory(dest: &str) -> bool {
+    dest.ends_with('/')
+}
+
+fn copy_single_file(
+    src: &str,
+    dest: &str,
+    mode: Option<&str>,
+    dereference: bool,
+    check_mode: bool,
+) -> Result<ModuleResult> {
+    let params = Params {
+        input: Input::Src(src.to_owned()),
+        dest: dest.to_owned(),
+        mode: mode.map(|m| m.to_owned()),
+        dereference,
+    };
+    copy_file(params, check_mode)
+}
+
+fn copy_directory(
+    src: &str,
+    dest: &str,
+    mode: Option<&str>,
+    check_mode: bool,
+) -> Result<ModuleResult> {
+    let src_path = Path::new(src);
+    let dest_path = Path::new(dest);
+
+    if !src_path.is_dir() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("src {} is not a directory", src),
+        ));
+    }
+
+    let mut changed = false;
+    let mut created_dirs = HashSet::new();
+
+    for entry in walkdir::WalkDir::new(src_path).follow_links(true) {
+        let entry =
+            entry.map_err(|e| Error::new(ErrorKind::IOError, format!("walkdir error: {}", e)))?;
+        let src_entry_path = entry.path();
+        let relative = src_entry_path.strip_prefix(src_path).map_err(|e| {
+            Error::new(ErrorKind::InvalidData, format!("strip prefix error: {}", e))
+        })?;
+        let dest_entry_path = dest_path.join(relative);
+
+        if entry.file_type().is_dir() {
+            if !dest_entry_path.exists() {
+                if !check_mode {
+                    create_dir_all(&dest_entry_path)?;
+                    if let Some(m) = mode {
+                        let octal_mode = parse_octal(m)?;
+                        let mut perms = fs::metadata(&dest_entry_path)?.permissions();
+                        perms.set_mode(octal_mode);
+                        set_permissions(&dest_entry_path, perms)?;
+                    }
+                }
+                changed = true;
+                created_dirs.insert(dest_entry_path.clone());
+            }
+        } else if entry.file_type().is_file() {
+            let result = copy_single_file(
+                src_entry_path.to_str().ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in source path")
+                })?,
+                dest_entry_path.to_str().ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in destination path")
+                })?,
+                mode,
+                true,
+                check_mode,
+            )?;
+            if result.changed {
+                changed = true;
+            }
+        } else if entry.file_type().is_symlink() {
+            let link_target = fs::read_link(src_entry_path)?;
+            match fs::symlink_metadata(&dest_entry_path) {
+                Ok(existing) if existing.file_type().is_symlink() => {
+                    let existing_target = fs::read_link(&dest_entry_path)?;
+                    if existing_target != link_target {
+                        if !check_mode {
+                            fs::remove_file(&dest_entry_path)?;
+                            unix_fs::symlink(&link_target, &dest_entry_path)?;
+                        }
+                        changed = true;
+                    }
+                }
+                Ok(_) => {
+                    if !check_mode {
+                        fs::remove_file(&dest_entry_path)?;
+                        unix_fs::symlink(&link_target, &dest_entry_path)?;
+                    }
+                    changed = true;
+                }
+                Err(_) => {
+                    if !check_mode {
+                        unix_fs::symlink(&link_target, &dest_entry_path)?;
+                    }
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    Ok(ModuleResult {
+        changed,
+        output: Some(dest.to_owned()),
+        extra: None,
+    })
+}
+
 pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
-    if let Input::Src(ref src) = params.input
-        && !params.dereference
-        && let Some(result) = copy_symlink(src, &params.dest, check_mode)?
-    {
-        return Ok(result);
+    if let Input::Src(ref src) = params.input {
+        let src_path = Path::new(src);
+
+        if src_path.is_dir() {
+            let dest = if dest_is_directory(&params.dest) {
+                params.dest.trim_end_matches('/').to_owned()
+            } else {
+                params.dest.clone()
+            };
+            return copy_directory(src, &dest, params.mode.as_deref(), check_mode);
+        }
+
+        if !params.dereference
+            && let Some(result) = copy_symlink(src, &params.dest, check_mode)?
+        {
+            return Ok(result);
+        }
+
+        if dest_is_directory(&params.dest) {
+            let dest_dir = params.dest.trim_end_matches('/');
+            let dest_path = Path::new(dest_dir);
+            let src_filename = src_path.file_name().ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Cannot extract filename from src: {}", src),
+                )
+            })?;
+            let final_dest = dest_path.join(src_filename);
+
+            if !dest_path.exists() && !check_mode {
+                create_dir_all(dest_path)?;
+            }
+
+            return copy_single_file(
+                src,
+                final_dest.to_str().ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in destination path")
+                })?,
+                params.mode.as_deref(),
+                params.dereference,
+                check_mode,
+            );
+        }
+    }
+
+    if dest_is_directory(&params.dest) && matches!(params.input, Input::Content(_)) {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "dest ending with '/' requires src to be a file path, not content",
+        ));
     }
 
     let open_read_file = OpenOptions::new().read(true).clone();
@@ -346,7 +505,7 @@ mod tests {
 
     use crate::error::ErrorKind;
 
-    use std::fs::{File, metadata};
+    use std::fs::{File, create_dir_all, metadata};
     use std::io::Read;
     use std::os::unix::fs::PermissionsExt;
 
@@ -1410,5 +1569,270 @@ mod tests {
         let meta = std::fs::symlink_metadata(&dest_path).unwrap();
         assert!(meta.file_type().is_symlink());
         assert_eq!(std::fs::read_link(&dest_path).unwrap(), src_path);
+    }
+
+    #[test]
+    fn test_copy_file_to_directory_dest() {
+        let src_dir = tempdir().unwrap();
+        let dest_dir = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("test.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "test content").unwrap();
+
+        let dest = dest_dir.path().join("subdir/");
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_file.to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+
+        let expected_dest = dest_dir.path().join("subdir").join("test.txt");
+        assert!(expected_dest.exists());
+        let mut contents = String::new();
+        File::open(&expected_dest)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+        assert_eq!(contents, "test content\n");
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_file_to_existing_directory_dest() {
+        let src_dir = tempdir().unwrap();
+        let dest_dir = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("test.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "test content").unwrap();
+
+        let dest_subdir = dest_dir.path().join("subdir");
+        create_dir_all(&dest_subdir).unwrap();
+
+        let dest = dest_dir.path().join("subdir/").to_str().unwrap().to_owned();
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_file.to_str().unwrap().to_owned()),
+                dest,
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+
+        let expected_dest = dest_subdir.join("test.txt");
+        assert!(expected_dest.exists());
+        let mut contents = String::new();
+        File::open(&expected_dest)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+        assert_eq!(contents, "test content\n");
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_file_to_directory_dest_check_mode() {
+        let src_dir = tempdir().unwrap();
+        let dest_dir = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("test.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "test content").unwrap();
+
+        let dest = dest_dir.path().join("subdir/").to_str().unwrap().to_owned();
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_file.to_str().unwrap().to_owned()),
+                dest,
+                mode: None,
+                dereference: true,
+            },
+            true,
+        )
+        .unwrap();
+
+        let expected_dest = dest_dir.path().join("subdir").join("test.txt");
+        assert!(!expected_dest.exists());
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_directory() {
+        let src_dir = tempdir().unwrap();
+        let dest_parent = tempdir().unwrap();
+
+        let src_file1 = src_dir.path().join("file1.txt");
+        let mut file = File::create(&src_file1).unwrap();
+        writeln!(file, "content1").unwrap();
+
+        let src_subdir = src_dir.path().join("subdir");
+        create_dir_all(&src_subdir).unwrap();
+        let src_file2 = src_subdir.join("file2.txt");
+        let mut file = File::create(&src_file2).unwrap();
+        writeln!(file, "content2").unwrap();
+
+        let dest = dest_parent.path().join("copied_dir");
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_dir.path().to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+
+        assert!(dest.join("file1.txt").exists());
+        assert!(dest.join("subdir/file2.txt").exists());
+        let mut contents = String::new();
+        File::open(dest.join("file1.txt"))
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+        assert_eq!(contents, "content1\n");
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_directory_with_trailing_slash() {
+        let src_dir = tempdir().unwrap();
+        let dest_parent = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("file.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "content").unwrap();
+
+        let dest = dest_parent.path().join("copied_dir/");
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_dir.path().to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+
+        assert!(dest_parent.path().join("copied_dir/file.txt").exists());
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_directory_check_mode() {
+        let src_dir = tempdir().unwrap();
+        let dest_parent = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("file.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "content").unwrap();
+
+        let dest = dest_parent.path().join("copied_dir");
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_dir.path().to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            true,
+        )
+        .unwrap();
+
+        assert!(!dest.exists());
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_directory_with_mode() {
+        let src_dir = tempdir().unwrap();
+        let dest_parent = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("file.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "content").unwrap();
+
+        let dest = dest_parent.path().join("copied_dir");
+        let output = copy_file(
+            Params {
+                input: Input::Src(src_dir.path().to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: Some("0755".to_owned()),
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+
+        let metadata = metadata(dest.join("file.txt")).unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(
+            format!("{:o}", permissions.mode() & 0o7777),
+            format!("{:o}", 0o755)
+        );
+        assert!(output.changed);
+    }
+
+    #[test]
+    fn test_copy_directory_idempotent() {
+        let src_dir = tempdir().unwrap();
+        let dest_parent = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("file.txt");
+        let mut file = File::create(&src_file).unwrap();
+        writeln!(file, "same content").unwrap();
+
+        let dest = dest_parent.path().join("copied_dir");
+        let output1 = copy_file(
+            Params {
+                input: Input::Src(src_dir.path().to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(output1.changed);
+
+        let output2 = copy_file(
+            Params {
+                input: Input::Src(src_dir.path().to_str().unwrap().to_owned()),
+                dest: dest.to_str().unwrap().to_owned(),
+                mode: None,
+                dereference: true,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(!output2.changed);
+    }
+
+    #[test]
+    fn test_copy_content_to_directory_dest_error() {
+        let dest_dir = tempdir().unwrap();
+
+        let dest = dest_dir.path().join("subdir/").to_str().unwrap().to_owned();
+        let result = copy_file(
+            Params {
+                input: Input::Content("test content".to_owned()),
+                dest,
+                mode: None,
+                dereference: true,
+            },
+            false,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
     }
 }
