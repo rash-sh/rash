@@ -2442,6 +2442,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "vaultrs",
+ "walkdir",
 ]
 
 [[package]]
