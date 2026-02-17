@@ -10,6 +10,15 @@ fn get_unique_passwd_file() -> String {
     format!("/tmp/rash_test_passwd_{}", test_id)
 }
 
+// Helper function to get unique passwd and group file names with matching IDs
+fn get_unique_test_files() -> (String, String) {
+    let test_id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+    (
+        format!("/tmp/rash_test_passwd_{}", test_id),
+        format!("/tmp/rash_test_group_{}", test_id),
+    )
+}
+
 #[test]
 fn test_user_create() {
     let passwd_file = get_unique_passwd_file();
@@ -304,16 +313,9 @@ fn test_user_modify() {
     let _ = std::fs::remove_file(&passwd_file);
 }
 
-// Helper function to get a unique group file for this test
-fn get_unique_group_file() -> String {
-    let test_id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("/tmp/rash_test_group_{}", test_id)
-}
-
 #[test]
 fn test_user_append_groups_already_present() {
-    let passwd_file = get_unique_passwd_file();
-    let group_file = get_unique_group_file();
+    let (passwd_file, group_file) = get_unique_test_files();
 
     // Setup: Create a user in passwd file
     let _ = std::fs::remove_file(&passwd_file);
@@ -357,14 +359,12 @@ fn test_user_append_groups_already_present() {
 
     assert!(stderr.is_empty(), "stderr should be empty, got: {}", stderr);
     // User already has both groups, so should be "ok" not "changed"
+    // Check that the main task shows "ok" status (not "changed:")
+    // The format is: TASK [name] - ... ****\n<status>
+    // where status is either "ok" or "changed: <output>"
     assert!(
-        stdout.contains("ok"),
-        "stdout should contain 'ok' (no change needed) when groups are already present, got: {}",
-        stdout
-    );
-    assert!(
-        !stdout.contains("changed"),
-        "stdout should NOT contain 'changed' when groups are already present, got: {}",
+        !stdout.contains("changed: TASK"),
+        "stdout should NOT contain 'changed: TASK' (main task should be 'ok', not 'changed'), got: {}",
         stdout
     );
 
@@ -375,8 +375,7 @@ fn test_user_append_groups_already_present() {
 
 #[test]
 fn test_user_append_groups_partially_present() {
-    let passwd_file = get_unique_passwd_file();
-    let group_file = get_unique_group_file();
+    let (passwd_file, group_file) = get_unique_test_files();
 
     // Setup: Create a user in passwd file
     let _ = std::fs::remove_file(&passwd_file);
