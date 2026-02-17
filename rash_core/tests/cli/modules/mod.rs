@@ -1,3 +1,4 @@
+mod authorized_key;
 mod dconf;
 mod group;
 mod include;
