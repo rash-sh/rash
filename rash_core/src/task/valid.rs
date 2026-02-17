@@ -137,6 +137,9 @@ impl TaskValid {
                 .attrs
                 .get("environment")
                 .map(|_| self.attrs["environment"].clone()),
+            retries: self.attrs["retries"].as_u64().map(|v| v as u32),
+            delay: self.attrs["delay"].as_u64(),
+            until: self.parse_array(&self.attrs["until"]),
             global_params,
         })
     }
@@ -442,5 +445,78 @@ mod tests {
         } else {
             panic!("Expected always to be a sequence");
         }
+    }
+
+    #[test]
+    fn test_retry_fields_parsing() {
+        let yaml_str = r#"
+        name: test retry task
+        debug:
+          msg: test
+        retries: 5
+        delay: 10
+        until: "result.rc == 0"
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task_valid = TaskValid::new(&yaml);
+        let global_params = create_test_global_params();
+
+        let result = task_valid.get_task(&global_params);
+        assert!(result.is_ok());
+
+        let task = result.unwrap();
+        assert_eq!(task.name, Some("test retry task".to_string()));
+        assert_eq!(task.retries, Some(5));
+        assert_eq!(task.delay, Some(10));
+        assert_eq!(task.until, Some("result.rc == 0".to_string()));
+    }
+
+    #[test]
+    fn test_until_only_parsing() {
+        let yaml_str = r#"
+        name: test until task
+        debug:
+          msg: test
+        until: "result.stdout == 'ready'"
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task_valid = TaskValid::new(&yaml);
+        let global_params = create_test_global_params();
+
+        let result = task_valid.get_task(&global_params);
+        assert!(result.is_ok());
+
+        let task = result.unwrap();
+        assert_eq!(task.until, Some("result.stdout == 'ready'".to_string()));
+        assert_eq!(task.retries, None);
+        assert_eq!(task.delay, None);
+    }
+
+    #[test]
+    fn test_retry_with_loop_succeeds() {
+        let yaml_str = r#"
+        name: test retry with loop
+        debug:
+          msg: "Item: {{ item }}"
+        loop:
+          - one
+          - two
+        retries: 3
+        delay: 1
+        until: "item != 'fail'"
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task_valid = TaskValid::new(&yaml);
+        let global_params = create_test_global_params();
+
+        let result = task_valid.get_task(&global_params);
+        assert!(result.is_ok());
+
+        let task = result.unwrap();
+        assert_eq!(task.name, Some("test retry with loop".to_string()));
+        assert!(task.r#loop.is_some());
+        assert_eq!(task.retries, Some(3));
+        assert_eq!(task.delay, Some(1));
+        assert_eq!(task.until, Some("item != 'fail'".to_string()));
     }
 }

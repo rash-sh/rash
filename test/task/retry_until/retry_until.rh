@@ -1,0 +1,24 @@
+#!/usr/bin/env rash
+
+- name: Create a counter file
+  copy:
+    content: "0"
+    dest: /tmp/rash_retry_counter.txt
+
+- name: Test retry with until condition - increment counter until it reaches 3
+  command:
+    cmd: "sh -c 'counter=$(cat /tmp/rash_retry_counter.txt); new_val=$((counter + 1)); echo $new_val > /tmp/rash_retry_counter.txt; echo $new_val'"
+  register: result
+  retries: 5
+  delay: 0
+  until: "result.output == '3\n'"
+
+- name: Verify retry worked - output should be 3
+  assert:
+    that:
+      - result.output == '3\n'
+
+- name: Cleanup
+  file:
+    path: /tmp/rash_retry_counter.txt
+    state: absent
