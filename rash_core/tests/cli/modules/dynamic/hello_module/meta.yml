@@ -1,0 +1,11 @@
+name: hello_module
+description: A simple hello world module
+params:
+  message:
+    type: string
+    required: true
+    description: The message to display
+  prefix:
+    type: string
+    required: false
+    default: "Hello: "

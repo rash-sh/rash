@@ -1,0 +1,11 @@
+- name: Set default changed
+  set_vars:
+    __module_changed: false
+
+- name: Display message
+  debug:
+    msg: "{{ module.params.prefix }}{{ module.params.message }}"
+
+- name: Set output
+  set_vars:
+    __module_output: "{{ module.params.prefix }}{{ module.params.message }}"

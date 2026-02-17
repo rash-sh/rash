@@ -1,4 +1,5 @@
 mod dconf;
+mod dynamic_test;
 mod group;
 mod include;
 mod pacman;

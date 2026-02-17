@@ -1,0 +1,11 @@
+#!/usr/bin/env rash
+
+- name: Use hello module
+  hello_module:
+    message: "World"
+  register: result
+
+- name: Verify result
+  assert:
+    that:
+      - result.output == "Hello: World"
