@@ -1,6 +1,7 @@
 mod dconf;
 mod fail;
 mod group;
+mod hostname;
 mod include;
 mod pacman;
 mod systemd;
