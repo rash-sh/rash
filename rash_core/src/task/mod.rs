@@ -71,6 +71,12 @@ pub struct Task<'a> {
     always: Option<YamlValue>,
     /// Environment variables to inject for this task.
     environment: Option<YamlValue>,
+    /// Number of retries before giving up. Default is 3 when `until` is specified.
+    retries: Option<u32>,
+    /// Delay between retries in seconds. Default is 0.
+    delay: Option<u64>,
+    /// Template expression passed directly without {{ }}; repeat task until this is true.
+    until: Option<String>,
     /// Global parameters.
     global_params: &'a GlobalParams<'a>,
 }
@@ -232,6 +238,60 @@ impl<'a> Task<'a> {
             Some(s) => is_render_string(s, vars),
             None => Ok(result.get_changed()),
         }
+    }
+
+    fn is_until_satisfied(&self, vars: &Value) -> Result<bool> {
+        trace!("until: {:?}", &self.until);
+        match &self.until {
+            Some(s) => is_render_string(s, vars),
+            None => Ok(true),
+        }
+    }
+
+    fn exec_with_retry(&self, vars: Value) -> Result<Option<Value>> {
+        let max_retries = self.retries.unwrap_or(3);
+        let delay_secs = self.delay.unwrap_or(0);
+
+        for attempt in 0..=max_retries {
+            let result = self.exec_module(vars.clone())?;
+
+            if self.until.is_some() {
+                let result_vars = result.clone().unwrap_or(context! {});
+                let check_vars =
+                    context! {..vars.clone(), ..result_vars, ..context! {retries => attempt}};
+
+                if self.is_until_satisfied(&check_vars)? {
+                    debug!("until condition satisfied on attempt {}", attempt);
+                    return Ok(result);
+                }
+
+                if attempt < max_retries {
+                    debug!(
+                        "until condition not satisfied on attempt {}, retrying in {} seconds",
+                        attempt, delay_secs
+                    );
+                    if delay_secs > 0 {
+                        std::thread::sleep(std::time::Duration::from_secs(delay_secs));
+                    }
+                } else {
+                    warn!(
+                        "until condition not satisfied after {} retries",
+                        max_retries
+                    );
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        format!(
+                            "Task failed: until condition not satisfied after {} retries",
+                            max_retries
+                        ),
+                    ));
+                }
+            } else {
+                return Ok(result);
+            }
+        }
+
+        Ok(None)
     }
 
     fn exec_module_rendered_with_user(
@@ -767,13 +827,16 @@ impl<'a> Task<'a> {
     /// providing the foundation for rescue/always error handling patterns.
     fn exec_main_task(&self, vars: Value) -> Result<Option<Value>> {
         if self.r#loop.is_some() {
-            // Handle loops - execute the task for each iteration
             let mut new_vars = context! {};
             for item in self.render_iterator(vars.clone())?.into_iter() {
                 let ctx = context! {..vars.clone(), ..new_vars.clone()};
                 let new_ctx = context! {item => &item, ..ctx};
                 trace!("pre execute loop: {:?}", &new_ctx);
-                let loop_vars = self.exec_module(new_ctx)?;
+                let loop_vars = if self.until.is_some() {
+                    self.exec_with_retry(new_ctx)?
+                } else {
+                    self.exec_module(new_ctx)?
+                };
                 if let Some(v) = loop_vars {
                     new_vars = context! {..new_vars, ..v};
                 }
@@ -784,8 +847,9 @@ impl<'a> Task<'a> {
             } else {
                 Ok(Some(new_vars))
             }
+        } else if self.until.is_some() {
+            self.exec_with_retry(vars)
         } else {
-            // Single task execution
             self.exec_module(vars)
         }
     }
@@ -1479,5 +1543,83 @@ mod tests {
 
         let rendered_params = task.render_params(vars).unwrap();
         assert_eq!(rendered_params.as_str().unwrap(), "ls boo");
+    }
+
+    #[test]
+    fn test_from_yaml_with_retries() {
+        let s: String = r#"
+            name: 'Test retry task'
+            command: 'example'
+            retries: 5
+            delay: 2
+            until: "result.rc == 0"
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+
+        assert_eq!(task.name.unwrap(), "Test retry task");
+        assert_eq!(task.retries, Some(5));
+        assert_eq!(task.delay, Some(2));
+        assert_eq!(task.until, Some("result.rc == 0".to_string()));
+    }
+
+    #[test]
+    fn test_from_yaml_with_until_only() {
+        let s: String = r#"
+            name: 'Test until task'
+            command: 'example'
+            until: "result.stdout == 'success'"
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+
+        assert_eq!(task.until, Some("result.stdout == 'success'".to_string()));
+        assert_eq!(task.retries, None);
+        assert_eq!(task.delay, None);
+    }
+
+    #[test]
+    fn test_is_until_satisfied_true() {
+        let s: String = r#"
+            command: 'example'
+            until: "result.rc == 0"
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        let result_map: HashMap<&str, i32> = [("rc", 0)].into_iter().collect();
+        let vars = context! { result => Value::from_serialize(&result_map) };
+
+        assert!(task.is_until_satisfied(&vars).unwrap());
+    }
+
+    #[test]
+    fn test_is_until_satisfied_false() {
+        let s: String = r#"
+            command: 'example'
+            until: "result.rc == 0"
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        let result_map: HashMap<&str, i32> = [("rc", 1)].into_iter().collect();
+        let vars = context! { result => Value::from_serialize(&result_map) };
+
+        assert!(!task.is_until_satisfied(&vars).unwrap());
+    }
+
+    #[test]
+    fn test_is_until_satisfied_no_until() {
+        let s: String = r#"
+            command: 'example'
+            "#
+        .to_owned();
+        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
+        let task = Task::from(yaml);
+        let vars = context! {};
+
+        assert!(task.is_until_satisfied(&vars).unwrap());
     }
 }
