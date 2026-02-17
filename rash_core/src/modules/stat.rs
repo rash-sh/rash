@@ -333,10 +333,16 @@ fn get_mime_type(path: &str) -> Option<String> {
 fn get_username(uid: u32) -> Option<String> {
     unsafe {
         let mut pwd = std::mem::zeroed();
-        let mut buf = [0i8; 1024];
+        let mut buf = [0u8; 1024];
         let mut result = std::ptr::null_mut();
 
-        if libc::getpwuid_r(uid, &mut pwd, buf.as_mut_ptr(), buf.len(), &mut result) == 0
+        if libc::getpwuid_r(
+            uid,
+            &mut pwd,
+            buf.as_mut_ptr() as *mut _,
+            buf.len(),
+            &mut result,
+        ) == 0
             && !result.is_null()
         {
             std::ffi::CStr::from_ptr(pwd.pw_name)
@@ -352,10 +358,16 @@ fn get_username(uid: u32) -> Option<String> {
 fn get_groupname(gid: u32) -> Option<String> {
     unsafe {
         let mut grp = std::mem::zeroed();
-        let mut buf = [0i8; 1024];
+        let mut buf = [0u8; 1024];
         let mut result = std::ptr::null_mut();
 
-        if libc::getgrgid_r(gid, &mut grp, buf.as_mut_ptr(), buf.len(), &mut result) == 0
+        if libc::getgrgid_r(
+            gid,
+            &mut grp,
+            buf.as_mut_ptr() as *mut _,
+            buf.len(),
+            &mut result,
+        ) == 0
             && !result.is_null()
         {
             std::ffi::CStr::from_ptr(grp.gr_name)
