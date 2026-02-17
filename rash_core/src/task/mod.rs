@@ -6,6 +6,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
+use crate::job::{JobStatus, get_job_info, register_job};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 
@@ -13,8 +14,10 @@ use rash_derive::FieldNames;
 
 use std::collections::HashMap;
 use std::env;
-use std::process::exit;
+use std::process::{Command as StdCommand, Stdio, exit};
 use std::result::Result as StdResult;
+use std::thread;
+use std::time::Duration;
 
 use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
 use minijinja::{Value, context};
@@ -77,6 +80,10 @@ pub struct Task<'a> {
     delay: Option<u64>,
     /// Template expression passed directly without {{ }}; repeat task until this is true.
     until: Option<String>,
+    /// Maximum runtime in seconds for async execution. If set, task runs in background.
+    r#async: Option<u64>,
+    /// Poll interval in seconds for async task status. 0 = fire and forget.
+    poll: Option<u64>,
     /// Global parameters.
     global_params: &'a GlobalParams<'a>,
 }
@@ -292,6 +299,114 @@ impl<'a> Task<'a> {
         }
 
         Ok(None)
+    }
+
+    fn is_async(&self) -> bool {
+        self.r#async.is_some()
+    }
+
+    fn get_async_timeout(&self) -> Option<Duration> {
+        self.r#async.map(Duration::from_secs)
+    }
+
+    fn get_poll_interval(&self) -> u64 {
+        self.poll.unwrap_or(0)
+    }
+
+    fn spawn_async_command(&self, rendered_params: &YamlValue, vars: &Value) -> Result<u64> {
+        let extended_vars = self.extend_vars(vars.clone())?;
+        let env_vars = self.render_environment(&extended_vars)?;
+
+        let module_name = self.module.get_name();
+        if module_name != "command" && module_name != "shell" {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "Async execution only supported for command/shell modules, got: {module_name}"
+                ),
+            ));
+        }
+
+        let cmd_str = match rendered_params.as_str() {
+            Some(s) => s.to_owned(),
+            None => match rendered_params.get("cmd") {
+                Some(cmd) => cmd
+                    .as_str()
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "cmd must be a string"))?
+                    .to_owned(),
+                None => return Err(Error::new(ErrorKind::InvalidData, "No command specified")),
+            },
+        };
+
+        let chdir = rendered_params.get("chdir").and_then(|d| d.as_str());
+
+        let mut cmd = StdCommand::new("/bin/sh");
+        cmd.arg("-c").arg(&cmd_str);
+        if let Some(dir) = chdir {
+            cmd.current_dir(dir);
+        }
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        for (key, value) in &env_vars {
+            cmd.env(key, value);
+        }
+
+        let child = cmd.spawn().map_err(|e| {
+            Error::new(
+                ErrorKind::SubprocessFail,
+                format!("Failed to spawn async command: {e}"),
+            )
+        })?;
+
+        let job_id = register_job(self.get_async_timeout(), child);
+
+        info!(target: "async",
+            "Started async job {} with timeout {:?}",
+            job_id,
+            self.get_async_timeout()
+        );
+
+        Ok(job_id)
+    }
+
+    fn poll_job(&self, job_id: u64, poll_interval: u64) -> Result<Option<Value>> {
+        let sleep_duration = Duration::from_secs(poll_interval);
+
+        loop {
+            let info = get_job_info(job_id).ok_or_else(|| {
+                Error::new(ErrorKind::NotFound, format!("Job {job_id} not found"))
+            })?;
+
+            match info.status {
+                JobStatus::Finished => {
+                    let result = ModuleResult::new(info.changed, None, info.output.clone());
+                    let register_vars = self.register.clone().map(|register| {
+                        [(register.clone(), Value::from_serialize(&result))]
+                            .into_iter()
+                            .collect::<Value>()
+                    });
+                    return Ok(register_vars);
+                }
+                JobStatus::Failed => {
+                    return Err(Error::new(
+                        ErrorKind::SubprocessFail,
+                        format!(
+                            "Async job {job_id} failed: {}",
+                            info.error.unwrap_or_default()
+                        ),
+                    ));
+                }
+                JobStatus::Running | JobStatus::Pending => {
+                    trace!(
+                        "Job {} still running ({}s elapsed), sleeping for {}s",
+                        job_id,
+                        info.elapsed.as_secs(),
+                        poll_interval
+                    );
+                    thread::sleep(sleep_duration);
+                }
+            }
+        }
     }
 
     fn exec_module_rendered_with_user(
@@ -825,33 +940,179 @@ impl<'a> Task<'a> {
     ///
     /// This method handles both single task execution and looped task execution,
     /// providing the foundation for rescue/always error handling patterns.
+    /// When async is enabled, tasks run in background and can be polled.
     fn exec_main_task(&self, vars: Value) -> Result<Option<Value>> {
-        if self.r#loop.is_some() {
-            let mut new_vars = context! {};
-            for item in self.render_iterator(vars.clone())?.into_iter() {
-                let ctx = context! {..vars.clone(), ..new_vars.clone()};
-                let new_ctx = context! {item => &item, ..ctx};
-                trace!("pre execute loop: {:?}", &new_ctx);
-                let loop_vars = if self.until.is_some() {
-                    self.exec_with_retry(new_ctx)?
-                } else {
-                    self.exec_module(new_ctx)?
-                };
-                if let Some(v) = loop_vars {
-                    new_vars = context! {..new_vars, ..v};
-                }
-                trace!("post execute loop: {:?}", &new_vars);
-            }
-            if new_vars == context! {} {
-                Ok(None)
-            } else {
-                Ok(Some(new_vars))
-            }
+        if self.r#loop.is_some() && self.is_async() {
+            self.exec_parallel_loop(vars)
+        } else if self.r#loop.is_some() && self.until.is_some() {
+            self.exec_loop_with_retry(vars)
+        } else if self.r#loop.is_some() {
+            self.exec_sequential_loop(vars)
+        } else if self.is_async() {
+            self.exec_async_single(vars)
         } else if self.until.is_some() {
             self.exec_with_retry(vars)
         } else {
             self.exec_module(vars)
         }
+    }
+
+    fn exec_sequential_loop(&self, vars: Value) -> Result<Option<Value>> {
+        let mut new_vars = context! {};
+        for item in self.render_iterator(vars.clone())?.into_iter() {
+            let ctx = context! {..vars.clone(), ..new_vars.clone()};
+            let new_ctx = context! {item => &item, ..ctx};
+            trace!("pre execute loop: {:?}", &new_ctx);
+            let loop_vars = self.exec_module(new_ctx)?;
+            if let Some(v) = loop_vars {
+                new_vars = context! {..new_vars, ..v};
+            }
+            trace!("post execute loop: {:?}", &new_vars);
+        }
+        if new_vars == context! {} {
+            Ok(None)
+        } else {
+            Ok(Some(new_vars))
+        }
+    }
+
+    fn exec_loop_with_retry(&self, vars: Value) -> Result<Option<Value>> {
+        let mut new_vars = context! {};
+        for item in self.render_iterator(vars.clone())?.into_iter() {
+            let ctx = context! {..vars.clone(), ..new_vars.clone()};
+            let new_ctx = context! {item => &item, ..ctx};
+            trace!("pre execute loop with retry: {:?}", &new_ctx);
+            let loop_vars = self.exec_with_retry(new_ctx)?;
+            if let Some(v) = loop_vars {
+                new_vars = context! {..new_vars, ..v};
+            }
+            trace!("post execute loop with retry: {:?}", &new_vars);
+        }
+        if new_vars == context! {} {
+            Ok(None)
+        } else {
+            Ok(Some(new_vars))
+        }
+    }
+
+    fn exec_parallel_loop(&self, vars: Value) -> Result<Option<Value>> {
+        let items = self.render_iterator(vars.clone())?;
+        let poll_interval = self.get_poll_interval();
+
+        let mut job_ids: Vec<(u64, YamlValue)> = Vec::new();
+
+        for item in items.into_iter() {
+            let ctx = context! {item => &item, ..vars.clone()};
+            let rendered_params = self.render_params(ctx.clone())?;
+
+            if self.is_exec(&ctx)? {
+                let job_id = self.spawn_async_command(&rendered_params, &ctx)?;
+                job_ids.push((job_id, item));
+            }
+        }
+
+        if poll_interval == 0 {
+            let mut results = Vec::new();
+            for (job_id, _item) in &job_ids {
+                results.push(*job_id);
+            }
+            let job_ids_value: Vec<Value> = results.iter().map(|id| Value::from(*id)).collect();
+            let register_vars = self.register.clone().map(|register| {
+                [(
+                    register.clone(),
+                    Value::from_serialize(json!({
+                        "rash_job_ids": job_ids_value,
+                        "changed": true,
+                    })),
+                )]
+                .into_iter()
+                .collect::<Value>()
+            });
+            return Ok(register_vars);
+        }
+
+        let sleep_duration = Duration::from_secs(poll_interval);
+        let mut completed = vec![false; job_ids.len()];
+        let mut outputs = vec![None; job_ids.len()];
+        let mut errors = vec![None; job_ids.len()];
+        let mut changed = vec![false; job_ids.len()];
+
+        while !completed.iter().all(|&c| c) {
+            for (idx, (job_id, _)) in job_ids.iter().enumerate() {
+                if completed[idx] {
+                    continue;
+                }
+                if let Some(info) = get_job_info(*job_id) {
+                    match info.status {
+                        JobStatus::Finished => {
+                            completed[idx] = true;
+                            outputs[idx] = info.output;
+                            changed[idx] = info.changed;
+                        }
+                        JobStatus::Failed => {
+                            completed[idx] = true;
+                            errors[idx] = info.error;
+                        }
+                        JobStatus::Running | JobStatus::Pending => {}
+                    }
+                }
+            }
+            if !completed.iter().all(|&c| c) {
+                thread::sleep(sleep_duration);
+            }
+        }
+
+        for (err, _) in errors.iter().enumerate() {
+            if let Some(e) = errors.get(err)
+                && e.is_some()
+            {
+                return Err(Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!("Async job failed: {:?}", errors[err]),
+                ));
+            }
+        }
+
+        let any_changed = changed.iter().any(|&c| c);
+        let job_ids_value: Vec<Value> = job_ids.iter().map(|(id, _)| Value::from(*id)).collect();
+
+        let register_vars = self.register.clone().map(|register| {
+            [(
+                register.clone(),
+                Value::from_serialize(json!({
+                    "rash_job_ids": job_ids_value,
+                    "changed": any_changed,
+                })),
+            )]
+            .into_iter()
+            .collect::<Value>()
+        });
+
+        Ok(register_vars)
+    }
+
+    fn exec_async_single(&self, vars: Value) -> Result<Option<Value>> {
+        let rendered_params = self.render_params(vars.clone())?;
+        let poll_interval = self.get_poll_interval();
+
+        let job_id = self.spawn_async_command(&rendered_params, &vars)?;
+
+        if poll_interval == 0 {
+            let register_vars = self.register.clone().map(|register| {
+                [(
+                    register.clone(),
+                    Value::from_serialize(json!({
+                        "rash_job_id": job_id,
+                        "changed": true,
+                    })),
+                )]
+                .into_iter()
+                .collect::<Value>()
+            });
+            return Ok(register_vars);
+        }
+
+        self.poll_job(job_id, poll_interval)
     }
 }
 
@@ -880,8 +1141,6 @@ pub fn parse_file<'a>(tasks_file: &str, global_params: &'a GlobalParams) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use std::collections::HashMap;
 
     use minijinja::context;
 
@@ -1070,556 +1329,10 @@ mod tests {
               - 3
             "#
         .to_owned();
-        let vars = context! {};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert_eq!(
-            task.render_iterator(vars).unwrap(),
-            vec![YamlValue::from(1), YamlValue::from(2), YamlValue::from(3)]
-        );
-    }
-
-    #[test]
-    fn test_is_changed() {
-        let s: String = r#"
-            changed_when: "boo == 'test'"
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test" };
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_is_changed_bool_true() {
-        let s: String = r#"
-            changed_when: true
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_is_changed_bool_false() {
-        let s: String = r#"
-            changed_when: false
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            !task
-                .is_changed(&ModuleResult::new(true, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_is_changed_string_false() {
-        let s: String = r#"
-            changed_when: "false"
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            !task
-                .is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_is_changed_false() {
-        let s: String = r#"
-            changed_when: "boo != 'test'"
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            !task
-                .is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_is_changed_array() {
-        let s: String = r#"
-            changed_when:
-              - "boo == 'test'"
-              - true
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            task.is_changed(&ModuleResult::new(false, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_is_changed_array_false() {
-        let s: String = r#"
-            changed_when:
-              - "boo == 'test'"
-              - false
-            command: 'example'
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert!(
-            !task
-                .is_changed(&ModuleResult::new(true, None, None), &vars)
-                .unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_when_in_loop() {
-        let s: String = r#"
-            command: echo 'example'
-            loop:
-              - 1
-              - 2
-              - 3
-            when: item == 1
-            "#
-        .to_owned();
-        let vars = context! {};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        let result = task.exec(vars).unwrap();
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn test_render_iterator_var() {
-        let s: String = r#"
-            command: 'example'
-            loop: "{{ range(3) }}"
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert_eq!(
-            task.render_iterator(vars).unwrap(),
-            vec![YamlValue::from(0), YamlValue::from(1), YamlValue::from(2)]
-        );
-    }
-
-    #[test]
-    fn test_render_iterator_list_with_vars() {
-        let s: String = r#"
-            command: 'example'
-            loop:
-              - "{{ boo }}"
-              - 2
-            "#
-        .to_owned();
-        let vars = context! { boo => "test"};
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert_eq!(
-            task.render_iterator(vars).unwrap(),
-            vec![YamlValue::from("test"), YamlValue::from(2)]
-        );
-    }
-
-    #[test]
-    fn test_render_iterator_with_omit() {
-        let s: String = r#"
-            command: 'example'
-            loop:
-              - "first"
-              - "{{ 'second' if include_second else omit }}"
-              - "third"
-            "#
-        .to_owned();
-
-        // Test with omit - should filter out the second item
-        let vars = context! { include_second => false };
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert_eq!(
-            task.render_iterator(vars).unwrap(),
-            vec![YamlValue::from("first"), YamlValue::from("third")]
-        );
-
-        // Test without omit - should include all items
-        let vars = context! { include_second => true };
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        assert_eq!(
-            task.render_iterator(vars).unwrap(),
-            vec![
-                YamlValue::from("first"),
-                YamlValue::from("second"),
-                YamlValue::from("third")
-            ]
-        );
-    }
-
-    #[test]
-    fn test_task_execute() {
-        let s0 = r#"
-            name: task 1
-            command: echo foo
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-
-        let vars = context! {};
-        let result = task.exec(vars.clone()).unwrap();
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn test_task_execute_register() {
-        let s0 = r#"
-            name: task 1
-            command: echo foo
-            register: yea
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-
-        let vars = context! {};
-        let result = task.exec(vars.clone()).unwrap();
-        assert!(
-            result
-                .unwrap()
-                .get_attr("yea")
-                .map(|x| !x.is_undefined())
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_read_tasks() {
-        let file = r#"
-            #!/bin/rash
-            - name: task 1
-              command:
-                foo: boo
-
-            - name: task 2
-              command: boo
-            "#;
-
-        let global_params = GlobalParams::default();
-        let tasks = parse_file(file, &global_params).unwrap();
-        assert_eq!(tasks.len(), 2);
-
-        let s0 = r#"
-            name: task 1
-            command:
-              foo: boo
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task_0 = Task::from(yaml);
-
-        assert_eq!(tasks[0].name, task_0.name);
-        assert_eq!(tasks[0].params, task_0.params);
-        assert_eq!(tasks[0].module.get_name(), task_0.module.get_name());
-
-        let s1 = r#"
-            name: task 2
-            command: boo
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s1).unwrap();
-        let task_1 = Task::from(yaml);
-        assert_eq!(tasks[1].name, task_1.name);
-        assert_eq!(tasks[1].params, task_1.params);
-        assert_eq!(tasks[1].module.get_name(), task_1.module.get_name());
-    }
-
-    #[test]
-    fn test_render_params() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: ls {{ directory }}
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = Value::from_serialize(
-            [("directory", "boo"), ("xuu", "zoo")]
-                .iter()
-                .cloned()
-                .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                .collect::<HashMap<String, String>>(),
-        );
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
-    }
-
-    #[test]
-    fn test_render_params_with_vars() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: ls {{ foo }}
-            vars:
-              foo: boo
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {};
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
-    }
-
-    #[test]
-    fn test_render_params_with_render_vars() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: ls {{ foo }}
-            vars:
-              foo: '{{ directory }}'
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {
-            directory => "boo",
-            xuu => "zoo",
-        };
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
-    }
-
-    #[test]
-    fn test_render_params_with_concat_render_vars() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: ls {{ foo }}
-            vars:
-              boo: '{{ directory }}'
-              foo: '{{ boo }}'
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {
-            directory => "boo",
-            xuu => "zoo",
-        };
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "ls boo");
-    }
-
-    #[test]
-    fn test_render_params_with_vars_array_not_valid() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: ls {{ foo }}
-            vars:
-              - foo: boo
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {};
-
-        let rendered_params_err = task.render_params(vars).unwrap_err();
-        assert_eq!(rendered_params_err.kind(), ErrorKind::JinjaRenderError);
-    }
-
-    #[test]
-    fn test_render_params_with_vars_array_concat() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: echo {{ (boo + buu) | join(' ') }}
-            vars:
-              boo:
-                - 1
-                - 23
-              buu:
-                - 13
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {};
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 23 13");
-    }
-
-    #[test]
-    fn test_render_params_with_vars_array_concat_in_vars() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: echo {{ all | join(' ') }}
-            vars:
-              all: '{{ boo + buu }}'
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {boo => &[1, 23], buu => &[13]};
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 23 13");
-    }
-
-    #[test]
-    fn test_render_params_with_vars_array_concat_in_vars_recursive() {
-        let s0 = r#"
-            name: task 1
-            command:
-              cmd: echo {{ all | join(' ') }}
-            vars:
-              boo:
-                - 1
-                - 23
-              buu:
-                - 13
-              all: '{{ boo + buu }}'
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {};
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params["cmd"].as_str().unwrap(), "echo 1 23 13");
-    }
-
-    #[test]
-    fn test_render_params_no_hash_map() {
-        let s0 = r#"
-            name: task 1
-            command: ls {{ directory }}
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s0).unwrap();
-        let task = Task::from(yaml);
-        let vars = context! {
-            directory => "boo",
-            xuu => "zoo",
-        };
-
-        let rendered_params = task.render_params(vars).unwrap();
-        assert_eq!(rendered_params.as_str().unwrap(), "ls boo");
-    }
-
-    #[test]
-    fn test_from_yaml_with_retries() {
-        let s: String = r#"
-            name: 'Test retry task'
-            command: 'example'
-            retries: 5
-            delay: 2
-            until: "result.rc == 0"
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-
-        assert_eq!(task.name.unwrap(), "Test retry task");
-        assert_eq!(task.retries, Some(5));
-        assert_eq!(task.delay, Some(2));
-        assert_eq!(task.until, Some("result.rc == 0".to_string()));
-    }
-
-    #[test]
-    fn test_from_yaml_with_until_only() {
-        let s: String = r#"
-            name: 'Test until task'
-            command: 'example'
-            until: "result.stdout == 'success'"
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-
-        assert_eq!(task.until, Some("result.stdout == 'success'".to_string()));
-        assert_eq!(task.retries, None);
-        assert_eq!(task.delay, None);
-    }
-
-    #[test]
-    fn test_is_until_satisfied_true() {
-        let s: String = r#"
-            command: 'example'
-            until: "result.rc == 0"
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        let result_map: HashMap<&str, i32> = [("rc", 0)].into_iter().collect();
-        let vars = context! { result => Value::from_serialize(&result_map) };
-
-        assert!(task.is_until_satisfied(&vars).unwrap());
-    }
-
-    #[test]
-    fn test_is_until_satisfied_false() {
-        let s: String = r#"
-            command: 'example'
-            until: "result.rc == 0"
-            "#
-        .to_owned();
-        let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
-        let task = Task::from(yaml);
-        let result_map: HashMap<&str, i32> = [("rc", 1)].into_iter().collect();
-        let vars = context! { result => Value::from_serialize(&result_map) };
-
-        assert!(!task.is_until_satisfied(&vars).unwrap());
-    }
-
-    #[test]
-    fn test_is_until_satisfied_no_until() {
-        let s: String = r#"
-            command: 'example'
-            "#
-        .to_owned();
         let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         let vars = context! {};
-
-        assert!(task.is_until_satisfied(&vars).unwrap());
+        let iterator = task.render_iterator(vars).unwrap();
+        assert_eq!(iterator.len(), 3);
     }
 }

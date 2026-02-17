@@ -140,6 +140,8 @@ impl TaskValid {
             retries: self.attrs["retries"].as_u64().map(|v| v as u32),
             delay: self.attrs["delay"].as_u64(),
             until: self.parse_array(&self.attrs["until"]),
+            r#async: self.attrs["async"].as_u64(),
+            poll: self.attrs.get("poll").and_then(|p| p.as_u64()),
             global_params,
         })
     }
@@ -518,5 +520,46 @@ mod tests {
         assert_eq!(task.retries, Some(3));
         assert_eq!(task.delay, Some(1));
         assert_eq!(task.until, Some("item != 'fail'".to_string()));
+    }
+
+    #[test]
+    fn test_async_fields_parsing() {
+        let yaml_str = r#"
+        name: test async task
+        command: ./long_running.sh
+        async: 300
+        poll: 5
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task_valid = TaskValid::new(&yaml);
+        let global_params = create_test_global_params();
+
+        let result = task_valid.get_task(&global_params);
+        assert!(result.is_ok());
+
+        let task = result.unwrap();
+        assert_eq!(task.name, Some("test async task".to_string()));
+        assert_eq!(task.r#async, Some(300));
+        assert_eq!(task.poll, Some(5));
+    }
+
+    #[test]
+    fn test_async_fire_and_forget() {
+        let yaml_str = r#"
+        name: test fire and forget
+        command: ./background.sh
+        async: 3600
+        poll: 0
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task_valid = TaskValid::new(&yaml);
+        let global_params = create_test_global_params();
+
+        let result = task_valid.get_task(&global_params);
+        assert!(result.is_ok());
+
+        let task = result.unwrap();
+        assert_eq!(task.r#async, Some(3600));
+        assert_eq!(task.poll, Some(0));
     }
 }
