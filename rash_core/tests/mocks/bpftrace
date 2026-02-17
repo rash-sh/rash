@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# bpftrace - Mock for eBPF tracing tool
+#
+# This mock simulates bpftrace behavior for testing the trace module.
+# It outputs predefined JSON events based on the probe type detected
+# in the -e program argument.
+#
+
+# Parse arguments
+PROGRAM=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -e)
+            shift
+            PROGRAM="$1"
+            ;;
+        -f)
+            shift
+            # Ignore format flag
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# Detect probe type and output appropriate events
+if echo "$PROGRAM" | grep -q "sys_enter_openat"; then
+    echo '{"comm": "rash", "pid": 1234, "path": "/etc/hosts", "timestamp": 1234567890}'
+    echo '{"comm": "cat", "pid": 1235, "path": "/etc/passwd", "timestamp": 1234567891}'
+    echo '{"comm": "rash", "pid": 1234, "path": "/etc/resolv.conf", "timestamp": 1234567892}'
+elif echo "$PROGRAM" | grep -q "sys_enter_read"; then
+    echo '{"comm": "rash", "pid": 1234, "fd": 3, "bytes": 4096, "timestamp": 1234567890}'
+    echo '{"comm": "cat", "pid": 1235, "fd": 3, "bytes": 1024, "timestamp": 1234567891}'
+elif echo "$PROGRAM" | grep -q "sys_enter_write"; then
+    echo '{"comm": "rash", "pid": 1234, "fd": 1, "bytes": 256, "timestamp": 1234567890}'
+    echo '{"comm": "tee", "pid": 1236, "fd": 1, "bytes": 512, "timestamp": 1234567891}'
+elif echo "$PROGRAM" | grep -q "sys_enter_execve"; then
+    echo '{"comm": "bash", "pid": 1234, "ppid": 1, "args": "/bin/bash", "timestamp": 1234567890}'
+    echo '{"comm": "cat", "pid": 1235, "ppid": 1234, "args": "/bin/cat /etc/hosts", "timestamp": 1234567891}'
+    echo '{"comm": "ls", "pid": 1236, "ppid": 1234, "args": "/bin/ls -la", "timestamp": 1234567892}'
+elif echo "$PROGRAM" | grep -q "sched_process_exit"; then
+    echo '{"comm": "cat", "pid": 1235, "exit_code": 0, "timestamp": 1234567900}'
+    echo '{"comm": "ls", "pid": 1236, "exit_code": 0, "timestamp": 1234567901}'
+elif echo "$PROGRAM" | grep -q "sys_enter_connect"; then
+    echo '{"comm": "curl", "pid": 1237, "fd": 3, "timestamp": 1234567890}'
+    echo '{"comm": "wget", "pid": 1238, "fd": 3, "timestamp": 1234567891}'
+elif echo "$PROGRAM" | grep -q "sys_enter_accept4"; then
+    echo '{"comm": "nginx", "pid": 100, "fd": 4, "timestamp": 1234567890}'
+    echo '{"comm": "nginx", "pid": 100, "fd": 5, "timestamp": 1234567891}'
+elif echo "$PROGRAM" | grep -q "raw_syscalls:sys_enter"; then
+    echo '{"comm": "rash", "pid": 1234, "syscall": "openat", "timestamp": 1234567890}'
+    echo '{"comm": "rash", "pid": 1234, "syscall": "read", "timestamp": 1234567891}'
+    echo '{"comm": "cat", "pid": 1235, "syscall": "openat", "timestamp": 1234567892}'
+    echo '{"comm": "cat", "pid": 1235, "syscall": "read", "timestamp": 1234567893}'
+    echo '{"comm": "cat", "pid": 1235, "syscall": "write", "timestamp": 1234567894}'
+else
+    # Custom expression - output generic events
+    echo '{"comm": "custom", "pid": 9999, "event": "custom_event", "timestamp": 1234567890}'
+fi
+
+exit 0
