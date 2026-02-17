@@ -17,6 +17,7 @@ mod systemd;
 mod template;
 mod uri;
 mod user;
+mod wait_for;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
@@ -39,6 +40,7 @@ use crate::modules::systemd::Systemd;
 use crate::modules::template::Template;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
+use crate::modules::wait_for::WaitFor;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -144,6 +146,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
+        (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
     ]
     .into_iter()
     .collect()
