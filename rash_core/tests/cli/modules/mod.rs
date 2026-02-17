@@ -6,6 +6,7 @@ mod hostname;
 mod include;
 mod pacman;
 mod systemd;
+mod trace;
 mod user;
 
 use super::execute_rash_with_env;

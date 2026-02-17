@@ -1,0 +1,19 @@
+#!/usr/bin/env rash
+
+- name: Trace file opens for 10 seconds
+  trace:
+    probe: file_opens
+    duration: 10s
+  become: true
+  register: files
+
+- name: Display file open events
+  debug:
+    msg: |
+      Total files opened: {{ files.extra.events | length }}
+      By process: {{ files.extra.stats.by_comm }}
+
+- name: Assert files were accessed
+  assert:
+    that: "{{ files.extra.events | length > 0 }}"
+    msg: "No file activity detected"
