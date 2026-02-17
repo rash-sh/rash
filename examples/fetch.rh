@@ -1,0 +1,19 @@
+#!/usr/bin/env -S rash --
+#
+# Fetch files from remote systems to local
+#
+# Usage:
+#   fetch.rh [options] <source> <dest>
+#   fetch.rh
+#
+# Options:
+#   -h --help              show this help message and exit
+#   --flat                 flatten directory structure [default: false]
+#   --validate-checksum    validate checksum after transfer [default: false]
+
+- fetch:
+    src: "{{ source }}"
+    dest: "{{ dest }}"
+    flat: "{{ options.flat | default(false) }}"
+    validate_checksum: "{{ options.validate_checksum | default(false) }}"
+  when: source is defined and dest is defined
