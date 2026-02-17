@@ -1,3 +1,4 @@
+mod archive;
 mod assert;
 mod authorized_key;
 mod block;
@@ -24,12 +25,14 @@ mod stat;
 mod systemd;
 mod template;
 mod timezone;
+mod unarchive;
 mod uri;
 mod user;
 mod wait_for;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::archive::Archive;
 use crate::modules::assert::Assert;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::block::Block;
@@ -56,6 +59,7 @@ use crate::modules::stat::Stat;
 use crate::modules::systemd::Systemd;
 use crate::modules::template::Template;
 use crate::modules::timezone::Timezone;
+use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::wait_for::WaitFor;
@@ -142,6 +146,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
+        (Archive.get_name(), Box::new(Archive) as Box<dyn Module>),
         (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
         (
             AuthorizedKey.get_name(),
@@ -174,6 +179,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
+        (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
