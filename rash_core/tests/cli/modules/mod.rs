@@ -1,3 +1,4 @@
+mod apk;
 mod authorized_key;
 mod dconf;
 mod fail;

@@ -1,3 +1,4 @@
+mod apk;
 mod archive;
 mod assemble;
 mod assert;
@@ -36,6 +37,7 @@ mod wait_for;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::apk::Apk;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
@@ -81,20 +83,12 @@ use schemars::Schema;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value as YamlValue;
 
-/// Return values of a [`Module`] execution.
-///
-/// [`Module`]: trait.Module.html
 #[derive(Clone, Debug, PartialEq, Serialize)]
-// ANCHOR: module_result
 pub struct ModuleResult {
-    /// True when the executed module changed something.
     changed: bool,
-    /// The Output value will appear in logs when module is executed.
     output: Option<String>,
-    /// Modules store the data they return in the Extra field.
     extra: Option<YamlValue>,
 }
-// ANCHOR_END: module_result
 
 impl ModuleResult {
     pub fn new(changed: bool, extra: Option<YamlValue>, output: Option<String>) -> Self {
@@ -105,32 +99,22 @@ impl ModuleResult {
         }
     }
 
-    /// Return changed.
     pub fn get_changed(&self) -> bool {
         self.changed
     }
 
-    /// Return extra.
     pub fn get_extra(&self) -> Option<YamlValue> {
         self.extra.clone()
     }
 
-    /// Return output which is printed in log.
     pub fn get_output(&self) -> Option<String> {
         self.output.clone()
     }
 }
 
 pub trait Module: Send + Sync + std::fmt::Debug {
-    /// Returns the name of the module.
     fn get_name(&self) -> &str;
 
-    /// Executes the module's functionality with the provided parameters.
-    ///
-    /// This method is responsible for performing the module's core logic.
-    /// It accepts a set of YAML parameters and additional variables, then
-    /// runs the module's functionality. The result includes both the outcome
-    /// of the execution and any potential changes made to the variables.
     fn exec(
         &self,
         global_params: &GlobalParams,
@@ -139,11 +123,6 @@ pub trait Module: Send + Sync + std::fmt::Debug {
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)>;
 
-    /// Determines if the module requires its parameters to be treated as strings.
-    ///
-    /// By default, this returns `true`, meaning the module will force all parameters
-    /// to be interpreted as strings. Override this method if the module should
-    /// accept other types.
     fn force_string_on_params(&self) -> bool {
         true
     }
@@ -154,6 +133,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
+        (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Archive.get_name(), Box::new(Archive) as Box<dyn Module>),
         (Assemble.get_name(), Box::new(Assemble) as Box<dyn Module>),
         (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),

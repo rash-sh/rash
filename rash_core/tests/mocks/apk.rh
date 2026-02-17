@@ -1,0 +1,78 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# APK binary mock for Apk module tests.
+#
+# Usage:
+#   ./apk.rh [options] [<packages>...]
+#
+# Options:
+#   -q, --quiet          Quiet mode
+#   --no-cache           Do not use cache
+#   --no-progress        Hide progress
+#   -l <limit>           Limit packages
+#   --add                Install packages
+#   --del                Remove packages
+#   --update             Update package index
+#   --upgrade            Upgrade all packages
+#   --info               List packages
+#   --version            Compare versions
+#
+
+- name: Install packages
+  debug:
+    msg: |-
+      {% for package in rash.args[4:] -%}
+      Installing {{ package }}
+      {% endfor -%}
+  when:
+    - options.add
+
+- name: Remove packages
+  debug:
+    msg: |-
+      {% for package in rash.args[4:] -%}
+      Purging {{ package }}
+      {% endfor -%}
+  when:
+    - options.del
+
+- name: Update cache
+  debug:
+    msg: |-
+      fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/APKINDEX.tar.gz
+      fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz
+      v3.19.0-1-g1f5e89e17c7 [https://dl-cdn.alpinelinux.org/alpine/v3.19/main]
+      v3.19.0-1-g1234567890a [https://dl-cdn.alpinelinux.org/alpine/v3.19/community]
+      OK: 12345 distinct packages available
+  when:
+    - options.update
+
+- name: Upgrade packages
+  debug:
+    msg: |-
+      OK: 0 MiB in 0 packages
+  when:
+    - options.upgrade
+
+- name: List outdated packages
+  debug:
+    msg: |-
+      curl
+      jq
+  when:
+    - options.version
+    - options.l == "<"
+
+- name: List all installed packages
+  debug:
+    msg: |-
+      musl
+      busybox
+      alpine-baselayout
+      apk-tools
+      libc-utils
+      curl
+      bash
+      vim
+  when:
+    - options.info
