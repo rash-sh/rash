@@ -19,6 +19,7 @@ mod mount;
 mod pacman;
 mod set_vars;
 mod setup;
+mod slurp;
 mod stat;
 mod systemd;
 mod template;
@@ -50,6 +51,7 @@ use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
+use crate::modules::slurp::Slurp;
 use crate::modules::stat::Stat;
 use crate::modules::systemd::Systemd;
 use crate::modules::template::Template;
@@ -167,6 +169,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
+        (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
         (Stat.get_name(), Box::new(Stat) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
