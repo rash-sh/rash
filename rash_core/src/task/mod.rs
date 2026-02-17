@@ -6,7 +6,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
-use crate::modules::{Module, ModuleResult};
+use crate::modules::{Module, ModuleRef, ModuleResult};
 use crate::task::new::TaskNew;
 
 use rash_derive::FieldNames;
@@ -41,7 +41,7 @@ pub struct Task<'a> {
     /// Module could be any [`Module`] accessible by its name.
     ///
     /// [`Module`]: ../modules/trait.Module.html
-    module: &'static dyn Module,
+    module: ModuleRef,
     /// Params are module execution params passed to [`Module::exec`].
     ///
     /// [`Module::exec`]: ../modules/trait.Module.html#method.exec
@@ -126,7 +126,7 @@ impl<'a> Task<'a> {
             YamlValue::Mapping(x) => render_map(
                 x.clone(),
                 &extended_vars,
-                self.module.force_string_on_params(),
+                self.module.get_module().force_string_on_params(),
             ),
             YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, &extended_vars)?)),
             YamlValue::Sequence(_) => {
@@ -262,7 +262,7 @@ impl<'a> Task<'a> {
                     // After changing user, call the inner module exec directly
                     let module_name = self.module.get_name();
 
-                    let result = self.module.exec(
+                    let result = self.module.get_module().exec(
                         self.global_params,
                         rendered_params.clone(),
                         &extended_vars,
@@ -353,7 +353,7 @@ impl<'a> Task<'a> {
             }
         }
 
-        let result = self.module.exec(
+        let result = self.module.get_module().exec(
             self.global_params,
             rendered_params.clone(),
             &extended_vars,
@@ -559,7 +559,12 @@ impl<'a> Task<'a> {
     ///
     /// [`Module`]: ../modules/trait.Module.html
     pub fn get_module(&self) -> &dyn Module {
-        self.module
+        self.module.get_module()
+    }
+
+    /// Return module name.
+    pub fn get_module_name(&self) -> &str {
+        self.module.get_name()
     }
 
     /// Execute a task with comprehensive rescue and always handling.

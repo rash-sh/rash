@@ -4,6 +4,7 @@ mod command;
 mod copy;
 mod dconf;
 mod debug;
+mod dynamic;
 mod file;
 pub mod find;
 mod get_url;
@@ -26,6 +27,7 @@ use crate::modules::command::Command;
 use crate::modules::copy::Copy;
 use crate::modules::dconf::Dconf;
 use crate::modules::debug::Debug;
+pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::file::File;
 use crate::modules::find::Find;
 use crate::modules::get_url::GetUrl;
@@ -41,7 +43,8 @@ use crate::modules::uri::Uri;
 use crate::modules::user::User;
 
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::path::PathBuf;
+use std::sync::{LazyLock, RwLock};
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -149,9 +152,102 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
     .collect()
 });
 
+pub static DYNAMIC_REGISTRY: LazyLock<RwLock<DynamicModuleRegistry>> =
+    LazyLock::new(|| RwLock::new(DynamicModuleRegistry::new()));
+
 #[inline(always)]
 pub fn is_module(module: &str) -> bool {
-    MODULES.get(module).is_some()
+    if MODULES.get(module).is_some() {
+        return true;
+    }
+
+    if let Ok(registry) = DYNAMIC_REGISTRY.read()
+        && registry.get(module).is_some()
+    {
+        return true;
+    }
+
+    if let Ok(mut registry) = DYNAMIC_REGISTRY.write() {
+        registry.is_dynamic_module(module)
+    } else {
+        false
+    }
+}
+
+pub fn get_module(module_name: &str) -> Result<Box<dyn Module>> {
+    if let Some(module) = MODULES.get(module_name) {
+        let name = (*module).get_name().to_owned();
+        let boxed: Box<dyn Module> = match name.as_str() {
+            "assert" => Box::new(Assert),
+            "block" => Box::new(Block),
+            "command" => Box::new(Command),
+            "copy" => Box::new(Copy),
+            "dconf" => Box::new(Dconf),
+            "debug" => Box::new(Debug),
+            "file" => Box::new(File),
+            "find" => Box::new(Find),
+            "get_url" => Box::new(GetUrl),
+            "group" => Box::new(Group),
+            "include" => Box::new(Include),
+            "lineinfile" => Box::new(Lineinfile),
+            "pacman" => Box::new(Pacman),
+            "set_vars" => Box::new(SetVars),
+            "setup" => Box::new(Setup),
+            "systemd" => Box::new(Systemd),
+            "template" => Box::new(Template),
+            "uri" => Box::new(Uri),
+            "user" => Box::new(User),
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    format!("Module not found: {}", module_name),
+                ));
+            }
+        };
+        return Ok(boxed);
+    }
+
+    if let Ok(mut registry) = DYNAMIC_REGISTRY.write()
+        && let Ok(module) = registry.load_module(module_name)
+    {
+        return Ok(Box::new(module.clone()));
+    }
+
+    Err(Error::new(
+        ErrorKind::NotFound,
+        format!(
+            "Module '{}' not found in static or dynamic modules",
+            module_name
+        ),
+    ))
+}
+
+pub fn add_module_search_path(path: PathBuf) {
+    if let Ok(mut registry) = DYNAMIC_REGISTRY.write() {
+        registry.add_search_path(path);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ModuleRef {
+    Static(String),
+    Dynamic(DynamicModule),
+}
+
+impl ModuleRef {
+    pub fn get_module(&self) -> &dyn Module {
+        match self {
+            ModuleRef::Static(name) => MODULES.get(name.as_str()).map(|b| b.as_ref()).unwrap(),
+            ModuleRef::Dynamic(m) => m,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            ModuleRef::Static(name) => name.as_str(),
+            ModuleRef::Dynamic(m) => m.get_name(),
+        }
+    }
 }
 
 #[inline(always)]

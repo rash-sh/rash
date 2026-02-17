@@ -1,6 +1,6 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{MODULES, is_module};
+use crate::modules::{DYNAMIC_REGISTRY, MODULES, ModuleRef, is_module};
 use crate::task::Task;
 
 use std::collections::HashSet;
@@ -91,10 +91,22 @@ impl TaskValid {
     }
 
     pub fn get_task<'a>(&self, global_params: &'a GlobalParams) -> Result<Task<'a>> {
-        let module_name: &str = &self.get_module_name()?;
+        let module_name = self.get_module_name()?;
 
         // Validate that rescue and always attributes are only used with block modules
         self.validate_block_only_attributes()?;
+
+        let module_ref = if MODULES.get::<str>(&module_name).is_some() {
+            ModuleRef::Static(module_name.clone())
+        } else {
+            let dynamic_module = {
+                let mut registry = DYNAMIC_REGISTRY.write().map_err(|e| {
+                    Error::new(ErrorKind::Other, format!("Registry lock error: {}", e))
+                })?;
+                registry.load_module(&module_name)?.clone()
+            };
+            ModuleRef::Dynamic(dynamic_module)
+        };
 
         Ok(Task {
             r#become: match global_params.r#become {
@@ -111,14 +123,8 @@ impl TaskValid {
                 true => true,
                 false => self.attrs["check_mode"].as_bool().unwrap_or(false),
             },
-            // &dyn Module from &Box<dyn Module>
-            module: &**MODULES.get::<str>(module_name).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::NotFound,
-                    format!("Module not found in modules: {:?}", MODULES.keys()),
-                )
-            })?,
-            params: self.attrs[module_name].clone(),
+            module: module_ref,
+            params: self.attrs[&module_name].clone(),
             name: self.attrs["name"].as_str().map(String::from),
             ignore_errors: self.attrs["ignore_errors"].as_bool(),
             r#loop: self.attrs.get("loop").map(|_| self.attrs["loop"].clone()),
@@ -279,7 +285,7 @@ mod tests {
         assert!(result.is_ok());
 
         let task = result.unwrap();
-        assert_eq!(task.module.get_name(), "block");
+        assert_eq!(task.get_module_name(), "block");
         assert!(task.rescue.is_some());
         assert!(task.always.is_some());
     }
@@ -301,7 +307,7 @@ mod tests {
         assert!(result.is_ok());
 
         let task = result.unwrap();
-        assert_eq!(task.module.get_name(), "block");
+        assert_eq!(task.get_module_name(), "block");
         assert!(task.rescue.is_none());
         assert!(task.always.is_none());
     }
@@ -321,7 +327,7 @@ mod tests {
         assert!(result.is_ok());
 
         let task = result.unwrap();
-        assert_eq!(task.module.get_name(), "debug");
+        assert_eq!(task.get_module_name(), "debug");
         assert!(task.rescue.is_none());
         assert!(task.always.is_none());
     }
