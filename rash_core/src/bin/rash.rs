@@ -2,13 +2,14 @@ use rash_core::context::{Context, GlobalParams};
 use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
+use rash_core::modules::add_module_search_path;
 use rash_core::task::parse_file;
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
 use std::error::Error as StdError;
 use std::fs::read_to_string;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::exit;
 
 use clap::error::ErrorKind as ClapErrorKind;
@@ -151,16 +152,49 @@ fn main() {
     trace!("start logger");
     trace!("{:?}", &cli);
     let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());
-    let script_path = Path::new(&script_path_string);
+    let script_path = PathBuf::from(&script_path_string);
     let main_file = if let Some(s) = cli.script {
         s
     } else {
         trace!("reading tasks from: {script_path:?}");
-        match read_to_string(script_path) {
+        match read_to_string(&script_path) {
             Ok(s) => s,
             Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
         }
     };
+
+    // Set up module search paths
+    // 1. Script-relative path: ${script_dir}/modules/
+    if let Some(script_dir) = script_path.parent() {
+        let script_modules = script_dir.join("modules");
+        if script_modules.exists() {
+            trace!("Adding module search path: {:?}", script_modules);
+            add_module_search_path(script_modules.to_path_buf());
+        }
+    }
+
+    // 2. System-wide path: /etc/rash/modules/
+    let system_modules = PathBuf::from("/etc/rash/modules");
+    if system_modules.exists() {
+        trace!("Adding module search path: {:?}", system_modules);
+        add_module_search_path(system_modules);
+    }
+
+    // 3. User path: ~/.config/rash/modules/ or $XDG_CONFIG_HOME/rash/modules/
+    let user_modules = if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME") {
+        PathBuf::from(xdg_config).join("rash").join("modules")
+    } else if let Ok(home) = std::env::var("HOME") {
+        PathBuf::from(home)
+            .join(".config")
+            .join("rash")
+            .join("modules")
+    } else {
+        PathBuf::new()
+    };
+    if !user_modules.as_os_str().is_empty() && user_modules.exists() {
+        trace!("Adding module search path: {:?}", user_modules);
+        add_module_search_path(user_modules);
+    }
 
     let script_args: Vec<&str> = cli.script_args.iter().map(|s| &**s).collect();
     let mut new_vars = match docopt::parse(&main_file, &script_args) {
@@ -186,7 +220,7 @@ fn main() {
             new_vars = context! {..new_vars, ..env_vars};
             match Builtins::new(
                 script_args.into_iter().map(String::from).collect(),
-                script_path,
+                &script_path,
             ) {
                 Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
                 Err(e) => crash_error(e),
