@@ -10,6 +10,7 @@ mod get_url;
 mod group;
 mod include;
 mod lineinfile;
+mod mount;
 mod pacman;
 mod set_vars;
 mod setup;
@@ -33,6 +34,7 @@ use crate::modules::get_url::GetUrl;
 use crate::modules::group::Group;
 use crate::modules::include::Include;
 use crate::modules::lineinfile::Lineinfile;
+use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
@@ -139,6 +141,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
         ),
+        (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
