@@ -12,6 +12,7 @@ mod git;
 mod group;
 mod hostname;
 mod include;
+mod ini_file;
 mod lineinfile;
 mod mount;
 mod pacman;
@@ -41,6 +42,7 @@ use crate::modules::git::Git;
 use crate::modules::group::Group;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
+use crate::modules::ini_file::IniFile;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
@@ -150,6 +152,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
+        (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
         (
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
