@@ -1,4 +1,5 @@
 mod dconf;
+mod fail;
 mod group;
 mod include;
 mod pacman;
