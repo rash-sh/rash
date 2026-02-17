@@ -1,5 +1,6 @@
 mod dconf;
 mod group;
+mod hostname;
 mod include;
 mod pacman;
 mod systemd;
