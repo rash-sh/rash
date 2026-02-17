@@ -9,6 +9,7 @@ pub mod find;
 mod get_url;
 mod group;
 mod include;
+mod ini_file;
 mod lineinfile;
 mod pacman;
 mod set_vars;
@@ -32,6 +33,7 @@ use crate::modules::find::Find;
 use crate::modules::get_url::GetUrl;
 use crate::modules::group::Group;
 use crate::modules::include::Include;
+use crate::modules::ini_file::IniFile;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::pacman::Pacman;
 use crate::modules::set_vars::SetVars;
@@ -135,6 +137,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
+        (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
         (
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
