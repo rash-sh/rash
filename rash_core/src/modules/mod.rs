@@ -1,4 +1,5 @@
 mod archive;
+mod assemble;
 mod assert;
 mod async_status;
 mod authorized_key;
@@ -36,6 +37,7 @@ mod wait_for;
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::archive::Archive;
+use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::authorized_key::AuthorizedKey;
@@ -153,6 +155,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
         (Archive.get_name(), Box::new(Archive) as Box<dyn Module>),
+        (Assemble.get_name(), Box::new(Assemble) as Box<dyn Module>),
         (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
         (AsyncPoll.get_name(), Box::new(AsyncPoll) as Box<dyn Module>),
         (

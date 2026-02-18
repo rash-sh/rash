@@ -1,0 +1,77 @@
+#!/usr/bin/env rash
+- name: Create test directory
+  file:
+    path: /tmp/assemble_test
+    state: directory
+    mode: "0755"
+
+- name: Create fragment files
+  copy:
+    content: |
+      server {
+        listen 80;
+      }
+    dest: /tmp/assemble_test/10-server.conf
+    mode: "0644"
+
+- name: Create second fragment file
+  copy:
+    content: |
+      location / {
+        root /var/www;
+      }
+    dest: /tmp/assemble_test/20-location.conf
+    mode: "0644"
+
+- name: Create hidden file (should be ignored by default)
+  copy:
+    content: "hidden content"
+    dest: /tmp/assemble_test/.hidden
+    mode: "0644"
+
+- name: Assemble without delimiter
+  assemble:
+    src: /tmp/assemble_test
+    dest: /tmp/assembled.conf
+    ignore_hidden: true
+  register: assemble_result
+
+- name: Verify assembly was created
+  assert:
+    that:
+      - assemble_result.changed
+
+- name: Verify idempotency
+  assemble:
+    src: /tmp/assemble_test
+    dest: /tmp/assembled.conf
+    ignore_hidden: true
+  register: assemble_result_idempotent
+
+- name: Verify no change on second run
+  assert:
+    that:
+      - not assemble_result_idempotent.changed
+
+- name: Test with delimiter
+  assemble:
+    src: /tmp/assemble_test
+    dest: /tmp/assembled_delimiter.conf
+    delimiter: '# --- fragment ---'
+    ignore_hidden: true
+    mode: "0600"
+  register: assemble_delimiter_result
+
+- name: Verify assembly with delimiter was created
+  assert:
+    that:
+      - assemble_delimiter_result.changed
+
+- name: Cleanup test files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/assemble_test
+    - /tmp/assembled.conf
+    - /tmp/assembled_delimiter.conf
