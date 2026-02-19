@@ -1,4 +1,5 @@
 mod authorized_key;
+mod cron;
 mod dconf;
 mod fail;
 mod group;
