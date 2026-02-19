@@ -22,6 +22,7 @@ mod ini_file;
 mod lineinfile;
 mod mount;
 mod pacman;
+mod script;
 mod set_vars;
 mod setup;
 mod slurp;
@@ -62,6 +63,7 @@ use crate::modules::ini_file::IniFile;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
+use crate::modules::script::Script;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::slurp::Slurp;
@@ -169,6 +171,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
+        (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
