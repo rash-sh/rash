@@ -34,7 +34,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -49,7 +49,7 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_norway::{value, Value as YamlValue};
+use serde_norway::{Value as YamlValue, value};
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 #[cfg(feature = "docs")]
@@ -419,7 +419,7 @@ impl Module for Stat {
 mod tests {
     use super::*;
 
-    use std::fs::{create_dir, set_permissions, File};
+    use std::fs::{File, create_dir, set_permissions};
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
 
