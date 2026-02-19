@@ -8,6 +8,7 @@ mod hostname;
 mod include;
 mod pacman;
 mod systemd;
+mod timezone;
 mod trace;
 mod user;
 
