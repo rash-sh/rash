@@ -1,0 +1,38 @@
+#!/usr/bin/env rash
+#
+# This example demonstrates the use of handlers in rash.
+# Handlers are tasks that only run when notified by other tasks.
+# They are typically used for actions like restarting services
+# after configuration changes.
+
+tasks:
+  - name: Copy configuration file
+    copy:
+      content: "server_name localhost;\n"
+      dest: /tmp/nginx.conf
+    notify: Reload nginx
+
+  - name: Another configuration change
+    copy:
+      content: "port 8080;\n"
+      dest: /tmp/app.conf
+    notify:
+      - Reload nginx
+      - Restart app
+
+  - name: Force handler execution before continuing
+    meta:
+      action: flush_handlers
+
+  - name: Final task
+    debug:
+      msg: "Configuration complete, handlers have been flushed"
+
+handlers:
+  - name: Reload nginx
+    debug:
+      msg: "Reloading nginx configuration"
+
+  - name: Restart app
+    debug:
+      msg: "Restarting application"

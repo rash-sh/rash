@@ -1,4 +1,4 @@
-use crate::task::Tasks;
+use crate::task::{Handlers, PendingHandlers, Tasks};
 /// Context
 ///
 /// Preserve state between executions
@@ -16,6 +16,8 @@ pub struct Context<'a> {
     vars: Value,
     /// Variables added to the context for the current scope of execution.
     scoped_vars: Option<Value>,
+    handlers: Option<Handlers<'a>>,
+    pending_handlers: PendingHandlers,
 }
 
 impl<'a> Context<'a> {
@@ -28,7 +30,48 @@ impl<'a> Context<'a> {
             tasks,
             vars,
             scoped_vars: scope_vars,
+            handlers: None,
+            pending_handlers: PendingHandlers::new(),
         }
+    }
+
+    pub fn with_handlers(
+        tasks: Tasks<'a>,
+        vars: Value,
+        scope_vars: Option<Value>,
+        handlers: Option<Handlers<'a>>,
+    ) -> Self {
+        Context {
+            tasks,
+            vars,
+            scoped_vars: scope_vars,
+            handlers,
+            pending_handlers: PendingHandlers::new(),
+        }
+    }
+
+    fn execute_pending_handlers(&mut self) -> Result<()> {
+        if self.handlers.is_none() || self.pending_handlers.is_empty() {
+            return Ok(());
+        }
+
+        let handlers = self.handlers.as_ref().unwrap();
+        let pending = self.pending_handlers.take_pending();
+
+        for handler_name in &pending {
+            if let Some(handler) = handlers.get(handler_name) {
+                info!(target: "task",
+                    "[handler:{}] - ",
+                    handler.get_task().get_rendered_name(self.vars.clone())
+                        .unwrap_or_else(|_| handler_name.to_string()),
+                );
+                let _ = handler.get_task().exec(self.vars.clone())?;
+            } else {
+                warn!("Handler '{}' not found", handler_name);
+            }
+        }
+
+        Ok(())
     }
 
     /// Execute all Tasks in Context until empty.
@@ -52,7 +95,16 @@ impl<'a> Context<'a> {
                 context.tasks.len(),
             );
 
-            let new_vars = next_task.exec(context.vars.clone())?;
+            let exec_result = next_task.exec(context.vars.clone())?;
+
+            let changed = exec_result.get_changed();
+            let flush_handlers = exec_result.is_flush_handlers();
+            let new_vars = exec_result.take_vars();
+
+            if changed && let Some(notify) = next_task.get_notify() {
+                context.pending_handlers.notify(notify);
+            }
+
             let vars = merge_option(context.vars.clone(), new_vars.clone());
 
             let scoped_vars_value = [context.scoped_vars, new_vars]
@@ -67,8 +119,16 @@ impl<'a> Context<'a> {
                 tasks: next_tasks,
                 vars,
                 scoped_vars,
+                handlers: context.handlers,
+                pending_handlers: context.pending_handlers,
             };
+
+            if flush_handlers {
+                context.execute_pending_handlers()?;
+            }
         }
+
+        context.execute_pending_handlers()?;
 
         Ok(context)
     }
@@ -78,7 +138,7 @@ impl<'a> Context<'a> {
         &self.vars
     }
 
-    /// Get a reference to the variables
+    /// Get a reference to the scoped variables
     pub fn get_scoped_vars(&self) -> Option<&Value> {
         self.scoped_vars.as_ref()
     }
