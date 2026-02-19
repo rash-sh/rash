@@ -23,6 +23,7 @@ mod set_vars;
 mod setup;
 mod slurp;
 mod stat;
+mod sysctl;
 mod systemd;
 mod template;
 mod timezone;
@@ -59,6 +60,7 @@ use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::slurp::Slurp;
 use crate::modules::stat::Stat;
+use crate::modules::sysctl::Sysctl;
 use crate::modules::systemd::Systemd;
 use crate::modules::template::Template;
 use crate::modules::timezone::Timezone;
@@ -185,6 +187,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
         (Stat.get_name(), Box::new(Stat) as Box<dyn Module>),
+        (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
