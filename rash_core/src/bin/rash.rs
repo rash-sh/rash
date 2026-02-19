@@ -2,7 +2,7 @@ use rash_core::context::{Context, GlobalParams};
 use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
-use rash_core::task::parse_file;
+use rash_core::task::{parse_file, parse_file_with_handlers};
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
@@ -18,30 +18,10 @@ use minijinja::{Value, context};
 #[macro_use]
 extern crate log;
 
-// Since Rust no longer uses jemalloc by default, rash will, by default,
-// use the system allocator. On Linux, this would normally be glibc's
-// allocator, which is pretty good. In particular, rash does not have a
-// particularly allocation heavy workload, so there really isn't much
-// difference (for rash's purposes) between glibc's allocator and jemalloc.
-//
-// However, when rash is built with musl, this means rash will use musl's
-// allocator, which appears to be substantially worse. (musl's goal is not to
-// have the fastest version of everything. Its goal is to be small and amenable
-// to static compilation.) Even though rash isn't particularly allocation
-// heavy, musl's allocator appears to slow down rash quite a bit. Therefore,
-// when building with musl, we use jemalloc.
-//
-// We don't unconditionally use jemalloc because it can be nice to use the
-// system's default allocator by default. Moreover, jemalloc seems to increase
-// compilation times by a bit.
-//
-// Moreover, we only do this on 64-bit systems since jemalloc doesn't support
-// i686.
 #[cfg(all(target_env = "musl", target_pointer_width = "64"))]
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-/// Parse a single KEY=VALUE pair
 fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync>>
 where
     T: std::str::FromStr,
@@ -100,7 +80,6 @@ struct Cli {
     script_args: Vec<String>,
 }
 
-/// Log all errors recursively
 fn log_inner_errors(e: &dyn StdError) {
     error!("{e}");
     if let Some(source_error) = e.source() {
@@ -108,11 +87,7 @@ fn log_inner_errors(e: &dyn StdError) {
     }
 }
 
-/// End the program with failure, printing [`Error`] and returning code associated if exists.
-/// By default fail with `exit(1)`
-///
-/// [`Error`]: ../rash_core/error/struct.Error.html
-fn crash_error(e: Error) {
+fn crash_error(e: Error) -> ! {
     error!("{e}");
     let exit_code = e.raw_os_error().unwrap_or(1);
 
@@ -158,7 +133,7 @@ fn main() {
         trace!("reading tasks from: {script_path:?}");
         match read_to_string(script_path) {
             Ok(s) => s,
-            Err(e) => return crash_error(Error::new(ErrorKind::InvalidData, e)),
+            Err(e) => crash_error(Error::new(ErrorKind::InvalidData, e)),
         }
     };
 
@@ -170,7 +145,7 @@ fn main() {
                 info!("{e}");
                 return;
             }
-            _ => return crash_error(e),
+            _ => crash_error(e),
         },
     };
 
@@ -180,28 +155,33 @@ fn main() {
         check_mode: cli.check,
     };
 
-    match parse_file(&main_file, &global_params) {
-        Ok(tasks) => {
-            let env_vars = env::load(cli.environment);
-            new_vars = context! {..new_vars, ..env_vars};
-            match Builtins::new(
-                script_args.into_iter().map(String::from).collect(),
-                script_path,
-            ) {
-                Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
-                Err(e) => crash_error(e),
-            };
-            trace!("Vars: {new_vars}");
-            match Context::new(tasks, new_vars, None).exec() {
-                Ok(_) => (),
-                Err(context_error) => match context_error.kind() {
-                    ErrorKind::EmptyTaskStack => (),
-                    _ => crash_error(context_error),
-                },
-            };
-        }
+    let (tasks, handlers) = match parse_file_with_handlers(&main_file, &global_params) {
+        Ok(parsed) => (parsed.tasks, parsed.handlers),
+        Err(e1) => match parse_file(&main_file, &global_params) {
+            Ok(tasks) => (tasks, None),
+            Err(_) => {
+                crash_error(e1);
+            }
+        },
+    };
+
+    let env_vars = env::load(cli.environment);
+    new_vars = context! {..new_vars, ..env_vars};
+    match Builtins::new(
+        script_args.into_iter().map(String::from).collect(),
+        script_path,
+    ) {
+        Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
         Err(e) => crash_error(e),
-    }
+    };
+    trace!("Vars: {new_vars}");
+    match Context::with_handlers(tasks, new_vars, None, handlers).exec() {
+        Ok(_) => (),
+        Err(context_error) => match context_error.kind() {
+            ErrorKind::EmptyTaskStack => (),
+            _ => crash_error(context_error),
+        },
+    };
 }
 
 #[test]

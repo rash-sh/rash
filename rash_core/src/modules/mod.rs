@@ -20,6 +20,7 @@ mod hostname;
 mod include;
 mod ini_file;
 mod lineinfile;
+mod meta;
 mod mount;
 mod pacman;
 mod script;
@@ -61,6 +62,7 @@ use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::lineinfile::Lineinfile;
+use crate::modules::meta::Meta;
 use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
 use crate::modules::script::Script;
@@ -169,6 +171,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
         ),
+        (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
@@ -180,8 +183,8 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
-        (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
+        (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),

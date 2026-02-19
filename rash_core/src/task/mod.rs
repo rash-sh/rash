@@ -1,5 +1,8 @@
+mod handler;
 mod new;
 mod valid;
+
+pub use handler::{Handlers, PendingHandlers, parse_notify_value};
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
@@ -23,8 +26,47 @@ use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
 use minijinja::{Value, context};
 use nix::sys::wait::{WaitStatus, waitpid};
 use nix::unistd::{ForkResult, Uid, User, fork, setgid, setuid};
+use serde::{Deserialize, Serialize};
 use serde_error::Error as SerdeError;
 use serde_norway::Value as YamlValue;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TaskExecResult {
+    changed: bool,
+    vars: Option<Value>,
+    flush_handlers: bool,
+}
+
+impl TaskExecResult {
+    pub fn new(changed: bool, vars: Option<Value>) -> Self {
+        TaskExecResult {
+            changed,
+            vars,
+            flush_handlers: false,
+        }
+    }
+
+    pub fn with_flush_handlers(mut self) -> Self {
+        self.flush_handlers = true;
+        self
+    }
+
+    pub fn get_changed(&self) -> bool {
+        self.changed
+    }
+
+    pub fn get_vars(&self) -> Option<&Value> {
+        self.vars.as_ref()
+    }
+
+    pub fn take_vars(self) -> Option<Value> {
+        self.vars
+    }
+
+    pub fn is_flush_handlers(&self) -> bool {
+        self.flush_handlers
+    }
+}
 
 /// Main structure at definition level which prepares [`Module`] executions.
 ///
@@ -74,6 +116,8 @@ pub struct Task<'a> {
     always: Option<YamlValue>,
     /// Environment variables to inject for this task.
     environment: Option<YamlValue>,
+    /// Handler names to notify when this task reports changed.
+    notify: Option<Vec<String>>,
     /// Number of retries before giving up. Default is 3 when `until` is specified.
     retries: Option<u32>,
     /// Delay between retries in seconds. Default is 0.
@@ -255,7 +299,7 @@ impl<'a> Task<'a> {
         }
     }
 
-    fn exec_with_retry(&self, vars: Value) -> Result<Option<Value>> {
+    fn exec_with_retry(&self, vars: Value) -> Result<TaskExecResult> {
         let max_retries = self.retries.unwrap_or(3);
         let delay_secs = self.delay.unwrap_or(0);
 
@@ -263,7 +307,7 @@ impl<'a> Task<'a> {
             let result = self.exec_module(vars.clone())?;
 
             if self.until.is_some() {
-                let result_vars = result.clone().unwrap_or(context! {});
+                let result_vars = result.clone().take_vars().unwrap_or(context! {});
                 let check_vars =
                     context! {..vars.clone(), ..result_vars, ..context! {retries => attempt}};
 
@@ -298,7 +342,7 @@ impl<'a> Task<'a> {
             }
         }
 
-        Ok(None)
+        Ok(TaskExecResult::new(false, None))
     }
 
     fn is_async(&self) -> bool {
@@ -369,7 +413,7 @@ impl<'a> Task<'a> {
         Ok(job_id)
     }
 
-    fn poll_job(&self, job_id: u64, poll_interval: u64) -> Result<Option<Value>> {
+    fn poll_job(&self, job_id: u64, poll_interval: u64) -> Result<TaskExecResult> {
         let sleep_duration = Duration::from_secs(poll_interval);
 
         loop {
@@ -385,7 +429,7 @@ impl<'a> Task<'a> {
                             .into_iter()
                             .collect::<Value>()
                     });
-                    return Ok(register_vars);
+                    return Ok(TaskExecResult::new(info.changed, register_vars));
                 }
                 JobStatus::Failed => {
                     return Err(Error::new(
@@ -414,7 +458,7 @@ impl<'a> Task<'a> {
         rendered_params: &YamlValue,
         vars: &Value,
         user: User,
-    ) -> Result<Option<Value>> {
+    ) -> Result<TaskExecResult> {
         // Environment variables need to be set before changing user
         let extended_vars = self.extend_vars(vars.clone())?;
         let env_vars = self.render_environment(&extended_vars)?;
@@ -446,9 +490,14 @@ impl<'a> Task<'a> {
 
                     match result {
                         Ok((result, result_vars)) => {
-                            if module_name != "include" && module_name != "block" {
+                            let changed = self.is_changed(&result, &extended_vars)?;
+
+                            if module_name != "include"
+                                && module_name != "block"
+                                && module_name != "meta"
+                            {
                                 let output = result.get_output();
-                                let target = match self.is_changed(&result, &extended_vars)? {
+                                let target = match changed {
                                     true => "changed",
                                     false => "ok",
                                 };
@@ -481,12 +530,12 @@ impl<'a> Task<'a> {
                                 Some(new_vars_value)
                             };
 
-                            Ok(new_vars)
+                            Ok(TaskExecResult::new(changed, new_vars))
                         }
                         Err(e) => match self.ignore_errors {
                             Some(is_true) if is_true => {
                                 info!(target: "ignoring", "{e}");
-                                Ok(None)
+                                Ok(TaskExecResult::new(false, None))
                             }
                             _ => Err(e),
                         },
@@ -508,7 +557,7 @@ impl<'a> Task<'a> {
         &self,
         rendered_params: &YamlValue,
         vars: &Value,
-    ) -> Result<Option<Value>> {
+    ) -> Result<TaskExecResult> {
         let module_name = self.module.get_name();
         let extended_vars = self.extend_vars(vars.clone())?;
 
@@ -548,10 +597,17 @@ impl<'a> Task<'a> {
 
         match result {
             Ok((result, result_vars)) => {
+                let changed = self.is_changed(&result, &extended_vars)?;
+                let is_meta_flush = module_name == "meta"
+                    && result
+                        .get_extra()
+                        .and_then(|v| v.as_str().map(|s| s.to_string()))
+                        == Some("flush_handlers".to_string());
+
                 // Don't show output for control flow modules like include and block
-                if module_name != "include" && module_name != "block" {
+                if module_name != "include" && module_name != "block" && module_name != "meta" {
                     let output = result.get_output();
-                    let target = match self.is_changed(&result, &extended_vars)? {
+                    let target = match changed {
                         true => "changed",
                         false => "ok",
                     };
@@ -581,21 +637,46 @@ impl<'a> Task<'a> {
                     Some(new_vars_value)
                 };
 
-                Ok(new_vars)
+                let mut exec_result = TaskExecResult::new(changed, new_vars);
+                if is_meta_flush {
+                    exec_result = exec_result.with_flush_handlers();
+                }
+                Ok(exec_result)
             }
             Err(e) => match self.ignore_errors {
                 Some(is_true) if is_true => {
                     info!(target: "ignoring", "{e}");
-                    Ok(None)
+                    Ok(TaskExecResult::new(false, None))
                 }
                 _ => Err(e),
             },
         }
     }
 
-    fn exec_module(&self, vars: Value) -> Result<Option<Value>> {
+    fn exec_module(&self, vars: Value) -> Result<TaskExecResult> {
         if self.is_exec(&vars)? {
             let rendered_params = self.render_params(vars.clone())?;
+
+            // Handle async execution
+            if self.is_async() {
+                let job_id = self.spawn_async_command(&rendered_params, &vars)?;
+                let poll_interval = self.get_poll_interval();
+
+                if poll_interval == 0 {
+                    // Fire and forget - return immediately with async job info
+                    let result =
+                        ModuleResult::new(true, None, Some(format!("async job started: {job_id}")));
+                    let register_vars = self.register.clone().map(|register| {
+                        [(register, Value::from_serialize(&result))]
+                            .into_iter()
+                            .collect::<Value>()
+                    });
+                    return Ok(TaskExecResult::new(true, register_vars));
+                }
+
+                // Poll for completion
+                return self.poll_job(job_id, poll_interval);
+            }
 
             match self.r#become {
                 true => {
@@ -679,7 +760,7 @@ impl<'a> Task<'a> {
                                         })
                                     })
                                     .and_then(|s| {
-                                        serde_json::from_str::<Option<Value>>(&s)
+                                        serde_json::from_str::<TaskExecResult>(&s)
                                             .map_err(|e| Error::new(ErrorKind::Other, e))
                                     })
                             }
@@ -693,7 +774,7 @@ impl<'a> Task<'a> {
             }
         } else {
             debug!("skipping");
-            Ok(None)
+            Ok(TaskExecResult::new(false, None))
         }
     }
 
@@ -701,7 +782,7 @@ impl<'a> Task<'a> {
     ///
     /// [`Module`]: ../modules/trait.Module.html
     /// [`Vars`]: ../vars/struct.Vars.html
-    pub fn exec(&self, vars: Value) -> Result<Option<Value>> {
+    pub fn exec(&self, vars: Value) -> Result<TaskExecResult> {
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
 
@@ -737,6 +818,11 @@ impl<'a> Task<'a> {
         self.module
     }
 
+    /// Return notify handlers.
+    pub fn get_notify(&self) -> Option<&[String]> {
+        self.notify.as_deref()
+    }
+
     /// Execute a task with comprehensive rescue and always handling.
     ///
     /// This method implements a try-catch-finally pattern similar to exception handling:
@@ -746,54 +832,58 @@ impl<'a> Task<'a> {
     ///
     /// The method uses functional programming patterns to handle each stage
     /// and provides detailed error context for debugging.
-    fn exec_with_rescue_always(&self, vars: Value) -> Result<Option<Value>> {
+    fn exec_with_rescue_always(&self, vars: Value) -> Result<TaskExecResult> {
         let initial_vars = vars;
 
         // Stage 1: Execute main task and capture result
-        let (main_result, main_vars) = match self.exec_main_task(initial_vars.clone()) {
-            Ok(success_vars) => {
+        let (main_result, main_exec_result) = match self.exec_main_task(initial_vars.clone()) {
+            Ok(exec_result) => {
                 trace!("Main task execution succeeded");
-                (Ok(()), success_vars)
+                (Ok(()), exec_result)
             }
             Err(task_error) => {
                 warn!("Main task execution failed: {task_error}");
-                (Err(task_error), None)
+                (Err(task_error), TaskExecResult::new(false, None))
             }
         };
 
+        let main_changed = main_exec_result.get_changed();
+        let main_vars = main_exec_result.take_vars();
         let post_main_vars = merge_option(initial_vars, main_vars.clone());
-        let (rescue_result, rescue_vars) = match (&main_result, &self.rescue) {
+        let (rescue_result, rescue_exec_result) = match (&main_result, &self.rescue) {
             (Err(_), Some(rescue_tasks)) => {
                 info!("Executing rescue tasks due to main task failure");
                 match self.execute_task_sequence(rescue_tasks, post_main_vars.clone()) {
-                    Ok(rescue_vars) => {
+                    Ok(rescue_result) => {
                         info!("Rescue tasks executed successfully");
-                        (Ok(()), rescue_vars)
+                        (Ok(()), rescue_result)
                     }
                     Err(rescue_error) => {
                         error!("Rescue tasks failed: {rescue_error}");
-                        (Err(rescue_error), None)
+                        (Err(rescue_error), TaskExecResult::new(false, None))
                     }
                 }
             }
             (Err(_), None) => {
                 trace!("Main task failed but no rescue tasks defined");
-                (Ok(()), main_vars.clone()) // No rescue available, but continue to always
+                (Ok(()), TaskExecResult::new(main_changed, main_vars.clone())) // No rescue available, but continue to always
             }
             (Ok(_), _) => {
                 trace!("Main task succeeded, skipping rescue tasks");
-                (Ok(()), main_vars.clone()) // Task succeeded, no rescue needed
+                (Ok(()), TaskExecResult::new(main_changed, main_vars.clone())) // Task succeeded, no rescue needed
             }
         };
 
-        let post_rescue_vars = merge_option(post_main_vars, rescue_vars.clone());
-        let always_vars = match &self.always {
+        let rescue_changed = rescue_exec_result.get_changed();
+        let rescue_vars_taken = rescue_exec_result.take_vars();
+        let post_rescue_vars = merge_option(post_main_vars, rescue_vars_taken.clone());
+        let always_exec_result = match &self.always {
             Some(always_tasks) => {
                 trace!("Executing always tasks");
                 match self.execute_task_sequence(always_tasks, post_rescue_vars) {
-                    Ok(always_vars) => {
+                    Ok(always_result) => {
                         trace!("Always tasks executed successfully");
-                        always_vars
+                        always_result
                     }
                     Err(always_error) => {
                         error!("Always tasks failed: {always_error}");
@@ -807,11 +897,12 @@ impl<'a> Task<'a> {
             }
             None => {
                 trace!("No always tasks to execute");
-                None
+                TaskExecResult::new(false, None)
             }
         };
 
-        let all_vars_value = [main_vars, rescue_vars, always_vars]
+        let always_vars = always_exec_result.take_vars();
+        let all_vars_value = [main_vars, rescue_vars_taken, always_vars]
             .into_iter()
             .fold(context! {}, merge_option);
         let all_vars = if all_vars_value == context! {} {
@@ -819,25 +910,19 @@ impl<'a> Task<'a> {
         } else {
             Some(all_vars_value)
         };
+
         // Stage 4: Determine final result based on execution stages
         match (&main_result, &rescue_result) {
-            (Ok(_), Ok(_)) => {
-                // Main task succeeded (rescue wasn't needed)
-                Ok(all_vars)
-            }
+            (Ok(_), Ok(_)) => Ok(TaskExecResult::new(main_changed, all_vars)),
             (Ok(_), Err(_)) => {
-                // This case shouldn't happen (rescue only runs when main task fails)
-                // But handle it gracefully anyway
                 warn!("Unexpected state: main task succeeded but rescue reported failure");
-                Ok(all_vars)
+                Ok(TaskExecResult::new(main_changed, all_vars))
             }
             (Err(_main_error), Ok(_)) => {
-                // Main task failed but rescue handled it successfully
                 debug!("Task execution recovered through rescue tasks");
-                Ok(all_vars)
+                Ok(TaskExecResult::new(rescue_changed, all_vars))
             }
             (Err(main_error), Err(_)) => {
-                // Main task failed and rescue also failed (or no rescue)
                 if self.rescue.is_some() {
                     Err(Error::new(
                         ErrorKind::Other,
@@ -860,16 +945,17 @@ impl<'a> Task<'a> {
     /// This is a helper method that provides consistent task sequence execution
     /// for rescue and always sections. It includes proper error handling and
     /// variable propagation.
-    fn execute_task_sequence(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Option<Value>> {
+    fn execute_task_sequence(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<TaskExecResult> {
         match tasks_yaml {
             YamlValue::Sequence(tasks) => {
                 if tasks.is_empty() {
                     warn!("Empty task sequence provided");
-                    return Ok(None);
+                    return Ok(TaskExecResult::new(false, None));
                 }
 
                 let mut current_vars = vars;
                 let mut current_new_vars = context! {};
+                let mut any_changed = false;
                 for (index, task_yaml) in tasks.iter().enumerate() {
                     match Task::new(task_yaml, self.global_params) {
                         Ok(task) => {
@@ -880,10 +966,16 @@ impl<'a> Task<'a> {
                                     .unwrap_or_else(|_| task.get_module().get_name().to_owned()),
                             );
                             match task.exec(current_vars.clone()) {
-                                Ok(new_vars) => {
-                                    current_vars = context! {..current_vars, ..new_vars.clone()};
-                                    current_new_vars =
-                                        context! {..current_new_vars, ..new_vars.clone()};
+                                Ok(exec_result) => {
+                                    if exec_result.get_changed() {
+                                        any_changed = true;
+                                    }
+                                    if let Some(new_vars) = exec_result.take_vars() {
+                                        current_vars =
+                                            context! {..current_vars, ..new_vars.clone()};
+                                        current_new_vars =
+                                            context! {..current_new_vars, ..new_vars.clone()};
+                                    }
                                     trace!("Task {index} in sequence completed successfully");
                                 }
                                 Err(task_error) => {
@@ -906,7 +998,12 @@ impl<'a> Task<'a> {
                         }
                     }
                 }
-                Ok(Some(current_new_vars))
+                let final_vars = if current_new_vars == context! {} {
+                    None
+                } else {
+                    Some(current_new_vars)
+                };
+                Ok(TaskExecResult::new(any_changed, final_vars))
             }
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
@@ -918,21 +1015,29 @@ impl<'a> Task<'a> {
     /// Execute rescue tasks - this is now just an alias for consistency.
     #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
     #[allow(dead_code)]
-    fn execute_rescue_tasks(&self, rescue_tasks: &YamlValue, vars: Value) -> Result<Option<Value>> {
+    fn execute_rescue_tasks(
+        &self,
+        rescue_tasks: &YamlValue,
+        vars: Value,
+    ) -> Result<TaskExecResult> {
         self.execute_task_sequence(rescue_tasks, vars)
     }
 
     /// Execute always tasks - this is now just an alias for consistency.
     #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
     #[allow(dead_code)]
-    fn execute_always_tasks(&self, always_tasks: &YamlValue, vars: Value) -> Result<Option<Value>> {
+    fn execute_always_tasks(
+        &self,
+        always_tasks: &YamlValue,
+        vars: Value,
+    ) -> Result<TaskExecResult> {
         self.execute_task_sequence(always_tasks, vars)
     }
 
     /// Execute a task list - this is now just an alias for consistency.
     #[deprecated(note = "Use execute_task_sequence instead for better error handling")]
     #[allow(dead_code)]
-    fn execute_task_list(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<Option<Value>> {
+    fn execute_task_list(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<TaskExecResult> {
         self.execute_task_sequence(tasks_yaml, vars)
     }
 
@@ -941,7 +1046,7 @@ impl<'a> Task<'a> {
     /// This method handles both single task execution and looped task execution,
     /// providing the foundation for rescue/always error handling patterns.
     /// When async is enabled, tasks run in background and can be polled.
-    fn exec_main_task(&self, vars: Value) -> Result<Option<Value>> {
+    fn exec_main_task(&self, vars: Value) -> Result<TaskExecResult> {
         if self.r#loop.is_some() && self.is_async() {
             self.exec_parallel_loop(vars)
         } else if self.r#loop.is_some() && self.until.is_some() {
@@ -957,45 +1062,75 @@ impl<'a> Task<'a> {
         }
     }
 
-    fn exec_sequential_loop(&self, vars: Value) -> Result<Option<Value>> {
-        let mut new_vars = context! {};
+    fn exec_sequential_loop(&self, vars: Value) -> Result<TaskExecResult> {
+        let mut changed = false;
+        let mut all_new_vars = context! {};
+        let mut flush_handlers = false;
+
         for item in self.render_iterator(vars.clone())?.into_iter() {
-            let ctx = context! {..vars.clone(), ..new_vars.clone()};
-            let new_ctx = context! {item => &item, ..ctx};
-            trace!("pre execute loop: {:?}", &new_ctx);
-            let loop_vars = self.exec_module(new_ctx)?;
-            if let Some(v) = loop_vars {
-                new_vars = context! {..new_vars, ..v};
+            let ctx = context! {item => &item, ..vars.clone()};
+            trace!("pre execute loop: {:?}", &ctx);
+            let exec_result = self.exec_module(ctx)?;
+            if exec_result.get_changed() {
+                changed = true;
             }
-            trace!("post execute loop: {:?}", &new_vars);
+            if exec_result.is_flush_handlers() {
+                flush_handlers = true;
+            }
+            if let Some(v) = exec_result.take_vars() {
+                all_new_vars = context! {..all_new_vars, ..v};
+            }
+            trace!("post execute loop: {:?}", &all_new_vars);
         }
-        if new_vars == context! {} {
-            Ok(None)
+
+        let final_vars = if all_new_vars == context! {} {
+            None
         } else {
-            Ok(Some(new_vars))
+            Some(all_new_vars)
+        };
+
+        let mut result = TaskExecResult::new(changed, final_vars);
+        if flush_handlers {
+            result = result.with_flush_handlers();
         }
+        Ok(result)
     }
 
-    fn exec_loop_with_retry(&self, vars: Value) -> Result<Option<Value>> {
-        let mut new_vars = context! {};
+    fn exec_loop_with_retry(&self, vars: Value) -> Result<TaskExecResult> {
+        let mut changed = false;
+        let mut all_new_vars = context! {};
+        let mut flush_handlers = false;
+
         for item in self.render_iterator(vars.clone())?.into_iter() {
-            let ctx = context! {..vars.clone(), ..new_vars.clone()};
-            let new_ctx = context! {item => &item, ..ctx};
-            trace!("pre execute loop with retry: {:?}", &new_ctx);
-            let loop_vars = self.exec_with_retry(new_ctx)?;
-            if let Some(v) = loop_vars {
-                new_vars = context! {..new_vars, ..v};
+            let ctx = context! {item => &item, ..vars.clone()};
+            trace!("pre execute loop with retry: {:?}", &ctx);
+            let exec_result = self.exec_with_retry(ctx)?;
+            if exec_result.get_changed() {
+                changed = true;
             }
-            trace!("post execute loop with retry: {:?}", &new_vars);
+            if exec_result.is_flush_handlers() {
+                flush_handlers = true;
+            }
+            if let Some(v) = exec_result.take_vars() {
+                all_new_vars = context! {..all_new_vars, ..v};
+            }
+            trace!("post execute loop with retry: {:?}", &all_new_vars);
         }
-        if new_vars == context! {} {
-            Ok(None)
+
+        let final_vars = if all_new_vars == context! {} {
+            None
         } else {
-            Ok(Some(new_vars))
+            Some(all_new_vars)
+        };
+
+        let mut result = TaskExecResult::new(changed, final_vars);
+        if flush_handlers {
+            result = result.with_flush_handlers();
         }
+        Ok(result)
     }
 
-    fn exec_parallel_loop(&self, vars: Value) -> Result<Option<Value>> {
+    fn exec_parallel_loop(&self, vars: Value) -> Result<TaskExecResult> {
         let items = self.render_iterator(vars.clone())?;
         let poll_interval = self.get_poll_interval();
 
@@ -1020,7 +1155,7 @@ impl<'a> Task<'a> {
             let register_vars = self.register.clone().map(|register| {
                 [(
                     register.clone(),
-                    Value::from_serialize(json!({
+                    Value::from_serialize(serde_json::json!({
                         "rash_job_ids": job_ids_value,
                         "changed": true,
                     })),
@@ -1028,7 +1163,7 @@ impl<'a> Task<'a> {
                 .into_iter()
                 .collect::<Value>()
             });
-            return Ok(register_vars);
+            return Ok(TaskExecResult::new(true, register_vars));
         }
 
         let sleep_duration = Duration::from_secs(poll_interval);
@@ -1079,7 +1214,7 @@ impl<'a> Task<'a> {
         let register_vars = self.register.clone().map(|register| {
             [(
                 register.clone(),
-                Value::from_serialize(json!({
+                Value::from_serialize(serde_json::json!({
                     "rash_job_ids": job_ids_value,
                     "changed": any_changed,
                 })),
@@ -1088,10 +1223,10 @@ impl<'a> Task<'a> {
             .collect::<Value>()
         });
 
-        Ok(register_vars)
+        Ok(TaskExecResult::new(any_changed, register_vars))
     }
 
-    fn exec_async_single(&self, vars: Value) -> Result<Option<Value>> {
+    fn exec_async_single(&self, vars: Value) -> Result<TaskExecResult> {
         let rendered_params = self.render_params(vars.clone())?;
         let poll_interval = self.get_poll_interval();
 
@@ -1101,7 +1236,7 @@ impl<'a> Task<'a> {
             let register_vars = self.register.clone().map(|register| {
                 [(
                     register.clone(),
-                    Value::from_serialize(json!({
+                    Value::from_serialize(serde_json::json!({
                         "rash_job_id": job_id,
                         "changed": true,
                     })),
@@ -1109,7 +1244,7 @@ impl<'a> Task<'a> {
                 .into_iter()
                 .collect::<Value>()
             });
-            return Ok(register_vars);
+            return Ok(TaskExecResult::new(true, register_vars));
         }
 
         self.poll_job(job_id, poll_interval)
@@ -1130,19 +1265,107 @@ impl From<YamlValue> for Task<'_> {
     }
 }
 
-pub fn parse_file<'a>(tasks_file: &str, global_params: &'a GlobalParams) -> Result<Tasks<'a>> {
-    let tasks: Vec<YamlValue> = serde_norway::from_str(tasks_file)?;
-    tasks
-        .into_iter()
-        .map(|task| Task::new(&task, global_params))
-        .collect::<Result<Tasks>>()
+/// Parse a YAML file returning Tasks.
+///
+/// Works with files that contain only a task list (no handlers section).
+pub fn parse_file<'a>(
+    file_content: &str,
+    global_params: &'a GlobalParams<'a>,
+) -> Result<Tasks<'a>> {
+    let yaml: YamlValue = serde_norway::from_str(file_content)?;
+
+    match yaml {
+        YamlValue::Sequence(tasks_yaml) => {
+            trace!("Parsing {} tasks from file", tasks_yaml.len());
+            tasks_yaml
+                .iter()
+                .map(|task_yaml| Task::new(task_yaml, global_params))
+                .collect::<Result<Tasks>>()
+        }
+        _ => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Expected a YAML sequence of tasks, got: {yaml:?}"),
+        )),
+    }
+}
+
+/// Parsed result containing tasks and optional handlers.
+#[derive(Debug)]
+pub struct ParsedFile<'a> {
+    pub tasks: Tasks<'a>,
+    pub handlers: Option<Handlers<'a>>,
+}
+
+/// Parse a YAML file that may contain tasks and handlers sections.
+///
+/// This function supports files with the following structure:
+/// ```yaml
+/// tasks:
+///   - name: First task
+///     ...
+/// handlers:
+///   - name: Handler name
+///     ...
+/// ```
+pub fn parse_file_with_handlers<'a>(
+    file_content: &str,
+    global_params: &'a GlobalParams,
+) -> Result<ParsedFile<'a>> {
+    let yaml: YamlValue = serde_norway::from_str(file_content)?;
+
+    match yaml {
+        YamlValue::Mapping(ref mapping) => {
+            let tasks_yaml = mapping.get(YamlValue::String("tasks".to_string()));
+            let handlers_yaml = mapping.get(YamlValue::String("handlers".to_string()));
+
+            let tasks = match tasks_yaml {
+                Some(YamlValue::Sequence(tasks_seq)) => tasks_seq
+                    .iter()
+                    .map(|task_yaml| Task::new(task_yaml, global_params))
+                    .collect::<Result<Tasks>>()?,
+                Some(_) => {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "tasks must be a YAML sequence".to_string(),
+                    ));
+                }
+                None => {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "No tasks section found in file".to_string(),
+                    ));
+                }
+            };
+
+            let handlers = match handlers_yaml {
+                Some(YamlValue::Sequence(handlers_seq)) => {
+                    Some(Handlers::from_yaml(handlers_seq, global_params)?)
+                }
+                Some(_) => {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "handlers must be a YAML sequence".to_string(),
+                    ));
+                }
+                None => None,
+            };
+
+            Ok(ParsedFile { tasks, handlers })
+        }
+        _ => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Expected a YAML mapping with tasks (and optional handlers), got: {yaml:?}"),
+        )),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use minijinja::context;
+    use std::sync::LazyLock;
+
+    pub static GLOBAL_PARAMS: LazyLock<GlobalParams> = LazyLock::new(GlobalParams::default);
 
     #[test]
     fn test_from_yaml() {
@@ -1334,5 +1557,82 @@ mod tests {
         let vars = context! {};
         let iterator = task.render_iterator(vars).unwrap();
         assert_eq!(iterator.len(), 3);
+    }
+
+    #[test]
+    fn test_task_new() {
+        let yaml_str = r#"
+        name: test task
+        debug:
+          msg: "hello"
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task = Task::new(&yaml, &GLOBAL_PARAMS).unwrap();
+        assert_eq!(task.name, Some("test task".to_string()));
+    }
+
+    #[test]
+    fn test_parse_file() {
+        let file_content = r#"
+        - name: task 1
+          debug:
+            msg: "first"
+        - name: task 2
+          debug:
+            msg: "second"
+        "#;
+        let tasks = parse_file(file_content, &GLOBAL_PARAMS).unwrap();
+        assert_eq!(tasks.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_file_with_handlers() {
+        let file_content = r#"
+        tasks:
+          - name: task 1
+            debug:
+              msg: "first"
+            notify: handler1
+        handlers:
+          - name: handler1
+            debug:
+              msg: "handler"
+        "#;
+        let parsed = parse_file_with_handlers(file_content, &GLOBAL_PARAMS).unwrap();
+        assert_eq!(parsed.tasks.len(), 1);
+        assert!(parsed.handlers.is_some());
+        let handlers = parsed.handlers.unwrap();
+        assert!(handlers.get("handler1").is_some());
+    }
+
+    #[test]
+    fn test_notify_parsing() {
+        let yaml_str = r#"
+        name: test notify
+        debug:
+          msg: "hello"
+        notify: my_handler
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task = Task::new(&yaml, &GLOBAL_PARAMS).unwrap();
+        assert_eq!(task.notify, Some(vec!["my_handler".to_string()]));
+    }
+
+    #[test]
+    fn test_notify_list_parsing() {
+        let yaml_str = r#"
+        name: test notify list
+        debug:
+          msg: "hello"
+        notify:
+          - handler1
+          - handler2
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task = Task::new(&yaml, &GLOBAL_PARAMS).unwrap();
+        assert_eq!(
+            task.notify,
+            Some(vec!["handler1".to_string(), "handler2".to_string()])
+        );
     }
 }

@@ -1,7 +1,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{MODULES, is_module};
-use crate::task::Task;
+use crate::modules::{is_module, MODULES};
+use crate::task::{parse_notify_value, Task};
 
 use std::collections::HashSet;
 
@@ -45,12 +45,7 @@ impl TaskValid {
                 ErrorKind::NotFound,
                 format!("Not module found in task: {self:?}"),
             )),
-            1 => Ok(module_names
-                .iter()
-                .map(String::clone)
-                .next()
-                //safe unwrap()
-                .unwrap()),
+            1 => Ok(module_names.iter().map(String::clone).next().unwrap()),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("Multiple modules found in task: {self:?}"),
@@ -137,6 +132,7 @@ impl TaskValid {
                 .attrs
                 .get("environment")
                 .map(|_| self.attrs["environment"].clone()),
+            notify: self.attrs.get("notify").and_then(parse_notify_value),
             retries: self.attrs["retries"].as_u64().map(|v| v as u32),
             delay: self.attrs["delay"].as_u64(),
             until: self.parse_array(&self.attrs["until"]),

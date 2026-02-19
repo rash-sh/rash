@@ -1,5 +1,5 @@
 DOCKERFILES ?= $(shell find . -maxdepth 1 -name 'Dockerfile*' -execdir basename '{}' ';')
-IMAGE_NAME ?=  ghcr.io/rash-sh/rash
+IMAGE_NAME ?=  grc.io/rash-sh/rash
 IMAGE_VERSION ?= latest
 
 BOOK_DIR ?= .
