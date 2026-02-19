@@ -44,12 +44,12 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::fs::{read_to_string, OpenOptions};
+use std::fs::{OpenOptions, read_to_string};
 use std::io::prelude::*;
 use std::path::Path;
 
@@ -292,10 +292,10 @@ pub fn ini_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
         diff(&original_content, &new_content);
 
         if !check_mode {
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = path.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent)?;
             }
 
             let mut file = OpenOptions::new()
@@ -567,10 +567,12 @@ mod tests {
 
         let result = ini_file(params, false);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("value parameter is required"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("value parameter is required")
+        );
     }
 
     #[test]
