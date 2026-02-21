@@ -23,6 +23,7 @@ mod lineinfile;
 mod meta;
 mod mount;
 mod pacman;
+mod reboot;
 mod script;
 mod set_vars;
 mod setup;
@@ -65,6 +66,7 @@ use crate::modules::lineinfile::Lineinfile;
 use crate::modules::meta::Meta;
 use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
+use crate::modules::reboot::Reboot;
 use crate::modules::script::Script;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
@@ -174,6 +176,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
+        (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
