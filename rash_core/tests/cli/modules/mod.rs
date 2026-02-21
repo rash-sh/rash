@@ -7,6 +7,7 @@ mod group;
 mod hostname;
 mod include;
 mod pacman;
+mod reboot;
 mod systemd;
 mod timezone;
 mod trace;
