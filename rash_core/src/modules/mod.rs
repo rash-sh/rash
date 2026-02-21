@@ -19,6 +19,7 @@ mod group;
 mod hostname;
 mod include;
 mod ini_file;
+mod iptables;
 mod lineinfile;
 mod meta;
 mod mount;
@@ -61,6 +62,7 @@ use crate::modules::group::Group;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
+use crate::modules::iptables::Iptables;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::meta::Meta;
 use crate::modules::mount::Mount;
@@ -167,6 +169,8 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
+        (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
+        (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
