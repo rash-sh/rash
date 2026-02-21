@@ -23,6 +23,7 @@ mod ini_file;
 mod interfaces_file;
 mod lineinfile;
 mod meta;
+mod modprobe;
 mod mount;
 mod pacman;
 mod pam_limits;
@@ -72,6 +73,7 @@ use crate::modules::ini_file::IniFile;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::meta::Meta;
+use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
@@ -191,6 +193,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Lineinfile) as Box<dyn Module>,
         ),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
+        (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
