@@ -1,7 +1,17 @@
 use crate::cli::modules::run_test;
+use std::path::Path;
+
+const ZONEINFO_PATH: &str = "/usr/share/zoneinfo";
+
+fn zoneinfo_available() -> bool {
+    Path::new(ZONEINFO_PATH).exists()
+}
 
 #[test]
 fn test_timezone_check_mode() {
+    if !zoneinfo_available() {
+        return;
+    }
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Set timezone in check mode
@@ -19,6 +29,9 @@ fn test_timezone_check_mode() {
 
 #[test]
 fn test_timezone_utc() {
+    if !zoneinfo_available() {
+        return;
+    }
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Set timezone to UTC
@@ -52,6 +65,9 @@ fn test_timezone_invalid_empty() {
 
 #[test]
 fn test_timezone_invalid_timezone() {
+    if !zoneinfo_available() {
+        return;
+    }
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Set invalid timezone
@@ -69,6 +85,9 @@ fn test_timezone_invalid_timezone() {
 
 #[test]
 fn test_timezone_america() {
+    if !zoneinfo_available() {
+        return;
+    }
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Set timezone to America/New_York
