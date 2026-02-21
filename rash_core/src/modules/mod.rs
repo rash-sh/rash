@@ -1,3 +1,4 @@
+mod alternatives;
 mod apk;
 mod archive;
 mod assemble;
@@ -41,6 +42,7 @@ mod wait_for;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
@@ -141,6 +143,10 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
+        (
+            Alternatives.get_name(),
+            Box::new(Alternatives) as Box<dyn Module>,
+        ),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Archive.get_name(), Box::new(Archive) as Box<dyn Module>),
         (Assemble.get_name(), Box::new(Assemble) as Box<dyn Module>),
