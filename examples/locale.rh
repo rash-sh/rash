@@ -1,0 +1,21 @@
+#!/usr/bin/env rash
+
+# Example showing how to manage system locale settings
+
+- name: Set system locale to en_US.UTF-8
+  locale:
+    name: en_US.UTF-8
+    state: present
+
+- name: Configure all locale environment variables
+  locale:
+    lang: en_US.UTF-8
+    lc_all: en_US.UTF-8
+
+- name: Set specific locale variables individually
+  locale:
+    lang: en_US.UTF-8
+    lc_ctype: en_US.UTF-8
+    lc_messages: C
+    lc_time: en_US.UTF-8
+    lc_numeric: en_US.UTF-8
