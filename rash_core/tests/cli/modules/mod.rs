@@ -9,6 +9,7 @@ mod include;
 mod pacman;
 mod pam_limits;
 mod reboot;
+mod seboolean;
 mod systemd;
 mod timezone;
 mod trace;

@@ -27,6 +27,7 @@ mod pacman;
 mod pam_limits;
 mod reboot;
 mod script;
+mod seboolean;
 mod service;
 mod set_vars;
 mod setup;
@@ -74,6 +75,7 @@ use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::reboot::Reboot;
 use crate::modules::script::Script;
+use crate::modules::seboolean::Seboolean;
 use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
@@ -191,6 +193,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
+        (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
         (Service.get_name(), Box::new(Service) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
