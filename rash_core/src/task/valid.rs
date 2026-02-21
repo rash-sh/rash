@@ -1,7 +1,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{is_module, MODULES};
-use crate::task::{parse_notify_value, Task};
+use crate::modules::{MODULES, is_module};
+use crate::task::{Task, parse_notify_value};
 
 use std::collections::HashSet;
 
