@@ -6,6 +6,7 @@ mod fail;
 mod group;
 mod hostname;
 mod include;
+mod locale;
 mod pacman;
 mod pam_limits;
 mod reboot;
