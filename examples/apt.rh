@@ -1,0 +1,28 @@
+#!/usr/bin/env rash
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: Install packages
+  apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Install specific version
+  apt:
+    name: nginx=1.18.0-0ubuntu1
+    state: present
+
+- name: Remove package with purge
+  apt:
+    name: vim
+    state: absent
+    purge: true
+  register: removed
+
+- debug:
+    msg: "{{ removed.extra }}"
