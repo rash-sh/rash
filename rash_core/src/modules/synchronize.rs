@@ -29,7 +29,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult, parse_params};
+use crate::modules::{parse_params, Module, ModuleResult};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -41,8 +41,8 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_norway::Value as YamlValue;
 use serde_norway::value;
+use serde_norway::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -323,8 +323,19 @@ mod tests {
         assert_eq!(args, vec!["-a", "./dist/", "/opt/app/"]);
     }
 
+    fn rsync_available() -> bool {
+        Command::new("rsync")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
     #[test]
     fn test_run_rsync_nonexistent_src() {
+        if !rsync_available() {
+            return;
+        }
         let params = Params {
             src: "/nonexistent/path/".to_owned(),
             dest: "/tmp/dest/".to_owned(),
