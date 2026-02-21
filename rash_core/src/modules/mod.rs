@@ -25,6 +25,7 @@ mod mount;
 mod pacman;
 mod reboot;
 mod script;
+mod service;
 mod set_vars;
 mod setup;
 mod slurp;
@@ -69,6 +70,7 @@ use crate::modules::mount::Mount;
 use crate::modules::pacman::Pacman;
 use crate::modules::reboot::Reboot;
 use crate::modules::script::Script;
+use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::slurp::Slurp;
@@ -180,6 +182,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
+        (Service.get_name(), Box::new(Service) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
