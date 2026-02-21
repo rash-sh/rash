@@ -3,13 +3,13 @@ use std::path::Path;
 
 const ZONEINFO_PATH: &str = "/usr/share/zoneinfo";
 
-fn zoneinfo_available() -> bool {
-    Path::new(ZONEINFO_PATH).exists()
+fn timezone_available(name: &str) -> bool {
+    Path::new(&format!("{}/{}", ZONEINFO_PATH, name)).exists()
 }
 
 #[test]
 fn test_timezone_check_mode() {
-    if !zoneinfo_available() {
+    if !timezone_available("Europe/Madrid") {
         return;
     }
     let script_text = r#"
@@ -29,7 +29,7 @@ fn test_timezone_check_mode() {
 
 #[test]
 fn test_timezone_utc() {
-    if !zoneinfo_available() {
+    if !timezone_available("UTC") {
         return;
     }
     let script_text = r#"
@@ -65,7 +65,7 @@ fn test_timezone_invalid_empty() {
 
 #[test]
 fn test_timezone_invalid_timezone() {
-    if !zoneinfo_available() {
+    if !Path::new(ZONEINFO_PATH).exists() {
         return;
     }
     let script_text = r#"
@@ -85,7 +85,7 @@ fn test_timezone_invalid_timezone() {
 
 #[test]
 fn test_timezone_america() {
-    if !zoneinfo_available() {
+    if !timezone_available("America/New_York") {
         return;
     }
     let script_text = r#"
