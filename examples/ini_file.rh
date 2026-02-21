@@ -1,0 +1,85 @@
+#
+# ini_file module example
+#
+# This example demonstrates the basic functionality of the ini_file module:
+# - Adding options to INI files
+# - Modifying existing options
+# - Removing options
+# - Working with sections
+#
+# Usage:
+#   ini_file.rh
+
+- name: Create initial INI configuration file
+  copy:
+    content: |
+      [database]
+      host = localhost
+      port = 5432
+
+      [cache]
+      enabled = true
+    dest: /tmp/config.ini
+
+- name: Show initial file content
+  command: cat /tmp/config.ini
+
+- name: Add new option to database section
+  ini_file:
+    path: /tmp/config.ini
+    section: database
+    option: name
+    value: myapp
+
+- name: Modify existing option
+  ini_file:
+    path: /tmp/config.ini
+    section: database
+    option: host
+    value: db.example.com
+
+- name: Add option to new section
+  ini_file:
+    path: /tmp/config.ini
+    section: logging
+    option: level
+    value: debug
+
+- name: Remove an option
+  ini_file:
+    path: /tmp/config.ini
+    section: cache
+    option: enabled
+    state: absent
+
+- name: Show final configuration
+  command: cat /tmp/config.ini
+
+- name: Test idempotency - run same operation again
+  ini_file:
+    path: /tmp/config.ini
+    section: database
+    option: host
+    value: db.example.com
+  register: idempotent_test
+
+- name: Verify no change was made (idempotent)
+  assert:
+    that:
+      - not idempotent_test.changed
+
+- name: Test no_extra_spaces option
+  ini_file:
+    path: /tmp/config.ini
+    section: database
+    option: user
+    value: admin
+    no_extra_spaces: true
+
+- name: Show configuration with no_extra_spaces
+  command: cat /tmp/config.ini
+
+- name: Clean up
+  file:
+    path: /tmp/config.ini
+    state: absent
