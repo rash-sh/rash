@@ -1,0 +1,44 @@
+#!/usr/bin/env -S rash --
+#
+# timezone module example
+#
+# This example demonstrates the basic functionality of the timezone module:
+# - Setting system timezone
+# - Idempotent operations
+#
+# Note: This example requires root privileges to run.
+#
+# Usage:
+#   sudo timezone.rh
+
+- name: Set timezone to UTC
+  timezone:
+    name: UTC
+  register: utc_result
+
+- name: Verify timezone was set or already set
+  assert:
+    that:
+      - utc_result.changed or utc_result.output is defined
+
+- name: Run UTC setting again to test idempotency
+  timezone:
+    name: UTC
+  register: idempotent_result
+
+- name: Verify no change on second run (idempotent)
+  assert:
+    that:
+      - not idempotent_result.changed
+
+- name: Set timezone to Europe/Berlin (if available)
+  timezone:
+    name: Europe/Berlin
+  register: berlin_result
+  when: "'Europe/Berlin' in lookup('file', '/usr/share/zoneinfo/Europe').split('\n')"
+
+- name: Set timezone to America/New_York (if available)
+  timezone:
+    name: America/New_York
+  register: ny_result
+  when: "'America' in lookup('file', '/usr/share/zoneinfo').split('\n')"
