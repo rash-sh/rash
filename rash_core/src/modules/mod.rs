@@ -27,6 +27,7 @@ mod hostname;
 mod include;
 mod ini_file;
 mod interfaces_file;
+mod iptables;
 mod lineinfile;
 mod lvg;
 mod meta;
@@ -87,6 +88,7 @@ use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::interfaces_file::InterfacesFile;
+use crate::modules::iptables::Iptables;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::lvg::Lvg;
 use crate::modules::meta::Meta;
@@ -220,6 +222,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             InterfacesFile.get_name(),
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
+        (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
