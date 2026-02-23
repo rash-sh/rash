@@ -236,6 +236,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
         (Lvol.get_name(), Box::new(Lvol) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
+        (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
