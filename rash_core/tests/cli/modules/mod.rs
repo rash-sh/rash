@@ -14,6 +14,7 @@ mod systemd;
 mod timezone;
 mod trace;
 mod user;
+mod zypper;
 
 use super::execute_rash_with_env;
 
