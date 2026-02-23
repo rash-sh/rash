@@ -1,0 +1,57 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# DNF binary mock for Dnf module tests.
+#
+# Usage:
+#   ./dnf.rh [options] [<packages>...]
+#
+# Options:
+#   -y                   Assume yes
+#   -q, --quiet          Quiet mode
+#   --enablerepo=REPO    Enable a specific repository
+#   --disablerepo=REPO   Disable a specific repository
+#   --nogpgcheck         Disable GPG check
+#   --skip-broken        Skip packages with broken dependencies
+#   install              Install packages
+#   remove               Remove packages
+#   makecache            Update package cache
+#   upgrade              Upgrade packages
+#   check-update         Check for updates
+#
+
+- name: Install packages
+  debug:
+    msg: |-
+      {% for package in rash.args[3:] -%}
+      Installing {{ package }}
+      {% endfor -%}
+  when:
+    - "'install' in rash.args"
+
+- name: Remove packages
+  debug:
+    msg: |-
+      {% for package in rash.args[3:] -%}
+      Removing {{ package }}
+      {% endfor -%}
+  when:
+    - "'remove' in rash.args"
+
+- name: Update cache
+  debug:
+    msg: |-
+      Fedora 39 - x86_64                              1.2 MB/s |  21 MB     00:17
+      Fedora 39 openh264 (From Cisco) - x86_64        1.2 kB/s | 1.4 kB     00:01
+      Fedora 39 - x86_64 - Updates                    2.1 MB/s |  12 MB     00:05
+      Metadata cache created.
+  when:
+    - "'makecache' in rash.args"
+
+- name: Upgrade packages
+  debug:
+    msg: |-
+      {% for package in rash.args[3:] -%}
+      Upgrading {{ package }}
+      {% endfor -%}
+  when:
+    - "'upgrade' in rash.args"
