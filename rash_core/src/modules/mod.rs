@@ -28,6 +28,7 @@ mod include;
 mod ini_file;
 mod interfaces_file;
 mod lineinfile;
+mod locale;
 mod lvg;
 mod meta;
 mod mount;
@@ -87,6 +88,7 @@ use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::lineinfile::Lineinfile;
+use crate::modules::locale::Locale;
 use crate::modules::lvg::Lvg;
 use crate::modules::meta::Meta;
 use crate::modules::mount::Mount;
@@ -222,6 +224,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
         ),
+        (Locale.get_name(), Box::new(Locale) as Box<dyn Module>),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
