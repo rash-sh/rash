@@ -1,0 +1,71 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Zypper binary mock for Zypper module tests.
+#
+
+- name: List installed packages
+  debug:
+    msg: |-
+      glibc
+      bash
+      coreutils
+      curl
+      vim
+      zypper
+      nginx
+  when:
+    - "'se' in rash.args or 'search' in rash.args"
+    - "'--installed-only' in rash.args"
+
+- name: List updates available
+  debug:
+    msg: |-
+      Repository     | Name | Current Version | Available Version | Arch
+      ----------------+------+-----------------+-------------------+-------
+      Main Update     | curl | 7.88.0-1        | 8.0.0-1           | x86_64
+      Main Update     | jq   | 1.6-1           | 1.7-1             | x86_64
+  when:
+    - "'list-updates' in rash.args or 'lu' in rash.args"
+
+- name: Refresh repositories
+  debug:
+    msg: |-
+      Repository 'Main Repository (OSS)' is up to date.
+      Repository 'Main Repository (NON-OSS)' is up to date.
+      Repository 'Update Repository (OSS)' is up to date.
+      All repositories have been refreshed.
+  when:
+    - "'refresh' in rash.args or 'ref' in rash.args"
+
+- name: Update all packages
+  debug:
+    msg: |-
+      Loading repository data...
+      Reading installed packages...
+      The following package is going to be updated:
+        curl
+      1 package to update.
+  when:
+    - "'update' in rash.args or 'up' in rash.args"
+    - "'list-updates' not in rash.args"
+    - "'lu' not in rash.args"
+
+- name: Install packages
+  debug:
+    msg: |-
+      {% for package in rash.args[4:] -%}
+      Installing {{ package }}
+      {% endfor -%}
+  when:
+    - "'install' in rash.args or 'in' in rash.args"
+    - "'remove' not in rash.args"
+    - "'rm' not in rash.args"
+
+- name: Remove packages
+  debug:
+    msg: |-
+      {% for package in rash.args[3:] -%}
+      Removing {{ package }}
+      {% endfor -%}
+  when:
+    - "'remove' in rash.args or 'rm' in rash.args"
