@@ -53,6 +53,7 @@ mod unarchive;
 mod uri;
 mod user;
 mod wait_for;
+mod zypper;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
@@ -111,6 +112,7 @@ use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::wait_for::WaitFor;
+use crate::modules::zypper::Zypper;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -248,6 +250,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
+        (Zypper.get_name(), Box::new(Zypper) as Box<dyn Module>),
     ]
     .into_iter()
     .collect()
