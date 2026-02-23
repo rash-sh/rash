@@ -30,6 +30,7 @@ mod interfaces_file;
 mod iptables;
 mod lineinfile;
 mod lvg;
+mod lvol;
 mod meta;
 mod modprobe;
 mod mount;
@@ -91,6 +92,7 @@ use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::lvg::Lvg;
+use crate::modules::lvol::Lvol;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
@@ -228,6 +230,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Lineinfile) as Box<dyn Module>,
         ),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
+        (Lvol.get_name(), Box::new(Lvol) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
