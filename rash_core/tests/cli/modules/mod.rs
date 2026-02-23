@@ -3,6 +3,7 @@ mod authorized_key;
 mod cron;
 mod dconf;
 mod fail;
+mod firewalld;
 mod group;
 mod hostname;
 mod include;
