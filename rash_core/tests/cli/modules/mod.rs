@@ -4,6 +4,7 @@ mod cron;
 mod dconf;
 mod dnf;
 mod fail;
+mod firewalld;
 mod group;
 mod hostname;
 mod include;
