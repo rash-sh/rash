@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# debconf-show - Mock for debconf-show
+#
+# Usage: debconf-show <package>
+
+STATE_FILE="${DEBCONF_MOCK_STATE_FILE:-/tmp/rash_debconf_mock_state}"
+PACKAGE="$1"
+
+if [ -f "$STATE_FILE" ]; then
+    grep "^${PACKAGE} " "$STATE_FILE" | while read -r line; do
+        question=$(echo "$line" | awk '{print $2}' | tr -d ':')
+        value=$(echo "$line" | cut -d' ' -f3- | sed 's/ (unseen: [^)]*)//')
+        unseen=$(echo "$line" | grep -o 'unseen: [^)]*' | cut -d' ' -f2)
+        
+        if [ "$unseen" = "true" ]; then
+            echo "- ${PACKAGE}/${question}: ${value}"
+        else
+            echo "* ${PACKAGE}/${question}: ${value}"
+        fi
+    done
+fi
+
+exit 0

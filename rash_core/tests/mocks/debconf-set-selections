@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# debconf-set-selections - Mock for debconf-set-selections
+#
+# Reads stdin in format: owner question type value
+# Prefix owner with - for unseen questions
+
+STATE_FILE="${DEBCONF_MOCK_STATE_FILE:-/tmp/rash_debconf_mock_state}"
+
+touch "$STATE_FILE"
+
+while IFS= read -r line || [ -n "$line" ]; do
+    unseen="false"
+    
+    if [[ "$line" == -* ]]; then
+        unseen="true"
+        line="${line#-}"
+    fi
+    
+    owner=$(echo "$line" | awk '{print $1}')
+    question=$(echo "$line" | awk '{print $2}')
+    vtype=$(echo "$line" | awk '{print $3}')
+    value=$(echo "$line" | cut -d' ' -f4-)
+    
+    if [ -f "$STATE_FILE" ]; then
+        grep -v "^${owner} ${question}:" "$STATE_FILE" > "${STATE_FILE}.tmp" 2>/dev/null || true
+        mv "${STATE_FILE}.tmp" "$STATE_FILE" 2>/dev/null || true
+    fi
+    
+    echo "${owner} ${question}: ${value} (unseen: ${unseen})" >> "$STATE_FILE"
+done
+
+exit 0
