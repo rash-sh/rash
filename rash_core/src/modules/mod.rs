@@ -4,6 +4,7 @@ mod archive;
 mod assemble;
 mod assert;
 mod async_status;
+mod at;
 mod authorized_key;
 mod block;
 mod command;
@@ -53,6 +54,7 @@ use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
+use crate::modules::at::At;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::block::Block;
 use crate::modules::command::Command;
@@ -163,6 +165,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AsyncStatus.get_name(),
             Box::new(AsyncStatus) as Box<dyn Module>,
         ),
+        (At.get_name(), Box::new(At) as Box<dyn Module>),
         (
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
