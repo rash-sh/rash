@@ -12,6 +12,7 @@ mod command;
 mod copy;
 mod cron;
 mod dconf;
+mod debconf;
 mod debug;
 mod dnf;
 mod fail;
@@ -71,6 +72,7 @@ use crate::modules::command::Command;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
 use crate::modules::dconf::Dconf;
+use crate::modules::debconf::Debconf;
 use crate::modules::debug::Debug;
 use crate::modules::dnf::Dnf;
 use crate::modules::fail::Fail;
@@ -197,6 +199,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
         (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
+        (Debconf.get_name(), Box::new(Debconf) as Box<dyn Module>),
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
