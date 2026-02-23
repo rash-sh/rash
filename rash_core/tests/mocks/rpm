@@ -1,0 +1,26 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# RPM binary mock for Dnf module tests.
+#
+# Usage:
+#   ./rpm.rh [options]
+#
+# Options:
+#   -q                   Query
+#   -a, --all            All packages
+#   --queryformat=FMT    Query format
+#
+
+- name: List all installed packages
+  debug:
+    msg: |-
+      bash
+      coreutils
+      curl
+      dnf
+      fedora-release
+      glibc
+      nginx
+      vim
+  when:
+    - "'-qa' in rash.args"

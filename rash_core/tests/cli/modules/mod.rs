@@ -2,6 +2,7 @@ mod apk;
 mod authorized_key;
 mod cron;
 mod dconf;
+mod dnf;
 mod fail;
 mod group;
 mod hostname;
