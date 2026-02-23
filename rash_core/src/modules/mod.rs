@@ -13,6 +13,7 @@ mod dconf;
 mod debug;
 mod fail;
 mod file;
+mod filesystem;
 pub mod find;
 mod get_url;
 mod git;
@@ -62,6 +63,7 @@ use crate::modules::dconf::Dconf;
 use crate::modules::debug::Debug;
 use crate::modules::fail::Fail;
 use crate::modules::file::File;
+use crate::modules::filesystem::Filesystem;
 use crate::modules::find::Find;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
@@ -175,6 +177,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
+        (
+            Filesystem.get_name(),
+            Box::new(Filesystem) as Box<dyn Module>,
+        ),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
