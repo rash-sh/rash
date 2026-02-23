@@ -3,6 +3,7 @@ mod authorized_key;
 mod cron;
 mod dconf;
 mod fail;
+mod gpg_key;
 mod group;
 mod hostname;
 mod include;

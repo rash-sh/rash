@@ -16,6 +16,7 @@ mod file;
 pub mod find;
 mod get_url;
 mod git;
+mod gpg_key;
 mod group;
 mod hostname;
 mod include;
@@ -65,6 +66,7 @@ use crate::modules::file::File;
 use crate::modules::find::Find;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
+use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
@@ -178,6 +180,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
+        (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
