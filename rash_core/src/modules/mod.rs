@@ -24,6 +24,7 @@ mod interfaces_file;
 mod lineinfile;
 mod meta;
 mod mount;
+mod nmcli;
 mod pacman;
 mod pam_limits;
 mod reboot;
@@ -73,6 +74,7 @@ use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::meta::Meta;
 use crate::modules::mount::Mount;
+use crate::modules::nmcli::Nmcli;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::reboot::Reboot;
@@ -192,6 +194,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
+        (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
