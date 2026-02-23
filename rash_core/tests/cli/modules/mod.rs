@@ -8,6 +8,7 @@ mod hostname;
 mod include;
 mod pacman;
 mod pam_limits;
+mod parted;
 mod reboot;
 mod seboolean;
 mod systemd;
