@@ -1,0 +1,99 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# DNF binary mock for Dnf module tests.
+#
+# Options:
+#   -y                   Assume yes
+#   --downloadonly       Download only (check mode)
+#   --nogpgcheck         Disable GPG checking
+#   --enablerepo=REPO    Enable repository
+#   --disablerepo=REPO   Disable repository
+#   --exclude=PKG        Exclude package
+#   --quiet              Quiet mode
+#   --timer              Timer mode for makecache
+#
+# Commands:
+#   install              Install packages
+#   remove               Remove packages
+#   upgrade              Upgrade packages
+#   makecache            Update package cache
+#   list                 List packages
+#
+# List subcommands:
+#   installed            List installed packages
+#   upgrades             List upgradable packages
+#
+
+- name: Install packages
+  debug:
+    msg: |-
+      {% for package in rash.args -%}
+      {% if package[0] != "-" and package not in ["install", "remove", "upgrade", "makecache", "list", "installed", "upgrades"] -%}
+      Installing {{ package }}
+      {% endif -%}
+      {% endfor -%}
+  when:
+    - "'install' in rash.args"
+
+- name: Remove packages
+  debug:
+    msg: |-
+      {% for package in rash.args -%}
+      {% if package[0] != "-" and package not in ["install", "remove", "upgrade", "makecache", "list", "installed", "upgrades"] -%}
+      Removing {{ package }}
+      {% endif -%}
+      {% endfor -%}
+  when:
+    - "'remove' in rash.args"
+
+- name: Upgrade packages with targets
+  debug:
+    msg: |-
+      {% for package in rash.args -%}
+      {% if package[0] != "-" and package not in ["install", "remove", "upgrade", "makecache", "list", "installed", "upgrades"] -%}
+      Upgrading {{ package }}
+      {% endif -%}
+      {% endfor -%}
+  when:
+    - "'upgrade' in rash.args"
+    - rash.args | length > 2
+
+- name: Upgrade all (no packages specified)
+  debug:
+    msg: |-
+      Nothing to do.
+  when:
+    - "'upgrade' in rash.args"
+    - rash.args | length <= 2
+
+- name: Update cache
+  debug:
+    msg: |-
+      Fedora 39 - x86_64                              15 kB/s | 6.0 kB     00:00
+      Fedora 39 - x86_64 - Updates                    18 kB/s | 7.0 kB     00:00
+      Metadata cache created.
+  when:
+    - "'makecache' in rash.args"
+
+- name: List upgradable packages
+  debug:
+    msg: |-
+      curl
+      git
+  when:
+    - "'list' in rash.args"
+    - "'upgrades' in rash.args"
+
+- name: List installed packages
+  debug:
+    msg: |-
+      bash
+      coreutils
+      curl
+      dnf
+      glibc
+      vim-enhanced
+  when:
+    - "'list' in rash.args"
+    - "'installed' in rash.args"
+    - "'upgrades' not in rash.args"
