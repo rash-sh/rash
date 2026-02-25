@@ -38,6 +38,7 @@ mod ini_file;
 mod interfaces_file;
 mod iptables;
 mod kernel_blacklist;
+mod lbu;
 mod lineinfile;
 mod locale;
 mod logrotate;
@@ -117,6 +118,7 @@ use crate::modules::ini_file::IniFile;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
 use crate::modules::kernel_blacklist::KernelBlacklist;
+use crate::modules::lbu::Lbu;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
@@ -285,6 +287,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
         ),
+        (Lbu.get_name(), Box::new(Lbu) as Box<dyn Module>),
         (Locale.get_name(), Box::new(Locale) as Box<dyn Module>),
         (Logrotate.get_name(), Box::new(Logrotate) as Box<dyn Module>),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
