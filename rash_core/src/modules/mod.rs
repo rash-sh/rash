@@ -21,6 +21,7 @@ mod dmsetup;
 mod dnf;
 mod docker_container;
 mod docker_image;
+mod expect;
 mod fail;
 mod file;
 mod filesystem;
@@ -100,6 +101,7 @@ use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
@@ -255,6 +257,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             DockerImage.get_name(),
             Box::new(DockerImage) as Box<dyn Module>,
         ),
+        (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
