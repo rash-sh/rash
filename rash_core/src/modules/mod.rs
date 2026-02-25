@@ -20,6 +20,7 @@ mod file;
 mod filesystem;
 pub mod find;
 mod firewalld;
+mod gem;
 mod get_url;
 mod git;
 mod gpg_key;
@@ -84,6 +85,7 @@ use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
 use crate::modules::find::Find;
 use crate::modules::firewalld::Firewalld;
+use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
@@ -214,6 +216,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
+        (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (
             Filesystem.get_name(),
             Box::new(Filesystem) as Box<dyn Module>,
