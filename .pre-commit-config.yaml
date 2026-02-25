@@ -8,6 +8,7 @@ repos:
       - id: check-shebang-scripts-are-executable
         exclude: '^rash_core/src/lib\.rs$'
       - id: detect-private-key
+        exclude: 'openssl_privatekey\.rs$'
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: trailing-whitespace
