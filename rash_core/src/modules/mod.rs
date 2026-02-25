@@ -1,6 +1,7 @@
 mod alternatives;
 mod apk;
 mod apt;
+mod apt_repository;
 mod archive;
 mod assemble;
 mod assert;
@@ -66,6 +67,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
+use crate::modules::apt_repository::AptRepository;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
@@ -191,6 +193,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
+        (
+            AptRepository.get_name(),
+            Box::new(AptRepository) as Box<dyn Module>,
+        ),
         (Archive.get_name(), Box::new(Archive) as Box<dyn Module>),
         (Assemble.get_name(), Box::new(Assemble) as Box<dyn Module>),
         (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
