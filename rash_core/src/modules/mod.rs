@@ -73,6 +73,7 @@ mod user;
 mod wait_for;
 mod wipefs;
 mod yum_repository;
+mod zfs;
 mod zypper;
 
 use crate::context::GlobalParams;
@@ -152,6 +153,7 @@ use crate::modules::user::User;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wipefs::Wipefs;
 use crate::modules::yum_repository::YumRepository;
+use crate::modules::zfs::Zfs;
 use crate::modules::zypper::Zypper;
 
 use std::collections::HashMap;
@@ -328,6 +330,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             YumRepository.get_name(),
             Box::new(YumRepository) as Box<dyn Module>,
         ),
+        (Zfs.get_name(), Box::new(Zfs) as Box<dyn Module>),
         (Zypper.get_name(), Box::new(Zypper) as Box<dyn Module>),
     ]
     .into_iter()
