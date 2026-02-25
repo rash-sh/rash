@@ -11,6 +11,7 @@ mod group;
 mod hostname;
 mod include;
 mod kernel_blacklist;
+mod logrotate;
 mod pacman;
 mod pam_limits;
 mod reboot;
