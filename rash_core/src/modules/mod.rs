@@ -46,6 +46,7 @@ mod lvol;
 mod meta;
 mod modprobe;
 mod mount;
+mod mysql_db;
 mod nmcli;
 mod openssl_privatekey;
 mod pacman;
@@ -125,6 +126,7 @@ use crate::modules::lvol::Lvol;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
+use crate::modules::mysql_db::MysqlDb;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
 use crate::modules::pacman::Pacman;
@@ -292,6 +294,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
+        (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (
             OpensslPrivatekey.get_name(),
