@@ -8,6 +8,7 @@ mod firewalld;
 mod group;
 mod hostname;
 mod include;
+mod openssl_privatekey;
 mod pacman;
 mod pam_limits;
 mod reboot;
