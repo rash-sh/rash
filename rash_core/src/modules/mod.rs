@@ -37,6 +37,7 @@ mod meta;
 mod modprobe;
 mod mount;
 mod nmcli;
+mod openssl_privatekey;
 mod pacman;
 mod pam_limits;
 mod parted;
@@ -101,6 +102,7 @@ use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
 use crate::modules::nmcli::Nmcli;
+use crate::modules::openssl_privatekey::OpensslPrivatekey;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
@@ -241,6 +243,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
+        (
+            OpensslPrivatekey.get_name(),
+            Box::new(OpensslPrivatekey) as Box<dyn Module>,
+        ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
