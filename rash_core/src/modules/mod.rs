@@ -1,6 +1,7 @@
 mod alternatives;
 mod apk;
 mod apt;
+mod apt_repository;
 mod archive;
 mod assemble;
 mod assert;
@@ -8,6 +9,7 @@ mod async_status;
 mod at;
 mod authorized_key;
 mod block;
+mod cargo;
 mod command;
 mod copy;
 mod cron;
@@ -15,21 +17,25 @@ mod dconf;
 mod debconf;
 mod debug;
 mod dnf;
+mod docker_container;
 mod expect;
 mod fail;
 mod file;
 mod filesystem;
 pub mod find;
 mod firewalld;
+mod gem;
 mod get_url;
 mod git;
 mod gpg_key;
 mod group;
+mod grub;
 mod hostname;
 mod include;
 mod ini_file;
 mod interfaces_file;
 mod iptables;
+mod kernel_blacklist;
 mod lineinfile;
 mod locale;
 mod lvg;
@@ -38,12 +44,15 @@ mod meta;
 mod modprobe;
 mod mount;
 mod nmcli;
+mod openssl_privatekey;
 mod pacman;
 mod pam_limits;
 mod parted;
+mod ping;
 mod reboot;
 mod script;
 mod seboolean;
+mod selinux;
 mod service;
 mod set_vars;
 mod setup;
@@ -59,6 +68,8 @@ mod unarchive;
 mod uri;
 mod user;
 mod wait_for;
+mod wipefs;
+mod yum_repository;
 mod zypper;
 
 use crate::context::GlobalParams;
@@ -66,6 +77,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
+use crate::modules::apt_repository::AptRepository;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
@@ -73,6 +85,7 @@ use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::block::Block;
+use crate::modules::cargo::Cargo;
 use crate::modules::command::Command;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
@@ -80,21 +93,25 @@ use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debug::Debug;
 use crate::modules::dnf::Dnf;
+use crate::modules::docker_container::DockerContainer;
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
 use crate::modules::find::Find;
 use crate::modules::firewalld::Firewalld;
+use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
+use crate::modules::grub::Grub;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
+use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
 use crate::modules::lvg::Lvg;
@@ -103,12 +120,15 @@ use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
 use crate::modules::nmcli::Nmcli;
+use crate::modules::openssl_privatekey::OpensslPrivatekey;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
+use crate::modules::ping::Ping;
 use crate::modules::reboot::Reboot;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
+use crate::modules::selinux::Selinux;
 use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
@@ -124,6 +144,8 @@ use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::wait_for::WaitFor;
+use crate::modules::wipefs::Wipefs;
+use crate::modules::yum_repository::YumRepository;
 use crate::modules::zypper::Zypper;
 
 use std::collections::HashMap;
@@ -191,6 +213,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
+        (
+            AptRepository.get_name(),
+            Box::new(AptRepository) as Box<dyn Module>,
+        ),
         (Archive.get_name(), Box::new(Archive) as Box<dyn Module>),
         (Assemble.get_name(), Box::new(Assemble) as Box<dyn Module>),
         (Assert.get_name(), Box::new(Assert) as Box<dyn Module>),
@@ -204,8 +230,8 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
-        (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
+        (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
@@ -213,10 +239,16 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debconf.get_name(), Box::new(Debconf) as Box<dyn Module>),
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
+        (
+            DockerContainer.get_name(),
+            Box::new(DockerContainer) as Box<dyn Module>,
+        ),
+        (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
+        (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (
             Filesystem.get_name(),
             Box::new(Filesystem) as Box<dyn Module>,
@@ -224,6 +256,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
+        (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
@@ -233,6 +266,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
+        (
+            KernelBlacklist.get_name(),
+            Box::new(KernelBlacklist) as Box<dyn Module>,
+        ),
         (
             Lineinfile.get_name(),
             Box::new(Lineinfile) as Box<dyn Module>,
@@ -244,12 +281,18 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
+        (
+            OpensslPrivatekey.get_name(),
+            Box::new(OpensslPrivatekey) as Box<dyn Module>,
+        ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
+        (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
+        (Selinux.get_name(), Box::new(Selinux) as Box<dyn Module>),
         (Service.get_name(), Box::new(Service) as Box<dyn Module>),
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
@@ -268,6 +311,11 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
+        (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
+        (
+            YumRepository.get_name(),
+            Box::new(YumRepository) as Box<dyn Module>,
+        ),
         (Zypper.get_name(), Box::new(Zypper) as Box<dyn Module>),
     ]
     .into_iter()
