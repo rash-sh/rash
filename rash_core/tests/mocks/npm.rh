@@ -1,0 +1,54 @@
+#!/usr/bin/env -S rash --output raw --
+
+- name: List installed packages (local)
+  debug:
+    msg: '{"dependencies": {"coffee-script": {"version": "1.12.7"}}}'
+  when:
+    - "\"list\" in rash.args"
+    - "\"--global\" not in rash.args"
+
+- name: List installed packages (global)
+  debug:
+    msg: '{"dependencies": {}}'
+  when:
+    - "\"list\" in rash.args"
+    - "\"--global\" in rash.args"
+
+- name: Check outdated packages (local)
+  debug:
+    msg: '{"coffee-script": {"current": "1.12.0", "latest": "1.12.7"}}'
+  when:
+    - "\"outdated\" in rash.args"
+    - "\"--global\" not in rash.args"
+
+- name: Check outdated packages (global)
+  debug:
+    msg: '{}'
+  when:
+    - "\"outdated\" in rash.args"
+    - "\"--global\" in rash.args"
+
+- name: Install packages
+  debug:
+    msg: '{"dependencies": {}}'
+  when:
+    - "\"install\" in rash.args"
+    - "\"ci\" not in rash.args"
+
+- name: Run npm ci
+  debug:
+    msg: '{"dependencies": {}}'
+  when:
+    - "\"ci\" in rash.args"
+
+- name: Uninstall packages
+  debug:
+    msg: '{}'
+  when:
+    - "\"uninstall\" in rash.args"
+
+- name: Update packages
+  debug:
+    msg: '{"dependencies": {}}'
+  when:
+    - "\"update\" in rash.args"

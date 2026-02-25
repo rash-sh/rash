@@ -8,6 +8,7 @@ mod firewalld;
 mod group;
 mod hostname;
 mod include;
+mod npm;
 mod pacman;
 mod pam_limits;
 mod reboot;
