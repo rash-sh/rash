@@ -1,0 +1,81 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Pip binary mock for Pip module tests.
+#
+- name: List packages freeze format
+  command:
+    argv:
+      - bash
+      - -c
+      - |
+        echo "bottle==0.12.25"
+        echo "django==4.2.7"
+        echo "requests==2.31.0"
+        echo "ansible==9.1.0"
+    transfer_pid: true
+  when:
+    - "'list' in rash.args"
+
+- name: Install packages
+  debug:
+    msg: |-
+      Collecting {{ rash.args[1:] | join(' ') }}
+        Downloading package-1.0.0.tar.gz
+      Installing collected packages: package
+      Successfully installed package-1.0.0
+  when:
+    - "'install' in rash.args"
+    - "'--upgrade' not in rash.args"
+    - "'-U' not in rash.args"
+    - "'--force-reinstall' not in rash.args"
+    - "'-r' not in rash.args"
+    - "'--requirement' not in rash.args"
+
+- name: Uninstall packages
+  debug:
+    msg: |-
+      Found existing installation: package-1.0.0
+      Uninstalling package-1.0.0:
+        Successfully uninstalled package-1.0.0
+  when:
+    - "'uninstall' in rash.args"
+
+- name: Install requirements
+  debug:
+    msg: |-
+      Collecting package1
+      Collecting package2
+      Installing collected packages: package1, package2
+      Successfully installed package1-1.0.0 package2-2.0.0
+  when:
+    - "'install' in rash.args"
+    - "'-r' in rash.args or '--requirement' in rash.args"
+
+- name: Upgrade packages
+  debug:
+    msg: |-
+      Requirement already satisfied in /usr/lib/python3/dist-packages
+      Collecting package
+        Downloading package-2.0.0.tar.gz
+      Installing collected packages: package
+      Attempting uninstall: package
+        Found existing installation: package-1.0.0
+        Successfully uninstalled package-1.0.0
+      Successfully installed package-2.0.0
+  when:
+    - "'install' in rash.args"
+    - "'--upgrade' in rash.args or '-U' in rash.args"
+
+- name: Force reinstall packages
+  debug:
+    msg: |-
+      Collecting package
+        Downloading package-1.0.0.tar.gz
+      Installing collected packages: package
+      Attempting uninstall: package
+        Found existing installation: package-1.0.0
+        Successfully uninstalled package-1.0.0
+      Successfully installed package-1.0.0
+  when:
+    - "'install' in rash.args"
+    - "'--force-reinstall' in rash.args"

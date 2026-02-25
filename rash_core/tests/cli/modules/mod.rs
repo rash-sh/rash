@@ -10,6 +10,7 @@ mod hostname;
 mod include;
 mod pacman;
 mod pam_limits;
+mod pip;
 mod reboot;
 mod seboolean;
 mod systemd;
