@@ -12,6 +12,7 @@ mod block;
 mod cargo;
 mod chroot;
 mod command;
+mod consul;
 mod copy;
 mod cron;
 mod dconf;
@@ -91,6 +92,7 @@ use crate::modules::block::Block;
 use crate::modules::cargo::Cargo;
 use crate::modules::chroot::Chroot;
 use crate::modules::command::Command;
+use crate::modules::consul::Consul;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
 use crate::modules::dconf::Dconf;
@@ -240,6 +242,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
+        (Consul.get_name(), Box::new(Consul) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
         (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
