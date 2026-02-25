@@ -25,6 +25,11 @@
 ///     name: myapp
 ///     state: stopped
 ///
+/// - name: Restart a container
+///   docker_container:
+///     name: myapp
+///     state: restarted
+///
 /// - name: Remove a container
 ///   docker_container:
 ///     name: myapp
@@ -104,6 +109,7 @@ use strum_macros::{Display, EnumString};
 enum State {
     Absent,
     Present,
+    Restarted,
     Started,
     Stopped,
 }
@@ -137,6 +143,10 @@ fn default_health_timeout() -> String {
 
 fn default_health_retries() -> u32 {
     3
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -204,6 +214,9 @@ pub struct Params {
     /// Force container removal on state=absent.
     #[serde(default)]
     force: bool,
+    /// Run container in detached mode (background).
+    #[serde(default = "default_true")]
+    detach: bool,
 }
 
 fn default_state() -> State {
@@ -540,6 +553,22 @@ impl DockerClient {
         Ok(true)
     }
 
+    fn restart_container(&self, name: &str) -> Result<bool> {
+        if self.check_mode {
+            return Ok(true);
+        }
+
+        if !self.container_exists(name)? {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Container '{}' does not exist", name),
+            ));
+        }
+
+        self.exec_cmd(&["restart", name], true)?;
+        Ok(true)
+    }
+
     fn remove_container(&self, name: &str, force: bool) -> Result<bool> {
         if self.check_mode {
             return Ok(true);
@@ -709,6 +738,18 @@ fn docker_container(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 ));
             }
         }
+        State::Restarted => {
+            if !client.container_exists(&params.name)? {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Container '{}' does not exist", params.name),
+                ));
+            }
+            client.restart_container(&params.name)?;
+            diff("state: running".to_string(), "state: restarted".to_string());
+            output_messages.push(format!("Container '{}' restarted", params.name));
+            changed = true;
+        }
     }
 
     let extra = client.get_container_state(&params.name)?;
@@ -864,6 +905,19 @@ mod tests {
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.state, State::Absent);
+    }
+
+    #[test]
+    fn test_parse_params_state_restarted() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            name: myapp
+            state: restarted
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(params.state, State::Restarted);
     }
 
     #[test]
