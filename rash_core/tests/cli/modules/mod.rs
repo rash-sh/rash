@@ -8,6 +8,7 @@ mod fail;
 mod firewalld;
 mod gem;
 mod group;
+mod grub;
 mod hostname;
 mod include;
 mod kernel_blacklist;
