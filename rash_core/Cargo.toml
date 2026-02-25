@@ -43,7 +43,7 @@ ipc-channel = "0.21.0"
 itertools = "0.14"
 libc = "0.2"
 md-5 = "0.10"
-nix = { version = "0.31", features = ["process", "user"] }
+nix = { version = "0.31", features = ["process", "user", "term", "poll", "fs"] }
 prs-lib = { version = "0.5.1", optional = true }
 rand = "0.10"
 reqwest = { version = "0.13", features = ["json", "blocking", "rustls"], default-features = false }
