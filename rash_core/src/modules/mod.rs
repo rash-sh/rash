@@ -9,6 +9,7 @@ mod async_status;
 mod at;
 mod authorized_key;
 mod block;
+mod cargo;
 mod command;
 mod copy;
 mod cron;
@@ -80,6 +81,7 @@ use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::block::Block;
+use crate::modules::cargo::Cargo;
 use crate::modules::command::Command;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
@@ -221,6 +223,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
+        (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
