@@ -5,6 +5,7 @@ mod dconf;
 mod dnf;
 mod fail;
 mod firewalld;
+mod gem;
 mod group;
 mod hostname;
 mod include;

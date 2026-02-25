@@ -1,0 +1,58 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# GEM binary mock for Gem module tests.
+#
+
+- name: List all installed gems without versions
+  debug:
+    msg: |-
+      bundler
+      rake
+      rails
+      rbs
+      rubocop
+  when:
+    - "'list' in rash.args"
+    - "'no-versions' in rash.args | join(' ')"
+
+- name: List outdated gems
+  debug:
+    msg: |-
+      bundler (newest 2.5.0, installed 2.4.0)
+      rails (newest 7.1.0, installed 7.0.0)
+  when:
+    - "'outdated' in rash.args"
+
+- name: Install gems
+  debug:
+    msg: |-
+      {% for gem in rash.args -%}
+      {%- if ":" in gem -%}
+      Successfully installed {{ gem | split(":") | first }}
+      {% elif gem != "gem" and gem != "install" and gem[:2] != "--" -%}
+      Successfully installed {{ gem }}
+      {% endif -%}
+      {%- endfor -%}
+  when:
+    - "'install' in rash.args"
+    - "'uninstall' not in rash.args"
+
+- name: Uninstall gems
+  debug:
+    msg: |-
+      {% for gem in rash.args -%}
+      {%- if gem != "gem" and gem != "uninstall" and gem[:2] != "--" and gem != "all" and gem != "executables" -%}
+      Successfully uninstalled {{ gem }}
+      {% endif -%}
+      {%- endfor -%}
+  when:
+    - "'uninstall' in rash.args"
+
+- name: Update gems
+  debug:
+    msg: |-
+      Updating bundler
+      Updating rails
+  when:
+    - "'update' in rash.args"
+    - "'outdated' not in rash.args"
