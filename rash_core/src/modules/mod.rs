@@ -53,6 +53,7 @@ mod modprobe;
 mod mount;
 mod mysql_db;
 mod nmcli;
+mod npm;
 mod openssl_privatekey;
 mod pacman;
 mod pam_limits;
@@ -141,6 +142,7 @@ use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::nmcli::Nmcli;
+use crate::modules::npm::Npm;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
@@ -323,6 +325,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
+        (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
         (
             OpensslPrivatekey.get_name(),
             Box::new(OpensslPrivatekey) as Box<dyn Module>,
