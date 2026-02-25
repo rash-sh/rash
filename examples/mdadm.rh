@@ -1,0 +1,39 @@
+#!/usr/bin/env rash
+
+- name: Create RAID1 array
+  mdadm:
+    action: create
+    device: /dev/md0
+    name: data
+    level: 1
+    devices:
+      - /dev/sdb1
+      - /dev/sdc1
+    metadata: 1.2
+
+- name: Assemble existing array
+  mdadm:
+    action: assemble
+    device: /dev/md0
+    devices:
+      - /dev/sdb1
+      - /dev/sdc1
+
+- name: Get array info
+  mdadm:
+    action: info
+    device: /dev/md0
+  register: raid_info
+
+- name: Stop RAID array
+  mdadm:
+    action: stop
+    device: /dev/md0
+
+- name: Destroy RAID array (wipe superblocks)
+  mdadm:
+    action: destroy
+    devices:
+      - /dev/sdb1
+      - /dev/sdc1
+    force: true
