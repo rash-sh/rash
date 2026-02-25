@@ -3,6 +3,7 @@ mod authorized_key;
 mod cron;
 mod dconf;
 mod dnf;
+mod expect;
 mod fail;
 mod firewalld;
 mod group;

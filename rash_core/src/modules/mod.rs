@@ -15,6 +15,7 @@ mod dconf;
 mod debconf;
 mod debug;
 mod dnf;
+mod expect;
 mod fail;
 mod file;
 mod filesystem;
@@ -79,6 +80,7 @@ use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debug::Debug;
 use crate::modules::dnf::Dnf;
+use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
@@ -202,6 +204,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
+        (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
