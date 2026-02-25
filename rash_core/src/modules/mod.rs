@@ -35,6 +35,7 @@ mod grub;
 mod hostname;
 mod include;
 mod ini_file;
+mod initramfs;
 mod interfaces_file;
 mod iptables;
 mod kernel_blacklist;
@@ -114,6 +115,7 @@ use crate::modules::grub::Grub;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
+use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
 use crate::modules::kernel_blacklist::KernelBlacklist;
@@ -272,6 +274,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
+        (Initramfs.get_name(), Box::new(Initramfs) as Box<dyn Module>),
         (
             InterfacesFile.get_name(),
             Box::new(InterfacesFile) as Box<dyn Module>,
