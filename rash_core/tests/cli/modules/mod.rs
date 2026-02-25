@@ -1,5 +1,6 @@
 mod apk;
 mod authorized_key;
+mod cargo;
 mod cron;
 mod dconf;
 mod dnf;

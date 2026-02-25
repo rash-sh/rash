@@ -1,0 +1,64 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Cargo binary mock for Cargo module tests.
+#
+# Usage:
+#   cargo.rh install [options] [<crates>...]
+#   cargo.rh uninstall [options] [<crates>...]
+#
+# Commands:
+#   install             Install crates
+#   uninstall           Uninstall crates
+#
+# Options:
+#   --list              List installed crates
+#   --version <version> Install specific version
+#   --git <url>         Install from git URL
+#   --branch <branch>   Git branch to use
+#   --tag <tag>         Git tag to use
+#   --rev <rev>         Git revision to use
+#   --features <features> Features to enable
+#   --all-features      Enable all features
+#   --no-default-features  Disable default features
+#   --locked            Use locked dependencies
+#   --force             Force reinstall
+#
+
+- name: List installed crates
+  debug:
+    msg: |-
+      ripgrep v14.0.4:
+          rg
+      fd-find v10.1.0:
+          fd
+      bat v0.24.0:
+          bat
+      cargo-edit v0.11.9:
+          cargo-add
+          cargo-rm
+      cargo-watch v8.5.2:
+          cargo-watch
+  when:
+    - "'install' in rash.args"
+    - options.list
+
+- name: Install crates
+  debug:
+    msg: |-
+      {% for crate in crates | default([]) -%}
+      Installing {{ crate }}
+      {% endfor -%}
+  when:
+    - "'install' in rash.args"
+    - not options.list
+    - crates | default([]) | length > 0
+
+- name: Uninstall crates
+  debug:
+    msg: |-
+      {% for crate in crates | default([]) -%}
+      Removing {{ crate }}
+      {% endfor -%}
+  when:
+    - "'uninstall' in rash.args"
+    - crates | default([]) | length > 0

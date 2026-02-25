@@ -58,7 +58,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 use crate::utils::default_false;
 
 #[cfg(feature = "docs")]
@@ -73,8 +73,8 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_json::json;
-use serde_norway::{value, Value as YamlValue};
-use serde_with::{serde_as, OneOrMany};
+use serde_norway::{Value as YamlValue, value};
+use serde_with::{OneOrMany, serde_as};
 use shlex::split;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
