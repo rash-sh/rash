@@ -1,0 +1,78 @@
+#!/usr/bin/env -S rash --
+#
+# blkdiscard module example
+#
+# This example demonstrates the basic functionality of the blkdiscard module:
+# - Secure erasing SSDs and NVMe drives
+# - Using check mode to preview changes
+# - Discarding specific ranges
+#
+# Note: This example requires root privileges and a real SSD/NVMe device.
+# Running on real devices will DESTROY ALL DATA. Use check mode for testing.
+#
+# Usage:
+#   sudo blkdiscard.rh
+#
+# WARNING: This is a DESTRUCTIVE operation. Data cannot be recovered.
+
+- name: Check if device exists
+  stat:
+    path: /dev/nvme0n1
+  register: device_stat
+
+- name: Fail if device does not exist
+  fail:
+    msg: "Device /dev/nvme0n1 does not exist. Set a valid device path."
+  when: not device_stat.stat.exists
+
+- name: Check discard support
+  command:
+    cmd: lsblk -d -n -o DISC-GRAN /dev/nvme0n1
+  register: discard_check
+  changed_when: false
+
+- name: Fail if device does not support discard
+  fail:
+    msg: "Device does not support discard/TRIM operations"
+  when: discard_check.stdout | trim == "" or discard_check.stdout | trim == "0B"
+
+- name: Preview full device discard (check mode)
+  blkdiscard:
+    device: /dev/nvme0n1
+  check_mode: true
+  register: preview_result
+
+- name: Verify check mode shows expected change
+  debug:
+    msg: "Check mode: {{ preview_result }}"
+
+- name: Discard specific range (first 1GB)
+  blkdiscard:
+    device: /dev/nvme0n1
+    offset: 0
+    length: 1073741824
+  register: range_result
+  when: false
+
+- name: Full secure erase with zeroout
+  blkdiscard:
+    device: /dev/nvme0n1
+    zeroout: true
+  register: zeroout_result
+  when: false
+
+- name: Force discard even if mounted (dangerous)
+  blkdiscard:
+    device: /dev/nvme0n1
+    force: true
+  register: force_result
+  when: false
+
+- name: Secure erase multiple disks
+  blkdiscard:
+    device: "{{ item }}"
+  loop:
+    - /dev/nvme0n1
+    - /dev/nvme1n1
+  register: multi_result
+  when: false
