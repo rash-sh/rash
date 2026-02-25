@@ -15,6 +15,7 @@ mod dconf;
 mod debconf;
 mod debug;
 mod dnf;
+mod docker_image;
 mod fail;
 mod file;
 mod filesystem;
@@ -79,6 +80,7 @@ use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debug::Debug;
 use crate::modules::dnf::Dnf;
+use crate::modules::docker_image::DockerImage;
 use crate::modules::fail::Fail;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
@@ -210,6 +212,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debconf.get_name(), Box::new(Debconf) as Box<dyn Module>),
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
+        (
+            DockerImage.get_name(),
+            Box::new(DockerImage) as Box<dyn Module>,
+        ),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
