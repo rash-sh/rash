@@ -62,6 +62,7 @@ mod selinux;
 mod service;
 mod set_vars;
 mod setup;
+mod sgdisk;
 mod slurp;
 mod stat;
 mod synchronize;
@@ -145,6 +146,7 @@ use crate::modules::selinux::Selinux;
 use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
+use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::stat::Stat;
 use crate::modules::synchronize::Synchronize;
@@ -320,6 +322,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
+        (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
         (Selinux.get_name(), Box::new(Selinux) as Box<dyn Module>),
         (Service.get_name(), Box::new(Service) as Box<dyn Module>),
