@@ -46,6 +46,7 @@ mod openssl_privatekey;
 mod pacman;
 mod pam_limits;
 mod parted;
+mod ping;
 mod reboot;
 mod script;
 mod seboolean;
@@ -118,6 +119,7 @@ use crate::modules::openssl_privatekey::OpensslPrivatekey;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
+use crate::modules::ping::Ping;
 use crate::modules::reboot::Reboot;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
@@ -277,6 +279,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
+        (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
