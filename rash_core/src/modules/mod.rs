@@ -16,6 +16,7 @@ mod cron;
 mod dconf;
 mod debconf;
 mod debug;
+mod dmsetup;
 mod dnf;
 mod docker_container;
 mod docker_image;
@@ -93,6 +94,7 @@ use crate::modules::cron::Cron;
 use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debug::Debug;
+use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_image::DockerImage;
@@ -240,6 +242,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
         (Debconf.get_name(), Box::new(Debconf) as Box<dyn Module>),
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
+        (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
         (
             DockerContainer.get_name(),
