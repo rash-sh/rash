@@ -1,0 +1,41 @@
+#!/usr/bin/env rash
+---
+- name: Create SSL directory
+  file:
+    path: /tmp/ssl
+    state: directory
+    mode: "0755"
+
+- name: Generate private key
+  command:
+    cmd: openssl genrsa -out /tmp/ssl/server.key 2048
+    creates: /tmp/ssl/server.key
+
+- name: Generate CSR
+  command:
+    cmd: >
+      openssl req -new -key /tmp/ssl/server.key
+      -out /tmp/ssl/server.csr
+      -subj "/CN=test.example.com"
+    creates: /tmp/ssl/server.csr
+
+- name: Generate self-signed certificate
+  openssl_certificate:
+    path: /tmp/ssl/server.crt
+    privatekey_path: /tmp/ssl/server.key
+    csr_path: /tmp/ssl/server.csr
+    provider: selfsigned
+    valid_in: 365
+    mode: "0644"
+
+- name: Verify certificate exists
+  stat:
+    path: /tmp/ssl/server.crt
+  register: cert_stat
+
+- name: Assert certificate was created
+  assert:
+    that:
+      - cert_stat.stat.exists
+    fail_msg: "Certificate was not created"
+    success_msg: "Certificate created successfully"
