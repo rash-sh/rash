@@ -11,7 +11,7 @@
 /// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
-/// ## Example
+/// ## Examples
 ///
 /// ```yaml
 /// - name: Add EPEL repository
@@ -22,27 +22,36 @@
 ///     gpgcheck: true
 ///     gpgkey: https://download.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-$releasever
 ///
+/// - name: Add repository with multiple baseurls
+///   yum_repository:
+///     name: myrepo
+///     description: My Custom Repository
+///     baseurl:
+///       - http://mirror1.example.com/repo/
+///       - http://mirror2.example.com/repo/
+///
 /// - name: Remove old repository
 ///   yum_repository:
 ///     name: old-repo
 ///     state: absent
 ///
-/// - name: Add repository with custom file
+/// - name: Disable a repository
 ///   yum_repository:
-///     name: myrepo
-///     file: my-repos
-///     description: My custom repo
-///     baseurl: https://myrepo.example.com/
+///     name: epel
+///     description: EPEL YUM repo
+///     baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+///     enabled: false
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
 use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
+use std::collections::BTreeMap;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::prelude::*;
 use std::path::Path;
@@ -55,13 +64,17 @@ use serde_norway::Value as YamlValue;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
-const REPO_DIR: &str = "/etc/yum.repos.d";
+const YUM_REPOS_DIR: &str = "/etc/yum.repos.d";
 
-fn default_enabled() -> Option<bool> {
+fn default_true() -> Option<bool> {
     Some(true)
 }
 
-#[derive(Debug, PartialEq, Default, Clone, Deserialize)]
+fn default_file(name: &str) -> String {
+    format!("{name}.repo")
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum State {
@@ -70,169 +83,214 @@ pub enum State {
     Absent,
 }
 
-#[derive(Debug, PartialEq, Default, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
-    /// Repository ID. This is the section name in the .repo file.
+    /// Repository name (section name in the .repo file).
     pub name: String,
-    /// URL to the directory where the yum repository's 'repodata' directory lives.
-    pub baseurl: Option<String>,
-    /// A human readable string describing the repository.
+    /// Base URL for the repository. Can be a single URL or a list of URLs.
+    pub baseurl: Option<StringOrList>,
+    /// A human-readable description of the repository.
+    /// Maps to the `name` key in the repository file.
     pub description: Option<String>,
     /// Whether the repository is enabled.
     /// **[default: `true`]**
-    #[serde(default = "default_enabled")]
+    #[serde(default = "default_true")]
     pub enabled: Option<bool>,
     /// Whether to check GPG signatures on packages.
     pub gpgcheck: Option<bool>,
-    /// URL pointing to the GPG key for the repository.
+    /// URL to the GPG key for the repository.
     pub gpgkey: Option<String>,
     /// Whether the repository should exist or not.
     /// **[default: `"present"`]**
     pub state: Option<State>,
-    /// File name (without .repo extension) to use for the repository.
-    /// Defaults to the value of `name`.
+    /// Repository file name (without .repo extension).
+    /// Defaults to the repository name.
     pub file: Option<String>,
+    /// Repository mirror list URL.
+    pub mirrorlist: Option<String>,
+    /// Metalink URL for the repository.
+    pub metalink: Option<String>,
+    /// Repository priority (lower = higher priority).
+    pub priority: Option<i32>,
+    /// Cost of this repository relative to others.
+    pub cost: Option<i32>,
+    /// Exclude specific packages from this repository.
+    pub exclude: Option<String>,
+    /// Include only specific packages from this repository.
+    pub includepkgs: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
+#[serde(untagged)]
+pub enum StringOrList {
+    Single(String),
+    List(Vec<String>),
+}
+
+impl StringOrList {
+    fn to_ini_value(&self) -> String {
+        match self {
+            StringOrList::Single(s) => s.clone(),
+            StringOrList::List(v) => v.join("\n"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 struct RepoEntry {
-    option: String,
+    section: String,
+    key: String,
     value: String,
-    line_number: usize,
 }
 
-fn parse_repo_content(content: &str, section: &str) -> (Vec<RepoEntry>, Vec<String>, bool) {
+fn parse_repo_content(content: &str) -> (Vec<RepoEntry>, Vec<String>) {
     let mut entries: Vec<RepoEntry> = Vec::new();
     let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-    let mut in_section = false;
-    let mut section_exists = false;
+    let mut current_section: Option<String> = None;
 
-    for (idx, line) in lines.iter().enumerate() {
+    for line in &lines {
         let trimmed = line.trim();
 
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            let current_section = &trimmed[1..trimmed.len() - 1];
-            in_section = current_section == section;
-            if in_section {
-                section_exists = true;
-            }
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with(';') {
             continue;
         }
 
-        if in_section {
-            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with(';') {
-                continue;
-            }
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            current_section = Some(trimmed[1..trimmed.len() - 1].to_string());
+            continue;
+        }
 
-            if trimmed.starts_with('[') {
-                in_section = false;
-                continue;
-            }
-
-            if let Some(eq_pos) = trimmed.find('=') {
-                let option = trimmed[..eq_pos].trim().to_string();
-                let value = trimmed[eq_pos + 1..].trim().to_string();
+        if let Some(eq_pos) = trimmed.find('=') {
+            let key = trimmed[..eq_pos].trim().to_string();
+            let value = trimmed[eq_pos + 1..].trim().to_string();
+            if let Some(ref section) = current_section {
                 entries.push(RepoEntry {
-                    option,
+                    section: section.clone(),
+                    key,
                     value,
-                    line_number: idx,
                 });
             }
         }
     }
 
-    (entries, lines, section_exists)
+    (entries, lines)
 }
 
-fn find_option_entry<'a>(entries: &'a [RepoEntry], option: &str) -> Option<&'a RepoEntry> {
-    entries.iter().find(|e| e.option == option)
+fn find_repo_entries<'a>(entries: &'a [RepoEntry], section: &str) -> Vec<&'a RepoEntry> {
+    entries.iter().filter(|e| e.section == section).collect()
 }
 
-fn get_repo_path(params: &Params) -> String {
-    let filename = params.file.as_ref().unwrap_or(&params.name);
-    format!("{}/{}.repo", REPO_DIR, filename)
+fn find_section_line(lines: &[String], section: &str) -> Option<usize> {
+    let section_header = format!("[{section}]");
+    lines.iter().position(|l| l.trim() == section_header)
 }
 
-fn build_repo_content(params: &Params) -> String {
-    let mut lines: Vec<String> = Vec::new();
+fn format_key_value(key: &str, value: &str) -> String {
+    format!("{key}={value}")
+}
 
-    lines.push(format!("[{}]", params.name));
+fn build_repo_content(params: &Params) -> BTreeMap<String, String> {
+    let mut options: BTreeMap<String, String> = BTreeMap::new();
 
     if let Some(ref desc) = params.description {
-        lines.push(format!("name={}", desc));
+        options.insert("name".to_string(), desc.clone());
     }
 
     if let Some(ref baseurl) = params.baseurl {
-        lines.push(format!("baseurl={}", baseurl));
+        options.insert("baseurl".to_string(), baseurl.to_ini_value());
+    }
+
+    if let Some(ref mirrorlist) = params.mirrorlist {
+        options.insert("mirrorlist".to_string(), mirrorlist.clone());
+    }
+
+    if let Some(ref metalink) = params.metalink {
+        options.insert("metalink".to_string(), metalink.clone());
     }
 
     if let Some(enabled) = params.enabled {
-        lines.push(format!("enabled={}", if enabled { 1 } else { 0 }));
+        options.insert(
+            "enabled".to_string(),
+            if enabled {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            },
+        );
     }
 
     if let Some(gpgcheck) = params.gpgcheck {
-        lines.push(format!("gpgcheck={}", if gpgcheck { 1 } else { 0 }));
+        options.insert(
+            "gpgcheck".to_string(),
+            if gpgcheck {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            },
+        );
     }
 
     if let Some(ref gpgkey) = params.gpgkey {
-        lines.push(format!("gpgkey={}", gpgkey));
+        options.insert("gpgkey".to_string(), gpgkey.clone());
     }
 
-    lines.join("\n") + "\n"
+    if let Some(priority) = params.priority {
+        options.insert("priority".to_string(), priority.to_string());
+    }
+
+    if let Some(cost) = params.cost {
+        options.insert("cost".to_string(), cost.to_string());
+    }
+
+    if let Some(ref exclude) = params.exclude {
+        options.insert("exclude".to_string(), exclude.clone());
+    }
+
+    if let Some(ref includepkgs) = params.includepkgs {
+        options.insert("includepkgs".to_string(), includepkgs.clone());
+    }
+
+    options
 }
 
-fn remove_section(lines: &[String], section: &str) -> Vec<String> {
-    let mut result: Vec<String> = Vec::new();
-    let mut in_section = false;
-    let mut skip_next_empty = false;
+fn entries_to_map(entries: &[&RepoEntry]) -> BTreeMap<String, String> {
+    entries
+        .iter()
+        .map(|e| (e.key.clone(), e.value.clone()))
+        .collect()
+}
 
-    for line in lines.iter() {
-        let trimmed = line.trim();
-
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            let current_section = &trimmed[1..trimmed.len() - 1];
-            in_section = current_section == section;
-            if !in_section {
-                result.push(line.clone());
-            }
-            continue;
+fn compare_repo_options(
+    existing: &BTreeMap<String, String>,
+    desired: &BTreeMap<String, String>,
+) -> bool {
+    for (key, desired_value) in desired {
+        match existing.get(key) {
+            Some(existing_value) if existing_value == desired_value => continue,
+            _ => return false,
         }
-
-        if in_section {
-            skip_next_empty = true;
-            continue;
-        }
-
-        if trimmed.is_empty() && skip_next_empty {
-            skip_next_empty = false;
-            continue;
-        }
-
-        result.push(line.clone());
     }
-
-    if result.last().map(|l| l.is_empty()).unwrap_or(false) {
-        result.pop();
-    }
-
-    result
+    true
 }
 
 pub fn yum_repository(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
-    let repo_path = get_repo_path(&params);
-    let path = Path::new(repo_path.as_str());
-    let section = &params.name;
     let state = params.state.clone().unwrap_or_default();
+    let file_name = params
+        .file
+        .clone()
+        .unwrap_or_else(|| default_file(&params.name));
+    let repo_path = Path::new(YUM_REPOS_DIR).join(&file_name);
 
-    let (entries, mut lines, section_exists) = if path.exists() {
-        let content = read_to_string(path)?;
-        parse_repo_content(&content, section)
+    let (entries, mut lines) = if repo_path.exists() {
+        let content = read_to_string(&repo_path)?;
+        parse_repo_content(&content)
     } else {
-        (Vec::new(), Vec::new(), false)
+        (Vec::new(), Vec::new())
     };
 
     let original_content = if lines.is_empty() {
@@ -245,63 +303,71 @@ pub fn yum_repository(params: Params, check_mode: bool) -> Result<ModuleResult> 
 
     match state {
         State::Present => {
-            if !section_exists {
-                let new_section = build_repo_content(&params);
+            let desired_options = build_repo_content(&params);
+            let existing_entries = find_repo_entries(&entries, &params.name);
+            let existing_map = entries_to_map(&existing_entries);
+
+            if existing_entries.is_empty() {
                 if !lines.is_empty() && !lines.last().map(|l| l.is_empty()).unwrap_or(true) {
                     lines.push(String::new());
                 }
-                for line in new_section.lines() {
-                    lines.push(line.to_string());
+                lines.push(format!("[{}]", params.name));
+                for (key, value) in &desired_options {
+                    lines.push(format_key_value(key, value));
                 }
                 changed = true;
-            } else {
-                let enabled_str = params
-                    .enabled
-                    .map(|b| (if b { "1" } else { "0" }).to_string());
-                let gpgcheck_str = params
-                    .gpgcheck
-                    .map(|b| (if b { "1" } else { "0" }).to_string());
-                let options: [(&str, Option<&String>); 5] = [
-                    ("name", params.description.as_ref()),
-                    ("baseurl", params.baseurl.as_ref()),
-                    ("enabled", enabled_str.as_ref()),
-                    ("gpgcheck", gpgcheck_str.as_ref()),
-                    ("gpgkey", params.gpgkey.as_ref()),
-                ];
+            } else if !compare_repo_options(&existing_map, &desired_options) {
+                let section_line = find_section_line(&lines, &params.name).ok_or_else(|| {
+                    Error::new(ErrorKind::InvalidData, "Section header not found")
+                })?;
 
-                for (option, value) in options.iter() {
-                    if let Some(v) = value {
-                        if let Some(entry) = find_option_entry(&entries, option) {
-                            if entry.value != **v {
-                                lines[entry.line_number] = format!("{}={}", option, v);
-                                changed = true;
-                            }
-                        } else {
-                            let section_start = lines.iter().position(|l| {
-                                let trimmed = l.trim();
-                                trimmed == format!("[{}]", section)
-                            });
-
-                            if let Some(start_idx) = section_start {
-                                let mut insert_idx = start_idx + 1;
-                                while insert_idx < lines.len() {
-                                    let trimmed = lines[insert_idx].trim();
-                                    if trimmed.starts_with('[') || trimmed.is_empty() {
-                                        break;
-                                    }
-                                    insert_idx += 1;
-                                }
-                                lines.insert(insert_idx, format!("{}={}", option, v));
-                                changed = true;
-                            }
-                        }
+                let mut section_end = lines.len();
+                for (idx, line) in lines.iter().enumerate().skip(section_line + 1) {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('[') {
+                        section_end = idx;
+                        break;
                     }
                 }
+
+                let mut new_section_lines: Vec<String> = Vec::new();
+                new_section_lines.push(lines[section_line].clone());
+
+                for (key, value) in &desired_options {
+                    new_section_lines.push(format_key_value(key, value));
+                }
+
+                lines.splice(section_line..section_end, new_section_lines);
+                changed = true;
             }
         }
         State::Absent => {
-            if section_exists {
-                lines = remove_section(&lines, section);
+            let existing_entries = find_repo_entries(&entries, &params.name);
+            if !existing_entries.is_empty()
+                && let Some(section_line) = find_section_line(&lines, &params.name)
+            {
+                let mut section_end = lines.len();
+                for (idx, line) in lines.iter().enumerate().skip(section_line + 1) {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('[') {
+                        section_end = idx;
+                        break;
+                    }
+                }
+
+                while section_end > section_line {
+                    lines.remove(section_line);
+                    section_end -= 1;
+                }
+
+                while section_line > 0 && section_line < lines.len() {
+                    if lines[section_line - 1].trim().is_empty() {
+                        lines.remove(section_line - 1);
+                    } else {
+                        break;
+                    }
+                }
+
                 changed = true;
             }
         }
@@ -311,18 +377,17 @@ pub fn yum_repository(params: Params, check_mode: bool) -> Result<ModuleResult> 
         let new_content = if lines.is_empty() {
             String::new()
         } else {
-            let trimmed: Vec<String> = lines.into_iter().collect();
             let mut result = String::new();
             let mut prev_empty = false;
-            for line in trimmed {
+            for line in &lines {
                 if line.is_empty() {
                     if !prev_empty {
-                        result.push_str(&line);
+                        result.push_str(line);
                         result.push('\n');
                         prev_empty = true;
                     }
                 } else {
-                    result.push_str(&line);
+                    result.push_str(line);
                     result.push('\n');
                     prev_empty = false;
                 }
@@ -333,30 +398,24 @@ pub fn yum_repository(params: Params, check_mode: bool) -> Result<ModuleResult> 
         diff(&original_content, &new_content);
 
         if !check_mode {
-            if let Some(parent) = path.parent()
+            if let Some(parent) = repo_path.parent()
                 && !parent.exists()
             {
                 std::fs::create_dir_all(parent)?;
             }
 
-            if new_content.is_empty() {
-                if path.exists() {
-                    std::fs::remove_file(path)?;
-                }
-            } else {
-                let mut file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(path)?;
-                file.write_all(new_content.as_bytes())?;
-            }
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&repo_path)?;
+            file.write_all(new_content.as_bytes())?;
         }
     }
 
     Ok(ModuleResult {
         changed,
-        output: Some(get_repo_path(&params)),
+        output: Some(repo_path.to_string_lossy().to_string()),
         extra: None,
     })
 }
@@ -380,10 +439,6 @@ impl Module for YumRepository {
             yum_repository(parse_params(optional_params)?, check_mode)?,
             None,
         ))
-    }
-
-    fn force_string_on_params(&self) -> bool {
-        false
     }
 
     #[cfg(feature = "docs")]
@@ -410,9 +465,25 @@ mod tests {
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.name, "epel");
-        assert_eq!(params.description, Some("EPEL YUM repo".to_owned()));
+        assert_eq!(params.description, Some("EPEL YUM repo".to_string()));
         assert_eq!(params.gpgcheck, Some(true));
-        assert_eq!(params.enabled, Some(true));
+        assert_eq!(params.state, None);
+    }
+
+    #[test]
+    fn test_parse_params_with_file() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            name: epel
+            file: external-repos
+            description: EPEL YUM repo
+            baseurl: https://example.com/repo/
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(params.name, "epel");
+        assert_eq!(params.file, Some("external-repos".to_string()));
     }
 
     #[test]
@@ -430,137 +501,127 @@ mod tests {
     }
 
     #[test]
-    fn test_get_repo_path_default() {
-        let params = Params {
-            name: "epel".to_string(),
-            file: None,
-            ..Default::default()
-        };
-        assert_eq!(get_repo_path(&params), "/etc/yum.repos.d/epel.repo");
+    fn test_parse_params_baseurl_list() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            name: myrepo
+            baseurl:
+              - http://mirror1.example.com/repo/
+              - http://mirror2.example.com/repo/
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        match params.baseurl {
+            Some(StringOrList::List(urls)) => {
+                assert_eq!(urls.len(), 2);
+                assert_eq!(urls[0], "http://mirror1.example.com/repo/");
+            }
+            _ => panic!("Expected list of baseurls"),
+        }
     }
 
     #[test]
-    fn test_get_repo_path_custom_file() {
-        let params = Params {
-            name: "myrepo".to_string(),
-            file: Some("my-repos".to_string()),
-            ..Default::default()
-        };
-        assert_eq!(get_repo_path(&params), "/etc/yum.repos.d/my-repos.repo");
+    fn test_parse_repo_content() {
+        let content = "[epel]\nname=EPEL\nbaseurl=https://example.com/\nenabled=1\n";
+        let (entries, lines) = parse_repo_content(content);
+
+        assert_eq!(lines.len(), 4);
+        assert_eq!(entries.len(), 3);
+
+        assert_eq!(entries[0].section, "epel");
+        assert_eq!(entries[0].key, "name");
+        assert_eq!(entries[0].value, "EPEL");
+    }
+
+    #[test]
+    fn test_find_repo_entries() {
+        let content = "[epel]\nname=EPEL\nbaseurl=https://example.com/\n\n[other]\nname=Other\n";
+        let (entries, _) = parse_repo_content(content);
+
+        let epel_entries = find_repo_entries(&entries, "epel");
+        assert_eq!(epel_entries.len(), 2);
+
+        let other_entries = find_repo_entries(&entries, "other");
+        assert_eq!(other_entries.len(), 1);
     }
 
     #[test]
     fn test_build_repo_content() {
         let params = Params {
             name: "epel".to_string(),
-            description: Some("EPEL YUM repo".to_string()),
-            baseurl: Some("https://example.com/epel".to_string()),
-            enabled: Some(true),
+            description: Some("EPEL repo".to_string()),
+            baseurl: Some(StringOrList::Single("https://example.com/".to_string())),
+            enabled: Some(false),
             gpgcheck: Some(true),
             gpgkey: Some("https://example.com/key".to_string()),
             state: None,
             file: None,
+            mirrorlist: None,
+            metalink: None,
+            priority: None,
+            cost: None,
+            exclude: None,
+            includepkgs: None,
         };
-        let content = build_repo_content(&params);
-        assert!(content.contains("[epel]"));
-        assert!(content.contains("name=EPEL YUM repo"));
-        assert!(content.contains("baseurl=https://example.com/epel"));
-        assert!(content.contains("enabled=1"));
-        assert!(content.contains("gpgcheck=1"));
-        assert!(content.contains("gpgkey=https://example.com/key"));
+
+        let options = build_repo_content(&params);
+        assert_eq!(options.get("name"), Some(&"EPEL repo".to_string()));
+        assert_eq!(
+            options.get("baseurl"),
+            Some(&"https://example.com/".to_string())
+        );
+        assert_eq!(options.get("enabled"), Some(&"0".to_string()));
+        assert_eq!(options.get("gpgcheck"), Some(&"1".to_string()));
+        assert_eq!(
+            options.get("gpgkey"),
+            Some(&"https://example.com/key".to_string())
+        );
     }
 
     #[test]
-    fn test_parse_repo_content() {
-        let content =
-            "[epel]\nname=EPEL\nbaseurl=https://example.com\nenabled=1\n\n[other]\nname=Other\n";
-        let (entries, lines, exists) = parse_repo_content(content, "epel");
-
-        assert!(exists);
-        assert_eq!(lines.len(), 7);
-        assert_eq!(entries.len(), 3);
-        assert_eq!(entries[0].option, "name");
-        assert_eq!(entries[0].value, "EPEL");
+    fn test_format_key_value() {
+        assert_eq!(format_key_value("name", "EPEL"), "name=EPEL");
+        assert_eq!(
+            format_key_value("baseurl", "https://example.com/"),
+            "baseurl=https://example.com/"
+        );
     }
 
     #[test]
-    fn test_parse_repo_content_not_found() {
-        let content = "[other]\nname=Other\n";
-        let (entries, _, exists) = parse_repo_content(content, "epel");
+    fn test_string_or_list_to_ini_value() {
+        let single = StringOrList::Single("https://example.com/".to_string());
+        assert_eq!(single.to_ini_value(), "https://example.com/");
 
-        assert!(!exists);
-        assert!(entries.is_empty());
+        let list = StringOrList::List(vec![
+            "http://mirror1.example.com/".to_string(),
+            "http://mirror2.example.com/".to_string(),
+        ]);
+        assert_eq!(
+            list.to_ini_value(),
+            "http://mirror1.example.com/\nhttp://mirror2.example.com/"
+        );
     }
 
     #[test]
-    fn test_remove_section() {
-        let lines: Vec<String> = vec![
-            "[epel]".to_string(),
-            "name=EPEL".to_string(),
-            "baseurl=https://example.com".to_string(),
-            "".to_string(),
-            "[other]".to_string(),
-            "name=Other".to_string(),
-        ];
-        let result = remove_section(&lines, "epel");
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], "[other]");
-        assert_eq!(result[1], "name=Other");
+    fn test_compare_repo_options() {
+        let mut existing: BTreeMap<String, String> = BTreeMap::new();
+        existing.insert("name".to_string(), "EPEL".to_string());
+        existing.insert("enabled".to_string(), "1".to_string());
+
+        let mut desired: BTreeMap<String, String> = BTreeMap::new();
+        desired.insert("name".to_string(), "EPEL".to_string());
+        desired.insert("enabled".to_string(), "1".to_string());
+
+        assert!(compare_repo_options(&existing, &desired));
+
+        desired.insert("enabled".to_string(), "0".to_string());
+        assert!(!compare_repo_options(&existing, &desired));
     }
 
     #[test]
-    fn test_build_repo_content_minimal() {
-        let params = Params {
-            name: "minimal".to_string(),
-            description: None,
-            baseurl: Some("https://example.com".to_string()),
-            enabled: Some(false),
-            gpgcheck: None,
-            gpgkey: None,
-            state: None,
-            file: None,
-        };
-        let content = build_repo_content(&params);
-        assert!(content.contains("[minimal]"));
-        assert!(content.contains("baseurl=https://example.com"));
-        assert!(content.contains("enabled=0"));
-        assert!(!content.contains("gpgcheck"));
-        assert!(!content.contains("gpgkey"));
-    }
-
-    #[test]
-    fn test_find_option_entry() {
-        let entries = vec![
-            RepoEntry {
-                option: "name".to_string(),
-                value: "EPEL".to_string(),
-                line_number: 1,
-            },
-            RepoEntry {
-                option: "baseurl".to_string(),
-                value: "https://example.com".to_string(),
-                line_number: 2,
-            },
-        ];
-        assert!(find_option_entry(&entries, "name").is_some());
-        assert!(find_option_entry(&entries, "baseurl").is_some());
-        assert!(find_option_entry(&entries, "gpgcheck").is_none());
-    }
-
-    #[test]
-    fn test_parse_params_with_file() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            name: myrepo
-            file: my-custom-file
-            description: My custom repo
-            baseurl: https://myrepo.example.com/
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.name, "myrepo");
-        assert_eq!(params.file, Some("my-custom-file".to_owned()));
-        assert_eq!(params.description, Some("My custom repo".to_owned()));
+    fn test_default_file() {
+        assert_eq!(default_file("epel"), "epel.repo");
+        assert_eq!(default_file("my-repo"), "my-repo.repo");
     }
 }
