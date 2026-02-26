@@ -84,6 +84,7 @@ mod uri;
 mod user;
 mod wait_for;
 mod wipefs;
+mod xml;
 mod yum_repository;
 mod zfs;
 mod zypper;
@@ -176,6 +177,7 @@ use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wipefs::Wipefs;
+use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
 use crate::modules::zfs::Zfs;
 use crate::modules::zypper::Zypper;
@@ -371,6 +373,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
+        (Xml.get_name(), Box::new(Xml) as Box<dyn Module>),
         (
             YumRepository.get_name(),
             Box::new(YumRepository) as Box<dyn Module>,
