@@ -45,10 +45,10 @@ use std::fs::{self, File, OpenOptions, set_permissions};
 use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::time::Duration;
 
 use minijinja::Value;
 use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair};
+use time::Duration;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
@@ -141,9 +141,9 @@ fn generate_self_signed_certificate(
     dn.push(DnType::CommonName, common_name);
     params.distinguished_name = dn;
 
-    params.not_before = time::OffsetDateTime::now_utc() - Duration::from_secs(24 * 60 * 60);
+    params.not_before = time::OffsetDateTime::now_utc() - Duration::seconds(24 * 60 * 60);
     params.not_after =
-        time::OffsetDateTime::now_utc() + Duration::from_secs(valid_in_days as u64 * 24 * 60 * 60);
+        time::OffsetDateTime::now_utc() + Duration::days(valid_in_days as i64);
 
     params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
 
