@@ -63,6 +63,7 @@ mod pam_limits;
 mod parted;
 mod ping;
 mod pip;
+mod postgresql_db;
 mod reboot;
 mod redis;
 mod script;
@@ -157,6 +158,7 @@ use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
+use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::script::Script;
@@ -349,6 +351,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
+        (
+            PostgresqlDb.get_name(),
+            Box::new(PostgresqlDb) as Box<dyn Module>,
+        ),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
