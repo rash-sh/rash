@@ -307,7 +307,7 @@ impl PipClient {
                     ErrorKind::InvalidData,
                     format!("Invalid umask '{umask_str}': {e}"),
                 )
-            })?;
+            })? as nix::libc::mode_t;
             Some(unsafe { nix::libc::umask(mode) })
         } else {
             None
