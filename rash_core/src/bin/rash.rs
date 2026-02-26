@@ -2,13 +2,14 @@ use rash_core::context::{Context, GlobalParams};
 use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
+use rash_core::modules::add_module_search_path;
 use rash_core::task::{parse_file, parse_file_with_handlers};
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
 use std::error::Error as StdError;
 use std::fs::read_to_string;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 
 use clap::error::ErrorKind as ClapErrorKind;
@@ -99,6 +100,42 @@ fn crash_error(e: Error) -> ! {
     exit(exit_code)
 }
 
+fn setup_module_search_paths(script_path: &Path) {
+    if let Some(script_dir) = script_path.parent() {
+        let script_modules = script_dir.join("modules");
+        if script_modules.exists() {
+            trace!(
+                "Adding script-relative module search path: {:?}",
+                script_modules
+            );
+            add_module_search_path(script_modules);
+        }
+    }
+
+    let system_modules = PathBuf::from("/etc/rash/modules");
+    if system_modules.exists() {
+        trace!("Adding system module search path: {:?}", system_modules);
+        add_module_search_path(system_modules);
+    }
+
+    if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
+        let user_modules = PathBuf::from(config_home).join("rash").join("modules");
+        if user_modules.exists() {
+            trace!("Adding user module search path (XDG): {:?}", user_modules);
+            add_module_search_path(user_modules);
+        }
+    } else if let Ok(home) = std::env::var("HOME") {
+        let user_modules = PathBuf::from(home)
+            .join(".config")
+            .join("rash")
+            .join("modules");
+        if user_modules.exists() {
+            trace!("Adding user module search path (HOME): {:?}", user_modules);
+            add_module_search_path(user_modules);
+        }
+    }
+}
+
 fn main() {
     let cli: Cli = Cli::parse();
     if cli.script.is_none() && cli.script_file.is_none() {
@@ -127,6 +164,9 @@ fn main() {
     trace!("{:?}", &cli);
     let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());
     let script_path = Path::new(&script_path_string);
+
+    setup_module_search_paths(script_path);
+
     let main_file = if let Some(s) = cli.script {
         s
     } else {
