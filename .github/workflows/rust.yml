@@ -156,7 +156,7 @@ jobs:
 
       - name: Upload release artifacts
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.job.target }}
           path: |
@@ -178,7 +178,7 @@ jobs:
           echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
