@@ -41,6 +41,7 @@ mod ini_file;
 mod initramfs;
 mod interfaces_file;
 mod iptables;
+mod java_keystore;
 mod kernel_blacklist;
 mod lbu;
 mod lineinfile;
@@ -131,6 +132,7 @@ use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
+use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::lbu::Lbu;
 use crate::modules::lineinfile::Lineinfile;
@@ -301,6 +303,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
+        (
+            JavaKeystore.get_name(),
+            Box::new(JavaKeystore) as Box<dyn Module>,
+        ),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
         (Initramfs.get_name(), Box::new(Initramfs) as Box<dyn Module>),
