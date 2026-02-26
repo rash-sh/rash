@@ -24,6 +24,7 @@ mod dmsetup;
 mod dnf;
 mod docker_container;
 mod docker_image;
+mod dynamic;
 mod expect;
 mod fail;
 mod file;
@@ -125,6 +126,7 @@ use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_image::DockerImage;
+pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::file::File;
@@ -199,7 +201,8 @@ use crate::modules::zpool::Zpool;
 use crate::modules::zypper::Zypper;
 
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::path::PathBuf;
+use std::sync::{LazyLock, RwLock};
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -420,6 +423,37 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
     .into_iter()
     .collect()
 });
+
+pub static DYNAMIC_REGISTRY: LazyLock<RwLock<DynamicModuleRegistry>> =
+    LazyLock::new(|| RwLock::new(DynamicModuleRegistry::new()));
+
+pub fn add_module_search_path(path: PathBuf) {
+    if let Ok(mut registry) = DYNAMIC_REGISTRY.write() {
+        registry.add_search_path(path);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ModuleRef {
+    Static(String),
+    Dynamic(DynamicModule),
+}
+
+impl ModuleRef {
+    pub fn get_module(&self) -> &dyn Module {
+        match self {
+            ModuleRef::Static(name) => MODULES.get(name.as_str()).map(|b| b.as_ref()).unwrap(),
+            ModuleRef::Dynamic(m) => m,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            ModuleRef::Static(name) => name.as_str(),
+            ModuleRef::Dynamic(m) => m.get_name(),
+        }
+    }
+}
 
 #[inline(always)]
 pub fn is_module(module: &str) -> bool {
