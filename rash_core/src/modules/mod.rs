@@ -90,6 +90,7 @@ mod wipefs;
 mod xml;
 mod yum_repository;
 mod zfs;
+mod zpool;
 mod zypper;
 
 use crate::context::GlobalParams;
@@ -186,6 +187,7 @@ use crate::modules::wipefs::Wipefs;
 use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
 use crate::modules::zfs::Zfs;
+use crate::modules::zpool::Zpool;
 use crate::modules::zypper::Zypper;
 
 use std::collections::HashMap;
@@ -394,6 +396,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(YumRepository) as Box<dyn Module>,
         ),
         (Zfs.get_name(), Box::new(Zfs) as Box<dyn Module>),
+        (Zpool.get_name(), Box::new(Zpool) as Box<dyn Module>),
         (Zypper.get_name(), Box::new(Zypper) as Box<dyn Module>),
     ]
     .into_iter()
