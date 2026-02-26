@@ -59,6 +59,7 @@ mod meta;
 mod modprobe;
 mod mount;
 mod mysql_db;
+mod netplan;
 mod nmcli;
 mod npm;
 mod openssl_certificate;
