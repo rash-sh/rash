@@ -63,6 +63,7 @@ mod parted;
 mod ping;
 mod pip;
 mod reboot;
+mod redis;
 mod script;
 mod seboolean;
 mod selinux;
@@ -154,6 +155,7 @@ use crate::modules::parted::Parted;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::reboot::Reboot;
+use crate::modules::redis::Redis;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
 use crate::modules::selinux::Selinux;
@@ -345,6 +347,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
+        (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
