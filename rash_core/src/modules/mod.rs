@@ -69,6 +69,7 @@ mod package;
 mod pacman;
 mod pam_limits;
 mod parted;
+mod pause;
 mod ping;
 mod pip;
 mod postgresql_db;
@@ -173,6 +174,7 @@ use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
+use crate::modules::pause::Pause;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
@@ -384,6 +386,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
+        (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
         (
             PostgresqlDb.get_name(),

@@ -1,0 +1,6 @@
+#!/usr/bin/env rash
+
+- name: Pause for 1 second
+  pause:
+    seconds: 1
+    prompt: "Waiting for 1 second..."
