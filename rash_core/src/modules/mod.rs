@@ -60,6 +60,7 @@ mod mount;
 mod mysql_db;
 mod nmcli;
 mod npm;
+mod openssl_certificate;
 mod openssl_csr;
 mod openssl_privatekey;
 mod pacman;
@@ -160,6 +161,7 @@ use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
+use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
 use crate::modules::pacman::Pacman;
@@ -361,12 +363,16 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
         (
-            OpensslPrivatekey.get_name(),
-            Box::new(OpensslPrivatekey) as Box<dyn Module>,
+            OpensslCertificate.get_name(),
+            Box::new(OpensslCertificate) as Box<dyn Module>,
         ),
         (
             OpensslCsr.get_name(),
             Box::new(OpensslCsr) as Box<dyn Module>,
+        ),
+        (
+            OpensslPrivatekey.get_name(),
+            Box::new(OpensslPrivatekey) as Box<dyn Module>,
         ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
