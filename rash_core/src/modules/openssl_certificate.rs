@@ -48,13 +48,13 @@ use std::path::Path;
 
 use minijinja::Value;
 use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair};
-use time::Duration;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
+use time::Duration;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -142,8 +142,7 @@ fn generate_self_signed_certificate(
     params.distinguished_name = dn;
 
     params.not_before = time::OffsetDateTime::now_utc() - Duration::seconds(24 * 60 * 60);
-    params.not_after =
-        time::OffsetDateTime::now_utc() + Duration::days(valid_in_days as i64);
+    params.not_after = time::OffsetDateTime::now_utc() + Duration::days(valid_in_days as i64);
 
     params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
 
