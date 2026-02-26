@@ -1,0 +1,8 @@
+#!/usr/bin/env rash
+
+- name: Install packages using auto-detected package manager
+  package:
+    name:
+      - curl
+      - jq
+    state: present

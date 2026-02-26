@@ -104,6 +104,8 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/timezone.rh' -not -path 'examples/locale.rh' \
 		-not -path 'examples/blkdiscard.rh' -not -path 'examples/mdadm.rh' \
 		-not -path 'examples/openssl_certificate.rh' \
+		-not -path 'examples/pause.rh' \
+		-not -path 'examples/package.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$$example || exit 1; \

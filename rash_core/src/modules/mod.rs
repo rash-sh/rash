@@ -65,6 +65,7 @@ mod npm;
 mod openssl_certificate;
 mod openssl_csr;
 mod openssl_privatekey;
+mod package;
 mod pacman;
 mod pam_limits;
 mod parted;
@@ -168,6 +169,7 @@ use crate::modules::npm::Npm;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
+use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
@@ -389,6 +391,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
+        (Package.get_name(), Box::new(Package) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
