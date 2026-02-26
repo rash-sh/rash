@@ -109,13 +109,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
 
 [[package]]
-name = "arc-swap"
-version = "1.8.2"
+name = "arcstr"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9f3647c145568cec02c42054e07bdf9a5a698e15b466fb2341bfc393cd24aa5"
-dependencies = [
- "rustversion",
-]
+checksum = "03918c3dbd7701a85c6b9887732e2921175f26c350b4563841d0958c21d57e6d"
 
 [[package]]
 name = "arrayvec"
@@ -1431,7 +1428,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.2",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
@@ -2574,7 +2571,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.6.2",
+ "socket2",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2612,7 +2609,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.2",
+ "socket2",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -2812,19 +2809,20 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.29.5"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc42f3a12fd4408ce64d8efef67048a924e543bd35c6591c0447fda9054695f"
+checksum = "dbe7f6e08ce1c6a9b21684e643926f6fc3b683bc006cb89afd72a5e0eb16e3a2"
 dependencies = [
- "arc-swap",
+ "arcstr",
  "combine",
  "itoa",
  "num-bigint",
  "percent-encoding",
  "ryu",
  "sha1_smol",
- "socket2 0.5.10",
+ "socket2",
  "url",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -3531,16 +3529,6 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "socket2"
-version = "0.5.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
-dependencies = [
- "libc",
- "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "socket2"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86f4aa3ad99f2088c990dfa82d367e19cb29268ed67c574d10d0a4bfe71f07e0"
@@ -3837,7 +3825,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
- "socket2 0.6.2",
+ "socket2",
  "windows-sys 0.61.2",
 ]
 
@@ -4851,6 +4839,12 @@ dependencies = [
  "libc",
  "rustix",
 ]
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
 
 [[package]]
 name = "xz2"
