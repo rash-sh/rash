@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# dpkg-query mock for Apt module tests.
+# Lists installed packages.
+#
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -W|--show)
+            ;;
+        -f|--showformat)
+            shift
+            ;;
+    esac
+    shift
+done
+
+echo "bash"
+echo "coreutils"
+echo "curl"
+echo "dpkg"
+echo "libc6"
+echo "nginx"
+echo "vim"
