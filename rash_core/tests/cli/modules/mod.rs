@@ -7,6 +7,7 @@ mod dnf;
 mod fail;
 mod firewalld;
 mod gem;
+mod git;
 mod group;
 mod grub;
 mod hostname;
