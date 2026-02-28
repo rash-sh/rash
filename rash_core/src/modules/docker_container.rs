@@ -313,7 +313,7 @@ impl DockerClient {
             &[
                 "inspect",
                 "--format",
-                "{{.Id}}|{{.Name}}|{{.Config.Image}}|{{.State.Status}}|{{.State.String}}",
+                "{{.Id}}|{{.Name}}|{{.Config.Image}}|{{.State.Status}}|{{.State.Pid}}",
                 name,
             ],
             false,
