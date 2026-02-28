@@ -113,7 +113,6 @@ This document analyzes rash modules critical for installing dev tooling in VMs d
 
 | Module | Purpose | Ansible Equivalent |
 |--------|---------|-------------------|
-| `snap` | Snap package management | `community.general.snap` |
 | `flatpak` | Flatpak package management | `community.general.flatpak` |
 | `homebrew` | macOS package management | `community.general.homebrew` |
 | `chocolatey` | Windows package management | `chocolatey.chocolatey.win_chocolatey` |
@@ -171,7 +170,6 @@ These modules have unit tests but would benefit from integration tests:
 - [ ] Document module usage examples
 
 ### Phase 2: Gap Filling
-- [ ] Implement `snap` module (High priority)
 - [ ] Implement `flatpak` module (High priority)
 - [ ] Add integration tests for apt, pip, git modules
 
@@ -192,10 +190,6 @@ These modules only have unit tests but are critical for VM setup. Integration te
 - Package installation/removal
 - Cache updates
 - Version pinning
-
-### Issue #1342: Implement Snap Module
-**Priority:** High  
-**Description:** Add `snap` module for Snap package management, essential for Ubuntu-based VMs.
 
 ### Issue #1344: Implement Flatpak Module  
 **Priority:** Medium  
@@ -238,11 +232,11 @@ These modules only have unit tests but are critical for VM setup. Integration te
 Rash has excellent coverage for VM dev tooling installation with 101 modules. The key modules for package management, user management, file operations, and service management are well-implemented and tested.
 
 **Key Gaps:**
-1. `snap` and `flatpak` modules are missing (high priority for Ubuntu/Fedora VMs)
+1. `flatpak` module is missing (medium priority for Fedora/other distros)
 2. Some critical modules (apt, pip, git) need integration tests
 3. Version manager modules (sdkman, nvm, pyenv) would be nice additions
 
 **Next Steps for @forkline:**
 1. Review and create issues for missing modules
 2. Prioritize integration test additions
-3. Consider snap module implementation as highest priority gap
+3. Consider flatpak module implementation
