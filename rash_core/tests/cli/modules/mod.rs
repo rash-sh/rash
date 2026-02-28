@@ -1,4 +1,5 @@
 mod apk;
+mod apt;
 mod authorized_key;
 mod cargo;
 mod cron;
@@ -15,6 +16,7 @@ mod kernel_blacklist;
 mod logrotate;
 mod pacman;
 mod pam_limits;
+mod pip;
 mod reboot;
 mod seboolean;
 mod systemd;

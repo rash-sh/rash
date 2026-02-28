@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# apt mock for Apt module tests.
+# Lists upgradable packages.
+#
+
+if [[ "$*" == *"list"* && "$*" == *"--upgradable"* ]]; then
+    echo "Listing..."
+    echo "curl/jammy-updates 7.81.0-1ubuntu1.15 amd64 [upgradable from: 7.81.0-1ubuntu1.14]"
+    echo "vim/jammy-updates 2:8.2.3995-1ubuntu2.15 amd64 [upgradable from: 2:8.2.3995-1ubuntu2.14]"
+fi

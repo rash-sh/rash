@@ -1,0 +1,53 @@
+#!/bin/bash
+#
+# pip3 binary mock for Pip module tests.
+#
+
+# Parse command line
+CMD=""
+PACKAGES=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        install|uninstall|freeze|list)
+            CMD="$1"
+            ;;
+        --outdated|-r|--yes|-y|--no-cache-dir|--force-reinstall)
+            # Skip options
+            ;;
+        -*)
+            # Skip other options
+            ;;
+        *)
+            PACKAGES+=("$1")
+            ;;
+    esac
+    shift
+done
+
+case $CMD in
+    freeze)
+        echo "requests==2.28.0"
+        echo "flask==2.0.1"
+        echo "django==4.2.0"
+        echo "click==8.0.0"
+        ;;
+    list)
+        if [[ "$*" == *"--outdated"* ]]; then
+            echo "Package    Version   Latest    Type"
+            echo "---------  -------   ------    ----"
+            echo "requests   2.28.0    2.31.0    wheel"
+            echo "flask      2.0.1     2.3.0     wheel"
+        fi
+        ;;
+    install)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Installing $pkg"
+        done
+        ;;
+    uninstall)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Uninstalling $pkg"
+        done
+        ;;
+esac

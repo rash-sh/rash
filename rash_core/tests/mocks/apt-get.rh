@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+# APT binary mock for Apt module tests.
+#
+
+# Parse command line
+CMD=""
+PACKAGES=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        install|remove|update|dist-upgrade|build-dep)
+            CMD="$1"
+            ;;
+        -*)
+            # Skip options
+            ;;
+        *)
+            PACKAGES+=("$1")
+            ;;
+    esac
+    shift
+done
+
+case $CMD in
+    install)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Installing $pkg"
+        done
+        ;;
+    remove)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Removing $pkg"
+        done
+        ;;
+    update)
+        echo "Get:1 http://archive.ubuntu.com/ubuntu jammy InRelease [270 kB]"
+        echo "Get:2 http://archive.ubuntu.com/ubuntu jammy-updates InRelease [119 kB]"
+        echo "Get:3 http://archive.ubuntu.com/ubuntu jammy-security InRelease [110 kB]"
+        echo "Fetched 499 kB in 1s (499 kB/s)"
+        echo "Reading package lists... Done"
+        ;;
+    dist-upgrade)
+        echo "Reading package lists... Done"
+        echo "Building dependency tree... Done"
+        echo "Calculating upgrade... Done"
+        echo "0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded."
+        ;;
+    build-dep)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Installing build dependencies for $pkg"
+        done
+        ;;
+esac
