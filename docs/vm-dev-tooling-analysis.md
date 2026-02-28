@@ -182,9 +182,9 @@ These modules have unit tests but would benefit from integration tests:
 
 ---
 
-## 5. Recommended Issues
+## 5. Recommended Issues (Created)
 
-### Issue 1: Add Integration Tests for Critical Package Managers
+### Issue #1343: Add Integration Tests for Critical Package Managers
 **Priority:** High  
 **Modules:** apt, pip
 
@@ -193,19 +193,19 @@ These modules only have unit tests but are critical for VM setup. Integration te
 - Cache updates
 - Version pinning
 
-### Issue 2: Implement Snap Module
+### Issue #1342: Implement Snap Module
 **Priority:** High  
 **Description:** Add `snap` module for Snap package management, essential for Ubuntu-based VMs.
 
-### Issue 3: Implement Flatpak Module  
+### Issue #1344: Implement Flatpak Module  
 **Priority:** Medium  
 **Description:** Add `flatpak` module for Flatpak package management.
 
-### Issue 4: Add Git Module Integration Tests
+### Issue #1345: Add Git Module Integration Tests
 **Priority:** Medium  
 **Description:** Add integration tests for git module covering clone, update, and branch operations.
 
-### Issue 5: Add Docker Modules Integration Tests
+### Issue #1341: Add Docker Modules Integration Tests
 **Priority:** Medium  
 **Description:** Add integration tests for docker_container and docker_image modules.
 
