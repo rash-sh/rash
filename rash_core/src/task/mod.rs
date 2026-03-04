@@ -1426,7 +1426,7 @@ mod tests {
             command: 'example'
             "#
         .to_owned();
-        let vars = Value::from_serialize(vec![("boo", "false")]);
+        let vars = context! { boo => "" };
         let yaml: YamlValue = serde_norway::from_str(&s).unwrap();
         let task = Task::from(yaml);
         assert!(!task.is_exec(&vars).unwrap());
