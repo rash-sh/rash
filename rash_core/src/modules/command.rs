@@ -7,7 +7,7 @@
 ///
 /// ```yaml
 /// check_mode:
-///   support: none
+///   support: full
 /// ```
 /// ANCHOR_END: module
 /// ANCHOR: examples
@@ -32,7 +32,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult, parse_params};
+use crate::modules::{parse_params, Module, ModuleResult};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -46,8 +46,8 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_norway::Value as YamlValue;
 use serde_norway::value;
+use serde_norway::Value as YamlValue;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -109,7 +109,7 @@ impl Module for Command {
         _: &GlobalParams,
         optional_params: YamlValue,
         _vars: &Value,
-        _check_mode: bool,
+        check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
         let params: Params = match optional_params.as_str() {
             Some(s) => Params {
@@ -119,6 +119,22 @@ impl Module for Command {
             },
             None => parse_params(optional_params)?,
         };
+
+        let cmd_str = match &params.required {
+            Required::Cmd(s) => s.clone(),
+            Required::Argv(argv) => argv.join(" "),
+        };
+
+        if check_mode {
+            return Ok((
+                ModuleResult {
+                    changed: true,
+                    output: Some(format!("Would run: {}", cmd_str)),
+                    extra: None,
+                },
+                None,
+            ));
+        }
 
         match params.transfer_pid {
             Some(true) => exec_transferring_pid(params),
@@ -242,5 +258,51 @@ mod tests {
         .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_check_mode_cmd() {
+        let command = Command;
+        let yaml: YamlValue = serde_norway::from_str(r#"cmd: "ls -la""#).unwrap();
+        let (result, _) = command
+            .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true)
+            .unwrap();
+
+        assert!(result.get_changed());
+        assert_eq!(result.get_output(), Some("Would run: ls -la".to_string()));
+    }
+
+    #[test]
+    fn test_check_mode_argv() {
+        let command = Command;
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            argv:
+              - echo
+              - "hello world"
+            "#,
+        )
+        .unwrap();
+        let (result, _) = command
+            .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true)
+            .unwrap();
+
+        assert!(result.get_changed());
+        assert_eq!(
+            result.get_output(),
+            Some("Would run: echo hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_check_mode_simple_string() {
+        let command = Command;
+        let yaml: YamlValue = YamlValue::String("ls".to_string());
+        let (result, _) = command
+            .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true)
+            .unwrap();
+
+        assert!(result.get_changed());
+        assert_eq!(result.get_output(), Some("Would run: ls".to_string()));
     }
 }
