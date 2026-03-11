@@ -10,6 +10,15 @@ fn docker_available() -> bool {
         .unwrap_or(false)
 }
 
+macro_rules! skip_without_docker {
+    () => {
+        if !docker_available() {
+            eprintln!("Skipping test: Docker not available");
+            return;
+        }
+    };
+}
+
 fn cleanup_container(name: &str) {
     let _ = Command::new("docker").args(["rm", "-f", name]).output();
 }
@@ -51,10 +60,7 @@ fn create_running_container(name: &str) {
 
 #[test]
 fn test_docker_container_check_mode() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-check";
     cleanup_container(container_name);
@@ -101,10 +107,7 @@ fn test_docker_container_check_mode() {
 
 #[test]
 fn test_docker_container_stop() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-stop";
     cleanup_container(container_name);
@@ -153,10 +156,7 @@ fn test_docker_container_stop() {
 
 #[test]
 fn test_docker_container_remove() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-remove";
     cleanup_container(container_name);
@@ -221,10 +221,7 @@ fn test_docker_container_remove() {
 
 #[test]
 fn test_docker_container_restart() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-restart";
     cleanup_container(container_name);
@@ -256,10 +253,7 @@ fn test_docker_container_restart() {
 
 #[test]
 fn test_docker_container_force_remove() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-force";
     cleanup_container(container_name);
@@ -307,10 +301,7 @@ fn test_docker_container_force_remove() {
 
 #[test]
 fn test_docker_container_remove_absent() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-absent";
     cleanup_container(container_name);
@@ -339,10 +330,7 @@ fn test_docker_container_remove_absent() {
 
 #[test]
 fn test_docker_container_already_stopped() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let container_name = "rash-test-container-already-stopped";
     cleanup_container(container_name);

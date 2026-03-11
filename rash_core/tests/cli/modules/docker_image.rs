@@ -11,6 +11,15 @@ fn docker_available() -> bool {
         .unwrap_or(false)
 }
 
+macro_rules! skip_without_docker {
+    () => {
+        if !docker_available() {
+            eprintln!("Skipping test: Docker not available");
+            return;
+        }
+    };
+}
+
 fn cleanup_image(name: &str) {
     let _ = Command::new("docker")
         .args(["image", "rm", "-f", name])
@@ -27,10 +36,7 @@ RUN echo "test" > /test.txt
 
 #[test]
 fn test_docker_image_pull() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine:3.19";
     cleanup_image(image_name);
@@ -67,10 +73,7 @@ fn test_docker_image_pull() {
 
 #[test]
 fn test_docker_image_pull_idempotent() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine:3.18";
     cleanup_image(image_name);
@@ -103,10 +106,7 @@ fn test_docker_image_pull_idempotent() {
 
 #[test]
 fn test_docker_image_remove() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine:3.17";
 
@@ -142,10 +142,7 @@ fn test_docker_image_remove() {
 
 #[test]
 fn test_docker_image_build() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "rash-test-image:build";
     cleanup_image(image_name);
@@ -188,10 +185,7 @@ fn test_docker_image_build() {
 
 #[test]
 fn test_docker_image_build_with_args() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "rash-test-image:build-args";
     cleanup_image(image_name);
@@ -240,10 +234,7 @@ LABEL test="rash-integration"
 
 #[test]
 fn test_docker_image_force_pull() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine:3.19";
 
@@ -276,10 +267,7 @@ fn test_docker_image_force_pull() {
 
 #[test]
 fn test_docker_image_check_mode() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine:3.16";
     cleanup_image(image_name);
@@ -317,10 +305,7 @@ fn test_docker_image_check_mode() {
 
 #[test]
 fn test_docker_image_local_source() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine:3.20";
 
@@ -347,10 +332,7 @@ fn test_docker_image_local_source() {
 
 #[test]
 fn test_docker_image_local_source_not_found() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "nonexistent-image:nonexistent-tag";
     cleanup_image(image_name);
@@ -378,10 +360,7 @@ fn test_docker_image_local_source_not_found() {
 
 #[test]
 fn test_docker_image_with_tag() {
-    if !docker_available() {
-        eprintln!("Skipping test: Docker not available");
-        return;
-    }
+    skip_without_docker!();
 
     let image_name = "alpine";
     let tag = "latest";
