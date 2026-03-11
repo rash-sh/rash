@@ -123,7 +123,7 @@ mdbook-rash:	## install mdbook_rash to create rash_book
 book:	## create rash_book under rash_book/rash-sh.github.io
 book:	mdbook-rash
 	MDBOOK_BUILD__BUILD_DIR=$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book
-	mdbook-rash generate-llms-txt --output $(BOOK_DIR)/rash-sh.github.io/llms.txt
+	mdbook-rash generate-llms-txt --output rash_book/rash-sh.github.io/llms.txt
 
 .PHONY: update-changelog
 update-changelog:	## automatically update changelog based on commits

@@ -115,10 +115,16 @@ fn handle_generate_llms_txt(sub_args: &ArgMatches) {
 
     if let Some(output_path) = sub_args.get_one::<String>("output") {
         let path = PathBuf::from(output_path);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).expect("Failed to create output directory");
+        if let Some(parent) = path.parent()
+            && let Err(e) = fs::create_dir_all(parent)
+        {
+            error!("Failed to create output directory: {e}");
+            process::exit(1);
         }
-        fs::write(&path, &content).expect("Failed to write llms.txt");
+        if let Err(e) = fs::write(&path, &content) {
+            error!("Failed to write llms.txt: {e}");
+            process::exit(1);
+        }
         info!("Generated llms.txt at {}", path.display());
     } else {
         print!("{content}");
