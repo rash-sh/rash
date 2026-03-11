@@ -20,3 +20,9 @@ rash-*.tar.gz
 rash-*.tar.gz.sha256
 PKGBUILD
 PKGBUILD-bin
+
+# Generated documentation output
+rash-sh.github.io/
+
+# Generated documentation output
+rash-sh.github.io/

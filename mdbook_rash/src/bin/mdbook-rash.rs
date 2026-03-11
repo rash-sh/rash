@@ -1,6 +1,8 @@
 use std::env;
+use std::fs;
 use std::io;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process;
 
 use chrono::Local;
@@ -22,6 +24,17 @@ pub fn make_app() -> Command {
             Command::new("supports")
                 .arg(Arg::new("renderer").required(true))
                 .about("Check whether a renderer is supported by this preprocessor"),
+        )
+        .subcommand(
+            Command::new("generate-llms-txt")
+                .about("Generate llms.txt for LLM discoverability")
+                .arg(
+                    Arg::new("output")
+                        .long("output")
+                        .short('o')
+                        .value_name("FILE")
+                        .help("Output file path (default: stdout)"),
+                ),
         )
 }
 
@@ -58,6 +71,8 @@ fn main() {
 
     if let Some(sub_args) = matches.subcommand_matches("supports") {
         handle_supports(sub_args);
+    } else if let Some(sub_args) = matches.subcommand_matches("generate-llms-txt") {
+        handle_generate_llms_txt(sub_args);
     } else if let Err(e) = handle_preprocessing() {
         error!("{e}");
         process::exit(1);
@@ -92,5 +107,20 @@ fn handle_supports(sub_args: &ArgMatches) -> ! {
         process::exit(0);
     } else {
         process::exit(1);
+    }
+}
+
+fn handle_generate_llms_txt(sub_args: &ArgMatches) {
+    let content = mdbook_rash::generate_llms_txt();
+
+    if let Some(output_path) = sub_args.get_one::<String>("output") {
+        let path = PathBuf::from(output_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("Failed to create output directory");
+        }
+        fs::write(&path, &content).expect("Failed to write llms.txt");
+        info!("Generated llms.txt at {}", path.display());
+    } else {
+        print!("{content}");
     }
 }
