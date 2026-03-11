@@ -21,6 +21,20 @@ By default, every execution of `rash` exposes two variables to the Context: `{{ 
 {{#include ../../rash_core/src/vars/builtin.rs:builtins}}
 ```
 
+### check_mode
+
+The `rash.check_mode` variable is a boolean that indicates whether rash is running in check mode
+(dry-run mode). This is useful for conditionally executing tasks or validating behavior when
+`--check` flag is passed.
+
+Example:
+```yaml
+- name: Skip in check mode
+  debug:
+    msg: "Running in check mode, skipping actual changes"
+  when: rash.check_mode
+```
+
 ## env
 
 You can access any environment var as `{{ env.MY_ENV_VAR }}`.

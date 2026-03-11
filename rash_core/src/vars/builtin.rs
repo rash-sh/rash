@@ -16,6 +16,8 @@ pub struct Builtins {
     /// Script absolute path.
     path: String,
     user: UserInfo,
+    /// Whether rash is running in check mode.
+    check_mode: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,10 +38,11 @@ struct UserInfo {
 ///       - 'rash.path == "/builtins_example.rh"'
 ///       - 'rash.user.uid == 1000'
 ///       - 'rash.user.gid == 1000'
+///       - 'rash.check_mode == false'
 /// ```
 /// ANCHOR_END: examples
 impl Builtins {
-    pub fn new(args: Vec<String>, path: &Path) -> Result<Self> {
+    pub fn new(args: Vec<String>, path: &Path, check_mode: bool) -> Result<Self> {
         let dir = Builtins::get_dir(path)?;
 
         let file_name = path
@@ -61,6 +64,7 @@ impl Builtins {
                 uid: u32::from(getuid()),
                 gid: u32::from(getgid()),
             },
+            check_mode,
         })
     }
 
@@ -92,7 +96,7 @@ impl Builtins {
     }
 
     pub fn update(&self, path: &Path) -> Result<Self> {
-        Builtins::new(self.args.clone(), path)
+        Builtins::new(self.args.clone(), path, self.check_mode)
     }
 }
 
@@ -104,10 +108,17 @@ mod tests {
 
     #[test]
     fn test_builtin_new() {
-        let builtins = Builtins::new(vec![], Path::new("/example.rh")).unwrap();
+        let builtins = Builtins::new(vec![], Path::new("/example.rh"), false).unwrap();
         assert_eq!(builtins.args.len(), 0);
         assert_eq!(builtins.path, "/example.rh".to_owned());
         assert_eq!(builtins.dir, "/".to_owned());
+        assert!(!builtins.check_mode);
+    }
+
+    #[test]
+    fn test_builtin_check_mode() {
+        let builtins = Builtins::new(vec![], Path::new("/example.rh"), true).unwrap();
+        assert!(builtins.check_mode);
     }
 
     #[test]
@@ -116,7 +127,7 @@ mod tests {
         let dir_path = dir.path();
 
         let file_path = dir_path.join("example.rh");
-        let builtins = Builtins::new(vec![], file_path.as_ref()).unwrap();
+        let builtins = Builtins::new(vec![], file_path.as_ref(), false).unwrap();
         assert_eq!(
             builtins.dir,
             canonicalize(dir_path).unwrap().to_str().unwrap().to_owned()

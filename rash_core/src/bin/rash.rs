@@ -210,6 +210,7 @@ fn main() {
     match Builtins::new(
         script_args.into_iter().map(String::from).collect(),
         script_path,
+        cli.check,
     ) {
         Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
         Err(e) => crash_error(e),
