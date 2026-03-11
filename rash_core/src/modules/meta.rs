@@ -1,3 +1,34 @@
+/// ANCHOR: module
+/// # meta
+///
+/// Execute meta-actions during task execution.
+///
+/// This module provides special actions that control the execution flow,
+/// such as flushing handlers.
+///
+/// ## Attributes
+///
+/// ```yaml
+/// check_mode:
+///   support: full
+/// ```
+/// ANCHOR_END: module
+/// ANCHOR: parameters
+/// | Parameter | Required | Type   | Values          | Description                    |
+/// | --------- | -------- | ------ | --------------- | ------------------------------ |
+/// | action    | true     | string | flush_handlers  | The meta action to perform     |
+///
+/// ANCHOR_END: parameters
+///
+/// ANCHOR: examples
+/// ## Example
+///
+/// ```yaml
+/// - name: Flush handlers before continuing
+///   meta:
+///     action: flush_handlers
+/// ```
+/// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
