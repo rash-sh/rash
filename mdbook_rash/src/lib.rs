@@ -221,7 +221,7 @@ indent: true
 
 "#,
                     name = name,
-                    weight = (new_section_number.clone().first().unwrap() + 1) * 1000
+                    weight = new_section_number.first().unwrap() * 1000
                         + ((ch.sub_items.len() + 1) * 10) as u32,
                     parameters = parameters,
                 )
@@ -266,7 +266,7 @@ indent: true
 
 "#,
                     name = lookup_name,
-                    weight = (new_section_number.clone().first().unwrap() + 1) * 1000
+                    weight = new_section_number.first().unwrap() * 1000
                         + ((ch.sub_items.len() + 1) * 100) as u32,
                 )
                 .to_owned();
