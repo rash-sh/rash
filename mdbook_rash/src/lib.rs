@@ -16,6 +16,9 @@ extern crate log;
 
 pub const SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
+const DOCS_BASE_URL: &str = "https://rash-sh.github.io/docs/rash/latest";
+const GITHUB_URL: &str = "https://github.com/rash-sh/rash";
+
 static RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?x)                                                   # insignificant whitespace mode
@@ -322,21 +325,44 @@ pub fn run(_ctx: &PreprocessorContext, book: Book) -> Result<Book, Error> {
     Ok(processed_book)
 }
 
+/// Generate llms.txt content for LLM discoverability.
+///
+/// Returns a markdown-formatted string containing:
+/// - Project overview and features
+/// - Installation instructions
+/// - Quick start example
+/// - Module list (all available modules)
+/// - Lookup list
+/// - Built-in variables
+/// - Links to full documentation
 pub fn generate_llms_txt() -> String {
-    let mut output = String::new();
+    let sections: Vec<String> = vec![
+        section_header(),
+        section_what_is_rash(),
+        section_installation(),
+        section_quick_start(),
+        section_modules(),
+        section_lookups(),
+        section_builtins(),
+        section_links(),
+    ];
+    sections.join("\n")
+}
 
-    output.push_str("# Rash\n\n");
-
+fn section_header() -> String {
+    let mut output = String::from("# Rash\n\n");
     output.push_str(
         "> Rash is a declarative shell scripting language using Ansible-like YAML syntax, ",
     );
     output.push_str(
         "compiled to a single Rust binary. Designed for container entrypoints, IoT devices, ",
     );
-    output.push_str("and local scripting with zero dependencies.\n\n");
+    output.push_str("and local scripting with zero dependencies.\n");
+    output
+}
 
-    output.push_str("## What is Rash\n\n");
-    output.push_str("Rash provides:\n");
+fn section_what_is_rash() -> String {
+    let mut output = String::from("\n## What is Rash\n\nRash provides:\n");
     output.push_str("- A **simple syntax** to maintain low complexity\n");
     output.push_str("- One static binary to be **container oriented**\n");
     output.push_str("- A **declarative** syntax to be idempotent\n");
@@ -344,10 +370,12 @@ pub fn generate_llms_txt() -> String {
     output.push_str("- **Security** by design\n");
     output.push_str("- **Speed and efficiency**\n");
     output.push_str("- **Modular** design\n");
-    output.push_str("- Support of [MiniJinja](https://docs.rs/minijinja/latest/minijinja/syntax/index.html) **templates**\n\n");
+    output.push_str("- Support of [MiniJinja](https://docs.rs/minijinja/latest/minijinja/syntax/index.html) **templates**\n");
+    output
+}
 
-    output.push_str("## Installation\n\n");
-    output.push_str("```bash\n");
+fn section_installation() -> String {
+    let mut output = String::from("\n## Installation\n\n```bash\n");
     output.push_str("# Download latest binary (Linux/macOS)\n");
     output.push_str("curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \\\n");
     output.push_str("    | grep browser_download_url \\\n");
@@ -358,28 +386,31 @@ pub fn generate_llms_txt() -> String {
     output.push_str("    | cut -d '\"' -f 4 \\\n");
     output.push_str("    | xargs curl -s -L \\\n");
     output.push_str("    | sudo tar xvz -C /usr/local/bin\n");
-    output.push_str("```\n\n");
+    output.push_str("```\n");
+    output
+}
 
-    output.push_str("## Quick Start\n\n");
-    output.push_str("Create an `entrypoint.rh` file:\n\n");
-    output.push_str("```yaml\n");
+fn section_quick_start() -> String {
+    let mut output =
+        String::from("\n## Quick Start\n\nCreate an `entrypoint.rh` file:\n\n```yaml\n");
     output.push_str("- name: Ensure directory exists\n");
     output.push_str("  file:\n");
     output.push_str("    path: /app/data\n");
-    output.push_str("    state: directory\n");
-    output.push('\n');
+    output.push_str("    state: directory\n\n");
     output.push_str("- name: Copy configuration\n");
     output.push_str("  copy:\n");
     output.push_str("    content: \"{{ env.APP_CONFIG }}\"\n");
-    output.push_str("    dest: /app/config.yml\n");
-    output.push('\n');
+    output.push_str("    dest: /app/config.yml\n\n");
     output.push_str("- name: Run application\n");
     output.push_str("  command:\n");
     output.push_str("    cmd: /app/bin/start\n");
-    output.push_str("```\n\n");
+    output.push_str("```\n");
+    output
+}
 
-    output.push_str("## Modules\n\n");
-    output.push_str("Rash modules are idempotent operations like Ansible.\n\n");
+fn section_modules() -> String {
+    let mut output =
+        String::from("\n## Modules\n\nRash modules are idempotent operations like Ansible.\n\n");
 
     let mut modules: Vec<_> = MODULES.keys().collect();
     modules.sort();
@@ -388,12 +419,15 @@ pub fn generate_llms_txt() -> String {
         output.push_str(&format!("- {name}\n"));
     }
 
-    output.push_str(
-        "\nSee https://rash-sh.github.io/docs/rash/latest/modules.html for full documentation.\n",
-    );
+    output.push_str(&format!(
+        "\nSee {DOCS_BASE_URL}/modules.html for full documentation.\n"
+    ));
+    output
+}
 
-    output.push_str("\n## Lookups\n\n");
-    output.push_str("Lookups allow fetching data from external sources.\n\n");
+fn section_lookups() -> String {
+    let mut output =
+        String::from("\n## Lookups\n\nLookups allow fetching data from external sources.\n\n");
 
     let mut lookups: Vec<_> = LOOKUPS.iter().collect();
     lookups.sort();
@@ -402,27 +436,101 @@ pub fn generate_llms_txt() -> String {
         output.push_str(&format!("- {name}\n"));
     }
 
-    output.push_str(
-        "\nSee https://rash-sh.github.io/docs/rash/latest/lookups.html for full documentation.\n",
-    );
+    output.push_str(&format!(
+        "\nSee {DOCS_BASE_URL}/lookups.html for full documentation.\n"
+    ));
+    output
+}
 
-    output.push_str("\n## Built-in Variables\n\n");
+fn section_builtins() -> String {
+    let mut output = String::from("\n## Built-in Variables\n\n");
     output.push_str("- `rash.path` - Path to the current script\n");
     output.push_str("- `rash.dir` - Directory of the current script\n");
     output.push_str("- `rash.cwd` - Current working directory\n");
     output.push_str("- `rash.arch` - System architecture\n");
     output.push_str("- `rash.check_mode` - Boolean indicating check mode\n");
     output.push_str("- `env.VAR_NAME` - Access environment variables\n");
-
-    output.push_str(
-        "\nSee https://rash-sh.github.io/docs/rash/latest/builtins.html for full documentation.\n",
-    );
-
-    output.push_str("\n## Links\n\n");
-    output.push_str("- GitHub: https://github.com/rash-sh/rash\n");
-    output.push_str("- Documentation: https://rash-sh.github.io/docs/rash/latest/\n");
-
+    output.push_str(&format!(
+        "\nSee {DOCS_BASE_URL}/builtins.html for full documentation.\n"
+    ));
     output
+}
+
+fn section_links() -> String {
+    format!("\n## Links\n\n- GitHub: {GITHUB_URL}\n- Documentation: {DOCS_BASE_URL}/\n")
+}
+
+#[cfg(test)]
+mod llms_txt_test {
+    use super::*;
+
+    #[test]
+    fn test_generate_llms_txt_contains_expected_sections() {
+        let output = generate_llms_txt();
+        assert!(output.contains("# Rash"), "Missing main header");
+        assert!(
+            output.contains("## What is Rash"),
+            "Missing What is Rash section"
+        );
+        assert!(
+            output.contains("## Installation"),
+            "Missing Installation section"
+        );
+        assert!(
+            output.contains("## Quick Start"),
+            "Missing Quick Start section"
+        );
+        assert!(output.contains("## Modules"), "Missing Modules section");
+        assert!(output.contains("## Lookups"), "Missing Lookups section");
+        assert!(
+            output.contains("## Built-in Variables"),
+            "Missing Built-in Variables section"
+        );
+        assert!(output.contains("## Links"), "Missing Links section");
+    }
+
+    #[test]
+    fn test_generate_llms_txt_contains_all_modules() {
+        let output = generate_llms_txt();
+        for name in MODULES.keys() {
+            assert!(
+                output.contains(&format!("- {name}\n")),
+                "Missing module: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_llms_txt_contains_all_lookups() {
+        let output = generate_llms_txt();
+        for name in LOOKUPS.iter() {
+            assert!(
+                output.contains(&format!("- {name}\n")),
+                "Missing lookup: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_llms_txt_links_are_valid() {
+        let output = generate_llms_txt();
+        assert!(output.contains(DOCS_BASE_URL), "Missing docs base URL");
+        assert!(output.contains(GITHUB_URL), "Missing GitHub URL");
+    }
+
+    #[test]
+    fn test_generate_llms_txt_quick_start_is_valid_yaml() {
+        let output = generate_llms_txt();
+        let start = output
+            .find("```yaml\n")
+            .expect("Could not find yaml block start");
+        let end = output[start..]
+            .find("\n```\n")
+            .expect("Could not find yaml block end");
+        let yaml_content = &output[start + 8..start + end];
+        serde_norway::from_str::<serde_norway::Value>(yaml_content)
+            .expect("Quick start example is not valid YAML");
+    }
 }
 
 #[cfg(test)]
