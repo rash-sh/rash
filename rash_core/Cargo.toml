@@ -59,7 +59,7 @@ strum = "0.28.0"
 strum_macros = "0.28.0"
 tokio = { version = "1.45", features = ["rt-multi-thread"] }
 tempfile = "3.10"
-vaultrs = "0.7"
+vaultrs = "0.8"
 walkdir = "2.5"
 tar = "0.4"
 flate2 = "1.0"
