@@ -28,7 +28,7 @@ our [installation guide](installation.md).
 
 ## Syntax
 
-YAML syntax based on [modules](module_index.md).
+YAML syntax based on [modules](modules.md).
 
 Besides, `rash` includes [MiniJinja](https://docs.rs/minijinja/) templates which you can use
 anywhere. You can use all its functions and combine them as you want.
