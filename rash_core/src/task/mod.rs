@@ -678,7 +678,7 @@ impl<'a> Task<'a> {
                 return self.poll_job(job_id, poll_interval);
             }
 
-            match self.r#become {
+            match self.r#become && !self.check_mode {
                 true => {
                     let user_not_found_error = || {
                         Error::new(
@@ -1634,5 +1634,25 @@ mod tests {
             task.notify,
             Some(vec!["handler1".to_string(), "handler2".to_string()])
         );
+    }
+
+    #[test]
+    fn test_check_mode_skips_become() {
+        let global_params = GlobalParams {
+            r#become: true,
+            become_user: "root",
+            check_mode: true,
+        };
+        let yaml_str = r#"
+        name: test check mode with become
+        command: whoami
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        assert!(task.r#become);
+        assert!(task.check_mode);
+
+        let result = task.exec(context! {}).unwrap();
+        assert!(result.get_changed());
     }
 }
