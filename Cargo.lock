@@ -1923,7 +1923,7 @@ dependencies = [
 
 [[package]]
 name = "mdbook_rash"
-version = "2.18.0"
+version = "2.18.1"
 dependencies = [
  "chrono",
  "clap",
@@ -2643,7 +2643,7 @@ checksum = "0c8d0fd677905edcbeedbf2edb6494d676f0e98d54d5cf9bda0b061cb8fb8aba"
 
 [[package]]
 name = "rash_core"
-version = "2.18.0"
+version = "2.18.1"
 dependencies = [
  "base64",
  "byte-unit",
@@ -2696,7 +2696,7 @@ dependencies = [
 
 [[package]]
 name = "rash_derive"
-version = "2.18.0"
+version = "2.18.1"
 dependencies = [
  "proc-macro2",
  "quote",

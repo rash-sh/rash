@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.18.1](https://github.com/rash-sh/rash/tree/v2.18.1) - 2026-03-25
+
+### Added
+
+- book: Add llms.txt generation for llm discoverability ([0421b6d](https://github.com/rash-sh/rash/commit/0421b6d8fabe31859e40a93aff223f76edac13a2))
+
+### Documentation
+
+- Fix modules link in getting started ([2bcc2cc](https://github.com/rash-sh/rash/commit/2bcc2cce95b7476d982fd4d36c54a067f52226f8))
+- Add release skill for opencode ([f30c1c6](https://github.com/rash-sh/rash/commit/f30c1c6a8c0557d96c1383abce8251bd38949e40))
+
+### Build
+
+- deps: Update Rust crate clap to v4.6.0 ([80e38b7](https://github.com/rash-sh/rash/commit/80e38b7ebb23be37a0d690422ffc003119a51cca))
+- deps: Update Rust crate console to v0.16.3 ([183319e](https://github.com/rash-sh/rash/commit/183319e83222d381dda99ff39483b1ae55ff95cf))
+- deps: Update Rust crate serde_with to v3.18.0 ([26d1200](https://github.com/rash-sh/rash/commit/26d12008b05b93ca2aeb412c759b1541ef87a33c))
+- deps: Update Rust crate minijinja to v2.18.0 ([3731ee0](https://github.com/rash-sh/rash/commit/3731ee0fbacb2c10651ed3667c94b1ceb289e500))
+- deps: Update Rust crate vaultrs to 0.8 ([56b85b5](https://github.com/rash-sh/rash/commit/56b85b51a004c7150604fd92e79625b352b474c6))
+- deps: Update Rust crate zip to v8.3.0 ([ceb5e25](https://github.com/rash-sh/rash/commit/ceb5e25ec497f8ccea0e0be353735bae43fc9d70))
+- deps: Update Rust crate tar to v0.4.45 ([db18edf](https://github.com/rash-sh/rash/commit/db18edf6cfde940a1e2f62838307353debe6a38d))
+- deps: Update Rust crate redis to v1.1.0 ([876f89d](https://github.com/rash-sh/rash/commit/876f89d0aa742095a883add7c4bc2d7cf8d3576e))
+- deps: Update Rust crate zip to v8.3.1 ([13d0896](https://github.com/rash-sh/rash/commit/13d0896a83890ee28a13fffa9e4934a38ecefb52))
+- deps: Update Rust crate zip to v8.4.0 ([2d3091f](https://github.com/rash-sh/rash/commit/2d3091f5168629c7cda5a2202f5273e6adbfcfe3))
+- deps: Update Rust crate env_logger to v0.11.10 ([e9c3b6b](https://github.com/rash-sh/rash/commit/e9c3b6b93b70e68c5cedd88bf1e28553592ca841))
+- deps: Bump rustls-webpki from 0.103.9 to 0.103.10 ([9e65720](https://github.com/rash-sh/rash/commit/9e657209ae3e0539be983e9442214dcd387c1aa6))
+
+### Refactor
+
+- book: Improve llms.txt generation maintainability ([3b25023](https://github.com/rash-sh/rash/commit/3b25023f9ae99a85c97c3ca8b74a1d5872b2b479))
+
 ## [v2.18.0](https://github.com/rash-sh/rash/tree/v2.18.0) - 2026-03-11
 
 ### Added
