@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.18.3](https://github.com/rash-sh/rash/tree/v2.18.3) - 2026-03-25
+
+### Fixed
+
+- docker: Change LABEL format to `key=value` ([d42e8ba](https://github.com/rash-sh/rash/commit/d42e8bae2774d44eb07259007e602ed488b2a7ac))
+- Change docker registry to ghcr.io ([31b5042](https://github.com/rash-sh/rash/commit/31b5042331ac8a95efb3b0dde3d742ddd2d2889a))
+
 ## [v2.18.2](https://github.com/rash-sh/rash/tree/v2.18.2) - 2026-03-25
 
 ### Fixed
