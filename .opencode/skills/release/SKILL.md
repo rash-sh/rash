@@ -1,8 +1,7 @@
-name
-release
-
-description
-Guide the release process for rash, including version bumping, changelog updates, and creating release branches.
+---
+name: release
+description: Guide the release process for rash, including version bumping, changelog updates, and creating release branches.
+---
 
 ## Purpose
 
