@@ -20,6 +20,8 @@ pub enum Output {
     Ansible,
     /// print module outputs without any extra details, omitting task names and separators.
     Raw,
+    /// output results as JSON for machine parsing
+    Json,
 }
 
 impl fmt::Display for Line {
@@ -210,15 +212,15 @@ pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> 
         true => base_config.level_for("diff", log::LevelFilter::Info),
     };
 
-    // remove task module for raw output
+    // remove task module for raw/json output
     base_config = match output {
-        Output::Raw => base_config.level_for("task", log::LevelFilter::Error),
+        Output::Raw | Output::Json => base_config.level_for("task", log::LevelFilter::Error),
         _ => base_config,
     };
 
     let log_format = match output {
         Output::Ansible => ansible_log_format,
-        Output::Raw => raw_log_format,
+        Output::Raw | Output::Json => raw_log_format,
     };
 
     base_config
