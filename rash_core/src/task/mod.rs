@@ -4,7 +4,7 @@ mod valid;
 
 pub use handler::{Handlers, PendingHandlers, parse_notify_value};
 
-use crate::context::GlobalParams;
+use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
@@ -17,6 +17,9 @@ use rash_derive::FieldNames;
 
 use std::collections::HashMap;
 use std::env;
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Command as StdCommand, Stdio, exit};
 use std::result::Result as StdResult;
 use std::thread;
@@ -68,6 +71,36 @@ impl TaskExecResult {
     }
 }
 
+/// Internal task serialization for sudo become method.
+/// This structure is used to pass task data to a child rash process.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternalTaskData {
+    /// Original script path for rash.path builtin
+    pub original_path: Option<String>,
+    /// Original script args for rash.args builtin
+    pub args: Option<Vec<String>>,
+    /// Accumulated variables from parent execution
+    pub vars: Value,
+    /// The task to execute
+    pub task: YamlValue,
+}
+
+/// Environment variable name for internal task file path
+pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
+
+/// Environment variable name for result file path
+pub const RASH_INTERNAL_RESULT_ENV: &str = "RASH_INTERNAL_RESULT_FILE";
+
+/// Check if we're running as an internal task execution (for sudo become)
+pub fn is_internal_task_execution() -> Option<PathBuf> {
+    env::var(RASH_INTERNAL_TASK_ENV).ok().map(PathBuf::from)
+}
+
+/// Get the result file path for internal task execution
+pub fn get_internal_result_path() -> Option<PathBuf> {
+    env::var(RASH_INTERNAL_RESULT_ENV).ok().map(PathBuf::from)
+}
+
 /// Main structure at definition level which prepares [`Module`] executions.
 ///
 /// It implements a state machine using Rust Generics to enforce well done definitions.
@@ -81,6 +114,10 @@ pub struct Task<'a> {
     r#become: bool,
     /// Run operations as this user (just works with become enabled).
     become_user: String,
+    /// Privilege escalation method: syscall or sudo.
+    become_method: BecomeMethod,
+    /// Path to sudo executable (used when become_method is sudo).
+    become_exe: String,
     /// Run task in dry-run mode without modifications.
     check_mode: bool,
     /// Module could be any [`Module`] accessible by its name.
@@ -553,6 +590,99 @@ impl<'a> Task<'a> {
         }
     }
 
+    fn exec_module_via_sudo(
+        &self,
+        rendered_params: &YamlValue,
+        vars: &Value,
+    ) -> Result<TaskExecResult> {
+        let temp_dir = std::env::temp_dir();
+        let task_file = temp_dir.join(format!("rash_task_{}.yaml", uuid::Uuid::new_v4()));
+        let result_file = temp_dir.join(format!("rash_result_{}.json", uuid::Uuid::new_v4()));
+
+        let internal_data = InternalTaskData {
+            original_path: vars
+                .get_attr("rash")
+                .ok()
+                .and_then(|r| r.get_attr("path").ok())
+                .and_then(|p| p.as_str().map(String::from)),
+            args: None, // Args will be reconstructed in the child process
+            vars: vars.clone(),
+            task: serde_norway::to_value(serde_json::json!({
+                "name": self.name,
+                self.module.get_name(): rendered_params,
+            }))
+            .map_err(|e| Error::new(ErrorKind::Other, e))?,
+        };
+
+        let task_content =
+            serde_yaml::to_string(&internal_data).map_err(|e| Error::new(ErrorKind::Other, e))?;
+
+        let mut file = File::create(&task_file).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to create task file: {}", e),
+            )
+        })?;
+        file.write_all(task_content.as_bytes())
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
+
+        let rash_path = std::env::current_exe().map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to get current exe path: {}", e),
+            )
+        })?;
+
+        let output = StdCommand::new(&self.become_exe)
+            .arg("-H")
+            .arg("-u")
+            .arg(&self.become_user)
+            .arg("--")
+            .arg(&rash_path)
+            .arg("--internal-task")
+            .arg(&task_file)
+            .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+            .output()
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!("Failed to execute {}: {}", self.become_exe, e),
+                )
+            })?;
+
+        let _ = fs::remove_file(&task_file);
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(Error::new(
+                ErrorKind::SubprocessFail,
+                format!(
+                    "{} failed with exit code {}: {}",
+                    self.become_exe,
+                    output.status.code().unwrap_or(-1),
+                    stderr
+                ),
+            ));
+        }
+
+        let result_content = fs::read_to_string(&result_file).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to read result file: {}", e),
+            )
+        })?;
+        let _ = fs::remove_file(&result_file);
+
+        let result: TaskExecResult = serde_json::from_str(&result_content).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to parse result JSON: {}", e),
+            )
+        })?;
+
+        Ok(result)
+    }
+
     fn exec_module_rendered(
         &self,
         rendered_params: &YamlValue,
@@ -680,6 +810,12 @@ impl<'a> Task<'a> {
 
             match self.r#become && !self.check_mode {
                 true => {
+                    // Handle sudo method separately
+                    if self.become_method == BecomeMethod::Sudo {
+                        return self.exec_module_via_sudo(&rendered_params, &vars);
+                    }
+
+                    // Syscall method (default)
                     let user_not_found_error = || {
                         Error::new(
                             ErrorKind::Other,
@@ -1641,6 +1777,8 @@ mod tests {
         let global_params = GlobalParams {
             r#become: true,
             become_user: "root",
+            become_method: BecomeMethod::default(),
+            become_exe: "sudo",
             check_mode: true,
         };
         let yaml_str = r#"

@@ -70,6 +70,8 @@ glob = "0.3"
 rcgen = "0.14"
 redis = "1.0"
 time = "0.3"
+uuid = { version = "1.0", features = ["v4"] }
+serde_yaml = "0.9"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.0"

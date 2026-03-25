@@ -3,6 +3,7 @@ use crate::task::{Handlers, PendingHandlers, Tasks};
 ///
 /// Preserve state between executions
 use crate::{error::Result, jinja::merge_option};
+use clap::ValueEnum;
 use minijinja::{Value, context};
 
 /// Main data structure in `rash`.
@@ -144,11 +145,47 @@ impl<'a> Context<'a> {
     }
 }
 
+/// Privilege escalation method for become operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum BecomeMethod {
+    /// Use setuid/setgid syscalls (requires CAP_SETUID/CAP_SETGID capabilities).
+    #[default]
+    Syscall,
+    /// Use sudo executable for privilege escalation.
+    Sudo,
+}
+
+impl std::str::FromStr for BecomeMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "syscall" => Ok(BecomeMethod::Syscall),
+            "sudo" => Ok(BecomeMethod::Sudo),
+            _ => Err(format!(
+                "Invalid become_method '{}'. Valid options: syscall, sudo",
+                s
+            )),
+        }
+    }
+}
+
+impl std::fmt::Display for BecomeMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BecomeMethod::Syscall => write!(f, "syscall"),
+            BecomeMethod::Sudo => write!(f, "sudo"),
+        }
+    }
+}
+
 /// [`task::Task`] parameters that can be set globally
 #[derive(Debug)]
 pub struct GlobalParams<'a> {
     pub r#become: bool,
     pub become_user: &'a str,
+    pub become_method: BecomeMethod,
+    pub become_exe: &'a str,
     pub check_mode: bool,
 }
 
@@ -157,6 +194,8 @@ impl Default for GlobalParams<'_> {
         GlobalParams {
             r#become: Default::default(),
             become_user: "root",
+            become_method: BecomeMethod::default(),
+            become_exe: "sudo",
             check_mode: Default::default(),
         }
     }
