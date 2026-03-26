@@ -9,6 +9,7 @@ use rash_core::task::{
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
+use rpassword::read_password;
 use std::error::Error as StdError;
 use std::fs::{File, read_to_string};
 use std::io::Write;
@@ -59,6 +60,9 @@ struct Cli {
     /// Path to sudo executable (used when become_method is sudo)
     #[arg(long, default_value=GlobalParams::default().become_exe)]
     become_exe: String,
+    /// Ask for privilege escalation password
+    #[arg(short = 'K', long)]
+    ask_become_pass: bool,
     /// Execute in dry-run mode without modifications
     #[arg(short, long)]
     check: bool,
@@ -292,6 +296,14 @@ fn main() {
         become_user: &cli.become_user,
         become_method: cli.become_method,
         become_exe: &cli.become_exe,
+        become_password: if cli.ask_become_pass {
+            // Prompt for password
+            eprint!("BECOME password: ");
+            let password = read_password().unwrap_or_default();
+            Some(password.leak() as &'static str)
+        } else {
+            None
+        },
         check_mode: cli.check,
     };
 

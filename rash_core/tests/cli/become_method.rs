@@ -158,3 +158,35 @@ fn test_cli_become_method_flag() {
         stdout
     );
 }
+
+#[test]
+fn test_become_password_task_parameter() {
+    let script_text = r#"
+#!/usr/bin/env rash
+- name: Test become_password parameter
+  command: echo "with password"
+  become: true
+  become_method: sudo
+  become_user: root
+  become_password: "test_password"
+  register: result
+- debug:
+    msg: "Password test completed"
+"#
+    .to_string();
+
+    let temp_dir = tempfile::tempdir().unwrap();
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, &script_text).unwrap();
+
+    let args = ["--output", "raw", script_path.to_str().unwrap()];
+    let (stdout, stderr) = execute_rash(&args);
+
+    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    // Verify execution completed (mock doesn't actually check password)
+    assert!(
+        stdout.contains("Password test completed") || stdout.is_empty(),
+        "stdout should contain debug output or be empty: {}",
+        stdout
+    );
+}

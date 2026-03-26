@@ -118,6 +118,8 @@ pub struct Task<'a> {
     become_method: BecomeMethod,
     /// Path to sudo executable (used when become_method is sudo).
     become_exe: String,
+    /// Password for privilege escalation (used when become_method is sudo).
+    become_password: Option<String>,
     /// Run task in dry-run mode without modifications.
     check_mode: bool,
     /// Module could be any [`Module`] accessible by its name.
@@ -633,22 +635,91 @@ impl<'a> Task<'a> {
             )
         })?;
 
-        let output = StdCommand::new(&self.become_exe)
-            .arg("-H")
-            .arg("-u")
+        let has_password = self.become_password.is_some();
+
+        let mut cmd = StdCommand::new(&self.become_exe);
+        cmd.arg("-H");
+
+        // Use -S flag to read password from stdin if password is provided
+        if has_password {
+            cmd.arg("-S");
+        }
+
+        cmd.arg("-u")
             .arg(&self.become_user)
             .arg("--")
             .arg(&rash_path)
             .arg("--internal-task")
             .arg(&task_file)
-            .env(RASH_INTERNAL_RESULT_ENV, &result_file)
-            .output()
-            .map_err(|e| {
+            .env(RASH_INTERNAL_RESULT_ENV, &result_file);
+
+        // Handle stdin for password
+        let output = if let Some(ref password) = self.become_password {
+            cmd.stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+                .map_err(|e| {
+                    Error::new(
+                        ErrorKind::SubprocessFail,
+                        format!("Failed to execute {}: {}", self.become_exe, e),
+                    )
+                })
+                .and_then(|output| {
+                    // If we got password prompt, write password
+                    if output.status.success() {
+                        Ok(output)
+                    } else {
+                        // Try again with password on stdin
+                        let mut cmd2 = StdCommand::new(&self.become_exe);
+                        cmd2.arg("-H")
+                            .arg("-S")
+                            .arg("-u")
+                            .arg(&self.become_user)
+                            .arg("--")
+                            .arg(&rash_path)
+                            .arg("--internal-task")
+                            .arg(&task_file)
+                            .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+                            .stdin(Stdio::piped())
+                            .stdout(Stdio::piped())
+                            .stderr(Stdio::piped());
+
+                        let mut child = cmd2.spawn().map_err(|e| {
+                            Error::new(
+                                ErrorKind::SubprocessFail,
+                                format!("Failed to spawn {}: {}", self.become_exe, e),
+                            )
+                        })?;
+
+                        if let Some(mut stdin) = child.stdin.take() {
+                            use std::io::Write as IoWrite;
+                            stdin
+                                .write_all(format!("{}\n", password).as_bytes())
+                                .map_err(|e| {
+                                    Error::new(
+                                        ErrorKind::Other,
+                                        format!("Failed to write password: {}", e),
+                                    )
+                                })?;
+                        }
+
+                        child.wait_with_output().map_err(|e| {
+                            Error::new(
+                                ErrorKind::SubprocessFail,
+                                format!("Failed to wait for {}: {}", self.become_exe, e),
+                            )
+                        })
+                    }
+                })?
+        } else {
+            cmd.output().map_err(|e| {
                 Error::new(
                     ErrorKind::SubprocessFail,
                     format!("Failed to execute {}: {}", self.become_exe, e),
                 )
-            })?;
+            })?
+        };
 
         let _ = fs::remove_file(&task_file);
 
@@ -1779,6 +1850,7 @@ mod tests {
             become_user: "root",
             become_method: BecomeMethod::default(),
             become_exe: "sudo",
+            become_password: None,
             check_mode: true,
         };
         let yaml_str = r#"
