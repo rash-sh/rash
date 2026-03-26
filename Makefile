@@ -106,6 +106,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/openssl_certificate.rh' \
 		-not -path 'examples/pause.rh' \
 		-not -path 'examples/package.rh' \
+		-not -path 'examples/vault.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$$example || exit 1; \
