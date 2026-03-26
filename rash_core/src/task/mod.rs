@@ -10,6 +10,7 @@ use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
 use crate::job::{JobStatus, get_job_info, register_job};
+use crate::logger::is_json_output;
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 
@@ -38,6 +39,23 @@ pub struct TaskExecResult {
     changed: bool,
     vars: Option<Value>,
     flush_handlers: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct JsonResult {
+    changed: bool,
+    output: Option<String>,
+    extra: Option<serde_json::Value>,
+}
+
+impl JsonResult {
+    fn new(changed: bool, output: Option<String>, extra: Option<YamlValue>) -> Self {
+        Self {
+            changed,
+            output,
+            extra: extra.and_then(|v| serde_json::to_value(v).ok()),
+        }
+    }
 }
 
 impl TaskExecResult {
@@ -115,6 +133,32 @@ pub fn get_internal_output() -> Option<String> {
 /// Check if this is an internal task execution (should suppress task headers)
 pub fn is_internal_execution() -> bool {
     env::var(RASH_INTERNAL_TASK_FLAG).is_ok()
+}
+
+fn log_module_result(changed: bool, result: &ModuleResult) {
+    if is_json_output() {
+        let json_result = JsonResult::new(changed, result.get_output(), result.get_extra());
+        match serde_json::to_string(&json_result) {
+            Ok(json_str) => {
+                let target = if changed { "changed" } else { "ok" };
+                info!(target: target, "{}", json_str);
+            }
+            Err(e) => {
+                error!("Failed to serialize JSON result: {}", e);
+            }
+        }
+    } else {
+        let output = result.get_output();
+        let target = match changed {
+            true => "changed",
+            false => "ok",
+        };
+        let target_empty = &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
+        info!(target: target_empty,
+            "{}",
+            output.unwrap_or_else(|| "".to_owned())
+        );
+    }
 }
 
 /// Main structure at definition level which prepares [`Module`] executions.
@@ -551,22 +595,7 @@ impl<'a> Task<'a> {
                                 && module_name != "block"
                                 && module_name != "meta"
                             {
-                                let output = result.get_output();
-                                let target = match changed {
-                                    true => "changed",
-                                    false => "ok",
-                                };
-                                let target_empty = &format!(
-                                    "{}{}",
-                                    target,
-                                    if output.is_none() { "_empty" } else { "" }
-                                );
-                                info!(target: target_empty,
-                                    "{}",
-                                    output.unwrap_or_else(
-                                        || "".to_owned()
-                                    )
-                                );
+                                log_module_result(changed, &result);
                             }
 
                             let register_vars = self.register.clone().map(|register| {
@@ -820,19 +849,7 @@ impl<'a> Task<'a> {
 
                 // Don't show output for control flow modules like include and block
                 if module_name != "include" && module_name != "block" && module_name != "meta" {
-                    let output = result.get_output();
-                    let target = match changed {
-                        true => "changed",
-                        false => "ok",
-                    };
-                    let target_empty =
-                        &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
-                    info!(target: target_empty,
-                        "{}",
-                        output.unwrap_or_else(
-                            || "".to_owned()
-                        )
-                    );
+                    log_module_result(changed, &result);
                 }
 
                 let register_vars = self.register.clone().map(|register| {
