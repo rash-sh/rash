@@ -47,6 +47,8 @@ We will add `become_method` support with two options:
 |-----------|------|---------|----------|-------------|
 | `become_method` | `syscall` \| `sudo` | `syscall` | `--become-method` | Privilege escalation method |
 | `become_exe` | string | `sudo` | `--become-exe` | Path to sudo executable |
+| `become_password` | string | - | - | Password for sudo (can use vault) |
+| - | - | - | `--ask-become-pass` / `-K` | Prompt for sudo password |
 
 #### Task YAML Example
 
@@ -57,6 +59,23 @@ We will add `become_method` support with two options:
   become_exe: /usr/bin/sudo
   become_user: root
   command: apt install -y nginx
+
+# With password (from vault)
+- name: Install package with password
+  become: true
+  become_method: sudo
+  become_password: "{{ vault_sudo_password }}"
+  command: apt install -y nginx
+```
+
+#### CLI Usage
+
+```bash
+# Prompt for password
+rash --become --become-method sudo -K script.rh
+
+# Password via task variable
+rash --become --become-method sudo script.rh
 ```
 
 #### Architecture
@@ -81,6 +100,19 @@ Parent Process:
 4. Parse JSON result from stdout
 5. Delete temp file
 ```
+
+##### Password handling
+
+When `become_password` is provided or `--ask-become-pass` is used:
+
+```
+sudo -H -S -u <user> -- <cmd>
+# Password is passed via stdin
+```
+
+- `-S` flag tells sudo to read password from stdin
+- Password is written to stdin of the sudo process
+- Can be set via task YAML or prompted interactively
 
 #### Task Serialization Format
 

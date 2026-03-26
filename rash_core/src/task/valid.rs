@@ -112,6 +112,10 @@ impl TaskValid {
                 Some(s) => s.to_owned(),
                 None => global_params.become_exe.to_owned(),
             },
+            become_password: match self.attrs["become_password"].as_str() {
+                Some(s) => Some(s.to_owned()),
+                None => global_params.become_password.map(String::from),
+            },
             changed_when: self.parse_array(&self.attrs["changed_when"]),
             check_mode: match global_params.check_mode {
                 true => true,

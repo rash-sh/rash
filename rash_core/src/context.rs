@@ -186,6 +186,7 @@ pub struct GlobalParams<'a> {
     pub become_user: &'a str,
     pub become_method: BecomeMethod,
     pub become_exe: &'a str,
+    pub become_password: Option<&'a str>,
     pub check_mode: bool,
 }
 
@@ -196,6 +197,7 @@ impl Default for GlobalParams<'_> {
             become_user: "root",
             become_method: BecomeMethod::default(),
             become_exe: "sudo",
+            become_password: None,
             check_mode: Default::default(),
         }
     }
