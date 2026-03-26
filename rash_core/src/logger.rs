@@ -6,7 +6,7 @@ use std::io;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 use clap::ValueEnum;
-use console::{style, Style};
+use console::{Style, style};
 use fern::FormatCallback;
 use similar::{Change, ChangeTag, TextDiff};
 
