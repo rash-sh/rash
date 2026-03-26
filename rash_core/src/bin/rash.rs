@@ -247,8 +247,7 @@ fn main() {
         cli.verbose
     };
 
-    // For internal task, read output format from env first (set by parent via sudo -E)
-    // Then set the output format env var so future sudo tasks inherit it
+    // Set the output format env var so sudo tasks inherit it
     // SAFETY: We're setting environment variables at startup before any concurrent access.
     unsafe {
         // Only set if not already set (e.g., by parent process via sudo -E)
@@ -262,8 +261,10 @@ fn main() {
                 },
             );
         }
-        // Set the internal task flag so sudo children suppress task headers
-        std::env::set_var(rash_core::task::RASH_INTERNAL_TASK_FLAG, "1");
+        // Only set RASH_INTERNAL flag for internal task execution (not for main process)
+        if cli.internal_task.is_some() {
+            std::env::set_var(rash_core::task::RASH_INTERNAL_TASK_FLAG, "1");
+        }
     }
 
     // Determine output format: for internal task, read from env; otherwise use CLI

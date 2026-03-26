@@ -653,8 +653,10 @@ impl<'a> Task<'a> {
 
         let output = if let Some(ref password) = self.become_password {
             // With password: use -S flag and write password to stdin
-            let internal_output = env::var(RASH_INTERNAL_OUTPUT_ENV).unwrap_or_else(|_| "ansible".to_string());
-            trace!("exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}", internal_output);
+            trace!(
+                "exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}",
+                env::var(RASH_INTERNAL_OUTPUT_ENV)
+            );
             let mut child = StdCommand::new(&self.become_exe)
                 .arg("-H")
                 .arg("-S")
@@ -666,6 +668,7 @@ impl<'a> Task<'a> {
                 .arg("--internal-task")
                 .arg(&task_file)
                 .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+                .env(RASH_INTERNAL_TASK_FLAG, "1")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::piped())
@@ -700,8 +703,10 @@ impl<'a> Task<'a> {
             }
         } else {
             // Without password: simple execution with inherited stdout/stderr
-            let internal_output = env::var(RASH_INTERNAL_OUTPUT_ENV).unwrap_or_else(|_| "ansible".to_string());
-            trace!("exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}", internal_output);
+            trace!(
+                "exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}",
+                env::var(RASH_INTERNAL_OUTPUT_ENV)
+            );
             let status = StdCommand::new(&self.become_exe)
                 .arg("-H")
                 .arg("-E")
@@ -712,6 +717,7 @@ impl<'a> Task<'a> {
                 .arg("--internal-task")
                 .arg(&task_file)
                 .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+                .env(RASH_INTERNAL_TASK_FLAG, "1")
                 .status()
                 .map_err(|e| {
                     Error::new(
