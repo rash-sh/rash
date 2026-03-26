@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.19.1](https://github.com/rash-sh/rash/tree/v2.19.1) - 2026-03-26
+
+### Added
+
+- Add JSON output format support ([ea6ad0e](https://github.com/rash-sh/rash/commit/ea6ad0e6c9a005819368ca1e59fa5e7b5457cbc9))
+
+### Fixed
+
+- Sudo become method now properly handles output format propagation ([1cd52af](https://github.com/rash-sh/rash/commit/1cd52af1b8438eda2b78c87772310649edf1af4d))
+- Properly propagate output format to sudo child processes ([4e07982](https://github.com/rash-sh/rash/commit/4e079829b61a3d1fab03459f97d248ef16c9e381))
+- Make install-precommit.rh executable ([ff3f25e](https://github.com/rash-sh/rash/commit/ff3f25e95cc3de1a3a6e2bfc805b1230b19fa00b))
+- Correct import order in logger.rs ([3f26ddb](https://github.com/rash-sh/rash/commit/3f26ddbccc08abfbb05c0ed1111f602d6d5367e9))
+
+### Build
+
+- deps: Update Rust crate uuid to v1.22.0 ([92e4a2d](https://github.com/rash-sh/rash/commit/92e4a2de24d7134a40697c98519a28cadff91f80))
+
 ## [v2.19.0](https://github.com/rash-sh/rash/tree/v2.19.0) - 2026-03-26
 
 ### Added
