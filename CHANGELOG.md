@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.19.0](https://github.com/rash-sh/rash/tree/v2.19.0) - 2026-03-26
+
+### Added
+
+- Add become_method sudo support ([06c3fa3](https://github.com/rash-sh/rash/commit/06c3fa3b7176a5305803673d8d2d8407fd277133))
+- Add sudo password support with --ask-become-pass ([7d4d0fa](https://github.com/rash-sh/rash/commit/7d4d0fa8eefff0b58a4ba7d7159611f369a1622b))
+
+### Fixed
+
+- Simplify sudo password handling and fix resource leak ([4f640c7](https://github.com/rash-sh/rash/commit/4f640c7d3b834346b82259c55383f99b137c9fb5))
+
+### Documentation
+
+- Add documentation for become_method and sudo password support ([c404134](https://github.com/rash-sh/rash/commit/c404134aff9bbce993f9edc657a1d1308e81ada7))
+
+### Styling
+
+- Fix clippy warnings instead of suppressing them ([4b04c80](https://github.com/rash-sh/rash/commit/4b04c8023c8ed9f0e098fe18a67c3c7079c3725c))
+
 ## [v2.18.3](https://github.com/rash-sh/rash/tree/v2.18.3) - 2026-03-25
 
 ### Fixed
