@@ -234,6 +234,51 @@ fn execute_internal_task(task_path: &Path) {
 fn main() {
     let cli: Cli = Cli::parse();
 
+    let verbose = if cli.verbose == 0 {
+        match std::env::var("RASH_LOG_LEVEL") {
+            Ok(s) => match s.as_ref() {
+                "DEBUG" => 1,
+                "TRACE" => 2,
+                _ => 0,
+            },
+            _ => 0,
+        }
+    } else {
+        cli.verbose
+    };
+
+    // For internal task, read output format from env first (set by parent via sudo -E)
+    // Then set the output format env var so future sudo tasks inherit it
+    // SAFETY: We're setting environment variables at startup before any concurrent access.
+    unsafe {
+        // Only set if not already set (e.g., by parent process via sudo -E)
+        if std::env::var(rash_core::task::RASH_INTERNAL_OUTPUT_ENV).is_err() {
+            std::env::set_var(
+                rash_core::task::RASH_INTERNAL_OUTPUT_ENV,
+                match cli.output {
+                    logger::Output::Ansible => "ansible",
+                    logger::Output::Raw => "raw",
+                    logger::Output::Json => "json",
+                },
+            );
+        }
+        // Set the internal task flag so sudo children suppress task headers
+        std::env::set_var(rash_core::task::RASH_INTERNAL_TASK_FLAG, "1");
+    }
+
+    // Determine output format: for internal task, read from env; otherwise use CLI
+    let output = if cli.internal_task.is_some() {
+        match rash_core::task::get_internal_output().as_deref() {
+            Some("raw") => logger::Output::Raw,
+            Some("json") => logger::Output::Json,
+            _ => logger::Output::Ansible,
+        }
+    } else {
+        cli.output.clone()
+    };
+
+    logger::setup_logging(verbose, &cli.diff, &output).expect("failed to initialize logging.");
+
     // Handle internal task execution for sudo become
     if let Some(internal_task_path) = &cli.internal_task {
         execute_internal_task(internal_task_path);
@@ -248,20 +293,6 @@ fn main() {
         )
         .exit();
     };
-    let verbose = if cli.verbose == 0 {
-        match std::env::var("RASH_LOG_LEVEL") {
-            Ok(s) => match s.as_ref() {
-                "DEBUG" => 1,
-                "TRACE" => 2,
-                _ => 0,
-            },
-            _ => 0,
-        }
-    } else {
-        cli.verbose
-    };
-
-    logger::setup_logging(verbose, &cli.diff, &cli.output).expect("failed to initialize logging.");
     trace!("start logger");
     trace!("{:?}", &cli);
     let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());

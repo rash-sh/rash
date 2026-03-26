@@ -20,7 +20,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command as StdCommand, Stdio, exit};
+use std::process::{Command as StdCommand, Output, Stdio, exit};
 use std::result::Result as StdResult;
 use std::thread;
 use std::time::Duration;
@@ -91,6 +91,12 @@ pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
 /// Environment variable name for result file path
 pub const RASH_INTERNAL_RESULT_ENV: &str = "RASH_INTERNAL_RESULT_FILE";
 
+/// Environment variable name for output format
+pub const RASH_INTERNAL_OUTPUT_ENV: &str = "RASH_INTERNAL_OUTPUT";
+
+/// Environment variable name to indicate internal task (suppresses task header)
+pub const RASH_INTERNAL_TASK_FLAG: &str = "RASH_INTERNAL";
+
 /// Check if we're running as an internal task execution (for sudo become)
 pub fn is_internal_task_execution() -> Option<PathBuf> {
     env::var(RASH_INTERNAL_TASK_ENV).ok().map(PathBuf::from)
@@ -99,6 +105,16 @@ pub fn is_internal_task_execution() -> Option<PathBuf> {
 /// Get the result file path for internal task execution
 pub fn get_internal_result_path() -> Option<PathBuf> {
     env::var(RASH_INTERNAL_RESULT_ENV).ok().map(PathBuf::from)
+}
+
+/// Get the output format for internal task execution
+pub fn get_internal_output() -> Option<String> {
+    env::var(RASH_INTERNAL_OUTPUT_ENV).ok()
+}
+
+/// Check if this is an internal task execution (should suppress task headers)
+pub fn is_internal_execution() -> bool {
+    env::var(RASH_INTERNAL_TASK_FLAG).is_ok()
 }
 
 /// Main structure at definition level which prepares [`Module`] executions.
@@ -637,9 +653,12 @@ impl<'a> Task<'a> {
 
         let output = if let Some(ref password) = self.become_password {
             // With password: use -S flag and write password to stdin
+            let internal_output = env::var(RASH_INTERNAL_OUTPUT_ENV).unwrap_or_else(|_| "ansible".to_string());
+            trace!("exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}", internal_output);
             let mut child = StdCommand::new(&self.become_exe)
                 .arg("-H")
                 .arg("-S")
+                .arg("-E")
                 .arg("-u")
                 .arg(&self.become_user)
                 .arg("--")
@@ -648,7 +667,7 @@ impl<'a> Task<'a> {
                 .arg(&task_file)
                 .env(RASH_INTERNAL_RESULT_ENV, &result_file)
                 .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
+                .stdout(Stdio::inherit())
                 .stderr(Stdio::piped())
                 .spawn()
                 .map_err(|e| {
@@ -668,16 +687,24 @@ impl<'a> Task<'a> {
                     })?;
             }
 
-            child.wait_with_output().map_err(|e| {
+            let output = child.wait_with_output().map_err(|e| {
                 Error::new(
                     ErrorKind::SubprocessFail,
                     format!("Failed to wait for {}: {}", self.become_exe, e),
                 )
-            })?
+            })?;
+            Output {
+                status: output.status,
+                stdout: Vec::new(),
+                stderr: output.stderr,
+            }
         } else {
-            // Without password: simple execution
-            StdCommand::new(&self.become_exe)
+            // Without password: simple execution with inherited stdout/stderr
+            let internal_output = env::var(RASH_INTERNAL_OUTPUT_ENV).unwrap_or_else(|_| "ansible".to_string());
+            trace!("exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}", internal_output);
+            let status = StdCommand::new(&self.become_exe)
                 .arg("-H")
+                .arg("-E")
                 .arg("-u")
                 .arg(&self.become_user)
                 .arg("--")
@@ -685,13 +712,18 @@ impl<'a> Task<'a> {
                 .arg("--internal-task")
                 .arg(&task_file)
                 .env(RASH_INTERNAL_RESULT_ENV, &result_file)
-                .output()
+                .status()
                 .map_err(|e| {
                     Error::new(
                         ErrorKind::SubprocessFail,
                         format!("Failed to execute {}: {}", self.become_exe, e),
                     )
-                })?
+                })?;
+            Output {
+                status,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            }
         };
 
         // Cleanup temp files
