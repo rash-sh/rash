@@ -197,8 +197,7 @@ mod tests {
 
         let file_path = dir.path().join("template.j2");
         let mut file = File::create(file_path.clone()).unwrap();
-        #[allow(clippy::write_literal)]
-        writeln!(file, "{}", "{{ boo }}").unwrap();
+        writeln!(file, "{{{{ boo }}}}").unwrap();
 
         let vars = context! { boo => "test" };
 
@@ -228,8 +227,7 @@ mod tests {
 
         let file_path = dir.path().join("template.j2");
         let mut file = File::create(file_path.clone()).unwrap();
-        #[allow(clippy::write_literal)]
-        writeln!(file, "{}", "{{ boo }}").unwrap();
+        writeln!(file, "{{{{ boo }}}}").unwrap();
 
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o604);

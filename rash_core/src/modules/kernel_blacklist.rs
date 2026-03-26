@@ -85,7 +85,6 @@ pub enum State {
     Absent,
 }
 
-#[allow(clippy::lines_filter_map_ok)]
 fn read_file_lines(path: &Path) -> Vec<String> {
     if !path.exists() {
         return Vec::new();
@@ -95,7 +94,7 @@ fn read_file_lines(path: &Path) -> Vec<String> {
         .map(|f| {
             BufReader::new(f)
                 .lines()
-                .filter_map(std::result::Result::ok)
+                .map_while(std::result::Result::ok)
                 .collect()
         })
         .unwrap_or_default()
