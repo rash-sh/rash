@@ -1,0 +1,71 @@
+#!/usr/bin/env rash
+#
+# vault module example
+#
+# This example demonstrates the vault module for HashiCorp Vault integration.
+# It shows how to read, write, and delete secrets from Vault.
+#
+# Requirements:
+# - A running Vault server
+# - VAULT_ADDR and VAULT_TOKEN environment variables set
+#
+# Usage:
+#   VAULT_ADDR=https://vault.example.com VAULT_TOKEN=xxx rash vault.rh
+
+- name: Check if Vault is reachable (using environment variables)
+  vault:
+    path: secret/data/test
+    state: read
+  register: test_secret
+  ignore_errors: true
+
+- name: Write a secret to Vault
+  vault:
+    path: secret/data/myapp
+    data:
+      username: admin
+      password: "{{ db_password | default('changeme') }}"
+    state: present
+  register: write_result
+
+- name: Show write result
+  debug:
+    msg: "Write result: {{ write_result }}"
+
+- name: Read the secret back
+  vault:
+    path: secret/data/myapp
+    state: read
+  register: secret_data
+
+- name: Show secret data
+  debug:
+    msg: "Secret data: {{ secret_data.data }}"
+
+- name: Write to KV v1 engine
+  vault:
+    path: kv/myapp
+    engine: v1
+    data:
+      api_key: my-api-key
+      api_secret: my-api-secret
+    state: present
+  register: kv_v1_result
+
+- name: Read from custom mount point
+  vault:
+    path: myapp
+    mount: custom-secret
+    state: read
+  register: custom_mount_result
+  ignore_errors: true
+
+- name: Delete a secret
+  vault:
+    path: secret/data/myapp
+    state: absent
+  register: delete_result
+
+- name: Show delete result
+  debug:
+    msg: "Delete result: {{ delete_result }}"
