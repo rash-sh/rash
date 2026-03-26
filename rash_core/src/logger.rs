@@ -5,7 +5,7 @@ use std::fmt;
 use std::io;
 
 use clap::ValueEnum;
-use console::{style, Style};
+use console::{Style, style};
 use fern::FormatCallback;
 use similar::{Change, ChangeTag, TextDiff};
 
@@ -215,16 +215,11 @@ pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> 
     let is_internal = std::env::var(crate::task::RASH_INTERNAL_TASK_FLAG).is_ok();
 
     // Suppress task headers for internal task execution or raw/json output
-    // Also suppress ok/changed status lines for raw/json output
+    // For raw/json: suppress task headers but keep module output (ok/changed contain the output)
     base_config = match (output, is_internal) {
         (Output::Raw | Output::Json, _) => {
-            // For raw/json: suppress all task-related output (headers and status)
-            base_config
-                .level_for("task", log::LevelFilter::Error)
-                .level_for("ok", log::LevelFilter::Error)
-                .level_for("ok_empty", log::LevelFilter::Error)
-                .level_for("changed", log::LevelFilter::Error)
-                .level_for("changed_empty", log::LevelFilter::Error)
+            // For raw/json: suppress only task headers, keep ok/changed for module output
+            base_config.level_for("task", log::LevelFilter::Error)
         }
         (_, true) => {
             // For internal task with ansible output: suppress only task headers
