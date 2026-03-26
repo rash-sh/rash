@@ -607,7 +607,7 @@ impl<'a> Task<'a> {
                 .ok()
                 .and_then(|r| r.get_attr("path").ok())
                 .and_then(|p| p.as_str().map(String::from)),
-            args: None, // Args will be reconstructed in the child process
+            args: None,
             vars: vars.clone(),
             task: serde_norway::to_value(serde_json::json!({
                 "name": self.name,
@@ -635,95 +635,70 @@ impl<'a> Task<'a> {
             )
         })?;
 
-        let has_password = self.become_password.is_some();
-
-        let mut cmd = StdCommand::new(&self.become_exe);
-        cmd.arg("-H");
-
-        // Use -S flag to read password from stdin if password is provided
-        if has_password {
-            cmd.arg("-S");
-        }
-
-        cmd.arg("-u")
-            .arg(&self.become_user)
-            .arg("--")
-            .arg(&rash_path)
-            .arg("--internal-task")
-            .arg(&task_file)
-            .env(RASH_INTERNAL_RESULT_ENV, &result_file);
-
-        // Handle stdin for password
         let output = if let Some(ref password) = self.become_password {
-            cmd.stdin(Stdio::piped())
+            // With password: use -S flag and write password to stdin
+            let mut child = StdCommand::new(&self.become_exe)
+                .arg("-H")
+                .arg("-S")
+                .arg("-u")
+                .arg(&self.become_user)
+                .arg("--")
+                .arg(&rash_path)
+                .arg("--internal-task")
+                .arg(&task_file)
+                .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+                .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| {
+                    Error::new(
+                        ErrorKind::SubprocessFail,
+                        format!("Failed to spawn {}: {}", self.become_exe, e),
+                    )
+                })?;
+
+            // Write password to stdin
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write as IoWrite;
+                stdin
+                    .write_all(format!("{}\n", password).as_bytes())
+                    .map_err(|e| {
+                        Error::new(ErrorKind::Other, format!("Failed to write password: {}", e))
+                    })?;
+            }
+
+            child.wait_with_output().map_err(|e| {
+                Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!("Failed to wait for {}: {}", self.become_exe, e),
+                )
+            })?
+        } else {
+            // Without password: simple execution
+            StdCommand::new(&self.become_exe)
+                .arg("-H")
+                .arg("-u")
+                .arg(&self.become_user)
+                .arg("--")
+                .arg(&rash_path)
+                .arg("--internal-task")
+                .arg(&task_file)
+                .env(RASH_INTERNAL_RESULT_ENV, &result_file)
                 .output()
                 .map_err(|e| {
                     Error::new(
                         ErrorKind::SubprocessFail,
                         format!("Failed to execute {}: {}", self.become_exe, e),
                     )
-                })
-                .and_then(|output| {
-                    // If we got password prompt, write password
-                    if output.status.success() {
-                        Ok(output)
-                    } else {
-                        // Try again with password on stdin
-                        let mut cmd2 = StdCommand::new(&self.become_exe);
-                        cmd2.arg("-H")
-                            .arg("-S")
-                            .arg("-u")
-                            .arg(&self.become_user)
-                            .arg("--")
-                            .arg(&rash_path)
-                            .arg("--internal-task")
-                            .arg(&task_file)
-                            .env(RASH_INTERNAL_RESULT_ENV, &result_file)
-                            .stdin(Stdio::piped())
-                            .stdout(Stdio::piped())
-                            .stderr(Stdio::piped());
-
-                        let mut child = cmd2.spawn().map_err(|e| {
-                            Error::new(
-                                ErrorKind::SubprocessFail,
-                                format!("Failed to spawn {}: {}", self.become_exe, e),
-                            )
-                        })?;
-
-                        if let Some(mut stdin) = child.stdin.take() {
-                            use std::io::Write as IoWrite;
-                            stdin
-                                .write_all(format!("{}\n", password).as_bytes())
-                                .map_err(|e| {
-                                    Error::new(
-                                        ErrorKind::Other,
-                                        format!("Failed to write password: {}", e),
-                                    )
-                                })?;
-                        }
-
-                        child.wait_with_output().map_err(|e| {
-                            Error::new(
-                                ErrorKind::SubprocessFail,
-                                format!("Failed to wait for {}: {}", self.become_exe, e),
-                            )
-                        })
-                    }
                 })?
-        } else {
-            cmd.output().map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Failed to execute {}: {}", self.become_exe, e),
-                )
-            })?
         };
 
+        // Cleanup temp files
         let _ = fs::remove_file(&task_file);
 
         if !output.status.success() {
+            let _ = fs::remove_file(&result_file);
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(Error::new(
                 ErrorKind::SubprocessFail,
