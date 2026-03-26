@@ -892,6 +892,7 @@ impl<'a> Task<'a> {
                             );
                         }
 
+                        // Type is complex but precise - needed for IPC channel with serialized results
                         #[allow(clippy::type_complexity)]
                         let (tx, rx): (
                             IpcSender<StdResult<String, SerdeError>>,
