@@ -2699,6 +2699,7 @@ dependencies = [
  "fern",
  "flate2",
  "glob",
+ "hex",
  "ignore",
  "ipc-channel",
  "itertools 0.14.0",
