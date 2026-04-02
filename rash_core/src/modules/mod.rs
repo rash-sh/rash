@@ -25,6 +25,7 @@ mod dmsetup;
 mod dnf;
 mod docker_config;
 mod docker_container;
+mod docker_exec;
 mod docker_image;
 mod docker_volume;
 mod dynamic;
@@ -149,6 +150,7 @@ use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
 use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
+use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
 use crate::modules::docker_volume::DockerVolume;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
@@ -356,6 +358,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerContainer.get_name(),
             Box::new(DockerContainer) as Box<dyn Module>,
+        ),
+        (
+            DockerExec.get_name(),
+            Box::new(DockerExec) as Box<dyn Module>,
         ),
         (
             DockerImage.get_name(),
