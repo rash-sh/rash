@@ -1,0 +1,25 @@
+#!/usr/bin/env rash
+# sudoers module example - manage sudo configuration
+
+- name: Allow nginx user to restart nginx service without password
+  sudoers:
+    name: nginx-service
+    user: nginx
+    commands:
+      - /usr/sbin/service nginx restart
+      - /usr/sbin/service nginx status
+    nopassword: true
+
+- name: Allow developers group to run docker commands
+  sudoers:
+    name: docker-developers
+    user: "%developers"
+    commands: /usr/bin/docker
+    nopassword: true
+    setenv: true
+
+- name: Allow admin user to run all commands with password
+  sudoers:
+    name: admin-user
+    user: admin
+    commands: ALL
