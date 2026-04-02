@@ -1,14 +1,18 @@
-use rash_core::context::{Context, GlobalParams};
+use rash_core::context::{BecomeMethod, Context, GlobalParams};
 use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
 use rash_core::modules::add_module_search_path;
-use rash_core::task::{parse_file, parse_file_with_handlers};
+use rash_core::task::{
+    InternalTaskData, get_internal_result_path, parse_file, parse_file_with_handlers,
+};
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
+use rpassword::read_password;
 use std::error::Error as StdError;
-use std::fs::read_to_string;
+use std::fs::{File, read_to_string};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -50,6 +54,15 @@ struct Cli {
     /// run operations as this user (just works with become enabled)
     #[arg(short='u', long, default_value=GlobalParams::default().become_user)]
     become_user: String,
+    /// Privilege escalation method to use (syscall or sudo)
+    #[arg(long, value_enum, default_value_t=BecomeMethod::default())]
+    become_method: BecomeMethod,
+    /// Path to sudo executable (used when become_method is sudo)
+    #[arg(long, default_value=GlobalParams::default().become_exe)]
+    become_exe: String,
+    /// Ask for privilege escalation password
+    #[arg(short = 'K', long)]
+    ask_become_pass: bool,
     /// Execute in dry-run mode without modifications
     #[arg(short, long)]
     check: bool,
@@ -79,6 +92,9 @@ struct Cli {
     /// they will be parsed and added as variables too. For more information check rash_book.
     #[arg(action = ArgAction::Append, num_args = 1)]
     script_args: Vec<String>,
+    /// Internal task file for sudo become execution (hidden, not for direct use)
+    #[arg(long, hide = true)]
+    internal_task: Option<PathBuf>,
 }
 
 fn log_inner_errors(e: &dyn StdError) {
@@ -136,16 +152,88 @@ fn setup_module_search_paths(script_path: &Path) {
     }
 }
 
+fn execute_internal_task(task_path: &Path) {
+    trace!("Internal task execution from: {:?}", task_path);
+
+    let task_content = match read_to_string(task_path) {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Failed to read internal task file: {}", e);
+            exit(1);
+        }
+    };
+
+    let internal_data: InternalTaskData = match serde_yaml::from_str(&task_content) {
+        Ok(d) => d,
+        Err(e) => {
+            error!("Failed to parse internal task data: {}", e);
+            exit(1);
+        }
+    };
+
+    let global_params = GlobalParams::default();
+
+    let task_yaml =
+        serde_yaml::to_string(std::slice::from_ref(&internal_data.task)).unwrap_or_default();
+
+    let (tasks, _) = match parse_file_with_handlers(&task_yaml, &global_params) {
+        Ok(parsed) => (parsed.tasks, parsed.handlers),
+        Err(_) => match parse_file(&task_yaml, &global_params) {
+            Ok(tasks) => (tasks, None),
+            Err(e) => {
+                error!("Failed to parse internal task: {}", e);
+                exit(1);
+            }
+        },
+    };
+
+    let script_path = internal_data
+        .original_path
+        .as_deref()
+        .map(Path::new)
+        .unwrap_or_else(|| Path::new("internal_task"));
+
+    let result = match Builtins::new(internal_data.args.unwrap_or_default(), script_path, false) {
+        Ok(builtins) => {
+            let vars = context! {rash => &builtins, ..internal_data.vars};
+            trace!("Internal task vars: {:?}", vars);
+            Context::new(tasks, vars, None).exec()
+        }
+        Err(e) => {
+            error!("Failed to create builtins: {}", e);
+            exit(1);
+        }
+    };
+
+    let result_path = match get_internal_result_path() {
+        Some(p) => p,
+        None => {
+            error!("No result file path specified");
+            exit(1);
+        }
+    };
+
+    match result {
+        Ok(_context) => {
+            let exec_result = rash_core::task::TaskExecResult::new(false, None);
+            let result_json = serde_json::to_string(&exec_result).unwrap_or_default();
+            if let Err(e) =
+                File::create(&result_path).and_then(|mut f| f.write_all(result_json.as_bytes()))
+            {
+                error!("Failed to write result file: {}", e);
+                exit(1);
+            }
+        }
+        Err(e) => {
+            error!("Internal task failed: {}", e);
+            exit(1);
+        }
+    }
+}
+
 fn main() {
     let cli: Cli = Cli::parse();
-    if cli.script.is_none() && cli.script_file.is_none() {
-        let mut cmd = Cli::command();
-        cmd.error(
-            ClapErrorKind::ArgumentConflict,
-            "Please provide either <SCRIPT_FILE> or --script.",
-        )
-        .exit();
-    };
+
     let verbose = if cli.verbose == 0 {
         match std::env::var("RASH_LOG_LEVEL") {
             Ok(s) => match s.as_ref() {
@@ -159,7 +247,53 @@ fn main() {
         cli.verbose
     };
 
-    logger::setup_logging(verbose, &cli.diff, &cli.output).expect("failed to initialize logging.");
+    // Set the output format env var so sudo tasks inherit it
+    // SAFETY: We're setting environment variables at startup before any concurrent access.
+    unsafe {
+        // Only set if not already set (e.g., by parent process via sudo -E)
+        if std::env::var(rash_core::task::RASH_INTERNAL_OUTPUT_ENV).is_err() {
+            std::env::set_var(
+                rash_core::task::RASH_INTERNAL_OUTPUT_ENV,
+                match cli.output {
+                    logger::Output::Ansible => "ansible",
+                    logger::Output::Raw => "raw",
+                    logger::Output::Json => "json",
+                },
+            );
+        }
+        // Only set RASH_INTERNAL flag for internal task execution (not for main process)
+        if cli.internal_task.is_some() {
+            std::env::set_var(rash_core::task::RASH_INTERNAL_TASK_FLAG, "1");
+        }
+    }
+
+    // Determine output format: for internal task, read from env; otherwise use CLI
+    let output = if cli.internal_task.is_some() {
+        match rash_core::task::get_internal_output().as_deref() {
+            Some("raw") => logger::Output::Raw,
+            Some("json") => logger::Output::Json,
+            _ => logger::Output::Ansible,
+        }
+    } else {
+        cli.output.clone()
+    };
+
+    logger::setup_logging(verbose, &cli.diff, &output).expect("failed to initialize logging.");
+
+    // Handle internal task execution for sudo become
+    if let Some(internal_task_path) = &cli.internal_task {
+        execute_internal_task(internal_task_path);
+        return;
+    }
+
+    if cli.script.is_none() && cli.script_file.is_none() {
+        let mut cmd = Cli::command();
+        cmd.error(
+            ClapErrorKind::ArgumentConflict,
+            "Please provide either <SCRIPT_FILE> or --script.",
+        )
+        .exit();
+    };
     trace!("start logger");
     trace!("{:?}", &cli);
     let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());
@@ -192,6 +326,16 @@ fn main() {
     let global_params = GlobalParams {
         r#become: cli.r#become,
         become_user: &cli.become_user,
+        become_method: cli.become_method,
+        become_exe: &cli.become_exe,
+        become_password: if cli.ask_become_pass {
+            // Prompt for password
+            eprint!("BECOME password: ");
+            let password = read_password().unwrap_or_default();
+            Some(password.leak() as &'static str)
+        } else {
+            None
+        },
         check_mode: cli.check,
     };
 

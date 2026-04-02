@@ -59,6 +59,45 @@ This option only works when `--become` is enabled. Specifies which user to becom
 rash --become --become-user www-data my-script.rh
 ```
 
+### `--become-method <METHOD>`
+
+Privilege escalation method to use.
+
+**Available methods:**
+- `syscall` (default): Use `setuid`/`setgid` syscalls. Requires `CAP_SETUID` and `CAP_SETGID` capabilities.
+- `sudo`: Use the sudo executable for privilege escalation. Works with standard sudo privileges.
+
+**Default:** `syscall`
+
+**Example:**
+```bash
+rash --become --become-method sudo my-script.rh
+```
+
+### `--become-exe <PATH>`
+
+Path to the sudo executable.
+
+This option only works when `--become-method` is set to `sudo`. Allows specifying a custom path to the sudo executable.
+
+**Default:** `sudo`
+
+**Example:**
+```bash
+rash --become --become-method sudo --become-exe /usr/bin/sudo my-script.rh
+```
+
+### `-K, --ask-become-pass`
+
+Prompt for privilege escalation password.
+
+When this flag is enabled, rash will prompt for the sudo password interactively. This is useful when sudo requires a password and you're using `--become-method sudo`.
+
+**Example:**
+```bash
+rash --become --become-method sudo -K my-script.rh
+```
+
 ### `-c, --check`
 
 Execute in dry-run mode without modifications.
@@ -106,14 +145,16 @@ rash -e USER=john -e ENV=production my-script.rh
 Set the output format.
 
 **Available formats:**
-- `ansible` (default): Ansible-style output
-- Other formats may be available depending on your rash version
+- `ansible` (default): Ansible-style output with task names and changed status
+- `raw`: Print module outputs without extra details, omitting task names and separators
+- `json`: Output results as JSON for machine parsing
 
 **Default:** `ansible`
 
 **Example:**
 ```bash
 rash --output ansible my-script.rh
+rash --output json my-script.rh
 ```
 
 ### `-v, --verbose`
@@ -180,6 +221,12 @@ rash --check --diff my-script.rh
 
 ```bash
 rash --become my-script.rh
+```
+
+### Execute with sudo method and password prompt
+
+```bash
+rash --become --become-method sudo -K my-script.rh
 ```
 
 ### Execute as specific user with environment variables

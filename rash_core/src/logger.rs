@@ -3,6 +3,7 @@ use crate::utils::get_terminal_width;
 
 use std::fmt;
 use std::io;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 use clap::ValueEnum;
 use console::{Style, style};
@@ -14,12 +15,44 @@ struct Line(Option<usize>);
 const COLOR_BRIGHT_BLUE: u8 = 33;
 const COLOR_BRIGHT_BLACK: u8 = 244;
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, ValueEnum, PartialEq, Eq)]
 pub enum Output {
     /// ansible style output with tasks and changed outputs
     Ansible,
     /// print module outputs without any extra details, omitting task names and separators.
     Raw,
+    /// output results as JSON for machine parsing
+    Json,
+}
+
+static OUTPUT_FORMAT: AtomicI32 = AtomicI32::new(0);
+
+fn output_to_int(output: &Output) -> i32 {
+    match output {
+        Output::Ansible => 0,
+        Output::Raw => 1,
+        Output::Json => 2,
+    }
+}
+
+fn int_to_output(val: i32) -> Output {
+    match val {
+        1 => Output::Raw,
+        2 => Output::Json,
+        _ => Output::Ansible,
+    }
+}
+
+pub fn set_output_format(output: &Output) {
+    OUTPUT_FORMAT.store(output_to_int(output), Ordering::SeqCst);
+}
+
+pub fn get_output_format() -> Output {
+    int_to_output(OUTPUT_FORMAT.load(Ordering::SeqCst))
+}
+
+pub fn is_json_output() -> bool {
+    get_output_format() == Output::Json
 }
 
 impl fmt::Display for Line {
@@ -197,6 +230,8 @@ fn raw_log_format(out: FormatCallback, message: &fmt::Arguments, _record: &log::
 
 /// Setup logging according to the specified verbosity.
 pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> {
+    set_output_format(output);
+
     let mut base_config = fern::Dispatch::new();
 
     base_config = match verbosity {
@@ -210,15 +245,25 @@ pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> 
         true => base_config.level_for("diff", log::LevelFilter::Info),
     };
 
-    // remove task module for raw output
-    base_config = match output {
-        Output::Raw => base_config.level_for("task", log::LevelFilter::Error),
+    let is_internal = std::env::var(crate::task::RASH_INTERNAL_TASK_FLAG).is_ok();
+
+    // Suppress task headers for internal task execution or raw/json output
+    // For raw/json: suppress task headers but keep module output (ok/changed contain the output)
+    base_config = match (output, is_internal) {
+        (Output::Raw | Output::Json, _) => {
+            // For raw/json: suppress only task headers, keep ok/changed for module output
+            base_config.level_for("task", log::LevelFilter::Error)
+        }
+        (_, true) => {
+            // For internal task with ansible output: suppress only task headers
+            base_config.level_for("task", log::LevelFilter::Error)
+        }
         _ => base_config,
     };
 
     let log_format = match output {
         Output::Ansible => ansible_log_format,
-        Output::Raw => raw_log_format,
+        Output::Raw | Output::Json => raw_log_format,
     };
 
     base_config

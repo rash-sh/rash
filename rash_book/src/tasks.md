@@ -16,20 +16,23 @@ below.
 
 Tasks admit the following optional keys:
 
-| Keyword       | Type    | Description                                                                     |
-| ------------- | ------- | ------------------------------------------------------------------------------- |
-| become        | boolean | run operations with become (does not imply password prompting)                  |
-| become_user   | string  | run operations as this user (just works with become enabled)                    |
-| check_mode    | boolean | Run task in dry-run mode without modifications                                  |
-| changed_when  | string  | Template expression passed directly without `{{ }}`; Overwrite change status    |
-| ignore_errors | string  | Template expression passed directly without `{{ }}`; if true errors are ignored |
-| name          | string  | Task name                                                                       |
-| loop          | array   | `loop` receives a Template (with `{{ }}`) or a list to iterate over it          |
-| register      | string  | Variable name to store module result                                            |
-| vars          | map     | Define variables in task scope. Does not support own reference variables.       |
-| when          | string  | Template expression passed directly without {{ }}; if false skip task execution |
-| rescue        | array   | List of tasks to execute when the main task fails                               |
-| always        | array   | List of tasks to execute regardless of success or failure                       |
+| Keyword        | Type    | Description                                                                                  |
+| -------------- | ------- | -------------------------------------------------------------------------------------------- |
+| become         | boolean | run operations with become (does not imply password prompting)                               |
+| become_user    | string  | run operations as this user (just works with become enabled)                                 |
+| become_method  | string  | Privilege escalation method: `syscall` (default) or `sudo`                                   |
+| become_exe     | string  | Path to sudo executable (used when `become_method: sudo`)                                    |
+| become_password| string  | Password for sudo (used when `become_method: sudo`, supports vault)                          |
+| check_mode     | boolean | Run task in dry-run mode without modifications                                               |
+| changed_when   | string  | Template expression passed directly without `{{ }}`; Overwrite change status                 |
+| ignore_errors  | string  | Template expression passed directly without `{{ }}`; if true errors are ignored              |
+| name           | string  | Task name                                                                                    |
+| loop           | array   | `loop` receives a Template (with `{{ }}`) or a list to iterate over it                       |
+| register       | string  | Variable name to store module result                                                         |
+| vars           | map     | Define variables in task scope. Does not support own reference variables.                    |
+| when           | string  | Template expression passed directly without {{ }}; if false skip task execution              |
+| rescue         | array   | List of tasks to execute when the main task fails                                            |
+| always         | array   | List of tasks to execute regardless of success or failure                                    |
 
 ### Registering variables
 
@@ -48,8 +51,16 @@ For example:
 
 ### Using become
 
-First of all, to use become you will need to execute rash with a user with `CAP_SETUID` and
-`CAP_SETGID` capabilities (e.g.: `root`).
+Privilege escalation can be achieved using two methods:
+
+#### Method 1: syscall (default)
+
+This is the default method. To use it, you need to execute rash with a user with `CAP_SETUID` and
+`CAP_SETGID` capabilities (e.g.: `root`), or set these capabilities on the rash binary:
+
+```bash
+sudo setcap cap_setgid,cap_setuid+ep $(which rash)
+```
 
 You can enable become from multiple places: If you want to activate it for all tasks you can pass it
 as an execution arg (`-b/--become`). Or you can enable it per tasks using the `become` keyword.
@@ -75,6 +86,61 @@ In the other hand, if you want to run `rash` with become, you are most likely al
   become: true
   become_user: foo
 ```
+
+#### Method 2: sudo
+
+The `sudo` method allows privilege escalation without requiring special capabilities on the rash
+binary. This is useful in environments where you have sudo privileges but cannot set capabilities.
+
+**Example with NOPASSWD sudoers:**
+
+```yaml
+- name: Install package
+  become: true
+  become_method: sudo
+  become_user: root
+  command:
+    cmd: apt install -y nginx
+```
+
+**Example with password:**
+
+```yaml
+- name: Install package with sudo password
+  become: true
+  become_method: sudo
+  become_user: root
+  become_password: "{{ vault_sudo_password }}"
+  command:
+    cmd: apt install -y nginx
+```
+
+You can also provide the password interactively using the `--ask-become-pass` / `-K` CLI flag:
+
+```bash
+rash --become --become-method sudo -K script.rh
+```
+
+**Custom sudo executable:**
+
+```yaml
+- name: Use custom sudo path
+  become: true
+  become_method: sudo
+  become_exe: /usr/local/bin/sudo
+  command:
+    cmd: whoami
+```
+
+#### Comparison of become methods
+
+| Aspect | syscall | sudo |
+|--------|---------|------|
+| Requires capabilities | Yes (`CAP_SETUID`, `CAP_SETGID`) | No |
+| Requires sudo | No | Yes |
+| Password support | No | Yes |
+| Performance | Faster (direct syscall) | Slightly slower (subprocess) |
+| Container-friendly | Yes (if capabilities set) | Depends on container setup |
 
 ### Error handling with rescue
 

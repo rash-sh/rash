@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# sudo mock for become_method tests.
+# Simulates successful sudo execution by running the command as current user.
+#
+
+# Find the -- separator
+args=("$@")
+cmd_start=0
+for i in "${!args[@]}"; do
+    if [[ "${args[$i]}" == "--" ]]; then
+        cmd_start=$((i + 1))
+        break
+    fi
+done
+
+# Execute the command after --
+if [[ $cmd_start -gt 0 ]]; then
+    "${args[@]:$cmd_start}"
+else
+    echo "Error: No command found after --" >&2
+    exit 1
+fi

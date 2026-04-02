@@ -25,7 +25,7 @@ docs = ["rash_derive/docs", "schemars"]
 passwordstore = ["prs-lib"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "2.18.1" }
+rash_derive = { path = "../rash_derive", version = "2.19.1" }
 log.workspace = true
 regex.workspace = true
 schemars = { workspace = true, optional = true }
@@ -54,7 +54,7 @@ serde-error = "0.1.2"
 sha1 = "0.10"
 sha2 = "0.11"
 shlex = "1.3"
-similar = { version = "2.5", features = ["inline"] }
+similar = { version = "3.0", features = ["inline"] }
 strum = "0.28.0"
 strum_macros = "0.28.0"
 tokio = { version = "1.45", features = ["rt-multi-thread"] }
@@ -70,6 +70,9 @@ glob = "0.3"
 rcgen = "0.14"
 redis = "1.0"
 time = "0.3"
+uuid = { version = "1.0", features = ["v4"] }
+serde_yaml = "0.9"
+rpassword = "7.3"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.0"

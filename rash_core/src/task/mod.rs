@@ -4,12 +4,13 @@ mod valid;
 
 pub use handler::{Handlers, PendingHandlers, parse_notify_value};
 
-use crate::context::GlobalParams;
+use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
 use crate::job::{JobStatus, get_job_info, register_job};
+use crate::logger::is_json_output;
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
 
@@ -17,7 +18,10 @@ use rash_derive::FieldNames;
 
 use std::collections::HashMap;
 use std::env;
-use std::process::{Command as StdCommand, Stdio, exit};
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::{Command as StdCommand, Output, Stdio, exit};
 use std::result::Result as StdResult;
 use std::thread;
 use std::time::Duration;
@@ -35,6 +39,23 @@ pub struct TaskExecResult {
     changed: bool,
     vars: Option<Value>,
     flush_handlers: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct JsonResult {
+    changed: bool,
+    output: Option<String>,
+    extra: Option<serde_json::Value>,
+}
+
+impl JsonResult {
+    fn new(changed: bool, output: Option<String>, extra: Option<YamlValue>) -> Self {
+        Self {
+            changed,
+            output,
+            extra: extra.and_then(|v| serde_json::to_value(v).ok()),
+        }
+    }
 }
 
 impl TaskExecResult {
@@ -68,6 +89,78 @@ impl TaskExecResult {
     }
 }
 
+/// Internal task serialization for sudo become method.
+/// This structure is used to pass task data to a child rash process.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternalTaskData {
+    /// Original script path for rash.path builtin
+    pub original_path: Option<String>,
+    /// Original script args for rash.args builtin
+    pub args: Option<Vec<String>>,
+    /// Accumulated variables from parent execution
+    pub vars: Value,
+    /// The task to execute
+    pub task: YamlValue,
+}
+
+/// Environment variable name for internal task file path
+pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
+
+/// Environment variable name for result file path
+pub const RASH_INTERNAL_RESULT_ENV: &str = "RASH_INTERNAL_RESULT_FILE";
+
+/// Environment variable name for output format
+pub const RASH_INTERNAL_OUTPUT_ENV: &str = "RASH_INTERNAL_OUTPUT";
+
+/// Environment variable name to indicate internal task (suppresses task header)
+pub const RASH_INTERNAL_TASK_FLAG: &str = "RASH_INTERNAL";
+
+/// Check if we're running as an internal task execution (for sudo become)
+pub fn is_internal_task_execution() -> Option<PathBuf> {
+    env::var(RASH_INTERNAL_TASK_ENV).ok().map(PathBuf::from)
+}
+
+/// Get the result file path for internal task execution
+pub fn get_internal_result_path() -> Option<PathBuf> {
+    env::var(RASH_INTERNAL_RESULT_ENV).ok().map(PathBuf::from)
+}
+
+/// Get the output format for internal task execution
+pub fn get_internal_output() -> Option<String> {
+    env::var(RASH_INTERNAL_OUTPUT_ENV).ok()
+}
+
+/// Check if this is an internal task execution (should suppress task headers)
+pub fn is_internal_execution() -> bool {
+    env::var(RASH_INTERNAL_TASK_FLAG).is_ok()
+}
+
+fn log_module_result(changed: bool, result: &ModuleResult) {
+    if is_json_output() {
+        let json_result = JsonResult::new(changed, result.get_output(), result.get_extra());
+        match serde_json::to_string(&json_result) {
+            Ok(json_str) => {
+                let target = if changed { "changed" } else { "ok" };
+                info!(target: target, "{}", json_str);
+            }
+            Err(e) => {
+                error!("Failed to serialize JSON result: {}", e);
+            }
+        }
+    } else {
+        let output = result.get_output();
+        let target = match changed {
+            true => "changed",
+            false => "ok",
+        };
+        let target_empty = &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
+        info!(target: target_empty,
+            "{}",
+            output.unwrap_or_else(|| "".to_owned())
+        );
+    }
+}
+
 /// Main structure at definition level which prepares [`Module`] executions.
 ///
 /// It implements a state machine using Rust Generics to enforce well done definitions.
@@ -81,6 +174,12 @@ pub struct Task<'a> {
     r#become: bool,
     /// Run operations as this user (just works with become enabled).
     become_user: String,
+    /// Privilege escalation method: syscall or sudo.
+    become_method: BecomeMethod,
+    /// Path to sudo executable (used when become_method is sudo).
+    become_exe: String,
+    /// Password for privilege escalation (used when become_method is sudo).
+    become_password: Option<String>,
     /// Run task in dry-run mode without modifications.
     check_mode: bool,
     /// Module could be any [`Module`] accessible by its name.
@@ -496,22 +595,7 @@ impl<'a> Task<'a> {
                                 && module_name != "block"
                                 && module_name != "meta"
                             {
-                                let output = result.get_output();
-                                let target = match changed {
-                                    true => "changed",
-                                    false => "ok",
-                                };
-                                let target_empty = &format!(
-                                    "{}{}",
-                                    target,
-                                    if output.is_none() { "_empty" } else { "" }
-                                );
-                                info!(target: target_empty,
-                                    "{}",
-                                    output.unwrap_or_else(
-                                        || "".to_owned()
-                                    )
-                                );
+                                log_module_result(changed, &result);
                             }
 
                             let register_vars = self.register.clone().map(|register| {
@@ -551,6 +635,165 @@ impl<'a> Task<'a> {
                 format!("gid cannot be changed to {}", user.gid),
             )),
         }
+    }
+
+    fn exec_module_via_sudo(
+        &self,
+        rendered_params: &YamlValue,
+        vars: &Value,
+    ) -> Result<TaskExecResult> {
+        let temp_dir = std::env::temp_dir();
+        let task_file = temp_dir.join(format!("rash_task_{}.yaml", uuid::Uuid::new_v4()));
+        let result_file = temp_dir.join(format!("rash_result_{}.json", uuid::Uuid::new_v4()));
+
+        let internal_data = InternalTaskData {
+            original_path: vars
+                .get_attr("rash")
+                .ok()
+                .and_then(|r| r.get_attr("path").ok())
+                .and_then(|p| p.as_str().map(String::from)),
+            args: None,
+            vars: vars.clone(),
+            task: serde_norway::to_value(serde_json::json!({
+                "name": self.name,
+                self.module.get_name(): rendered_params,
+            }))
+            .map_err(|e| Error::new(ErrorKind::Other, e))?,
+        };
+
+        let task_content =
+            serde_yaml::to_string(&internal_data).map_err(|e| Error::new(ErrorKind::Other, e))?;
+
+        let mut file = File::create(&task_file).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to create task file: {}", e),
+            )
+        })?;
+        file.write_all(task_content.as_bytes())
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
+
+        let rash_path = std::env::current_exe().map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to get current exe path: {}", e),
+            )
+        })?;
+
+        let output = if let Some(ref password) = self.become_password {
+            // With password: use -S flag and write password to stdin
+            trace!(
+                "exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}",
+                env::var(RASH_INTERNAL_OUTPUT_ENV)
+            );
+            let mut child = StdCommand::new(&self.become_exe)
+                .arg("-H")
+                .arg("-S")
+                .arg("-E")
+                .arg("-u")
+                .arg(&self.become_user)
+                .arg("--")
+                .arg(&rash_path)
+                .arg("--internal-task")
+                .arg(&task_file)
+                .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+                .env(RASH_INTERNAL_TASK_FLAG, "1")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| {
+                    Error::new(
+                        ErrorKind::SubprocessFail,
+                        format!("Failed to spawn {}: {}", self.become_exe, e),
+                    )
+                })?;
+
+            // Write password to stdin
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write as IoWrite;
+                stdin
+                    .write_all(format!("{}\n", password).as_bytes())
+                    .map_err(|e| {
+                        Error::new(ErrorKind::Other, format!("Failed to write password: {}", e))
+                    })?;
+            }
+
+            let output = child.wait_with_output().map_err(|e| {
+                Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!("Failed to wait for {}: {}", self.become_exe, e),
+                )
+            })?;
+            Output {
+                status: output.status,
+                stdout: Vec::new(),
+                stderr: output.stderr,
+            }
+        } else {
+            // Without password: simple execution with inherited stdout/stderr
+            trace!(
+                "exec_module_via_sudo: RASH_INTERNAL_OUTPUT_ENV = {:?}",
+                env::var(RASH_INTERNAL_OUTPUT_ENV)
+            );
+            let status = StdCommand::new(&self.become_exe)
+                .arg("-H")
+                .arg("-E")
+                .arg("-u")
+                .arg(&self.become_user)
+                .arg("--")
+                .arg(&rash_path)
+                .arg("--internal-task")
+                .arg(&task_file)
+                .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+                .env(RASH_INTERNAL_TASK_FLAG, "1")
+                .status()
+                .map_err(|e| {
+                    Error::new(
+                        ErrorKind::SubprocessFail,
+                        format!("Failed to execute {}: {}", self.become_exe, e),
+                    )
+                })?;
+            Output {
+                status,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            }
+        };
+
+        // Cleanup temp files
+        let _ = fs::remove_file(&task_file);
+
+        if !output.status.success() {
+            let _ = fs::remove_file(&result_file);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(Error::new(
+                ErrorKind::SubprocessFail,
+                format!(
+                    "{} failed with exit code {}: {}",
+                    self.become_exe,
+                    output.status.code().unwrap_or(-1),
+                    stderr
+                ),
+            ));
+        }
+
+        let result_content = fs::read_to_string(&result_file).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to read result file: {}", e),
+            )
+        })?;
+        let _ = fs::remove_file(&result_file);
+
+        let result: TaskExecResult = serde_json::from_str(&result_content).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to parse result JSON: {}", e),
+            )
+        })?;
+
+        Ok(result)
     }
 
     fn exec_module_rendered(
@@ -606,19 +849,7 @@ impl<'a> Task<'a> {
 
                 // Don't show output for control flow modules like include and block
                 if module_name != "include" && module_name != "block" && module_name != "meta" {
-                    let output = result.get_output();
-                    let target = match changed {
-                        true => "changed",
-                        false => "ok",
-                    };
-                    let target_empty =
-                        &format!("{}{}", target, if output.is_none() { "_empty" } else { "" });
-                    info!(target: target_empty,
-                        "{}",
-                        output.unwrap_or_else(
-                            || "".to_owned()
-                        )
-                    );
+                    log_module_result(changed, &result);
                 }
 
                 let register_vars = self.register.clone().map(|register| {
@@ -678,8 +909,14 @@ impl<'a> Task<'a> {
                 return self.poll_job(job_id, poll_interval);
             }
 
-            match self.r#become {
+            match self.r#become && !self.check_mode {
                 true => {
+                    // Handle sudo method separately
+                    if self.become_method == BecomeMethod::Sudo {
+                        return self.exec_module_via_sudo(&rendered_params, &vars);
+                    }
+
+                    // Syscall method (default)
                     let user_not_found_error = || {
                         Error::new(
                             ErrorKind::Other,
@@ -710,6 +947,7 @@ impl<'a> Task<'a> {
                             );
                         }
 
+                        // Type is complex but precise - needed for IPC channel with serialized results
                         #[allow(clippy::type_complexity)]
                         let (tx, rx): (
                             IpcSender<StdResult<String, SerdeError>>,
@@ -1634,5 +1872,28 @@ mod tests {
             task.notify,
             Some(vec!["handler1".to_string(), "handler2".to_string()])
         );
+    }
+
+    #[test]
+    fn test_check_mode_skips_become() {
+        let global_params = GlobalParams {
+            r#become: true,
+            become_user: "root",
+            become_method: BecomeMethod::default(),
+            become_exe: "sudo",
+            become_password: None,
+            check_mode: true,
+        };
+        let yaml_str = r#"
+        name: test check mode with become
+        command: whoami
+        "#;
+        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        assert!(task.r#become);
+        assert!(task.check_mode);
+
+        let result = task.exec(context! {}).unwrap();
+        assert!(result.get_changed());
     }
 }
