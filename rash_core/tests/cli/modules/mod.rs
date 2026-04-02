@@ -5,6 +5,7 @@ mod cargo;
 mod cron;
 mod dconf;
 mod dnf;
+mod docker_config;
 mod docker_container;
 mod docker_image;
 mod fail;
