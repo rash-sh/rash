@@ -37,7 +37,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -50,7 +50,7 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_json;
-use serde_norway::{value, Value as YamlValue};
+use serde_norway::{Value as YamlValue, value};
 
 fn default_true() -> bool {
     true
