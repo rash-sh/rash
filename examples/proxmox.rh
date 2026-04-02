@@ -1,0 +1,174 @@
+#!/usr/bin/env rash
+#
+# proxmox module example
+#
+# This example demonstrates the proxmox module for Proxmox VE integration.
+# It shows how to create, start, stop, restart, and remove VMs and containers.
+#
+# Requirements:
+# - A running Proxmox VE server
+# - API credentials (either password or API token)
+#
+# Usage:
+#   rash proxmox.rh
+#   # Or with environment variables:
+#   PROXMOX_PASSWORD=secret rash proxmox.rh
+
+- name: Create a QEMU VM from template
+  proxmox:
+    node: pve1
+    vmid: 200
+    name: myvm
+    state: present
+    template: 9000
+    cores: 4
+    memory: 8192
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+  register: vm_create_result
+
+- name: Show VM creation result
+  debug:
+    msg: "VM created: {{ vm_create_result }}"
+
+- name: Start the VM
+  proxmox:
+    node: pve1
+    vmid: 200
+    state: started
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+    wait: true
+    timeout: 60
+  register: vm_start_result
+
+- name: Show VM start result
+  debug:
+    msg: "VM started: {{ vm_start_result }}"
+
+- name: Create an LXC container
+  proxmox:
+    node: pve1
+    vmid: 100
+    name: mycontainer
+    vmtype: lxc
+    state: present
+    cores: 2
+    memory: 2048
+    disk: 8G
+    storage: local-lvm
+    ostemplate: local:vztmpl/debian-12.tar.zst
+    bridge: vmbr0
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+  register: container_create_result
+
+- name: Start the container
+  proxmox:
+    node: pve1
+    vmid: 100
+    state: started
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+  register: container_start_result
+
+- name: Create container with static IP
+  proxmox:
+    node: pve1
+    vmid: 101
+    name: webserver
+    vmtype: lxc
+    state: present
+    cores: 2
+    memory: 4096
+    ostemplate: local:vztmpl/alpine-3.19.tar.zst
+    bridge: vmbr0
+    ip_address: 192.168.1.100/24
+    gateway: 192.168.1.1
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+
+- name: Stop a VM gracefully
+  proxmox:
+    node: pve1
+    vmid: 200
+    state: stopped
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+    wait: true
+  register: vm_stop_result
+
+- name: Force stop a container
+  proxmox:
+    node: pve1
+    vmid: 100
+    state: stopped
+    force: true
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+
+- name: Restart a VM
+  proxmox:
+    node: pve1
+    vmid: 200
+    state: restarted
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+    wait: true
+    timeout: 120
+
+- name: Create VM with pool and tags
+  proxmox:
+    node: pve1
+    vmid: 300
+    name: production-web
+    state: present
+    template: 9000
+    pool: production
+    tags: web;production;critical
+    description: Production web server VM
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+
+- name: Use API token instead of password
+  proxmox:
+    node: pve1
+    vmid: 200
+    state: started
+    api_host: pve.local
+    api_user: root@pam
+    api_token_id: automation
+    api_token_secret: "{{ proxmox_token_secret }}"
+
+- name: Remove a container
+  proxmox:
+    node: pve1
+    vmid: 100
+    state: absent
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+  register: container_remove_result
+
+- name: Remove a VM
+  proxmox:
+    node: pve1
+    vmid: 200
+    state: absent
+    api_host: pve.local
+    api_user: root@pam
+    api_password: "{{ proxmox_password }}"
+  register: vm_remove_result
+
+- name: Show final results
+  debug:
+    msg: "Operations completed. VM removed: {{ vm_remove_result.changed }}"
