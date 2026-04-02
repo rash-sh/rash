@@ -89,7 +89,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
