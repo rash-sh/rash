@@ -37,7 +37,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult, parse_params};
+use crate::modules::{parse_params, Module, ModuleResult};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -50,7 +50,7 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
-use serde_with::{OneOrMany, serde_as};
+use serde_with::{serde_as, OneOrMany};
 
 #[serde_as]
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -336,6 +336,7 @@ mod tests {
         assert!(!match_regex("apache", "nginx").unwrap());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn test_match_user() {
         assert!(match_user("root", "root").unwrap());
@@ -344,12 +345,14 @@ mod tests {
         assert!(!match_user("root", "admin").unwrap());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn test_get_all_pids() {
         let pids = get_all_pids().unwrap();
         assert!(!pids.is_empty());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn test_pids_no_filter() {
         let result = pids(Params {
