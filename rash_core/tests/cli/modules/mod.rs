@@ -25,6 +25,7 @@ mod pam_limits;
 mod pip;
 mod reboot;
 mod seboolean;
+mod sudoers;
 mod systemd;
 mod timezone;
 mod trace;
