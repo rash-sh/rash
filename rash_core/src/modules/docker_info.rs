@@ -78,6 +78,27 @@ fn default_true() -> bool {
     true
 }
 
+fn remove_nulls(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => serde_json::Value::Object(
+            map.into_iter()
+                .filter_map(|(k, v)| {
+                    let cleaned = remove_nulls(v);
+                    if cleaned.is_null() {
+                        None
+                    } else {
+                        Some((k, cleaned))
+                    }
+                })
+                .collect(),
+        ),
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(remove_nulls).collect())
+        }
+        other => other,
+    }
+}
+
 #[derive(Debug)]
 pub struct DockerInfo;
 
@@ -93,7 +114,11 @@ impl Module for DockerInfo {
         _vars: &Value,
         _check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        Ok((docker_info(parse_params(optional_params)?)?, None))
+        let params = match optional_params {
+            YamlValue::Null => YamlValue::Mapping(serde_norway::Mapping::new()),
+            other => other,
+        };
+        Ok((docker_info(parse_params(params)?)?, None))
     }
 
     #[cfg(feature = "docs")]
@@ -197,11 +222,10 @@ fn docker_info(params: Params) -> Result<ModuleResult> {
     if params.get_version {
         match get_docker_version() {
             Ok(version) => {
-                info.insert("version".to_string(), version);
+                info.insert("version".to_string(), remove_nulls(version));
             }
             Err(e) => {
                 trace!("Failed to get Docker version: {}", e);
-                info.insert("version".to_string(), serde_json::Value::Null);
             }
         }
     }
@@ -209,11 +233,10 @@ fn docker_info(params: Params) -> Result<ModuleResult> {
     if params.get_info {
         match get_docker_info() {
             Ok(docker_info_val) => {
-                info.insert("info".to_string(), docker_info_val);
+                info.insert("info".to_string(), remove_nulls(docker_info_val));
             }
             Err(e) => {
                 trace!("Failed to get Docker info: {}", e);
-                info.insert("info".to_string(), serde_json::Value::Null);
             }
         }
     }
@@ -221,11 +244,10 @@ fn docker_info(params: Params) -> Result<ModuleResult> {
     if params.get_disk_usage {
         match get_docker_disk_usage() {
             Ok(disk_usage) => {
-                info.insert("disk_usage".to_string(), disk_usage);
+                info.insert("disk_usage".to_string(), remove_nulls(disk_usage));
             }
             Err(e) => {
                 trace!("Failed to get Docker disk usage: {}", e);
-                info.insert("disk_usage".to_string(), serde_json::Value::Null);
             }
         }
     }
