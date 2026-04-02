@@ -92,3 +92,4 @@
     path: /tmp/crypttab.example
     state: absent
 
+
