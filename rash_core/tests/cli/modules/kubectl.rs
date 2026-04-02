@@ -1,28 +1,31 @@
 use std::process::Command;
-use std::time::{Duration, Instant};
 
 use crate::cli::modules::run_test;
 
 fn kubectl_available() -> bool {
-    let start = Instant::now();
-    let timeout = Duration::from_secs(5);
+    let output = Command::new("kubectl")
+        .args(["cluster-info", "--request-timeout=2s"])
+        .output();
 
-    let child = Command::new("kubectl").args(["cluster-info"]).spawn();
-
-    if let Ok(mut child) = child {
-        loop {
-            if start.elapsed() > timeout {
-                let _ = child.kill();
+    match output {
+        Ok(o) => {
+            if !o.status.success() {
                 return false;
             }
-            match child.try_wait() {
-                Ok(Some(status)) => return status.success(),
-                Ok(None) => continue,
-                Err(_) => return false,
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if stderr.contains("connection refused")
+                || stderr.contains("Unable to connect")
+                || stderr.contains("couldn't get")
+                || stderr.contains("dial tcp")
+                || !stdout.contains("control plane")
+            {
+                return false;
             }
+            true
         }
+        Err(_) => false,
     }
-    false
 }
 
 macro_rules! skip_without_kubectl {
