@@ -220,8 +220,8 @@ struct AuthResponse {
 #[derive(Debug, Deserialize)]
 struct AuthData {
     ticket: String,
-    #[allow(non_snake_case)]
-    CSRFPreventionToken: String,
+    #[serde(rename = "CSRFPreventionToken")]
+    csrf_prevention_token: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -342,7 +342,7 @@ impl ProxmoxClient {
         })?;
 
         self.ticket = Some(auth_response.data.ticket);
-        self.csrf_token = Some(auth_response.data.CSRFPreventionToken);
+        self.csrf_token = Some(auth_response.data.csrf_prevention_token);
 
         Ok(())
     }

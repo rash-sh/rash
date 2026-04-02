@@ -172,9 +172,12 @@ use crate::modules::npm::Npm;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
+use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
+use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
 use crate::modules::pause::Pause;
+use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::proxmox::Proxmox;
@@ -385,9 +388,12 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             OpensslPrivatekey.get_name(),
             Box::new(OpensslPrivatekey) as Box<dyn Module>,
         ),
+        (Package.get_name(), Box::new(Package) as Box<dyn Module>),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
+        (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
         (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
+        (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
         (
             PostgresqlDb.get_name(),
