@@ -47,7 +47,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{Module, ModuleResult, parse_params};
+use crate::modules::{parse_params, Module, ModuleResult};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -618,6 +618,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_create_swap_file_real() {
         let dir = tempdir().unwrap();
         let swap_path = dir.path().join("swapfile");
@@ -674,12 +675,10 @@ mod tests {
 
         let result = swapfile(params, false);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("size parameter is required")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("size parameter is required"));
     }
 
     #[test]
@@ -693,12 +692,10 @@ mod tests {
 
         let result = swapfile(params, false);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("priority must be between")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("priority must be between"));
     }
 
     #[test]
@@ -731,6 +728,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_remove_swap_file_check_mode() {
         let dir = tempdir().unwrap();
         let swap_path = dir.path().join("swapfile");
@@ -751,6 +749,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_remove_swap_file_real() {
         let dir = tempdir().unwrap();
         let swap_path = dir.path().join("swapfile");
@@ -771,6 +770,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_remove_swap_file_not_exists() {
         let dir = tempdir().unwrap();
         let swap_path = dir.path().join("nonexistent_swapfile");
