@@ -443,7 +443,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
-(OpenRc.get_name(), Box::new(OpenRc) as Box<dyn Module>),
+        (OpenRc.get_name(), Box::new(OpenRc) as Box<dyn Module>),
         (Opkg.get_name(), Box::new(Opkg) as Box<dyn Module>),
         (
             OpensslCertificate.get_name(),
