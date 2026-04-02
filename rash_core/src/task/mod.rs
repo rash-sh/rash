@@ -285,6 +285,7 @@ impl<'a> Task<'a> {
                 self.module.force_string_on_params(),
             ),
             YamlValue::String(s) => Ok(YamlValue::String(render_string(&s, &extended_vars)?)),
+            YamlValue::Null => Ok(YamlValue::Mapping(serde_norway::Mapping::new())),
             YamlValue::Sequence(_) => {
                 // For sequence parameters (like block tasks), pass through without string rendering
                 if self.module.get_name() == "block" {
