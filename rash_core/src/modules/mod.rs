@@ -27,6 +27,7 @@ mod docker_config;
 mod docker_container;
 mod docker_exec;
 mod docker_image;
+mod docker_prune;
 mod docker_volume;
 mod dynamic;
 mod expect;
@@ -43,6 +44,7 @@ mod git;
 mod gpg_key;
 mod group;
 mod grub;
+mod helm;
 mod helm_info;
 mod hostname;
 mod include;
@@ -55,6 +57,7 @@ mod jenkins_job;
 mod json_file;
 mod kernel_blacklist;
 mod known_hosts;
+mod kubectl;
 mod lbu;
 mod lineinfile;
 mod locale;
@@ -153,6 +156,7 @@ use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
@@ -169,6 +173,7 @@ use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
+use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
@@ -181,6 +186,7 @@ use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
+use crate::modules::kubectl::Kubectl;
 use crate::modules::lbu::Lbu;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
@@ -370,6 +376,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(DockerImage) as Box<dyn Module>,
         ),
         (
+            DockerPrune.get_name(),
+            Box::new(DockerPrune) as Box<dyn Module>,
+        ),
+        (
             DockerVolume.get_name(),
             Box::new(DockerVolume) as Box<dyn Module>,
         ),
@@ -389,6 +399,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
+        (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (
@@ -412,6 +423,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
         ),
+        (Kubectl.get_name(), Box::new(Kubectl) as Box<dyn Module>),
         (
             KnownHosts.get_name(),
             Box::new(KnownHosts) as Box<dyn Module>,
