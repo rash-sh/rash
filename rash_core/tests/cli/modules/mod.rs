@@ -3,6 +3,7 @@ mod apt;
 mod authorized_key;
 mod cargo;
 mod cron;
+mod crypttab;
 mod dconf;
 mod dnf;
 mod docker_container;
