@@ -90,6 +90,7 @@ mod systemd;
 mod template;
 mod timezone;
 mod trace;
+mod ufw;
 mod unarchive;
 mod uri;
 mod user;
@@ -196,6 +197,7 @@ use crate::modules::systemd::Systemd;
 use crate::modules::template::Template;
 use crate::modules::timezone::Timezone;
 use crate::modules::trace::Trace;
+use crate::modules::ufw::Ufw;
 use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
@@ -419,6 +421,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
         (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
+        (Ufw.get_name(), Box::new(Ufw) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),

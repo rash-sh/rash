@@ -28,6 +28,7 @@ mod seboolean;
 mod systemd;
 mod timezone;
 mod trace;
+mod ufw;
 mod user;
 mod zypper;
 
