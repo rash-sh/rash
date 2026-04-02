@@ -45,6 +45,7 @@ mod interfaces_file;
 mod iptables;
 mod java_keystore;
 mod json_file;
+mod kafka_topic;
 mod kernel_blacklist;
 mod known_hosts;
 mod lbu;
@@ -151,6 +152,7 @@ use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::json_file::JsonFile;
+use crate::modules::kafka_topic::KafkaTopic;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
 use crate::modules::lbu::Lbu;
@@ -348,6 +350,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
+        (
+            KafkaTopic.get_name(),
+            Box::new(KafkaTopic) as Box<dyn Module>,
+        ),
         (
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
