@@ -1,4 +1,4 @@
-use crate::context::GlobalParams;
+use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{MODULES, is_module};
 use crate::task::{Task, parse_notify_value};
@@ -101,6 +101,21 @@ impl TaskValid {
                 None => global_params.become_user,
             }
             .to_owned(),
+            become_method: match self.attrs["become_method"].as_str() {
+                Some(s) => s.parse::<BecomeMethod>().unwrap_or_else(|e| {
+                    warn!("Invalid become_method '{}': {}", s, e);
+                    global_params.become_method
+                }),
+                None => global_params.become_method,
+            },
+            become_exe: match self.attrs["become_exe"].as_str() {
+                Some(s) => s.to_owned(),
+                None => global_params.become_exe.to_owned(),
+            },
+            become_password: match self.attrs["become_password"].as_str() {
+                Some(s) => Some(s.to_owned()),
+                None => global_params.become_password.map(String::from),
+            },
             changed_when: self.parse_array(&self.attrs["changed_when"]),
             check_mode: match global_params.check_mode {
                 true => true,
@@ -146,7 +161,6 @@ impl TaskValid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context::GlobalParams;
     use serde_norway::Value as YamlValue;
 
     fn create_test_global_params() -> GlobalParams<'static> {

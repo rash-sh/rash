@@ -46,12 +46,27 @@ footer = """
 """
 
 [git]
-# parse the commits based on https://www.conventionalcommits.org
+# parse the commits based on https://www.conventional_commits.org
 conventional_commits = true
 # filter out the commits that are not conventional
-filter_unconventional = true
+filter_unconventional = false
 # process each line of a commit as an individual commit
 split_commits = false
+commit_preprocessors = [
+    # Transform GitHub squash PR titles: "Feat/something (#123) -> body" -> "feat: something"
+    { pattern = "^Feat/", replace = "feat: " },
+    { pattern = "^Fix/", replace = "fix: " },
+    { pattern = "^Chore/", replace = "chore: " },
+    { pattern = "^Docs/", replace = "docs: " },
+    { pattern = "^Refactor/", replace = "refactor: " },
+    { pattern = "^Style/", replace = "style: " },
+    { pattern = "^Test/", replace = "test: " },
+    { pattern = "^Perf/", replace = "perf: " },
+    { pattern = "^Build/", replace = "build: " },
+    { pattern = "^Ci/", replace = "ci: " },
+    # Strip PR number and body from squash commits
+    { pattern = " \\(#\\d+\\).*", replace = "" },
+]
 # regex for parsing and grouping commits
 commit_parsers = [
     { message = "^feat", group = "<!-- 0 -->Added" },
@@ -62,6 +77,14 @@ commit_parsers = [
     { message = "^release", skip = true },
     { message = "^style", group = "Styling" },
     { message = "^test", group = "Testing" },
+    { message = "^chore", group = "Chore" },
+    { message = "^[Ff]eat/", group = "<!-- 0 -->Added" },
+    { message = "^[Ff]ix/", group = "<!-- 1 -->Fixed" },
+    { message = "^[Dd]ocs/", group = "<!-- 2 -->Documentation" },
+    { message = "^[Bb]uild/", group = "Build" },
+    { message = "^[Rr]efactor/", group = "Refactor" },
+    { message = "^[Tt]est/", group = "Testing" },
+    { message = "^[Cc]hore/", group = "Chore" },
 ]
 # protect breaking changes from being skipped due to matching a skipping commit_parser
 protect_breaking_commits = false
