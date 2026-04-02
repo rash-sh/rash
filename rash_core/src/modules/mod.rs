@@ -47,6 +47,7 @@ mod java_keystore;
 mod json_file;
 mod kernel_blacklist;
 mod known_hosts;
+mod kubectl;
 mod lbu;
 mod lineinfile;
 mod locale;
@@ -153,6 +154,7 @@ use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::json_file::JsonFile;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
+use crate::modules::kubectl::Kubectl;
 use crate::modules::lbu::Lbu;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
@@ -352,6 +354,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
         ),
+        (Kubectl.get_name(), Box::new(Kubectl) as Box<dyn Module>),
         (
             KnownHosts.get_name(),
             Box::new(KnownHosts) as Box<dyn Module>,
