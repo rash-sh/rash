@@ -21,6 +21,7 @@ mod grub;
 mod hostname;
 mod include;
 mod kernel_blacklist;
+mod kubectl;
 mod logrotate;
 mod modprobe;
 mod netplan;
