@@ -23,6 +23,7 @@ mod debootstrap;
 mod debug;
 mod dmsetup;
 mod dnf;
+mod docker_config;
 mod docker_container;
 mod docker_image;
 mod docker_volume;
@@ -140,6 +141,7 @@ use crate::modules::debootstrap::Debootstrap;
 use crate::modules::debug::Debug;
 use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
+use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_image::DockerImage;
 use crate::modules::docker_volume::DockerVolume;
@@ -334,6 +336,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
+        (
+            DockerConfig.get_name(),
+            Box::new(DockerConfig) as Box<dyn Module>,
+        ),
         (
             DockerContainer.get_name(),
             Box::new(DockerContainer) as Box<dyn Module>,
