@@ -1,0 +1,98 @@
+#!/usr/bin/env -S rash --
+#
+# helm module example
+#
+# This example demonstrates the basic functionality of the helm module:
+# - Adding Helm repositories
+# - Installing charts
+# - Updating charts
+# - Removing charts and repositories
+#
+# Usage:
+#   helm.rh
+#
+# Note: This example requires helm to be installed and configured.
+# Run with: rash helm.rh
+
+- name: Check if helm is installed
+  command:
+    cmd: helm version --short
+  register: helm_check
+  failed_when: false
+  changed_when: false
+
+- name: Skip if helm not available
+  debug:
+    msg: "Helm is not installed. Skipping example."
+  when: helm_check.rc != 0
+
+- block:
+    - name: Add bitnami Helm repository
+      helm:
+        repository:
+          name: bitnami
+          url: https://charts.bitnami.com/bitnami
+          state: present
+
+    - name: Update bitnami repository
+      helm:
+        repository:
+          name: bitnami
+          state: updated
+
+    - name: List repositories
+      command:
+        cmd: helm repo list
+      changed_when: false
+
+    - name: Install nginx chart (check mode)
+      helm:
+        chart:
+          name: test-nginx
+          chart_ref: bitnami/nginx
+          namespace: default
+          state: present
+      check_mode: true
+      register: install_check
+
+    - name: Verify check mode would install
+      assert:
+        that:
+          - install_check.changed
+
+    - name: Install nginx chart
+      helm:
+        chart:
+          name: test-nginx
+          chart_ref: bitnami/nginx
+          namespace: default
+          state: present
+
+    - name: List deployed charts
+      command:
+        cmd: helm list --namespace default
+      changed_when: false
+
+    - name: Upgrade nginx chart
+      helm:
+        chart:
+          name: test-nginx
+          chart_ref: bitnami/nginx
+          namespace: default
+          state: present
+          force: true
+
+    - name: Uninstall nginx chart
+      helm:
+        chart:
+          name: test-nginx
+          namespace: default
+          state: absent
+
+    - name: Remove bitnami repository
+      helm:
+        repository:
+          name: bitnami
+          state: absent
+
+  when: helm_check.rc == 0
