@@ -80,7 +80,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{Module, ModuleResult, parse_params};
+use crate::modules::{parse_params, Module, ModuleResult};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -94,7 +94,7 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_json;
-use serde_norway::{Value as YamlValue, value};
+use serde_norway::{value, Value as YamlValue};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -289,17 +289,14 @@ impl DockerComposeClient {
             .lines()
             .filter_map(|line| {
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                    let name = json.get("Service").and_then(|s| s.as_str()).unwrap_or("");
+                    let state = json.get("State").and_then(|s| s.as_str()).unwrap_or("");
+                    if name.is_empty() {
+                        return None;
+                    }
                     Some(ServiceInfo {
-                        name: json
-                            .get("Service")
-                            .and_then(|s| s.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                        state: json
-                            .get("State")
-                            .and_then(|s| s.as_str())
-                            .unwrap_or("")
-                            .to_string(),
+                        name: name.to_string(),
+                        state: state.to_string(),
                         running: json.get("State").and_then(|s| s.as_str()) == Some("running"),
                     })
                 } else {
@@ -541,10 +538,24 @@ fn docker_compose(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
     let services_before = client.get_services_info(&params)?;
     let any_running_before = services_before.iter().any(|s| s.running);
+    trace!(
+        "services_before: {:?}, any_running_before: {}",
+        services_before,
+        any_running_before
+    );
 
     match params.state {
         State::Absent => {
-            if client.project_exists(&params)? {
+            trace!("state: Absent");
+            if check_mode {
+                if client.project_exists(&params)? {
+                    diff("state: present".to_string(), "state: absent".to_string());
+                    output_messages.push("Project would be removed".to_string());
+                    changed = true;
+                } else {
+                    output_messages.push("Project already absent".to_string());
+                }
+            } else if client.project_exists(&params)? {
                 if client.down(&params)? {
                     diff("state: present".to_string(), "state: absent".to_string());
                     output_messages.push("Project removed".to_string());
@@ -555,6 +566,7 @@ fn docker_compose(params: Params, check_mode: bool) -> Result<ModuleResult> {
             }
         }
         State::Present | State::Started => {
+            trace!("state: Present/Started");
             if params.pull {
                 client.pull_images(&params)?;
                 output_messages.push("Images pulled".to_string());
@@ -565,7 +577,19 @@ fn docker_compose(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 output_messages.push("Images built".to_string());
             }
 
-            if client.up(&params)? {
+            if check_mode {
+                trace!(
+                    "check_mode: true, any_running_before: {}",
+                    any_running_before
+                );
+                if !any_running_before {
+                    diff("state: stopped".to_string(), "state: started".to_string());
+                    output_messages.push("Project would be started".to_string());
+                    changed = true;
+                } else {
+                    output_messages.push("Project already running".to_string());
+                }
+            } else if client.up(&params)? {
                 let services_after = client.get_services_info(&params)?;
                 let any_running_after = services_after.iter().any(|s| s.running);
 
@@ -583,7 +607,22 @@ fn docker_compose(params: Params, check_mode: bool) -> Result<ModuleResult> {
             }
         }
         State::Stopped => {
-            if client.project_exists(&params)? {
+            if check_mode {
+                if client.project_exists(&params)? {
+                    if any_running_before {
+                        diff("state: started".to_string(), "state: stopped".to_string());
+                        output_messages.push("Project would be stopped".to_string());
+                        changed = true;
+                    } else {
+                        output_messages.push("Project already stopped".to_string());
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "Project does not exist - cannot stop",
+                    ));
+                }
+            } else if client.project_exists(&params)? {
                 if any_running_before {
                     client.stop(&params)?;
                     diff("state: started".to_string(), "state: stopped".to_string());
@@ -606,10 +645,16 @@ fn docker_compose(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     "Project does not exist - cannot restart",
                 ));
             }
-            client.restart(&params)?;
-            diff("state: running".to_string(), "state: restarted".to_string());
-            output_messages.push("Project restarted".to_string());
-            changed = true;
+            if check_mode {
+                diff("state: running".to_string(), "state: restarted".to_string());
+                output_messages.push("Project would be restarted".to_string());
+                changed = true;
+            } else {
+                client.restart(&params)?;
+                diff("state: running".to_string(), "state: restarted".to_string());
+                output_messages.push("Project restarted".to_string());
+                changed = true;
+            }
         }
     }
 
