@@ -13,4 +13,4 @@
 - iso_extract:
     iso: "{{ iso | default('/tmp/image.iso') }}"
     dest: "{{ dest | default('/mnt/extracted') }}"
-    force: "{{ options.force | default(false) }}"
+    force: "{{ options.force if options.force else omit }}"
