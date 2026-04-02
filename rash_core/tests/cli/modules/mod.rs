@@ -25,6 +25,7 @@ mod pam_limits;
 mod pip;
 mod reboot;
 mod seboolean;
+mod ssh_config;
 mod systemd;
 mod timezone;
 mod trace;

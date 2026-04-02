@@ -1,0 +1,93 @@
+#!/usr/bin/env rash
+#
+# ssh_config module example
+#
+# This example demonstrates the basic functionality of the ssh_config module:
+# - Adding host entries to SSH config files
+# - Modifying existing host options
+# - Removing host entries
+# - Working with wildcard patterns
+#
+# Usage:
+#   ssh_config.rh
+
+- name: Create initial SSH config file
+  copy:
+    content: |
+      Host github.com
+          hostname github.com
+          user git
+
+      Host *.example.com
+          user deploy
+    dest: /tmp/ssh_config_test
+
+- name: Show initial file content
+  command: cat /tmp/ssh_config_test
+
+- name: Add new host entry
+  ssh_config:
+    host: gitlab.com
+    options:
+      hostname: gitlab.com
+      user: git
+      identityfile: ~/.ssh/gitlab_key
+    ssh_config_file: /tmp/ssh_config_test
+
+- name: Modify existing host entry options
+  ssh_config:
+    host: github.com
+    options:
+      hostname: github.com
+      user: git
+      port: 22
+    ssh_config_file: /tmp/ssh_config_test
+
+- name: Add host with wildcard pattern
+  ssh_config:
+    host: "*.internal.local"
+    options:
+      user: admin
+      port: 2222
+    ssh_config_file: /tmp/ssh_config_test
+
+- name: Remove a host entry
+  ssh_config:
+    host: "*.example.com"
+    state: absent
+    ssh_config_file: /tmp/ssh_config_test
+
+- name: Show final configuration
+  command: cat /tmp/ssh_config_test
+
+- name: Test idempotency - run same operation again
+  ssh_config:
+    host: github.com
+    options:
+      hostname: github.com
+      user: git
+      port: 22
+    ssh_config_file: /tmp/ssh_config_test
+  register: idempotent_test
+
+- name: Verify no change was made (idempotent)
+  assert:
+    that:
+      - not idempotent_test.changed
+
+- name: Add host entry at the beginning (order=first)
+  ssh_config:
+    host: first-entry.local
+    options:
+      hostname: 192.168.1.1
+      user: root
+    ssh_config_file: /tmp/ssh_config_test
+    order: first
+
+- name: Show configuration with first entry
+  command: cat /tmp/ssh_config_test
+
+- name: Clean up
+  file:
+    path: /tmp/ssh_config_test
+    state: absent
