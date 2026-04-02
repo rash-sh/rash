@@ -69,6 +69,7 @@ mod npm;
 mod openssl_certificate;
 mod openssl_csr;
 mod openssl_privatekey;
+mod opkg;
 mod package;
 mod pacman;
 mod pam_limits;
@@ -185,6 +186,7 @@ use crate::modules::npm::Npm;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
+use crate::modules::opkg::Opkg;
 use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
@@ -404,6 +406,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
+        (Opkg.get_name(), Box::new(Opkg) as Box<dyn Module>),
         (
             OpensslCertificate.get_name(),
             Box::new(OpensslCertificate) as Box<dyn Module>,
