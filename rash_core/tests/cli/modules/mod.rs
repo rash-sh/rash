@@ -23,6 +23,7 @@ mod npm;
 mod pacman;
 mod pam_limits;
 mod pip;
+mod rclone;
 mod reboot;
 mod seboolean;
 mod systemd;
