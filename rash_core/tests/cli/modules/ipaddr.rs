@@ -12,7 +12,7 @@ fn test_ipaddr_parse_params() {
     .to_string();
 
     let args = ["--check"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
 }
@@ -137,7 +137,7 @@ fn test_ipaddr_ipv6_valid() {
     .to_string();
 
     let args = ["--check"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
 }
@@ -155,7 +155,7 @@ fn test_ipaddr_state_absent() {
     .to_string();
 
     let args = ["--check"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
 }
@@ -173,7 +173,7 @@ fn test_ipaddr_ipv6_explicit_family() {
     .to_string();
 
     let args = ["--check"];
-    let (stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
 }
