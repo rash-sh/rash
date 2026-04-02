@@ -4,14 +4,6 @@ use std::time::{Duration, Instant};
 use crate::cli::modules::run_test;
 
 fn kubectl_available() -> bool {
-    Command::new("kubectl")
-        .args(["cluster-info"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-fn cluster_accessible() -> bool {
     let start = Instant::now();
     let timeout = Duration::from_secs(5);
 
@@ -36,11 +28,7 @@ fn cluster_accessible() -> bool {
 macro_rules! skip_without_kubectl {
     () => {
         if !kubectl_available() {
-            eprintln!("Skipping test: kubectl not available");
-            return;
-        }
-        if !cluster_accessible() {
-            eprintln!("Skipping test: Kubernetes cluster not accessible");
+            eprintln!("Skipping test: kubectl not available or cluster not accessible");
             return;
         }
     };
