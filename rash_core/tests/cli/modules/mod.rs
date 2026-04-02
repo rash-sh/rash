@@ -9,6 +9,7 @@ mod docker_container;
 mod docker_image;
 mod fail;
 mod firewalld;
+mod flatpak;
 mod gem;
 mod git;
 mod group;
