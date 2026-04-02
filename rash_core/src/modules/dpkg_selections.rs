@@ -52,6 +52,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::logger;
 use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
@@ -64,7 +65,12 @@ use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 use serde_norway::value;
 use serde_with::{OneOrMany, serde_as};
+use std::path::PathBuf;
 use std::process::Command;
+
+fn default_executable() -> Option<String> {
+    Some("dpkg".to_owned())
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
@@ -95,6 +101,10 @@ impl Selection {
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
+    /// Path of the binary to use.
+    /// **[default: `"dpkg"`]**
+    #[serde(default = "default_executable")]
+    executable: Option<String>,
     /// Name or list of names of packages.
     #[serde_as(deserialize_as = "OneOrMany<_>")]
     #[serde(default)]
@@ -105,75 +115,113 @@ pub struct Params {
     pub selection: Option<Selection>,
 }
 
-fn get_current_selection(package: &str) -> Result<Option<String>> {
-    let output = Command::new("dpkg")
-        .arg("--get-selections")
-        .arg(package)
-        .output()
-        .map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to execute dpkg --get-selections: {}", e),
-            )
-        })?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let trimmed = stdout.trim();
-
-    if trimmed.is_empty() || !output.status.success() {
-        return Ok(None);
-    }
-
-    let parts: Vec<&str> = trimmed.split_whitespace().collect();
-    if parts.len() >= 2 && parts[0] == package {
-        Ok(Some(parts[1].to_string()))
-    } else {
-        Ok(None)
-    }
+struct DpkgClient {
+    executable: PathBuf,
+    check_mode: bool,
 }
 
-fn set_selection(package: &str, selection: &str) -> Result<()> {
-    let input = format!("{} {}", package, selection);
+impl DpkgClient {
+    pub fn new(params: &Params, check_mode: bool) -> Result<Self> {
+        Ok(DpkgClient {
+            executable: PathBuf::from(params.executable.as_ref().unwrap()),
+            check_mode,
+        })
+    }
 
-    let child = Command::new("dpkg")
-        .arg("--set-selections")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| {
+    fn get_current_selection(&self, package: &str) -> Result<Option<String>> {
+        let output = Command::new(&self.executable)
+            .arg("--get-selections")
+            .arg(package)
+            .output()
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!(
+                        "Failed to execute {} --get-selections: {}",
+                        self.executable.display(),
+                        e
+                    ),
+                )
+            })?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout.trim();
+
+        if trimmed.is_empty() || !output.status.success() {
+            return Ok(None);
+        }
+
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.len() >= 2 && parts[0] == package {
+            Ok(Some(parts[1].to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn set_selection(&self, package: &str, selection: &str) -> Result<()> {
+        if self.check_mode {
+            return Ok(());
+        }
+
+        let input = format!("{} {}", package, selection);
+
+        let child = Command::new(&self.executable)
+            .arg("--set-selections")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!(
+                        "Failed to execute {} --set-selections: {}",
+                        self.executable.display(),
+                        e
+                    ),
+                )
+            })?;
+
+        if let Some(mut stdin) = child.stdin.as_ref() {
+            use std::io::Write;
+            writeln!(stdin, "{}", input).map_err(|e| {
+                Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!(
+                        "Failed to write to {} --set-selections: {}",
+                        self.executable.display(),
+                        e
+                    ),
+                )
+            })?;
+        }
+
+        let output = child.wait_with_output().map_err(|e| {
             Error::new(
                 ErrorKind::SubprocessFail,
-                format!("Failed to execute dpkg --set-selections: {}", e),
+                format!(
+                    "Failed to wait for {} --set-selections: {}",
+                    self.executable.display(),
+                    e
+                ),
             )
         })?;
 
-    if let Some(mut stdin) = child.stdin.as_ref() {
-        use std::io::Write;
-        writeln!(stdin, "{}", input).map_err(|e| {
-            Error::new(
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(Error::new(
                 ErrorKind::SubprocessFail,
-                format!("Failed to write to dpkg --set-selections: {}", e),
-            )
-        })?;
+                format!(
+                    "{} --set-selections failed: {}",
+                    self.executable.display(),
+                    stderr
+                ),
+            ));
+        }
+
+        Ok(())
     }
-
-    let output = child.wait_with_output().map_err(|e| {
-        Error::new(
-            ErrorKind::SubprocessFail,
-            format!("Failed to wait for dpkg --set-selections: {}", e),
-        )
-    })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::new(
-            ErrorKind::SubprocessFail,
-            format!("dpkg --set-selections failed: {}", stderr),
-        ));
-    }
-
-    Ok(())
 }
 
 fn dpkg_selections_impl(params: Params, check_mode: bool) -> Result<ModuleResult> {
@@ -195,6 +243,7 @@ fn dpkg_selections_impl(params: Params, check_mode: bool) -> Result<ModuleResult
         }
     }
 
+    let client = DpkgClient::new(&params, check_mode)?;
     let selection = params.selection.unwrap_or_default();
     let selection_str = selection.as_str();
 
@@ -203,7 +252,7 @@ fn dpkg_selections_impl(params: Params, check_mode: bool) -> Result<ModuleResult
     let mut current_selections: Vec<(String, String)> = Vec::new();
 
     for package in &packages {
-        let current = get_current_selection(package)?;
+        let current = client.get_current_selection(package)?;
 
         current_selections.push((
             package.to_string(),
@@ -219,12 +268,15 @@ fn dpkg_selections_impl(params: Params, check_mode: bool) -> Result<ModuleResult
 
         changed_packages.push(package.to_string());
 
-        if !check_mode {
-            set_selection(package, selection_str)?;
-        }
+        client.set_selection(package, selection_str)?;
     }
 
     let changed = !changed_packages.is_empty();
+
+    if changed {
+        logger::add(&changed_packages);
+    }
+
     let extra = Some(value::to_value(json!({
         "packages": packages.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
         "selection": selection_str,
@@ -233,31 +285,9 @@ fn dpkg_selections_impl(params: Params, check_mode: bool) -> Result<ModuleResult
         "current_selections": current_selections,
     }))?);
 
-    let output = if changed {
-        if check_mode {
-            Some(format!(
-                "Would set selection '{}' for packages: {}",
-                selection_str,
-                changed_packages.join(", ")
-            ))
-        } else {
-            Some(format!(
-                "Set selection '{}' for packages: {}",
-                selection_str,
-                changed_packages.join(", ")
-            ))
-        }
-    } else {
-        Some(format!(
-            "Packages already have selection '{}': {}",
-            selection_str,
-            unchanged_packages.join(", ")
-        ))
-    };
-
     Ok(ModuleResult {
         changed,
-        output,
+        output: None,
         extra,
     })
 }
@@ -426,5 +456,21 @@ mod tests {
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert!(params.name.is_empty());
+    }
+
+    #[test]
+    fn test_parse_params_executable() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            executable: /usr/bin/dpkg
+            name: nginx
+            selection: hold
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(params.executable, Some("/usr/bin/dpkg".to_string()));
+        assert_eq!(params.name, vec!["nginx".to_string()]);
+        assert_eq!(params.selection, Some(Selection::Hold));
     }
 }

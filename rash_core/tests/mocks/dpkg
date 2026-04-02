@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# dpkg mock for dpkg_selections module tests.
+# Manages dpkg selections via --get-selections and --set-selections.
+#
+
+case "$1" in
+    --get-selections)
+        # Return current selections for requested package
+        package="$2"
+        
+        # Simulate some pre-held packages
+        case "$package" in
+            nginx)
+                echo "nginx hold"
+                ;;
+            docker-ce)
+                echo "docker-ce hold"
+                ;;
+            curl)
+                echo "curl install"
+                ;;
+            vim)
+                echo "vim install"
+                ;;
+            bash)
+                echo "bash install"
+                ;;
+            *)
+                # Return empty for unknown packages
+                ;;
+        esac
+        ;;
+    --set-selections)
+        # Read stdin and simulate setting selections
+        while IFS= read -r line; do
+            # Parse package selection from stdin
+            pkg=$(echo "$line" | awk '{print $1}')
+            sel=$(echo "$line" | awk '{print $2}')
+            echo "Set selection $sel for $pkg" >&2
+        done
+        ;;
+    *)
+        echo "Unknown dpkg option: $1" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

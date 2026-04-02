@@ -1,0 +1,26 @@
+#!/usr/bin/env rash
+
+- name: Hold nginx package to prevent updates
+  dpkg_selections:
+    name: nginx
+    selection: hold
+
+- name: Hold multiple packages
+  dpkg_selections:
+    name:
+      - docker-ce
+      - kernel-package
+    selection: hold
+
+- name: Query current package selection
+  dpkg_selections:
+    name: nginx
+  register: nginx_status
+
+- debug:
+    msg: "{{ nginx_status.extra }}"
+
+- name: Unhold nginx to allow updates
+  dpkg_selections:
+    name: nginx
+    selection: install
