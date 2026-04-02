@@ -389,7 +389,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
-(Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
+        (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (
