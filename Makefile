@@ -96,6 +96,7 @@ test:	## run tests
 	@echo all good!
 
 .PHONY: test-examples
+test-examples:	cross
 test-examples:	## run examples and check exit code
 	@for example in $$(find examples -not -path 'examples/envar-api-gateway/*' \
 		-not -path 'examples/diff.rh' -not -path 'examples/dotfiles/*' \
@@ -109,7 +110,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/vault.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
-		$$example || exit 1; \
+		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \
 	done
 	@echo
 	@echo
