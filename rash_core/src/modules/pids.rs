@@ -37,7 +37,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -50,7 +50,7 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
-use serde_with::{serde_as, OneOrMany};
+use serde_with::{OneOrMany, serde_as};
 
 #[serde_as]
 #[derive(Clone, Debug, PartialEq, Deserialize)]
