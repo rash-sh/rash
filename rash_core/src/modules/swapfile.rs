@@ -47,7 +47,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::logger::diff;
-use crate::modules::{parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -674,10 +674,12 @@ mod tests {
 
         let result = swapfile(params, false);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("size parameter is required"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("size parameter is required")
+        );
     }
 
     #[test]
@@ -691,10 +693,12 @@ mod tests {
 
         let result = swapfile(params, false);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("priority must be between"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("priority must be between")
+        );
     }
 
     #[test]
