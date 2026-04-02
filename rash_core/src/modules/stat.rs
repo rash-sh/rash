@@ -44,14 +44,11 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use md5::Md5;
 use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::{Value as YamlValue, value};
-use sha1::Sha1;
-use sha2::{Digest, Sha256};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -117,16 +114,20 @@ fn calculate_checksum(path: &Path, algorithm: &ChecksumAlgorithm) -> Result<Stri
 
     match algorithm {
         ChecksumAlgorithm::Md5 => {
+            use md5::{Digest, Md5};
             let mut hasher = Md5::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         ChecksumAlgorithm::Sha1 => {
+            use sha1::{Digest, Sha1};
             let mut hasher = Sha1::new();
             hasher.update(&contents);
             Ok(format!("{:x}", hasher.finalize()))
         }
         ChecksumAlgorithm::Sha256 => {
+            use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(&contents);
             Ok(format!("{:x}", hasher.finalize()))

@@ -288,7 +288,8 @@ fn calculate_checksum(path: &Path, algorithm: &str) -> Result<String> {
             use md5::{Digest, Md5};
             let mut hasher = Md5::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         _ => Err(Error::new(
             ErrorKind::InvalidData,
