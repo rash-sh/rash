@@ -102,6 +102,7 @@ mod vault;
 mod vdo;
 mod wait_for;
 mod wipefs;
+mod xattr;
 mod xml;
 mod yum_repository;
 mod zfs;
@@ -214,6 +215,7 @@ use crate::modules::vault::Vault;
 use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wipefs::Wipefs;
+use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
 use crate::modules::zfs::Zfs;
@@ -451,6 +453,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
         (Xml.get_name(), Box::new(Xml) as Box<dyn Module>),
+        (Xattr.get_name(), Box::new(Xattr) as Box<dyn Module>),
         (
             YumRepository.get_name(),
             Box::new(YumRepository) as Box<dyn Module>,
