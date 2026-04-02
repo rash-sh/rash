@@ -1,0 +1,154 @@
+#!/usr/bin/env -S rash --
+#
+# docker_swarm module example
+#
+# This example demonstrates the basic functionality of the docker_swarm module:
+# - Initializing a swarm cluster
+# - Joining a swarm cluster
+# - Managing swarm services
+# - Inspecting swarm status
+# - Leaving/removing nodes from the swarm
+#
+# Note: This example requires Docker to be installed and running.
+#       It also requires appropriate permissions for Docker Swarm operations.
+#
+# Usage:
+#   sudo docker_swarm.rh
+#
+
+- name: Check current swarm status
+  docker_swarm:
+    state: inspect
+  register: swarm_status
+
+- name: Display swarm status
+  debug:
+    msg: "Swarm is active: {{ swarm_status.extra.active }}"
+
+- name: Initialize swarm cluster (manager node)
+  docker_swarm:
+    state: present
+    advertise_addr: "{{ ansible_default_ipv4.address }}"
+  register: init_result
+  when: not swarm_status.extra.active
+
+- name: Display join tokens if swarm was initialized
+  debug:
+    msg: |
+      Worker join token: {{ init_result.extra.join_token_worker }}
+      Manager join token: {{ init_result.extra.join_token_manager }}
+  when: init_result.changed
+
+- name: Create a simple web service
+  docker_swarm:
+    state: service
+    service:
+      name: webapp
+      image: nginx:latest
+      replicas: 3
+      ports:
+        - "8080:80"
+      labels:
+        app: webapp
+        environment: production
+  register: service_result
+
+- name: Verify service was created
+  assert:
+    that:
+      - service_result.changed or service_result.extra.exists
+
+- name: Scale the service
+  docker_swarm:
+    state: service
+    service:
+      name: webapp
+      replicas: 5
+  register: scale_result
+
+- name: Verify service was scaled
+  assert:
+    that:
+      - scale_result.changed
+
+- name: Update service with resource limits
+  docker_swarm:
+    state: service
+    service:
+      name: webapp
+      image: nginx:latest
+      replicas: 5
+      limits:
+        cpu: "0.5"
+        memory: "512M"
+      reservations:
+        cpu: "0.25"
+        memory: "256M"
+  register: update_result
+
+- name: Create service with health check
+  docker_swarm:
+    state: service
+    service:
+      name: healthy_webapp
+      image: nginx:latest
+      replicas: 2
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - "-f"
+          - "http://localhost/"
+        interval: "30s"
+        timeout: "10s"
+        retries: 3
+      update_parallelism: 1
+      update_delay: "10s"
+      update_failure_action: "rollback"
+
+- name: Create service with placement constraints
+  docker_swarm:
+    state: service
+    service:
+      name: constrained_app
+      image: alpine:latest
+      replicas: 2
+      constraints:
+        - "node.role==worker"
+      preferences:
+        - "spread=node.labels.zone"
+
+- name: Remove the constrained service
+  docker_swarm:
+    state: service
+    service:
+      name: constrained_app
+      service_state: absent
+
+- name: Pause a service (scale to 0)
+  docker_swarm:
+    state: service
+    service:
+      name: healthy_webapp
+      service_state: paused
+
+- name: Remove all services
+  docker_swarm:
+    state: service
+    service:
+      name: "{{ item }}"
+      service_state: absent
+  loop:
+    - webapp
+    - healthy_webapp
+
+- name: Leave the swarm (force for single-node)
+  docker_swarm:
+    state: absent
+    force: true
+  register: leave_result
+
+- name: Verify swarm was left
+  assert:
+    that:
+      - leave_result.changed
