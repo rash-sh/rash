@@ -12,6 +12,7 @@ mod docker_volume;
 mod fail;
 mod fail2ban;
 mod firewalld;
+mod flatpak;
 mod gem;
 mod git;
 mod group;
