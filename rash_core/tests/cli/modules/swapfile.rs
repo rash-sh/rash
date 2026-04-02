@@ -20,6 +20,7 @@ fn test_swapfile_check_mode_create() {
 }
 
 #[test]
+#[cfg(target_os = "linux")]
 fn test_swapfile_check_mode_absent() {
     let script_text = r#"
 #!/usr/bin/env rash
@@ -38,6 +39,7 @@ fn test_swapfile_check_mode_absent() {
 }
 
 #[test]
+#[cfg(target_os = "linux")]
 fn test_swapfile_disabled_state() {
     let script_text = r#"
 #!/usr/bin/env rash
