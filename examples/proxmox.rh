@@ -1,0 +1,141 @@
+#!/usr/bin/env rash
+#
+# proxmox module example
+#
+# This example demonstrates the proxmox module for Proxmox VE VM and container management.
+# It shows how to create, start, stop, and remove VMs and containers.
+#
+# Requirements:
+# - A running Proxmox VE server
+# - pvesh command available (typically run on Proxmox node)
+#
+# Usage:
+#   rash proxmox.rh
+
+- name: Create a QEMU VM with basic configuration
+  proxmox:
+    name: myvm
+    node: pve1
+    type: qemu
+    state: present
+    cores: 2
+    memory: 2048
+    disk: "local-lvm:10"
+    net: "virtio,bridge=vmbr0"
+    onboot: true
+  register: vm_result
+
+- name: Show VM creation result
+  debug:
+    msg: "VM result: {{ vm_result }}"
+
+- name: Create a LXC container
+  proxmox:
+    name: mycontainer
+    node: pve1
+    type: lxc
+    state: present
+    cores: 1
+    memory: 512
+    disk: "local-lvm:4"
+    template: "local:vztmpl/alpine-3.18.tar.gz"
+    password: "{{ container_password | default('changeme') }}"
+    net: "name=eth0,bridge=vmbr0,ip=dhcp"
+    unprivileged: true
+  register: container_result
+
+- name: Show container creation result
+  debug:
+    msg: "Container result: {{ container_result }}"
+
+- name: Start the VM
+  proxmox:
+    name: myvm
+    node: pve1
+    state: started
+  register: start_result
+
+- name: Start the container
+  proxmox:
+    name: mycontainer
+    node: pve1
+    state: started
+  register: container_start_result
+
+- name: Stop the VM gracefully
+  proxmox:
+    name: myvm
+    node: pve1
+    state: stopped
+    timeout: 120
+  register: stop_result
+
+- name: Force stop the VM (if graceful stop failed)
+  proxmox:
+    name: myvm
+    node: pve1
+    state: stopped
+    force: true
+    timeout: 30
+  register: force_stop_result
+  ignore_errors: true
+
+- name: Restart the VM
+  proxmox:
+    name: myvm
+    node: pve1
+    state: restarted
+  register: restart_result
+
+- name: Create VM with specific VMID
+  proxmox:
+    vmid: 100
+    node: pve1
+    type: qemu
+    state: present
+    cores: 4
+    memory: 4096
+    disk: "local-lvm:20"
+    net: "virtio,bridge=vmbr0"
+    pool: production
+    description: "Production database server"
+  register: specific_vmid_result
+
+- name: Clone a VM from template
+  proxmox:
+    name: newvm
+    node: pve1
+    type: qemu
+    state: cloned
+    source: template_vm
+    description: "Cloned from template"
+  register: clone_result
+  ignore_errors: true
+
+- name: Remove the VM
+  proxmox:
+    name: myvm
+    node: pve1
+    state: absent
+    force: true
+  register: remove_vm_result
+
+- name: Remove the container
+  proxmox:
+    name: mycontainer
+    node: pve1
+    state: absent
+    force: true
+  register: remove_container_result
+
+- name: Clean up VM with specific VMID
+  proxmox:
+    vmid: 100
+    node: pve1
+    state: absent
+    force: true
+  register: cleanup_result
+
+- name: Show final results
+  debug:
+    msg: "All operations completed"
