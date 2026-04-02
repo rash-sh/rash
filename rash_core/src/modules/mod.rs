@@ -59,6 +59,7 @@ mod meta;
 mod modprobe;
 mod mount;
 mod mysql_db;
+mod mysql_user;
 mod netplan;
 mod nmcli;
 mod npm;
@@ -165,6 +166,7 @@ use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
+use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
@@ -371,6 +373,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
+        (
+            MysqlUser.get_name(),
+            Box::new(MysqlUser) as Box<dyn Module>,
+        ),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
