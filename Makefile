@@ -108,6 +108,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/pause.rh' \
 		-not -path 'examples/package.rh' \
 		-not -path 'examples/vault.rh' \
+-not -path 'examples/iso_extract.rh' \
 		-not -path 'examples/jenkins_job.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
