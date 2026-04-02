@@ -7,6 +7,7 @@ mod dconf;
 mod dnf;
 mod docker_container;
 mod docker_image;
+mod docker_secret;
 mod fail;
 mod firewalld;
 mod gem;
