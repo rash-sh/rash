@@ -1,5 +1,6 @@
 use crate::cli::modules::run_test;
 
+#[cfg(target_os = "linux")]
 #[test]
 fn test_pids_pattern() {
     let script_text = r#"
@@ -23,6 +24,7 @@ fn test_pids_pattern() {
     assert!(stdout.contains("ok"));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn test_pids_with_exclude() {
     let script_text = r#"
@@ -47,6 +49,7 @@ fn test_pids_with_exclude() {
     assert!(stderr.is_empty());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn test_pids_user_filter() {
     let script_text = r#"
@@ -69,6 +72,7 @@ fn test_pids_user_filter() {
     assert!(stderr.is_empty());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn test_pids_returns_process_info() {
     let script_text = r#"
