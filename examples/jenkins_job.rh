@@ -1,0 +1,58 @@
+#!/usr/bin/env rash
+#
+# Example: jenkins_job module usage
+#
+# Manage Jenkins jobs for CI/CD pipeline management.
+#
+
+- name: Create Jenkins job with default config
+  jenkins_job:
+    name: myapp-build
+    state: present
+    url: http://jenkins.local:8080
+    user: admin
+    password: secret
+
+- name: Create Jenkins job with custom config
+  jenkins_job:
+    name: myapp-deploy
+    state: present
+    url: http://jenkins.local:8080
+    user: admin
+    password: secret
+    config: |
+      <project>
+        <description>Deploy myapp to production</description>
+        <builders>
+          <hudson.tasks.Shell>
+            <command>echo "Deploying myapp"</command>
+          </hudson.tasks.Shell>
+        </builders>
+      </project>
+
+- name: Trigger a build
+  jenkins_job:
+    name: myapp-build
+    state: present
+    url: http://jenkins.local:8080
+    user: admin
+    password: secret
+    enabled: true
+
+- name: Trigger build with token
+  jenkins_job:
+    name: myapp-build
+    state: present
+    url: http://jenkins.local:8080
+    user: admin
+    password: secret
+    token: build-token
+    enabled: true
+
+- name: Delete an old job
+  jenkins_job:
+    name: legacy-job
+    state: absent
+    url: http://jenkins.local:8080
+    user: admin
+    password: secret
