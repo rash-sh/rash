@@ -30,6 +30,7 @@ mod docker_volume;
 mod dynamic;
 mod expect;
 mod fail;
+mod fail2ban;
 mod file;
 mod filesystem;
 pub mod find;
@@ -148,6 +149,7 @@ use crate::modules::docker_volume::DockerVolume;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
+use crate::modules::fail2ban::Fail2ban;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
 use crate::modules::find::Find;
@@ -296,6 +298,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
         ),
+        (Fail2ban.get_name(), Box::new(Fail2ban) as Box<dyn Module>),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
         (

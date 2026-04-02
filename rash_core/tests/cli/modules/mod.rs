@@ -10,6 +10,7 @@ mod docker_container;
 mod docker_image;
 mod docker_volume;
 mod fail;
+mod fail2ban;
 mod firewalld;
 mod gem;
 mod git;
