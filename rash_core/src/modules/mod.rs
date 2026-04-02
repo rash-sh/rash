@@ -73,6 +73,7 @@ mod pause;
 mod ping;
 mod pip;
 mod postgresql_db;
+mod proxmox;
 mod reboot;
 mod redis;
 mod script;
@@ -171,14 +172,12 @@ use crate::modules::npm::Npm;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
-use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
-use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
 use crate::modules::pause::Pause;
-use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
+use crate::modules::proxmox::Proxmox;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::script::Script;
@@ -394,9 +393,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             PostgresqlDb.get_name(),
             Box::new(PostgresqlDb) as Box<dyn Module>,
         ),
-        (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
-        (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
-        (Package.get_name(), Box::new(Package) as Box<dyn Module>),
+        (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
