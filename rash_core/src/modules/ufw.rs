@@ -492,9 +492,40 @@ fn set_policy(policy: Policy, direction: Direction, check_mode: bool) -> Result<
     ))
 }
 
+fn build_rule_description(params: &Params) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    if let Some(rule) = &params.rule {
+        parts.push(rule_to_str(rule).to_lowercase());
+    }
+
+    if let Some(from_ip) = &params.from_ip {
+        parts.push(format!("from {}", from_ip));
+    }
+
+    if let Some(to_ip) = &params.to_ip {
+        parts.push(format!("to {}", to_ip));
+    }
+
+    if let Some(port) = &params.port {
+        parts.push(port.clone());
+    }
+
+    if let Some(proto) = &params.proto {
+        parts.push(proto_to_str(proto).to_string());
+    }
+
+    if let Some(comment) = &params.comment {
+        parts.push(format!("comment '{}'", comment));
+    }
+
+    parts.join(" ")
+}
+
 fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     let exists = rule_exists(params)?;
     let rule_state = params.rule_state.unwrap_or_default();
+    let rule_desc = build_rule_description(params);
 
     match rule_state {
         RuleState::Present => {
@@ -502,16 +533,16 @@ fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                 return Ok(ModuleResult::new(
                     false,
                     None,
-                    Some("Rule already exists".to_string()),
+                    Some(format!("Rule already exists: {}", rule_desc)),
                 ));
             }
 
             if check_mode {
-                info!("Would add rule");
+                info!("Would add rule: {}", rule_desc);
                 return Ok(ModuleResult::new(
                     true,
                     None,
-                    Some("Would add rule".to_string()),
+                    Some(format!("Would add rule: {}", rule_desc)),
                 ));
             }
 
@@ -521,7 +552,7 @@ fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
             Ok(ModuleResult::new(
                 true,
                 None,
-                Some("Rule added".to_string()),
+                Some(format!("Rule added: {}", rule_desc)),
             ))
         }
         RuleState::Absent => {
@@ -529,16 +560,16 @@ fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                 return Ok(ModuleResult::new(
                     false,
                     None,
-                    Some("Rule does not exist".to_string()),
+                    Some(format!("Rule does not exist: {}", rule_desc)),
                 ));
             }
 
             if check_mode {
-                info!("Would delete rule");
+                info!("Would delete rule: {}", rule_desc);
                 return Ok(ModuleResult::new(
                     true,
                     None,
-                    Some("Would delete rule".to_string()),
+                    Some(format!("Would delete rule: {}", rule_desc)),
                 ));
             }
 
@@ -548,7 +579,7 @@ fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
             Ok(ModuleResult::new(
                 true,
                 None,
-                Some("Rule deleted".to_string()),
+                Some(format!("Rule deleted: {}", rule_desc)),
             ))
         }
     }
