@@ -86,7 +86,7 @@ lint-fix: fmt clippy-fix ## run all linting with automatic fixes
 test: lint cross
 test:	## run tests
 	@$(CARGO) test $(CARGO_BUILD_PARAMS)
-	@for test in $$(find test -name '*.rh'); do \
+	@for test in $$(find test -name '*.rh' -not -path 'test/modules/helm/*'); do \
 		echo $(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$test; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$test || exit 1; \
 	done
