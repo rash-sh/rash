@@ -1,0 +1,55 @@
+#!/usr/bin/env -S rash --
+#
+# openrc module example
+#
+# This example demonstrates the basic functionality of the openrc module:
+# - Starting/stopping services
+# - Enabling/disabling services at boot
+# - Using different runlevels
+#
+# Note: This example requires OpenRC (Alpine Linux or Gentoo) to run.
+#
+# Usage:
+#   sudo openrc.rh
+
+- name: Ensure nginx service is started
+  openrc:
+    name: nginx
+    state: started
+  register: nginx_start
+
+- name: Verify service status
+  debug:
+    msg: "nginx is {{ 'running' if nginx_start.extra.active else 'stopped' }}"
+
+- name: Ensure nginx is enabled at boot
+  openrc:
+    name: nginx
+    enabled: true
+  register: nginx_enable
+
+- name: Enable nginx in boot runlevel (for early startup)
+  openrc:
+    name: nginx
+    enabled: true
+    runlevel: boot
+  register: nginx_boot
+  when: false
+
+- name: Restart nginx service
+  openrc:
+    name: nginx
+    state: restarted
+  register: nginx_restart
+
+- name: Stop nginx service (cleanup)
+  openrc:
+    name: nginx
+    state: stopped
+  register: nginx_stop
+
+- name: Disable nginx at boot (cleanup)
+  openrc:
+    name: nginx
+    enabled: false
+  register: nginx_disable
