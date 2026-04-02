@@ -66,6 +66,7 @@ mod modprobe;
 mod mount;
 mod mysql_db;
 mod netplan;
+mod nftables;
 mod nmcli;
 mod npm;
 mod openssl_certificate;
@@ -185,6 +186,7 @@ use crate::modules::modprobe::Modprobe;
 use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::netplan::Netplan;
+use crate::modules::nftables::Nftables;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
 use crate::modules::openssl_certificate::OpensslCertificate;
@@ -413,6 +415,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
+        (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
         (Opkg.get_name(), Box::new(Opkg) as Box<dyn Module>),
