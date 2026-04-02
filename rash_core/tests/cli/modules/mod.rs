@@ -29,6 +29,7 @@ mod netplan;
 mod npm;
 mod pacman;
 mod pam_limits;
+mod pids;
 mod pip;
 mod reboot;
 mod runit;
