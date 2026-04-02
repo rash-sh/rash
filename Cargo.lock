@@ -1639,6 +1639,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
+name = "iso9660"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40596d62fc30ad9c7b0c6eb52974f696d14b8f2faf98a76dbfb93435769aa0ff"
+dependencies = [
+ "bitflags",
+ "nom",
+ "time",
+]
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2701,6 +2712,7 @@ dependencies = [
  "glob",
  "ignore",
  "ipc-channel",
+ "iso9660",
  "itertools 0.14.0",
  "jemallocator",
  "libc",

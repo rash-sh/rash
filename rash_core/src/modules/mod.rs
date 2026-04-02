@@ -50,6 +50,7 @@ mod ini_file;
 mod initramfs;
 mod interfaces_file;
 mod iptables;
+mod iso_extract;
 mod java_keystore;
 mod jenkins_job;
 mod json_file;
@@ -175,6 +176,7 @@ use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
+use crate::modules::iso_extract::IsoExtract;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
@@ -404,6 +406,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             InterfacesFile.get_name(),
             Box::new(InterfacesFile) as Box<dyn Module>,
+        ),
+        (
+            IsoExtract.get_name(),
+            Box::new(IsoExtract) as Box<dyn Module>,
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (
