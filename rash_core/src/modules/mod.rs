@@ -49,6 +49,7 @@ mod initramfs;
 mod interfaces_file;
 mod iptables;
 mod java_keystore;
+mod jenkins_job;
 mod json_file;
 mod kernel_blacklist;
 mod known_hosts;
@@ -170,6 +171,7 @@ use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
 use crate::modules::java_keystore::JavaKeystore;
+use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
@@ -379,6 +381,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             JavaKeystore.get_name(),
             Box::new(JavaKeystore) as Box<dyn Module>,
+        ),
+        (
+            JenkinsJob.get_name(),
+            Box::new(JenkinsJob) as Box<dyn Module>,
         ),
         (JsonFile.get_name(), Box::new(JsonFile) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
