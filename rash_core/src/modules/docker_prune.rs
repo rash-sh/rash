@@ -360,7 +360,9 @@ fn docker_prune(params: Params, check_mode: bool) -> Result<ModuleResult> {
             );
             let result = client.prune_containers(params.force)?;
             total_result.containers_deleted = result.containers_deleted;
-            if result.containers_deleted > 0 {
+            if check_mode {
+                changed = true;
+            } else if result.containers_deleted > 0 {
                 output_messages.push(format!("Pruned {} containers", result.containers_deleted));
                 changed = true;
             }
@@ -371,7 +373,9 @@ fn docker_prune(params: Params, check_mode: bool) -> Result<ModuleResult> {
             diff("images: unused".to_string(), "images: pruned".to_string());
             let result = client.prune_images(params.force)?;
             total_result.images_deleted = result.images_deleted;
-            if result.images_deleted > 0 {
+            if check_mode {
+                changed = true;
+            } else if result.images_deleted > 0 {
                 output_messages.push(format!("Pruned {} images", result.images_deleted));
                 changed = true;
             }
@@ -382,7 +386,9 @@ fn docker_prune(params: Params, check_mode: bool) -> Result<ModuleResult> {
             diff("volumes: unused".to_string(), "volumes: pruned".to_string());
             let result = client.prune_volumes(params.force)?;
             total_result.volumes_deleted = result.volumes_deleted;
-            if result.volumes_deleted > 0 {
+            if check_mode {
+                changed = true;
+            } else if result.volumes_deleted > 0 {
                 output_messages.push(format!("Pruned {} volumes", result.volumes_deleted));
                 changed = true;
             }
@@ -396,7 +402,9 @@ fn docker_prune(params: Params, check_mode: bool) -> Result<ModuleResult> {
             );
             let result = client.prune_networks(params.force)?;
             total_result.networks_deleted = result.networks_deleted;
-            if result.networks_deleted > 0 {
+            if check_mode {
+                changed = true;
+            } else if result.networks_deleted > 0 {
                 output_messages.push(format!("Pruned {} networks", result.networks_deleted));
                 changed = true;
             }
@@ -410,7 +418,9 @@ fn docker_prune(params: Params, check_mode: bool) -> Result<ModuleResult> {
             );
             let result = client.prune_builder_cache(params.force)?;
             total_result.builder_cache_deleted = result.builder_cache_deleted;
-            if result.builder_cache_deleted > 0 {
+            if check_mode {
+                changed = true;
+            } else if result.builder_cache_deleted > 0 {
                 output_messages.push(format!(
                     "Pruned {} builder cache entries",
                     result.builder_cache_deleted
