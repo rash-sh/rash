@@ -1,0 +1,97 @@
+#!/usr/bin/env -S rash --
+#
+# docker_network module example
+#
+# This example demonstrates the basic functionality of the docker_network module:
+# - Creating networks
+# - Managing network options
+# - Removing networks
+#
+# Usage:
+#   docker_network.rh
+#
+# Note: This example requires Docker to be installed and running.
+
+- name: Check if Docker is available
+  command:
+    cmd: docker info --format '{{.ServerVersion}}'
+  register: docker_check
+  failed_when: false
+  changed_when: false
+
+- name: Skip if Docker not available
+  debug:
+    msg: "Docker is not available. Skipping example."
+  when: docker_check.rc != 0
+
+- block:
+    - name: Create a simple bridge network
+      docker_network:
+        name: test-network
+        state: present
+
+    - name: List networks
+      command:
+        cmd: docker network ls
+      changed_when: false
+
+    - name: Create network with subnet (check mode)
+      docker_network:
+        name: test-subnet
+        driver: bridge
+        subnet: 172.30.0.0/16
+        gateway: 172.30.0.1
+        state: present
+      check_mode: true
+      register: subnet_check
+
+    - name: Verify check mode would create
+      assert:
+        that:
+          - subnet_check.changed
+
+    - name: Create network with subnet
+      docker_network:
+        name: test-subnet
+        driver: bridge
+        subnet: 172.30.0.0/16
+        gateway: 172.30.0.1
+        state: present
+
+    - name: Test idempotency - create same network again
+      docker_network:
+        name: test-subnet
+        driver: bridge
+        subnet: 172.30.0.0/16
+        gateway: 172.30.0.1
+        state: present
+      register: idempotent_test
+
+    - name: Verify no change (idempotent)
+      assert:
+        that:
+          - not idempotent_test.changed
+
+    - name: Remove test-subnet network
+      docker_network:
+        name: test-subnet
+        state: absent
+
+    - name: Remove test-network
+      docker_network:
+        name: test-network
+        state: absent
+
+    - name: Verify networks removed
+      command:
+        cmd: docker network ls --filter name=test-network --filter name=test-subnet
+      register: networks_after
+      changed_when: false
+
+    - name: Assert networks are gone
+      assert:
+        that:
+          - "'test-network' not in networks_after.stdout"
+          - "'test-subnet' not in networks_after.stdout"
+
+  when: docker_check.rc == 0
