@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Snap binary mock for Snap module tests.
+#
+# Usage:
+#   ./snap [command] [options] [<packages>...]
+#
+# Commands:
+#   list              List packages
+#   install           Install packages
+#   remove            Remove packages
+#
+# Options:
+#   --all             List all packages (combine with list)
+#   --classic         Install in classic mode
+#   --channel=X       Install from channel X
+#
+
+CMD=""
+ALL=""
+PACKAGES=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        list|install|remove)
+            CMD="$1"
+            ;;
+        --all)
+            ALL="yes"
+            ;;
+        --classic)
+            ;;
+        --channel=*)
+            ;;
+        *)
+            PACKAGES+=("$1")
+            ;;
+    esac
+    shift
+done
+
+case $CMD in
+    list)
+        if [[ "$ALL" == "yes" ]]; then
+            echo "Name    Version    Rev    Tracking    Publisher    Notes"
+            echo "core    16-2.58    1383   stable      canonical    core"
+            echo "core18  20221212   2566   stable      canonical    base"
+            echo "curl    7.87.0     5678   stable      snapcrafters -"
+            echo "vlc     3.0.18     1234   stable      videolan     -"
+            echo "hello   2.10       4567   stable      canonical    -"
+        fi
+        ;;
+    install)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Installing $pkg"
+        done
+        ;;
+    remove)
+        for pkg in "${PACKAGES[@]}"; do
+            echo "Removing $pkg"
+        done
+        ;;
+esac
