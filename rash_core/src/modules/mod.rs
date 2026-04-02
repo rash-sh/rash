@@ -84,6 +84,7 @@ mod setup;
 mod sgdisk;
 mod slurp;
 mod stat;
+mod swapfile;
 mod synchronize;
 mod sysctl;
 mod systemd;
@@ -190,6 +191,7 @@ use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::stat::Stat;
+use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
 use crate::modules::systemd::Systemd;
@@ -414,6 +416,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
+        (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
