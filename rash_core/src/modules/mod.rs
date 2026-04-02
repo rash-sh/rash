@@ -83,6 +83,7 @@ mod set_vars;
 mod setup;
 mod sgdisk;
 mod slurp;
+mod snap;
 mod stat;
 mod synchronize;
 mod sysctl;
@@ -189,6 +190,7 @@ use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
+use crate::modules::snap::Snap;
 use crate::modules::stat::Stat;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
@@ -407,6 +409,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
+        (Snap.get_name(), Box::new(Snap) as Box<dyn Module>),
         (Stat.get_name(), Box::new(Stat) as Box<dyn Module>),
         (
             Synchronize.get_name(),
