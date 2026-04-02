@@ -94,6 +94,7 @@ mod stat;
 mod synchronize;
 mod sysctl;
 mod systemd;
+mod tempfile;
 mod template;
 mod timezone;
 mod trace;
@@ -209,6 +210,7 @@ use crate::modules::stat::Stat;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
 use crate::modules::systemd::Systemd;
+use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
 use crate::modules::timezone::Timezone;
 use crate::modules::trace::Trace;
@@ -449,6 +451,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
+        (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
         (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
