@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 use crate::cli::modules::run_test;
 
 #[cfg(target_os = "linux")]
