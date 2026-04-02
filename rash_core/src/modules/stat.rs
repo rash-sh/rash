@@ -34,7 +34,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult, parse_params};
+use crate::modules::{parse_params, Module, ModuleResult};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -49,9 +49,9 @@ use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_norway::{Value as YamlValue, value};
+use serde_norway::{value, Value as YamlValue};
 use sha1::Sha1;
-use sha2::{Digest, Sha256};
+use sha2::{Digest as Sha2Digest, Sha256};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -117,19 +117,24 @@ fn calculate_checksum(path: &Path, algorithm: &ChecksumAlgorithm) -> Result<Stri
 
     match algorithm {
         ChecksumAlgorithm::Md5 => {
+            use md5::Digest;
             let mut hasher = Md5::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         ChecksumAlgorithm::Sha1 => {
+            use sha1::Digest;
             let mut hasher = Sha1::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         ChecksumAlgorithm::Sha256 => {
             let mut hasher = Sha256::new();
-            hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            Sha2Digest::update(&mut hasher, &contents);
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
     }
 }
@@ -419,7 +424,7 @@ impl Module for Stat {
 mod tests {
     use super::*;
 
-    use std::fs::{File, create_dir, set_permissions};
+    use std::fs::{create_dir, set_permissions, File};
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
 

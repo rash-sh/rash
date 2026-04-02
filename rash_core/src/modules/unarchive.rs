@@ -282,13 +282,15 @@ fn calculate_checksum(path: &Path, algorithm: &str) -> Result<String> {
             use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         "md5" => {
             use md5::{Digest, Md5};
             let mut hasher = Md5::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         _ => Err(Error::new(
             ErrorKind::InvalidData,
