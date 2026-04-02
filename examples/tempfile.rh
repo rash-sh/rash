@@ -49,4 +49,4 @@
 
 - name: Show temp file contents
   debug:
-    msg: "{{ lookup('file', temp_file.output) }}"
+    msg: "{{ file(temp_file.output) }}"
