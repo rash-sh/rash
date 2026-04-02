@@ -274,14 +274,15 @@ async fn exec_get(client: &Client, params: &Params, check_mode: bool) -> Result<
             }
 
             if let Some(parent) = dest_path.parent()
-                && !parent.exists() {
-                    fs::create_dir_all(parent).map_err(|e| {
-                        Error::new(
-                            ErrorKind::InvalidData,
-                            format!("Failed to create parent directories: {e}"),
-                        )
-                    })?;
-                }
+                && !parent.exists()
+            {
+                fs::create_dir_all(parent).map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Failed to create parent directories: {e}"),
+                    )
+                })?;
+            }
 
             let response = client
                 .get_object()
