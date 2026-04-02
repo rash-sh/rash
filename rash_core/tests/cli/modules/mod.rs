@@ -33,6 +33,7 @@ mod ssh_config;
 mod systemd;
 mod timezone;
 mod trace;
+mod ufw;
 mod user;
 mod xattr;
 mod zypper;
