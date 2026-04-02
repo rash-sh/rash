@@ -1,0 +1,124 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# rc-service binary mock for OpenRC service management testing.
+#
+# This mock simulates the behavior of rc-service for testing purposes.
+# It provides predefined responses for different services and commands.
+#
+# Service states:
+# - nginx: stopped (not active)
+
+- name: Parse rc-service command arguments
+  set_vars:
+    service: "{{ rash.args[0] | default('') }}"
+    command: "{{ rash.args[1] | default('') }}"
+
+- name: Handle status command for nginx (stopped)
+  command:
+    cmd: "exit 1"
+  when: command == "status" and service == "nginx"
+
+- name: Handle status command for httpd (running)
+  debug:
+    msg: "{{ service }} is running"
+  when: command == "status" and service == "httpd"
+
+- name: Handle status command for httpd (running) - exit
+  command:
+    cmd: "exit 0"
+  when: command == "status" and service == "httpd"
+
+- name: Default status for unknown services (stopped)
+  command:
+    cmd: "exit 1"
+  when: command == "status" and service not in ["nginx", "httpd"]
+
+- name: Handle start command for nginx (was stopped - change)
+  debug:
+    msg: "Starting {{ service }}..."
+  when: command == "start" and service == "nginx"
+
+- name: Handle start command for nginx - exit
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service == "nginx"
+
+- name: Handle start command for httpd (already running - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service == "httpd"
+
+- name: Handle start command for unknown service
+  debug:
+    msg: "Starting {{ service }}..."
+  when: command == "start" and service not in ["nginx", "httpd"]
+
+- name: Handle start command for unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "start" and service not in ["nginx", "httpd"]
+
+- name: Handle stop command for nginx (already stopped - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service == "nginx"
+
+- name: Handle stop command for httpd (was running - change)
+  debug:
+    msg: "Stopping {{ service }}..."
+  when: command == "stop" and service == "httpd"
+
+- name: Handle stop command for httpd - exit
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service == "httpd"
+
+- name: Handle stop command for unknown service
+  debug:
+    msg: "Stopping {{ service }}..."
+  when: command == "stop" and service not in ["nginx", "httpd"]
+
+- name: Handle stop command for unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "stop" and service not in ["nginx", "httpd"]
+
+- name: Handle restart command
+  debug:
+    msg: "Restarting {{ service }}..."
+  when: command == "restart"
+
+- name: Handle restart command - exit
+  command:
+    cmd: "exit 0"
+  when: command == "restart"
+
+- name: Handle reload command for nginx (not running - error)
+  debug:
+    msg: "{{ service }} is not running"
+  when: command == "reload" and service == "nginx"
+
+- name: Handle reload command for nginx - exit error
+  command:
+    cmd: "exit 1"
+  when: command == "reload" and service == "nginx"
+
+- name: Handle reload command for httpd (running)
+  debug:
+    msg: "Reloading {{ service }}..."
+  when: command == "reload" and service == "httpd"
+
+- name: Handle reload command for httpd - exit
+  command:
+    cmd: "exit 0"
+  when: command == "reload" and service == "httpd"
+
+- name: Handle reload command for unknown service
+  debug:
+    msg: "Reloading {{ service }}..."
+  when: command == "reload" and service not in ["nginx", "httpd"]
+
+- name: Handle reload command for unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "reload" and service not in ["nginx", "httpd"]

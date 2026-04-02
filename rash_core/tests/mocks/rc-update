@@ -1,0 +1,80 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# rc-update binary mock for OpenRC service management testing.
+#
+# This mock simulates the behavior of rc-update for testing purposes.
+# It provides predefined responses for enabling/disabling services.
+#
+# Service states:
+# - nginx: disabled (not enabled in any runlevel)
+
+- name: Parse rc-update command arguments
+  set_vars:
+    command: "{{ rash.args[0] | default('') }}"
+    service: "{{ rash.args[1] | default('') }}"
+    runlevel: "{{ rash.args[2] | default('default') }}"
+
+- name: Handle show command
+  debug:
+    msg: ""
+  when: command == "show"
+
+- name: Handle show command with runlevel (nginx is not enabled)
+  debug:
+    msg: ""
+  when: command == "show" and runlevel in ["default", "boot"]
+
+- name: Handle show command for httpd enabled in default
+  debug:
+    msg: "httpd | default"
+  when: command == "show" and runlevel == "default"
+
+- name: Handle add command for nginx (was disabled - change)
+  debug:
+    msg: "{{ service }} added to runlevel {{ runlevel }}"
+  when: command == "add" and service == "nginx"
+
+- name: Handle add command for nginx - exit
+  command:
+    cmd: "exit 0"
+  when: command == "add" and service == "nginx"
+
+- name: Handle add command for httpd (already enabled - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "add" and service == "httpd"
+
+- name: Handle add command for unknown service
+  debug:
+    msg: "{{ service }} added to runlevel {{ runlevel }}"
+  when: command == "add" and service not in ["nginx", "httpd"]
+
+- name: Handle add command for unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "add" and service not in ["nginx", "httpd"]
+
+- name: Handle delete command for nginx (already disabled - no change)
+  command:
+    cmd: "exit 0"
+  when: command == "delete" and service == "nginx"
+
+- name: Handle delete command for httpd (was enabled - change)
+  debug:
+    msg: "{{ service }} removed from runlevel {{ runlevel }}"
+  when: command == "delete" and service == "httpd"
+
+- name: Handle delete command for httpd - exit
+  command:
+    cmd: "exit 0"
+  when: command == "delete" and service == "httpd"
+
+- name: Handle delete command for unknown service
+  debug:
+    msg: "{{ service }} removed from runlevel {{ runlevel }}"
+  when: command == "delete" and service not in ["nginx", "httpd"]
+
+- name: Handle delete command for unknown service - exit
+  command:
+    cmd: "exit 0"
+  when: command == "delete" and service not in ["nginx", "httpd"]
