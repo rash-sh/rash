@@ -24,6 +24,7 @@ mod pacman;
 mod pam_limits;
 mod pip;
 mod reboot;
+mod replace;
 mod seboolean;
 mod systemd;
 mod timezone;
