@@ -42,6 +42,7 @@ mod include;
 mod ini_file;
 mod initramfs;
 mod interfaces_file;
+mod ipaddr;
 mod iptables;
 mod java_keystore;
 mod json_file;
@@ -148,6 +149,7 @@ use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
+use crate::modules::ipaddr::Ipaddr;
 use crate::modules::iptables::Iptables;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::json_file::JsonFile;
@@ -348,6 +350,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
+        (Ipaddr.get_name(), Box::new(Ipaddr) as Box<dyn Module>),
         (
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,

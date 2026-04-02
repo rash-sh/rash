@@ -15,6 +15,7 @@ mod group;
 mod grub;
 mod hostname;
 mod include;
+mod ipaddr;
 mod kernel_blacklist;
 mod logrotate;
 mod modprobe;
