@@ -1,0 +1,26 @@
+#!/usr/bin/env rash
+- name: Install a snap package
+  snap:
+    name: hello-world
+
+- name: Install multiple snap packages
+  snap:
+    name:
+      - vlc
+      - chromium
+    state: present
+
+- name: Install a snap from the edge channel
+  snap:
+    name: lxd
+    channel: edge
+
+- name: Install a classic snap
+  snap:
+    name: code
+    classic: true
+
+- name: Remove a snap package
+  snap:
+    name: vlc
+    state: absent
