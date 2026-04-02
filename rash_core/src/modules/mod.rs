@@ -73,6 +73,7 @@ mod pause;
 mod ping;
 mod pip;
 mod postgresql_db;
+mod rclone;
 mod reboot;
 mod redis;
 mod script;
@@ -179,6 +180,7 @@ use crate::modules::pause::Pause;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
+use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::script::Script;
@@ -399,6 +401,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
+        (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
