@@ -2693,6 +2693,7 @@ dependencies = [
  "uuid",
  "vaultrs",
  "walkdir",
+ "xattr",
  "xz2",
  "zip",
 ]
