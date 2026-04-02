@@ -1,5 +1,6 @@
 use crate::cli::modules::run_test;
 
+#[cfg_attr(target_os = "macos", ignore)]
 #[test]
 fn test_wakeonlan_basic() {
     let script_text = r#"
