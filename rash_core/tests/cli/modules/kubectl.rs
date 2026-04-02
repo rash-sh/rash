@@ -4,7 +4,7 @@ use crate::cli::modules::run_test;
 
 fn kubectl_available() -> bool {
     Command::new("kubectl")
-        .args(["version", "--client"])
+        .args(["cluster-info"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
