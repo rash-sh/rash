@@ -27,6 +27,7 @@ mod pip;
 mod reboot;
 mod runit;
 mod seboolean;
+mod ssh_config;
 mod systemd;
 mod timezone;
 mod trace;
