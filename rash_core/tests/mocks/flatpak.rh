@@ -28,12 +28,12 @@
     msg: |-
       Looking for matches…
       Remote 'flathub' found in system installation.
-      
+
       Required runtime for {{ item }} (runtime/org.gnome.Platform/x86_64/stable) found in remote flathub
-      
+
       ID                                     Branch  Op  Remote   Download
       {{ item }}                             stable  i   flathub   < 1.0 MB
-      
+
       Changes complete.
   loop: "{{ targets | default([]) }}"
   when:
@@ -46,7 +46,7 @@
     msg: |-
       ID                                     Branch
       {{ item }}                             stable
-      
+
       Uninstall complete.
   loop: "{{ targets | default([]) }}"
   when:
