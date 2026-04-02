@@ -30,6 +30,7 @@ mod docker_exec;
 mod docker_image;
 mod docker_network;
 mod docker_prune;
+mod docker_swarm;
 mod docker_volume;
 mod dynamic;
 mod expect;
@@ -164,6 +165,7 @@ use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
 use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
+use crate::modules::docker_swarm::DockerSwarm;
 use crate::modules::docker_volume::DockerVolume;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
@@ -396,6 +398,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerPrune.get_name(),
             Box::new(DockerPrune) as Box<dyn Module>,
+        ),
+        (
+            DockerSwarm.get_name(),
+            Box::new(DockerSwarm) as Box<dyn Module>,
         ),
         (
             DockerVolume.get_name(),
