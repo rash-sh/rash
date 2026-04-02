@@ -57,6 +57,7 @@ mod make;
 mod mdadm;
 mod meta;
 mod modprobe;
+mod mongodb_user;
 mod mount;
 mod mysql_db;
 mod netplan;
@@ -163,6 +164,7 @@ use crate::modules::make::Make;
 use crate::modules::mdadm::Mdadm;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
+use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::netplan::Netplan;
@@ -369,6 +371,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Mdadm.get_name(), Box::new(Mdadm) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
+        (
+            MongodbUser.get_name(),
+            Box::new(MongodbUser) as Box<dyn Module>,
+        ),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
