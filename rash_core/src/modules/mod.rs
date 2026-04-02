@@ -76,6 +76,7 @@ mod pause;
 mod ping;
 mod pip;
 mod postgresql_db;
+mod rabbitmq_user;
 mod reboot;
 mod redis;
 mod script;
@@ -186,6 +187,7 @@ use crate::modules::pause::Pause;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
+use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::script::Script;
@@ -414,6 +416,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
+        (
+            RabbitmqUser.get_name(),
+            Box::new(RabbitmqUser) as Box<dyn Module>,
+        ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
