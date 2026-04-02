@@ -8,6 +8,7 @@ mod dnf;
 mod docker_container;
 mod docker_image;
 mod fail;
+mod fail2ban;
 mod firewalld;
 mod gem;
 mod git;
