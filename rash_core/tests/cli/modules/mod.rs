@@ -26,6 +26,7 @@ mod logrotate;
 mod modprobe;
 mod netplan;
 mod npm;
+mod openrc;
 mod pacman;
 mod pam_limits;
 mod pip;
