@@ -296,7 +296,21 @@ impl DockerClient {
         }
 
         let output = self.exec_cmd(&["pull", image], true)?;
-        Ok(output.status.success())
+        if !output.status.success() {
+            return Ok(false);
+        }
+
+        if !self.image_exists(image)? {
+            return Err(Error::new(
+                ErrorKind::SubprocessFail,
+                format!(
+                    "Image '{}' pull reported success but image not found",
+                    image
+                ),
+            ));
+        }
+
+        Ok(true)
     }
 
     fn build_image(&self, params: &Params) -> Result<bool> {
@@ -379,7 +393,21 @@ impl DockerClient {
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let output = self.exec_cmd(&args_refs, true)?;
-        Ok(output.status.success())
+        if !output.status.success() {
+            return Ok(false);
+        }
+
+        if !self.image_exists(&full_name)? {
+            return Err(Error::new(
+                ErrorKind::SubprocessFail,
+                format!(
+                    "Image '{}' build reported success but image not found",
+                    full_name
+                ),
+            ));
+        }
+
+        Ok(true)
     }
 
     fn load_image(&self, path: &str) -> Result<bool> {
