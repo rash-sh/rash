@@ -2,14 +2,14 @@ mod handler;
 mod new;
 mod valid;
 
-pub use handler::{Handlers, PendingHandlers, parse_notify_value};
+pub use handler::{parse_notify_value, Handlers, PendingHandlers};
 
 use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
-use crate::job::{JobStatus, get_job_info, register_job};
+use crate::job::{get_job_info, register_job, JobStatus};
 use crate::logger::is_json_output;
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
@@ -21,15 +21,15 @@ use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command as StdCommand, Output, Stdio, exit};
+use std::process::{exit, Command as StdCommand, Output, Stdio};
 use std::result::Result as StdResult;
 use std::thread;
 use std::time::Duration;
 
 use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
-use minijinja::{Value, context};
-use nix::sys::wait::{WaitStatus, waitpid};
-use nix::unistd::{ForkResult, Uid, User, fork, setgid, setuid};
+use minijinja::{context, Value};
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
 use serde::{Deserialize, Serialize};
 use serde_error::Error as SerdeError;
 use serde_norway::Value as YamlValue;
@@ -565,7 +565,8 @@ impl<'a> Task<'a> {
         for (key, value) in &env_vars {
             trace!(
                 "setting environment variable (with user): {}={}",
-                key, value
+                key,
+                value
             );
             // SAFETY: We're setting environment variables for task execution.
             // This is safe as long as no other threads are modifying env vars concurrently.
@@ -1445,14 +1446,19 @@ impl<'a> Task<'a> {
             }
         }
 
-        for (err, _) in errors.iter().enumerate() {
-            if let Some(e) = errors.get(err)
-                && e.is_some()
-            {
-                return Err(Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Async job failed: {:?}", errors[err]),
-                ));
+        let has_failures = errors.iter().any(|e| e.is_some());
+        if has_failures {
+            let error_msg = format!(
+                "Async job(s) failed: {:?}",
+                errors.iter().filter_map(|e| e.clone()).collect::<Vec<_>>()
+            );
+            match self.ignore_errors {
+                Some(true) => {
+                    info!(target: "ignoring", "{}", error_msg);
+                }
+                _ => {
+                    return Err(Error::new(ErrorKind::SubprocessFail, error_msg));
+                }
             }
         }
 
