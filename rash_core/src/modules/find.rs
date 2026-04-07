@@ -31,7 +31,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
+use crate::modules::{Module, ModuleResult, parse_if_json, parse_params};
 use crate::utils::default_false;
 
 #[cfg(feature = "docs")]
@@ -46,8 +46,8 @@ use regex::RegexSet;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_norway::{value, Value as YamlValue};
-use serde_with::{serde_as, OneOrMany};
+use serde_norway::{Value as YamlValue, value};
+use serde_with::{OneOrMany, serde_as};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -269,7 +269,7 @@ impl Module for Find {
 mod tests {
     use super::*;
 
-    use std::fs::{create_dir, File};
+    use std::fs::{File, create_dir};
     use std::io::Write;
 
     use tempfile::tempdir;
