@@ -544,7 +544,10 @@ pub enum ModuleRef {
 impl ModuleRef {
     pub fn get_module(&self) -> &dyn Module {
         match self {
-            ModuleRef::Static(name) => MODULES.get(name.as_str()).map(|b| b.as_ref()).unwrap(),
+            ModuleRef::Static(name) => MODULES
+                .get(name.as_str())
+                .map(|b| b.as_ref())
+                .expect("module not found in static registry"),
             ModuleRef::Dynamic(m) => m,
         }
     }

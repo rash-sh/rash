@@ -56,7 +56,10 @@ impl<'a> Context<'a> {
             return Ok(());
         }
 
-        let handlers = self.handlers.as_ref().unwrap();
+        let handlers = match self.handlers.as_ref() {
+            Some(h) => h,
+            None => return Ok(()),
+        };
         let pending = self.pending_handlers.take_pending();
 
         for handler_name in &pending {

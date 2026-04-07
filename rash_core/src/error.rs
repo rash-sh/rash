@@ -400,7 +400,7 @@ impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self.repr {
             Repr::Simple(..) => None,
-            Repr::Custom(ref c) => c.error.source(),
+            Repr::Custom(ref c) => Some(&*c.error),
         }
     }
 }

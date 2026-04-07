@@ -78,18 +78,8 @@ impl TaskValid {
         }
     }
 
-    /// Validate rescue and always attributes (now allowed on any task)
-    fn validate_block_only_attributes(&self) -> Result<()> {
-        // Rescue and always attributes are now allowed on any task, not just blocks
-        // This provides more flexible error handling and cleanup capabilities
-        Ok(())
-    }
-
     pub fn get_task<'a>(&self, global_params: &'a GlobalParams) -> Result<Task<'a>> {
         let module_name: &str = &self.get_module_name()?;
-
-        // Validate that rescue and always attributes are only used with block modules
-        self.validate_block_only_attributes()?;
 
         Ok(Task {
             r#become: match global_params.r#become {
