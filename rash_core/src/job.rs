@@ -247,9 +247,14 @@ mod tests {
         let job_id = register_job(None, child);
         assert!(job_id > 0);
 
-        thread::sleep(Duration::from_millis(200));
-
-        let status = get_job(job_id);
+        let mut status = get_job(job_id);
+        for _ in 0..20 {
+            if status == Some(JobStatus::Finished) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(50));
+            status = get_job(job_id);
+        }
         assert_eq!(status, Some(JobStatus::Finished));
     }
 
