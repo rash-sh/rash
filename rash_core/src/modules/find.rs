@@ -31,7 +31,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
-use crate::modules::{Module, ModuleResult, parse_if_json, parse_params};
+use crate::modules::{parse_if_json, parse_params, Module, ModuleResult};
 use crate::utils::default_false;
 
 #[cfg(feature = "docs")]
@@ -46,8 +46,8 @@ use regex::RegexSet;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
-use serde_norway::{Value as YamlValue, value};
-use serde_with::{OneOrMany, serde_as};
+use serde_norway::{value, Value as YamlValue};
+use serde_with::{serde_as, OneOrMany};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
 
@@ -187,6 +187,8 @@ pub fn find(params: Params) -> Result<ModuleResult> {
         // hidden criterion is opposite for params than for ignore library
         .hidden(!params.hidden.unwrap())
         .ignore(!params.hidden.unwrap())
+        // Disable git ignore rules for consistent behavior regardless of whether
+        // the script runs inside a git repository
         .git_global(false)
         .git_ignore(false)
         .git_exclude(false)
@@ -267,7 +269,7 @@ impl Module for Find {
 mod tests {
     use super::*;
 
-    use std::fs::{File, create_dir};
+    use std::fs::{create_dir, File};
     use std::io::Write;
 
     use tempfile::tempdir;
