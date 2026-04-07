@@ -47,6 +47,24 @@
   poll: 1
   ignore_errors: true
 
+- name: Test async loop with polling and failure (ignore_errors)
+  command:
+    cmd: sleep 0.2 && exit {{ item }}
+  async: 10
+  poll: 1
+  loop:
+    - 0
+    - 1
+    - 0
+  ignore_errors: true
+  register: loop_result
+
+- name: Verify loop result even with failures
+  assert:
+    that:
+      - loop_result.rash_job_ids is defined
+      - loop_result.rash_job_ids | length == 3
+
 - name: Final verification - all tests passed
   debug:
     msg: "All async tests completed successfully"
