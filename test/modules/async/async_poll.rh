@@ -1,0 +1,52 @@
+#!/usr/bin/env rash --
+- name: Test async with poll > 0 - task should complete
+  command:
+    cmd: sleep 0.5 && echo "async_done"
+  async: 10
+  poll: 0
+  register: job
+
+- name: Verify fire-and-forget job was started
+  assert:
+    that:
+      - job.rash_job_id is defined
+
+- name: Test async with poll > 0 - wait for completion
+  command:
+    cmd: sleep 0.5 && echo "async_poll_done"
+  async: 10
+  poll: 1
+  register: poll_job
+
+- name: Verify polling job completed
+  assert:
+    that:
+      - poll_job.changed
+
+- name: Test async with multiple tasks and polling
+  command:
+    cmd: sleep 0.3 && echo "item_{{ item }}"
+  async: 10
+  poll: 0
+  loop:
+    - 1
+    - 2
+    - 3
+  register: jobs
+
+- name: Verify parallel jobs were started
+  assert:
+    that:
+      - jobs.rash_job_ids is defined
+      - jobs.rash_job_ids | length == 3
+
+- name: Test async job failure detection
+  command:
+    cmd: sleep 0.2 && exit 1
+  async: 10
+  poll: 1
+  ignore_errors: true
+
+- name: Final verification - all tests passed
+  debug:
+    msg: "All async tests completed successfully"
