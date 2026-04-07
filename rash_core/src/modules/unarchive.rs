@@ -771,7 +771,8 @@ fn run_unarchive(params: Params, check_mode: bool) -> Result<ModuleResult> {
                         format!("Failed to open archive {}: {e}", archive_path.display()),
                     )
                 })?;
-                extract_zip(file, &dest, exclude)?
+                let reader = BufReader::new(file);
+                extract_zip(reader, &dest, exclude)?
             }
             None => {
                 return Err(Error::new(
