@@ -906,7 +906,17 @@ impl<'a> Task<'a> {
                 }
 
                 // Poll for completion
-                return self.poll_job(job_id, poll_interval);
+                let poll_result = self.poll_job(job_id, poll_interval);
+                return match poll_result {
+                    Ok(exec_result) => Ok(exec_result),
+                    Err(e) => match self.ignore_errors {
+                        Some(true) => {
+                            info!(target: "ignoring", "{e}");
+                            Ok(TaskExecResult::new(false, None))
+                        }
+                        _ => Err(e),
+                    },
+                };
             }
 
             match self.r#become && !self.check_mode {
@@ -1485,7 +1495,17 @@ impl<'a> Task<'a> {
             return Ok(TaskExecResult::new(true, register_vars));
         }
 
-        self.poll_job(job_id, poll_interval)
+        let poll_result = self.poll_job(job_id, poll_interval);
+        match poll_result {
+            Ok(exec_result) => Ok(exec_result),
+            Err(e) => match self.ignore_errors {
+                Some(true) => {
+                    info!(target: "ignoring", "{e}");
+                    Ok(TaskExecResult::new(false, None))
+                }
+                _ => Err(e),
+            },
+        }
     }
 }
 
