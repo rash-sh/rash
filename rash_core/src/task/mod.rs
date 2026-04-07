@@ -2,14 +2,14 @@ mod handler;
 mod new;
 mod valid;
 
-pub use handler::{parse_notify_value, Handlers, PendingHandlers};
+pub use handler::{Handlers, PendingHandlers, parse_notify_value};
 
 use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
-use crate::job::{get_job_info, register_job, JobStatus};
+use crate::job::{JobStatus, get_job_info, register_job};
 use crate::logger::is_json_output;
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
@@ -21,15 +21,15 @@ use std::env;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{exit, Command as StdCommand, Output, Stdio};
+use std::process::{Command as StdCommand, Output, Stdio, exit};
 use std::result::Result as StdResult;
 use std::thread;
 use std::time::Duration;
 
 use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
-use minijinja::{context, Value};
-use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{fork, setgid, setuid, ForkResult, Uid, User};
+use minijinja::{Value, context};
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::{ForkResult, Uid, User, fork, setgid, setuid};
 use serde::{Deserialize, Serialize};
 use serde_error::Error as SerdeError;
 use serde_norway::Value as YamlValue;
@@ -565,8 +565,7 @@ impl<'a> Task<'a> {
         for (key, value) in &env_vars {
             trace!(
                 "setting environment variable (with user): {}={}",
-                key,
-                value
+                key, value
             );
             // SAFETY: We're setting environment variables for task execution.
             // This is safe as long as no other threads are modifying env vars concurrently.
