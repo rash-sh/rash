@@ -164,11 +164,9 @@ impl ExpectSession {
         if result > 0 && fd_set.contains(self.master_fd.as_fd()) {
             let mut buf = [0u8; BUFFER_SIZE];
             let mut master_file = unsafe { std::fs::File::from_raw_fd(self.master_fd.as_raw_fd()) };
-            let n = master_file
-                .read(&mut buf)
-                .map_err(|e| Error::new(ErrorKind::IOError, e))?;
-
+            let read_result = master_file.read(&mut buf);
             std::mem::forget(master_file);
+            let n = read_result.map_err(|e| Error::new(ErrorKind::IOError, e))?;
 
             if n == 0 {
                 return Ok(false);
@@ -223,16 +221,13 @@ impl ExpectSession {
 
     fn send(&mut self, response: &str) -> Result<()> {
         let mut master_file = unsafe { std::fs::File::from_raw_fd(self.master_fd.as_raw_fd()) };
-        master_file
-            .write_all(response.as_bytes())
-            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
-        master_file
-            .write_all(b"\n")
-            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
-        master_file
-            .flush()
-            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        let write_result = master_file.write_all(response.as_bytes());
+        let newline_result = master_file.write_all(b"\n");
+        let flush_result = master_file.flush();
         std::mem::forget(master_file);
+        write_result.map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        newline_result.map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        flush_result.map_err(|e| Error::new(ErrorKind::IOError, e))?;
         Ok(())
     }
 

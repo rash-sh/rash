@@ -138,8 +138,20 @@ pub fn merge_option(a: Value, b: Option<Value>) -> Value {
 }
 
 pub fn merge(a: Value, b: Value) -> Value {
-    let mut a_json_value: serde_json::Value = serde_json::Value::deserialize(a).unwrap();
-    let b_json_value: serde_json::Value = serde_json::Value::deserialize(b).unwrap();
+    let mut a_json_value = match serde_json::Value::deserialize(a) {
+        Ok(v) => v,
+        Err(e) => {
+            trace!("Failed to deserialize value for merge: {e}");
+            return b;
+        }
+    };
+    let b_json_value = match serde_json::Value::deserialize(b) {
+        Ok(v) => v,
+        Err(e) => {
+            trace!("Failed to deserialize value for merge: {e}");
+            return Value::from_serialize(a_json_value);
+        }
+    };
     merge_json_without_sum(&mut a_json_value, b_json_value);
     Value::from_serialize(a_json_value)
 }
