@@ -23,9 +23,21 @@ macro_rules! skip_without_docker {
 }
 
 fn cleanup_image(name: &str) {
-    let _ = Command::new("docker")
-        .args(["image", "rm", "-f", name])
-        .output();
+    let max_retries = 5;
+    for _ in 0..max_retries {
+        let _ = Command::new("docker")
+            .args(["image", "rm", "-f", name])
+            .output();
+
+        let output = Command::new("docker")
+            .args(["image", "inspect", "--format", "{{.Id}}", name])
+            .output()
+            .unwrap_or_else(|_| panic!("Failed to check image"));
+        if !output.status.success() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
 }
 
 fn wait_for_image(name: &str, max_retries: u32) -> bool {
