@@ -262,7 +262,7 @@ LABEL test="rash-integration"
 fn test_docker_image_force_pull() {
     skip_without_docker!();
 
-    let image_name = "alpine:3.19";
+    let image_name = "alpine:3.21";
 
     let _ = Command::new("docker").args(["pull", image_name]).output();
 
