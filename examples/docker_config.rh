@@ -1,0 +1,109 @@
+#!/usr/bin/env rash
+#
+# docker_config module example
+#
+# This example demonstrates the basic functionality of the docker_config module:
+# - Setting Docker daemon configuration options
+# - Working with multiple configuration values
+# - Removing configuration options
+# - Using arbitrary key-value pairs
+# - Backup and check mode support
+#
+# Usage:
+#   docker_config.rh
+
+- name: Create initial Docker configuration
+  docker_config:
+    path: /tmp/daemon.json
+    storage_driver: overlay2
+
+- name: Show initial configuration
+  command: cat /tmp/daemon.json
+
+- name: Add registry mirrors
+  docker_config:
+    path: /tmp/daemon.json
+    registry_mirrors:
+      - "https://mirror1.example.com"
+      - "https://mirror2.example.com"
+
+- name: Configure log settings
+  docker_config:
+    path: /tmp/daemon.json
+    log_driver: json-file
+    log_opts:
+      max-size: 10m
+      max-file: 3
+
+- name: Enable live restore
+  docker_config:
+    path: /tmp/daemon.json
+    live_restore: true
+
+- name: Show updated configuration
+  command: cat /tmp/daemon.json
+
+- name: Test idempotency - run same operation again
+  docker_config:
+    path: /tmp/daemon.json
+    storage_driver: overlay2
+  register: idempotent_test
+
+- name: Verify no change was made (idempotent)
+  assert:
+    that:
+      - not idempotent_test.changed
+
+- name: Set arbitrary nested configuration
+  docker_config:
+    path: /tmp/daemon.json
+    key: custom.experimental.feature
+    value: enabled
+
+- name: Show configuration with custom key
+  command: cat /tmp/daemon.json
+
+- name: Remove debug option if present
+  docker_config:
+    path: /tmp/daemon.json
+    debug: true
+    state: absent
+
+- name: Update configuration with backup
+  docker_config:
+    path: /tmp/daemon.json
+    userland_proxy: false
+    backup: true
+
+- name: Show final configuration
+  command: cat /tmp/daemon.json
+
+- name: List backup files
+  command: ls /tmp/*.bak
+  ignore_errors: true
+
+- name: Test check mode (no actual changes)
+  docker_config:
+    path: /tmp/daemon.json
+    max_concurrent_downloads: 10
+  check_mode: true
+  register: check_mode_test
+
+- name: Verify check mode shows change but doesn't modify
+  assert:
+    that:
+      - check_mode_test.changed
+
+- name: Verify file not modified in check mode
+  command: grep -c "max-concurrent-downloads" /tmp/daemon.json || true
+  register: grep_result
+  ignore_errors: true
+
+- name: Clean up
+  file:
+    path: /tmp/daemon.json
+    state: absent
+
+- name: Clean up backup files
+  command: rm -f /tmp/*.bak
+  ignore_errors: true

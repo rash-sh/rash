@@ -1,0 +1,43 @@
+#!/usr/bin/env rash
+#
+# flatpak module example
+#
+# This example demonstrates the basic functionality of the flatpak module.
+# Note: This example requires flatpak to be installed and configured.
+#
+# Usage:
+#   flatpak.rh
+
+- name: Install a Flatpak package
+  flatpak:
+    name: org.gnome.Calendar
+    state: present
+  ignore_errors: true
+
+- name: Install multiple Flatpaks
+  flatpak:
+    name:
+      - org.gnome.Calendar
+      - org.gnome.Todo
+    state: present
+  ignore_errors: true
+
+- name: Install a Flatpak from a specific remote
+  flatpak:
+    name: org.gnome.Calendar
+    remote: flathub
+    state: present
+  ignore_errors: true
+
+- name: Install a Flatpak for user installation
+  flatpak:
+    name: org.gnome.Calendar
+    method: user
+    state: present
+  ignore_errors: true
+
+- name: Remove a Flatpak package
+  flatpak:
+    name: org.gnome.Calendar
+    state: absent
+  ignore_errors: true
