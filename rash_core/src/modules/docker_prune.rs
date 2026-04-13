@@ -44,6 +44,8 @@ use rash_derive::DocJsonSchema;
 
 use log::trace;
 use std::process::{Command, Output};
+use std::thread::sleep;
+use std::time::Duration;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -134,23 +136,35 @@ impl DockerClient {
     }
 
     fn exec_cmd(&self, args: &[&str], check_success: bool) -> Result<Output> {
-        let output = Command::new("docker")
-            .args(args)
-            .output()
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-        trace!("command: `docker {:?}`", args);
-        trace!("{output:?}");
+        let max_retries = 5;
+        for attempt in 0..=max_retries {
+            let output = Command::new("docker")
+                .args(args)
+                .output()
+                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+            trace!("command: `docker {:?}`", args);
+            trace!("{output:?}");
 
-        if check_success && !output.status.success() {
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!(
-                    "Error executing docker: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ));
+            if check_success && !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if stderr.contains("a prune operation is already running") && attempt < max_retries
+                {
+                    trace!(
+                        "prune operation already running, retrying ({}/{})",
+                        attempt + 1,
+                        max_retries
+                    );
+                    sleep(Duration::from_secs(2));
+                    continue;
+                }
+                return Err(Error::new(
+                    ErrorKind::SubprocessFail,
+                    format!("Error executing docker: {}", stderr),
+                ));
+            }
+            return Ok(output);
         }
-        Ok(output)
+        unreachable!()
     }
 
     fn prune_containers(&self, force: bool) -> Result<PruneResult> {
