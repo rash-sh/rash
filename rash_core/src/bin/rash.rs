@@ -289,7 +289,7 @@ fn main() {
     if cli.script.is_none() && cli.script_file.is_none() {
         let mut cmd = Cli::command();
         cmd.error(
-            ClapErrorKind::ArgumentConflict,
+            ClapErrorKind::MissingRequiredArgument,
             "Please provide either <SCRIPT_FILE> or --script.",
         )
         .exit();

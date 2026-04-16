@@ -440,8 +440,9 @@ impl<'a> Task<'a> {
                 return Ok(result);
             }
         }
-
-        Ok(TaskExecResult::new(false, None))
+        unreachable!(
+            "loop always returns: with until, last iteration returns Err; without, first iteration returns Ok"
+        )
     }
 
     fn is_async(&self) -> bool {
