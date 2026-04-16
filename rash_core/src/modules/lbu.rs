@@ -354,19 +354,15 @@ fn lbu(params: Params, check_mode: bool) -> Result<ModuleResult> {
     }
 
     match params.state {
-        Some(State::Commit) => {
-            if client.commit(params.message.as_deref())? {
-                changed = true;
-                actions.push("committed");
-            }
+        Some(State::Commit) if client.commit(params.message.as_deref())? => {
+            changed = true;
+            actions.push("committed");
         }
-        Some(State::Rollback) => {
-            if client.rollback()? {
-                changed = true;
-                actions.push("rolled_back");
-            }
+        Some(State::Rollback) if client.rollback()? => {
+            changed = true;
+            actions.push("rolled_back");
         }
-        None => {}
+        _ => {}
     }
 
     Ok(ModuleResult {
