@@ -1,0 +1,95 @@
+#!/usr/bin/env -S rash --
+#
+# crypttab module example
+#
+# This example demonstrates the basic functionality of the crypttab module:
+# - Adding encrypted filesystem entries
+# - Updating existing entries
+# - Removing entries
+# - Using check mode
+#
+# Usage:
+#   crypttab.rh
+
+- name: Create initial crypttab file with one entry
+  copy:
+    content: |
+      # Existing encrypted volume
+      cryptdata /dev/sdb1 /root/keyfile luks
+    dest: /tmp/crypttab.example
+
+- name: Show initial crypttab content
+  command: cat /tmp/crypttab.example
+
+- name: Add encrypted swap partition
+  crypttab:
+    name: cryptswap
+    backing_device: /dev/sda2
+    password: /dev/urandom
+    opts: swap
+    state: present
+    path: /tmp/crypttab.example
+
+- name: Add encrypted volume without password (interactive prompt)
+  crypttab:
+    name: cryptbackup
+    backing_device: /dev/sdc1
+    password: none
+    opts: luks,tries=3
+    state: present
+    path: /tmp/crypttab.example
+
+- name: Show crypttab after additions
+  command: cat /tmp/crypttab.example
+
+- name: Update cryptswap entry with new options
+  crypttab:
+    name: cryptswap
+    backing_device: /dev/sda2
+    password: /dev/urandom
+    opts: swap,cipher=aes-cbc-essiv:sha256
+    state: present
+    path: /tmp/crypttab.example
+  register: update_result
+
+- name: Verify entry was updated
+  assert:
+    that:
+      - update_result.changed
+
+- name: Show crypttab after update
+  command: cat /tmp/crypttab.example
+
+- name: Test idempotency - add same entry again
+  crypttab:
+    name: cryptswap
+    backing_device: /dev/sda2
+    password: /dev/urandom
+    opts: swap,cipher=aes-cbc-essiv:sha256
+    state: present
+    path: /tmp/crypttab.example
+  register: idempotent_test
+
+- name: Verify no change was made (idempotent)
+  assert:
+    that:
+      - not idempotent_test.changed
+
+- name: Remove cryptbackup entry
+  crypttab:
+    name: cryptbackup
+    state: absent
+    path: /tmp/crypttab.example
+
+- name: Show final crypttab content
+  command: cat /tmp/crypttab.example
+
+- name: Verify cryptdata entry preserved
+  command: grep cryptdata /tmp/crypttab.example
+
+- name: Clean up
+  file:
+    path: /tmp/crypttab.example
+    state: absent
+
+
