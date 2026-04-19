@@ -1,0 +1,26 @@
+# Helm module examples
+# Note: These tests require helm to be installed and configured with a Kubernetes cluster
+
+- name: Example - Add Helm repository
+  helm:
+    repository:
+      name: bitnami
+      url: https://charts.bitnami.com/bitnami
+      state: present
+  check_mode: true
+
+- name: Example - Install a chart
+  helm:
+    chart:
+      name: my-nginx
+      chart_ref: bitnami/nginx
+      namespace: default
+      state: present
+  check_mode: true
+
+- name: Example - List releases
+  helm:
+    list:
+      all: false
+      namespace: default
+  check_mode: true
