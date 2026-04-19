@@ -14,6 +14,7 @@ mod cargo;
 mod chroot;
 mod command;
 mod composer;
+mod consul_kv;
 mod copy;
 mod cron;
 mod dconf;
@@ -22,21 +23,31 @@ mod debootstrap;
 mod debug;
 mod dmsetup;
 mod dnf;
+mod docker_compose;
+mod docker_config;
 mod docker_container;
+mod docker_exec;
 mod docker_image;
+mod docker_network;
+mod docker_prune;
+mod docker_volume;
 mod dynamic;
 mod expect;
 mod fail;
+mod fail2ban;
 mod file;
 mod filesystem;
 pub mod find;
 mod firewalld;
+mod flatpak;
 mod gem;
 mod get_url;
 mod git;
 mod gpg_key;
 mod group;
 mod grub;
+mod helm;
+mod helm_info;
 mod hostname;
 mod include;
 mod ini_file;
@@ -44,38 +55,50 @@ mod initramfs;
 mod interfaces_file;
 mod iptables;
 mod java_keystore;
+mod jenkins_job;
 mod json_file;
 mod kernel_blacklist;
 mod known_hosts;
+mod kubectl;
 mod lbu;
 mod lineinfile;
 mod locale;
 mod logrotate;
 mod lvg;
 mod lvol;
+mod lxd_container;
 mod make;
 mod mdadm;
 mod meta;
 mod modprobe;
+mod mongodb_db;
+mod mongodb_user;
 mod mount;
 mod mysql_db;
+mod mysql_user;
 mod netplan;
+mod nftables;
 mod nmcli;
 mod npm;
 mod openssl_certificate;
 mod openssl_csr;
 mod openssl_privatekey;
+mod opkg;
 mod package;
 mod pacman;
 mod pam_limits;
 mod parted;
 mod pause;
+mod pids;
 mod ping;
 mod pip;
 mod postgresql_db;
-mod rclone;
+mod postgresql_user;
+mod rabbitmq_user;
 mod reboot;
+mod rclone;
 mod redis;
+mod runit;
 mod script;
 mod seboolean;
 mod selinux;
@@ -84,19 +107,24 @@ mod set_vars;
 mod setup;
 mod sgdisk;
 mod slurp;
+mod ssh_config;
 mod stat;
 mod synchronize;
 mod sysctl;
 mod systemd;
+mod tempfile;
 mod template;
 mod timezone;
 mod trace;
+mod ufw;
 mod unarchive;
 mod uri;
 mod user;
 mod vault;
+mod vdo;
 mod wait_for;
 mod wipefs;
+mod xattr;
 mod xml;
 mod yum_repository;
 mod zfs;
@@ -121,6 +149,7 @@ use crate::modules::cargo::Cargo;
 use crate::modules::chroot::Chroot;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
+use crate::modules::consul_kv::ConsulKv;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
 use crate::modules::dconf::Dconf;
@@ -129,21 +158,31 @@ use crate::modules::debootstrap::Debootstrap;
 use crate::modules::debug::Debug;
 use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
+use crate::modules::docker_compose::DockerCompose;
+use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
+use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::docker_network::DockerNetwork;
+use crate::modules::docker_prune::DockerPrune;
+use crate::modules::docker_volume::DockerVolume;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
+use crate::modules::fail2ban::Fail2ban;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
 use crate::modules::find::Find;
 use crate::modules::firewalld::Firewalld;
+use crate::modules::flatpak::Flatpak;
 use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
+use crate::modules::helm::Helm;
+use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
@@ -151,38 +190,50 @@ use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::iptables::Iptables;
 use crate::modules::java_keystore::JavaKeystore;
+use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
+use crate::modules::kubectl::Kubectl;
 use crate::modules::lbu::Lbu;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
 use crate::modules::lvg::Lvg;
 use crate::modules::lvol::Lvol;
+use crate::modules::lxd_container::LxdContainer;
 use crate::modules::make::Make;
 use crate::modules::mdadm::Mdadm;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
+use crate::modules::mongodb_db::MongodbDb;
+use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
+use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
+use crate::modules::nftables::Nftables;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
+use crate::modules::opkg::Opkg;
 use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
 use crate::modules::pause::Pause;
+use crate::modules::pids::Pids;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
-use crate::modules::rclone::Rclone;
+use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
+use crate::modules::rclone::Rclone;
 use crate::modules::redis::Redis;
+use crate::modules::runit::Runit;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
 use crate::modules::selinux::Selinux;
@@ -191,19 +242,24 @@ use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
+use crate::modules::ssh_config::SshConfig;
 use crate::modules::stat::Stat;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
 use crate::modules::systemd::Systemd;
+use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
 use crate::modules::timezone::Timezone;
 use crate::modules::trace::Trace;
+use crate::modules::ufw::Ufw;
 use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::vault::Vault;
+use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wipefs::Wipefs;
+use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
 use crate::modules::zfs::Zfs;
@@ -274,6 +330,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
         ),
+        (Fail2ban.get_name(), Box::new(Fail2ban) as Box<dyn Module>),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
         (
@@ -302,6 +359,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
+        (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
         (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
@@ -314,17 +372,42 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
         (
+            DockerCompose.get_name(),
+            Box::new(DockerCompose) as Box<dyn Module>,
+        ),
+        (
+            DockerConfig.get_name(),
+            Box::new(DockerConfig) as Box<dyn Module>,
+        ),
+        (
             DockerContainer.get_name(),
             Box::new(DockerContainer) as Box<dyn Module>,
+        ),
+        (
+            DockerExec.get_name(),
+            Box::new(DockerExec) as Box<dyn Module>,
         ),
         (
             DockerImage.get_name(),
             Box::new(DockerImage) as Box<dyn Module>,
         ),
+        (
+            DockerNetwork.get_name(),
+            Box::new(DockerNetwork) as Box<dyn Module>,
+        ),
+        (
+            DockerPrune.get_name(),
+            Box::new(DockerPrune) as Box<dyn Module>,
+        ),
+        (
+            DockerVolume.get_name(),
+            Box::new(DockerVolume) as Box<dyn Module>,
+        ),
         (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
         (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
+        (Flatpak.get_name(), Box::new(Flatpak) as Box<dyn Module>),
         (Find.get_name(), Box::new(Find) as Box<dyn Module>),
         (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (
@@ -336,10 +419,16 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
+        (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
+        (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (
             JavaKeystore.get_name(),
             Box::new(JavaKeystore) as Box<dyn Module>,
+        ),
+        (
+            JenkinsJob.get_name(),
+            Box::new(JenkinsJob) as Box<dyn Module>,
         ),
         (JsonFile.get_name(), Box::new(JsonFile) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
@@ -354,6 +443,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
         ),
+        (Kubectl.get_name(), Box::new(Kubectl) as Box<dyn Module>),
         (
             KnownHosts.get_name(),
             Box::new(KnownHosts) as Box<dyn Module>,
@@ -367,15 +457,27 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Logrotate.get_name(), Box::new(Logrotate) as Box<dyn Module>),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
         (Lvol.get_name(), Box::new(Lvol) as Box<dyn Module>),
+        (
+            LxdContainer.get_name(),
+            Box::new(LxdContainer) as Box<dyn Module>,
+        ),
         (Make.get_name(), Box::new(Make) as Box<dyn Module>),
         (Mdadm.get_name(), Box::new(Mdadm) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
+        (MongodbDb.get_name(), Box::new(MongodbDb) as Box<dyn Module>),
+        (
+            MongodbUser.get_name(),
+            Box::new(MongodbUser) as Box<dyn Module>,
+        ),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
+        (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
+        (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
+        (Opkg.get_name(), Box::new(Opkg) as Box<dyn Module>),
         (
             OpensslCertificate.get_name(),
             Box::new(OpensslCertificate) as Box<dyn Module>,
@@ -392,16 +494,26 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
         (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
+        (Pids.get_name(), Box::new(Pids) as Box<dyn Module>),
         (
             PostgresqlDb.get_name(),
             Box::new(PostgresqlDb) as Box<dyn Module>,
         ),
+        (
+            PostgresqlUser.get_name(),
+            Box::new(PostgresqlUser) as Box<dyn Module>,
+        ),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
+        (
+            RabbitmqUser.get_name(),
+            Box::new(RabbitmqUser) as Box<dyn Module>,
+        ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
-        (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
+        (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
+        (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
@@ -410,6 +522,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (SetVars.get_name(), Box::new(SetVars) as Box<dyn Module>),
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
+        (SshConfig.get_name(), Box::new(SshConfig) as Box<dyn Module>),
         (Stat.get_name(), Box::new(Stat) as Box<dyn Module>),
         (
             Synchronize.get_name(),
@@ -418,15 +531,19 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
+        (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
         (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
+        (Ufw.get_name(), Box::new(Ufw) as Box<dyn Module>),
         (User.get_name(), Box::new(User) as Box<dyn Module>),
+        (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
         (Xml.get_name(), Box::new(Xml) as Box<dyn Module>),
+        (Xattr.get_name(), Box::new(Xattr) as Box<dyn Module>),
         (
             YumRepository.get_name(),
             Box::new(YumRepository) as Box<dyn Module>,

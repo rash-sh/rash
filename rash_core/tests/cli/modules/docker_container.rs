@@ -336,6 +336,10 @@ fn test_docker_container_already_stopped() {
     cleanup_container(container_name);
 
     let _ = Command::new("docker")
+        .args(["pull", "alpine:latest"])
+        .output();
+
+    let _ = Command::new("docker")
         .args([
             "run",
             "--name",
@@ -345,6 +349,27 @@ fn test_docker_container_already_stopped() {
             "test",
         ])
         .output();
+
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let output = Command::new("docker")
+        .args([
+            "ps",
+            "-a",
+            "--filter",
+            &format!("name=^{}$", container_name),
+            "--format",
+            "{{.Names}}",
+        ])
+        .output()
+        .expect("Failed to check container status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !stdout.contains(container_name) {
+        eprintln!(
+            "Warning: Container {} does not exist after creation",
+            container_name
+        );
+    }
 
     let stop_script = format!(
         r#"
