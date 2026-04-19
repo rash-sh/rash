@@ -43,7 +43,6 @@ use crate::modules::{Module, ModuleResult, parse_params};
 use rash_derive::DocJsonSchema;
 
 use std::fs;
-use std::io::Read;
 use std::os::unix::fs as unix_fs;
 use std::path::Path;
 
@@ -125,13 +124,6 @@ fn get_enabled_path(name: &str, sites_dir: &str) -> String {
         .to_owned()
 }
 
-fn read_file_content(path: &str) -> Result<String> {
-    let mut file = fs::File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-    Ok(content)
-}
-
 fn ensure_symlink(available_path: &str, enabled_path: &str, check_mode: bool) -> Result<bool> {
     let meta = fs::symlink_metadata(enabled_path);
 
@@ -187,7 +179,7 @@ fn write_config(params: &Params, check_mode: bool) -> Result<bool> {
 
     let desired_content = match content {
         Content::Config(s) => s.clone(),
-        Content::Template(path) => read_file_content(path)?,
+        Content::Template(path) => fs::read_to_string(path)?,
     };
 
     let current_content = fs::read_to_string(&available_path).ok();
@@ -224,19 +216,16 @@ fn exec_nginx(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
         State::Absent => {
             if let Ok(m) = fs::symlink_metadata(&enabled_path) {
-                if m.file_type().is_symlink() {
-                    diff_files("symlink", "(absent)");
-                    if !check_mode {
-                        fs::remove_file(&enabled_path)?;
-                    }
-                    changed = true;
+                let label = if m.file_type().is_symlink() {
+                    "symlink"
                 } else {
-                    diff_files("file", "(absent)");
-                    if !check_mode {
-                        fs::remove_file(&enabled_path)?;
-                    }
-                    changed = true;
+                    "file"
+                };
+                diff_files(label, "(absent)");
+                if !check_mode {
+                    fs::remove_file(&enabled_path)?;
                 }
+                changed = true;
             }
 
             if fs::metadata(&available_path).is_ok() {
