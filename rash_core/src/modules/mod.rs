@@ -116,6 +116,7 @@ mod sgdisk;
 mod slurp;
 mod ssh_config;
 mod stat;
+mod sudoers;
 mod swapfile;
 mod synchronize;
 mod sysctl;
@@ -261,6 +262,7 @@ use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::stat::Stat;
+use crate::modules::sudoers::Sudoers;
 use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
@@ -562,6 +564,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Synchronize) as Box<dyn Module>,
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
+        (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
         (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
