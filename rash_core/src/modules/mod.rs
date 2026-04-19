@@ -29,6 +29,7 @@ mod docker_config;
 mod docker_container;
 mod docker_exec;
 mod docker_image;
+mod docker_info;
 mod docker_network;
 mod docker_prune;
 mod docker_volume;
@@ -99,6 +100,7 @@ mod ping;
 mod pip;
 mod postgresql_db;
 mod postgresql_user;
+mod proxmox;
 mod rabbitmq_user;
 mod reboot;
 mod redis;
@@ -130,6 +132,7 @@ mod user;
 mod vault;
 mod vdo;
 mod wait_for;
+mod wakeonlan;
 mod wipefs;
 mod xattr;
 mod xml;
@@ -171,6 +174,7 @@ use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::docker_info::DockerInfo;
 use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
@@ -241,6 +245,7 @@ use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
@@ -272,6 +277,7 @@ use crate::modules::user::User;
 use crate::modules::vault::Vault;
 use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
+use crate::modules::wakeonlan::WakeOnLan;
 use crate::modules::wipefs::Wipefs;
 use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
@@ -407,6 +413,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(DockerImage) as Box<dyn Module>,
         ),
         (
+            DockerInfo.get_name(),
+            Box::new(DockerInfo) as Box<dyn Module>,
+        ),
+        (
             DpkgSelections.get_name(),
             Box::new(DpkgSelections) as Box<dyn Module>,
         ),
@@ -525,6 +535,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
+        (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
@@ -565,6 +576,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
+        (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
         (Xml.get_name(), Box::new(Xml) as Box<dyn Module>),
         (Xattr.get_name(), Box::new(Xattr) as Box<dyn Module>),

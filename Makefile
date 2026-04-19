@@ -114,6 +114,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/docker_compose.rh' \
 		-not -path 'examples/dpkg_selections.rh' \
 		-not -path 'examples/incus.rh' \
+		-not -path 'examples/proxmox.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \
