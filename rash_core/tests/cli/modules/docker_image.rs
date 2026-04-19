@@ -1,5 +1,7 @@
 use std::fs;
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
 use crate::cli::modules::run_test;
 
@@ -21,9 +23,35 @@ macro_rules! skip_without_docker {
 }
 
 fn cleanup_image(name: &str) {
-    let _ = Command::new("docker")
-        .args(["image", "rm", "-f", name])
-        .output();
+    let max_retries = 5;
+    for _ in 0..max_retries {
+        let _ = Command::new("docker")
+            .args(["image", "rm", "-f", name])
+            .output();
+
+        let output = Command::new("docker")
+            .args(["image", "inspect", "--format", "{{.Id}}", name])
+            .output()
+            .unwrap_or_else(|_| panic!("Failed to check image"));
+        if !output.status.success() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+}
+
+fn wait_for_image(name: &str, max_retries: u32) -> bool {
+    for _ in 0..max_retries {
+        let output = Command::new("docker")
+            .args(["image", "inspect", "--format", "{{.Id}}", name])
+            .output()
+            .expect("Failed to check image");
+        if output.status.success() {
+            return true;
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+    false
 }
 
 fn create_test_dockerfile(dir: &std::path::Path) {
@@ -62,11 +90,10 @@ fn test_docker_image_pull() {
         stdout
     );
 
-    let output = Command::new("docker")
-        .args(["image", "inspect", "--format", "{{.Id}}", image_name])
-        .output()
-        .expect("Failed to check image");
-    assert!(output.status.success(), "Image should exist");
+    assert!(
+        wait_for_image(image_name, 10),
+        "Image should exist after pull"
+    );
 
     cleanup_image(image_name);
 }
@@ -133,11 +160,10 @@ fn test_docker_image_remove() {
         stdout
     );
 
-    let output = Command::new("docker")
-        .args(["image", "inspect", "--format", "{{.Id}}", image_name])
-        .output()
-        .expect("Failed to check image");
-    assert!(!output.status.success(), "Image should not exist");
+    assert!(
+        !wait_for_image(image_name, 3),
+        "Image should not exist after removal"
+    );
 }
 
 #[test]
@@ -236,7 +262,7 @@ LABEL test="rash-integration"
 fn test_docker_image_force_pull() {
     skip_without_docker!();
 
-    let image_name = "alpine:3.19";
+    let image_name = "alpine:3.21";
 
     let _ = Command::new("docker").args(["pull", image_name]).output();
 

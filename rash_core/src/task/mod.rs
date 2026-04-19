@@ -906,7 +906,17 @@ impl<'a> Task<'a> {
                 }
 
                 // Poll for completion
-                return self.poll_job(job_id, poll_interval);
+                let poll_result = self.poll_job(job_id, poll_interval);
+                return match poll_result {
+                    Ok(exec_result) => Ok(exec_result),
+                    Err(e) => match self.ignore_errors {
+                        Some(true) => {
+                            info!(target: "ignoring", "{e}");
+                            Ok(TaskExecResult::new(false, None))
+                        }
+                        _ => Err(e),
+                    },
+                };
             }
 
             match self.r#become && !self.check_mode {
@@ -1435,14 +1445,19 @@ impl<'a> Task<'a> {
             }
         }
 
-        for (err, _) in errors.iter().enumerate() {
-            if let Some(e) = errors.get(err)
-                && e.is_some()
-            {
-                return Err(Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Async job failed: {:?}", errors[err]),
-                ));
+        let has_failures = errors.iter().any(|e| e.is_some());
+        if has_failures {
+            let error_msg = format!(
+                "Async job(s) failed: {:?}",
+                errors.iter().filter_map(|e| e.clone()).collect::<Vec<_>>()
+            );
+            match self.ignore_errors {
+                Some(true) => {
+                    info!(target: "ignoring", "{}", error_msg);
+                }
+                _ => {
+                    return Err(Error::new(ErrorKind::SubprocessFail, error_msg));
+                }
             }
         }
 
@@ -1485,7 +1500,17 @@ impl<'a> Task<'a> {
             return Ok(TaskExecResult::new(true, register_vars));
         }
 
-        self.poll_job(job_id, poll_interval)
+        let poll_result = self.poll_job(job_id, poll_interval);
+        match poll_result {
+            Ok(exec_result) => Ok(exec_result),
+            Err(e) => match self.ignore_errors {
+                Some(true) => {
+                    info!(target: "ignoring", "{e}");
+                    Ok(TaskExecResult::new(false, None))
+                }
+                _ => Err(e),
+            },
+        }
     }
 }
 
