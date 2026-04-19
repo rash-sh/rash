@@ -436,6 +436,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             DockerVolume.get_name(),
             Box::new(DockerVolume) as Box<dyn Module>,
         ),
+        (
+            DpkgSelections.get_name(),
+            Box::new(DpkgSelections) as Box<dyn Module>,
+        ),
         (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (File.get_name(), Box::new(File) as Box<dyn Module>),
