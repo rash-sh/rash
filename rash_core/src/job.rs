@@ -271,7 +271,11 @@ mod tests {
 
         let mut info = get_job_info(job_id);
         for _ in 0..20 {
-            if info.as_ref().map(|i| i.status == JobStatus::Finished).unwrap_or(false) {
+            if info
+                .as_ref()
+                .map(|i| i.status == JobStatus::Finished)
+                .unwrap_or(false)
+            {
                 break;
             }
             thread::sleep(Duration::from_millis(50));
