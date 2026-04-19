@@ -10,6 +10,7 @@ mod docker_config;
 mod docker_container;
 mod docker_image;
 mod docker_info;
+mod docker_login;
 mod docker_network;
 mod docker_prune;
 mod docker_volume;
