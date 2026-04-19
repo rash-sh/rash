@@ -85,6 +85,17 @@
 /// - name: Reset UFW to defaults
 ///   ufw:
 ///     state: reset
+///
+/// - name: Allow traffic on an interface
+///   ufw:
+///     rule: allow
+///     port: "53"
+///     proto: udp
+///     interface: eth0
+///
+/// - name: Enable logging
+///   ufw:
+///     logging: on
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
@@ -123,11 +134,20 @@ pub struct Params {
     pub from_ip: Option<String>,
     /// Destination IP address or CIDR.
     pub to_ip: Option<String>,
+    /// Service name to allow/deny (e.g., ssh, http).
+    pub name: Option<String>,
     /// Comment for the rule.
     pub comment: Option<String>,
     /// Whether the rule should be present or absent.
     /// **[default: `"present"`]**
     pub rule_state: Option<RuleState>,
+    /// Network interface for the rule.
+    pub interface: Option<String>,
+    /// Logging level: off, on, low, medium, high, full.
+    pub logging: Option<Logging>,
+    /// Route traffic through the firewall.
+    /// **[default: `false`]**
+    pub route: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
@@ -183,6 +203,18 @@ pub enum RuleState {
     #[default]
     Present,
     Absent,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum Logging {
+    Off,
+    On,
+    Low,
+    Medium,
+    High,
+    Full,
 }
 
 fn run_ufw_cmd(args: &[&str]) -> Result<String> {
@@ -319,7 +351,9 @@ fn build_rule_search_string(params: &Params) -> String {
         parts.push(format!("to {}", to_ip));
     }
 
-    if let Some(port) = &params.port {
+    if let Some(name) = &params.name {
+        parts.push(name.clone());
+    } else if let Some(port) = &params.port {
         parts.push(port.clone());
     }
 
@@ -356,6 +390,10 @@ fn build_rule_args(params: &Params) -> Vec<String> {
         }
     }
 
+    if params.route.unwrap_or(false) {
+        args.push("route".to_string());
+    }
+
     if let Some(rule) = &params.rule {
         args.push(rule_to_str(rule).to_lowercase());
     }
@@ -370,12 +408,19 @@ fn build_rule_args(params: &Params) -> Vec<String> {
         args.push(to_ip.clone());
     }
 
-    if let Some(port) = &params.port {
+    if let Some(name) = &params.name {
+        args.push(name.clone());
+    } else if let Some(port) = &params.port {
         args.push(port.clone());
     }
 
     if let Some(proto) = &params.proto {
         args.push(proto_to_str(proto).to_string());
+    }
+
+    if let Some(interface) = &params.interface {
+        args.push("on".to_string());
+        args.push(interface.clone());
     }
 
     if let Some(comment) = &params.comment {
@@ -507,12 +552,18 @@ fn build_rule_description(params: &Params) -> String {
         parts.push(format!("to {}", to_ip));
     }
 
-    if let Some(port) = &params.port {
+    if let Some(name) = &params.name {
+        parts.push(format!("service {}", name));
+    } else if let Some(port) = &params.port {
         parts.push(port.clone());
     }
 
     if let Some(proto) = &params.proto {
         parts.push(proto_to_str(proto).to_string());
+    }
+
+    if let Some(interface) = &params.interface {
+        parts.push(format!("on {}", interface));
     }
 
     if let Some(comment) = &params.comment {
@@ -585,6 +636,33 @@ fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     }
 }
 
+fn set_logging(logging: Logging, check_mode: bool) -> Result<ModuleResult> {
+    let logging_str = match logging {
+        Logging::Off => "off",
+        Logging::On => "on",
+        Logging::Low => "low",
+        Logging::Medium => "medium",
+        Logging::High => "high",
+        Logging::Full => "full",
+    };
+
+    if check_mode {
+        info!("Would set UFW logging to {}", logging_str);
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some(format!("Would set UFW logging to {}", logging_str)),
+        ));
+    }
+
+    run_ufw_cmd(&["logging", logging_str])?;
+    Ok(ModuleResult::new(
+        true,
+        None,
+        Some(format!("UFW logging set to {}", logging_str)),
+    ))
+}
+
 pub fn ufw(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
@@ -622,13 +700,17 @@ pub fn ufw(params: Params, check_mode: bool) -> Result<ModuleResult> {
         return set_policy(*policy, direction, check_mode);
     }
 
+    if let Some(logging) = &params.logging {
+        return set_logging(*logging, check_mode);
+    }
+
     if params.rule.is_some() {
         return manage_rule(&params, check_mode);
     }
 
     Err(Error::new(
         ErrorKind::InvalidData,
-        "Either 'state', 'policy', or 'rule' must be specified",
+        "Either 'state', 'policy', 'rule', or 'logging' must be specified",
     ))
 }
 
@@ -773,8 +855,12 @@ mod tests {
             proto: Some(Proto::Tcp),
             from_ip: None,
             to_ip: None,
+            name: None,
             comment: None,
             rule_state: None,
+            interface: None,
+            logging: None,
+            route: None,
         };
         let args = build_rule_args(&params);
         assert!(args.contains(&"allow".to_string()));
@@ -793,8 +879,12 @@ mod tests {
             proto: Some(Proto::Tcp),
             from_ip: Some("192.168.1.0/24".to_string()),
             to_ip: None,
+            name: None,
             comment: None,
             rule_state: None,
+            interface: None,
+            logging: None,
+            route: None,
         };
         let args = build_rule_args(&params);
         assert!(args.contains(&"from".to_string()));
@@ -812,8 +902,12 @@ mod tests {
             proto: Some(Proto::Tcp),
             from_ip: None,
             to_ip: None,
+            name: None,
             comment: None,
             rule_state: Some(RuleState::Absent),
+            interface: None,
+            logging: None,
+            route: None,
         };
         let args = build_rule_args(&params);
         assert!(args.contains(&"delete".to_string()));
