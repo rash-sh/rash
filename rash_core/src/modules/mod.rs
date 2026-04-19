@@ -1,3 +1,4 @@
+mod acl;
 mod alternatives;
 mod apk;
 mod apt;
@@ -149,6 +150,7 @@ mod zypper;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::acl::Acl;
 use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
@@ -358,6 +360,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
+        (Acl.get_name(), Box::new(Acl) as Box<dyn Module>),
         (
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
