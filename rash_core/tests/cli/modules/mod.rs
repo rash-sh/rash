@@ -49,6 +49,7 @@ mod sudoers;
 mod swapfile;
 mod syslog;
 mod systemd;
+mod tailscale;
 mod timezone;
 mod trace;
 mod ufw;
