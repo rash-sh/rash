@@ -52,6 +52,9 @@
     memory: "512m"
     cpus: "1.5"
 
+- name: Create podman network
+  command: podman network create mynetwork
+
 - name: Create a container connected to a network
   podman:
     name: networked_app
@@ -77,6 +80,12 @@
       APP_ENV: production
       APP_PORT: 8080
       DEBUG: false
+
+- name: Create container for force removal test
+  podman:
+    name: myapp
+    image: nginx:latest
+    state: started
 
 - name: Force remove a running container
   podman:
@@ -107,3 +116,9 @@
     image: nginx:latest
     state: started
     pull: true
+
+- name: Clean up all containers
+  command: podman rm -af
+
+- name: Clean up network
+  command: podman network rm mynetwork
