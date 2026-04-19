@@ -14,15 +14,14 @@
 
 - name: Check if Docker is available
   command:
-    cmd: docker info --format '{{.ServerVersion}}'
+    cmd: sh -c "docker info >/dev/null 2>&1 && echo yes || echo no"
   register: docker_check
-  failed_when: false
   changed_when: false
 
 - name: Skip if Docker not available
   debug:
     msg: "Docker is not available. Skipping example."
-  when: docker_check.rc != 0
+  when: "'no' in docker_check.output"
 
 - block:
     - name: Create a simple bridge network
@@ -91,7 +90,7 @@
     - name: Assert networks are gone
       assert:
         that:
-          - "'test-network' not in networks_after.stdout"
-          - "'test-subnet' not in networks_after.stdout"
+          - "'test-network' not in networks_after.output"
+          - "'test-subnet' not in networks_after.output"
 
-  when: docker_check.rc == 0
+  when: "'yes' in docker_check.output"
