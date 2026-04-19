@@ -45,6 +45,7 @@ mod replace;
 mod runit;
 mod seboolean;
 mod ssh_config;
+mod sshd_config;
 mod sudoers;
 mod swapfile;
 mod syslog;
