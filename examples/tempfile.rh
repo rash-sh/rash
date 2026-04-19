@@ -1,0 +1,52 @@
+#!/usr/bin/env -S rash --
+#
+# Create temporary files and directories for processing
+#
+# Usage:
+#   tempfile.rh
+#
+# This example demonstrates creating temporary storage for
+# intermediate data, logs, or processing workflows.
+
+- name: Create a temporary directory for processing
+  tempfile:
+    state: directory
+    prefix: myapp_
+  register: temp_dir
+
+- name: Debug the temporary directory path
+  debug:
+    msg: "Temporary directory created at: {{ temp_dir.output }}"
+
+- name: Create a temporary file for intermediate data
+  tempfile:
+    state: file
+    suffix: .txt
+  register: temp_file
+
+- name: Debug the temporary file path
+  debug:
+    msg: "Temporary file created at: {{ temp_file.output }}"
+
+- name: Create a secure temporary file with custom permissions
+  tempfile:
+    state: file
+    mode: "0600"
+    prefix: secret_
+  register: secure_temp
+
+- name: Create temp directory in a specific location
+  tempfile:
+    state: directory
+    path: /tmp
+    prefix: processing_
+  register: processing_dir
+
+- name: Write data to temp file
+  copy:
+    content: "Intermediate data for processing"
+    dest: "{{ temp_file.output }}"
+
+- name: Show temp file contents
+  debug:
+    msg: "{{ file(temp_file.output) }}"
