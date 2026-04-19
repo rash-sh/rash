@@ -103,10 +103,13 @@ fn get_ip_command() -> &'static str {
 }
 
 fn interface_exists(interface: &str) -> Result<bool> {
-    let output = Command::new(get_ip_command())
+    let output = match Command::new(get_ip_command())
         .args(["link", "show", interface])
         .output()
-        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    {
+        Ok(o) => o,
+        Err(_) => return Ok(false),
+    };
 
     Ok(output.status.success())
 }
@@ -117,10 +120,13 @@ fn address_exists(interface: &str, address: &str, family: Family) -> Result<bool
         Family::Ipv6 => "-6",
     };
 
-    let output = Command::new(get_ip_command())
+    let output = match Command::new(get_ip_command())
         .args([family_arg, "addr", "show", interface])
         .output()
-        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    {
+        Ok(o) => o,
+        Err(_) => return Ok(false),
+    };
 
     if !output.status.success() {
         return Ok(false);
