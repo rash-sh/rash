@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Read;
 use std::process::Child;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
@@ -115,11 +116,77 @@ pub fn register_job(timeout: Option<Duration>, child: Child) -> JobId {
 }
 
 pub fn get_job(id: JobId) -> Option<JobStatus> {
+    check_and_update_job_status(id);
     let registry = JOBS.lock().expect("Failed to lock job registry");
     registry.get(id).map(|j| j.status.clone())
 }
 
+fn check_and_update_job_status(id: JobId) {
+    let mut registry = JOBS.lock().expect("Failed to lock job registry");
+    if let Some(job) = registry.get_mut(id) {
+        if job.status != JobStatus::Running {
+            return;
+        }
+
+        let timed_out = job.is_timed_out();
+        let timeout_val = job.timeout;
+
+        if let Some(ref mut child) = job.child {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let mut stdout = String::new();
+                    let mut stderr = String::new();
+
+                    if let Some(ref mut stdout_handle) = child.stdout {
+                        let _ = stdout_handle.read_to_string(&mut stdout);
+                    }
+                    if let Some(ref mut stderr_handle) = child.stderr {
+                        let _ = stderr_handle.read_to_string(&mut stderr);
+                    }
+
+                    let output = if stdout.is_empty() && stderr.is_empty() {
+                        None
+                    } else if stderr.is_empty() {
+                        Some(stdout)
+                    } else {
+                        Some(format!("{}\n{}", stdout, stderr).trim().to_string())
+                    };
+
+                    if status.success() {
+                        job.status = JobStatus::Finished;
+                        job.output = output;
+                        job.changed = true;
+                    } else {
+                        job.status = JobStatus::Failed;
+                        job.error = Some(format!(
+                            "Process exited with code {}: {}",
+                            status.code().unwrap_or(-1),
+                            stderr.trim()
+                        ));
+                        job.output = output;
+                    }
+                    job.child = None;
+                }
+                Ok(None) => {
+                    if timed_out {
+                        let _ = child.kill();
+                        job.status = JobStatus::Failed;
+                        job.error = Some(format!("Job timed out after {:?}", timeout_val));
+                        job.child = None;
+                    }
+                }
+                Err(e) => {
+                    job.status = JobStatus::Failed;
+                    job.error = Some(format!("Failed to check process status: {}", e));
+                    job.child = None;
+                }
+            }
+        }
+    }
+}
+
 pub fn get_job_info(id: JobId) -> Option<JobInfo> {
+    check_and_update_job_status(id);
     let registry = JOBS.lock().expect("Failed to lock job registry");
     registry.get(id).map(|j| JobInfo {
         status: j.status.clone(),
@@ -158,10 +225,100 @@ pub fn job_exists(id: JobId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::{Command, Stdio};
+    use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn test_job_registry() {
         let registry = JobRegistry::new();
         assert!(registry.list().is_empty());
+    }
+
+    #[test]
+    fn test_register_job_and_get_status() {
+        let child = Command::new("sleep")
+            .arg("0.1")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn sleep");
+
+        let job_id = register_job(None, child);
+        assert!(job_id > 0);
+
+        let mut status = get_job(job_id);
+        for _ in 0..20 {
+            if status == Some(JobStatus::Finished) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(50));
+            status = get_job(job_id);
+        }
+        assert_eq!(status, Some(JobStatus::Finished));
+    }
+
+    #[test]
+    fn test_get_job_info_updates_status() {
+        let child = Command::new("echo")
+            .arg("test_output")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn echo");
+
+        let job_id = register_job(None, child);
+
+        thread::sleep(Duration::from_millis(50));
+
+        let info = get_job_info(job_id);
+        assert!(info.is_some());
+        let info = info.unwrap();
+        assert_eq!(info.status, JobStatus::Finished);
+        assert!(info.output.is_some());
+        assert!(info.output.unwrap().contains("test_output"));
+    }
+
+    #[test]
+    fn test_job_timeout() {
+        let child = Command::new("sleep")
+            .arg("10")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn sleep");
+
+        let timeout = Duration::from_millis(100);
+        let job_id = register_job(Some(timeout), child);
+
+        thread::sleep(Duration::from_millis(200));
+
+        let info = get_job_info(job_id);
+        assert!(info.is_some());
+        let info = info.unwrap();
+        assert_eq!(info.status, JobStatus::Failed);
+        assert!(info.error.is_some());
+        assert!(info.error.unwrap().contains("timed out"));
+    }
+
+    #[test]
+    fn test_job_failed_on_nonzero_exit() {
+        let child = Command::new("sh")
+            .arg("-c")
+            .arg("exit 1")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn sh");
+
+        let job_id = register_job(None, child);
+
+        thread::sleep(Duration::from_millis(50));
+
+        let info = get_job_info(job_id);
+        assert!(info.is_some());
+        let info = info.unwrap();
+        assert_eq!(info.status, JobStatus::Failed);
+        assert!(info.error.is_some());
     }
 }

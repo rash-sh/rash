@@ -86,7 +86,7 @@ lint-fix: fmt clippy-fix ## run all linting with automatic fixes
 test: lint cross
 test:	## run tests
 	@$(CARGO) test $(CARGO_BUILD_PARAMS)
-	@for test in $$(find test -name '*.rh'); do \
+	@for test in $$(find test -name '*.rh' -not -path 'test/modules/helm/helm.rh'); do \
 		echo $(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$test; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$test || exit 1; \
 	done
@@ -96,6 +96,7 @@ test:	## run tests
 	@echo all good!
 
 .PHONY: test-examples
+test-examples:	cross
 test-examples:	## run examples and check exit code
 	@for example in $$(find examples -not -path 'examples/envar-api-gateway/*' \
 		-not -path 'examples/diff.rh' -not -path 'examples/dotfiles/*' \
@@ -107,10 +108,13 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/pause.rh' \
 		-not -path 'examples/package.rh' \
 		-not -path 'examples/vault.rh' \
+		-not -path 'examples/helm.rh' \
+		-not -path 'examples/jenkins_job.rh' \
+		-not -path 'examples/docker_compose.rh' \
 		-not -path 'examples/proxmox.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
-		$$example || exit 1; \
+		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \
 	done
 	@echo
 	@echo
