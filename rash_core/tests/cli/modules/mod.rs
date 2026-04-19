@@ -42,6 +42,7 @@ mod pip;
 mod rclone;
 mod reboot;
 mod replace;
+mod restic;
 mod runit;
 mod seboolean;
 mod ssh_config;
