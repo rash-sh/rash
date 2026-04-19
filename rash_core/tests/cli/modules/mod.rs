@@ -12,6 +12,7 @@ mod docker_image;
 mod docker_network;
 mod docker_prune;
 mod docker_volume;
+mod dpkg_selections;
 mod fail;
 mod fail2ban;
 mod firewalld;
