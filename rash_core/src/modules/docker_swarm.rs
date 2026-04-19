@@ -254,6 +254,285 @@ fn default_replicas() -> u32 {
     1
 }
 
+fn format_key_value(key: &str, value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => format!("{}={}", key, s),
+        serde_json::Value::Number(n) => format!("{}={}", key, n),
+        serde_json::Value::Bool(b) => format!("{}={}", key, b),
+        _ => format!("{}={}", key, value),
+    }
+}
+
+fn push_service_flags(args: &mut Vec<String>, config: &ServiceConfig) -> Result<()> {
+    args.push("--replicas".to_string());
+    args.push(config.replicas.to_string());
+
+    if let Some(ref env_list) = config.env {
+        for env in env_list {
+            args.push("-e".to_string());
+            args.push(env.clone());
+        }
+    }
+
+    if let Some(ref env_dict) = config.env_dict {
+        for (key, value) in env_dict {
+            args.push("-e".to_string());
+            args.push(format_key_value(key, value));
+        }
+    }
+
+    if let Some(ref ports) = config.ports {
+        for port in ports {
+            args.push("-p".to_string());
+            args.push(port.clone());
+        }
+    }
+
+    if let Some(ref mounts) = config.mounts {
+        for mount in mounts {
+            args.push("--mount".to_string());
+            args.push(mount.clone());
+        }
+    }
+
+    if let Some(ref volumes) = config.volumes {
+        for volume in volumes {
+            let parts: Vec<&str> = volume.splitn(2, ':').collect();
+            if parts.len() != 2 {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!(
+                        "Invalid volume format '{}', expected 'source:target'",
+                        volume
+                    ),
+                ));
+            }
+            args.push("--mount".to_string());
+            args.push(format!(
+                "type=volume,source={},target={}",
+                parts[0], parts[1]
+            ));
+        }
+    }
+
+    if let Some(ref networks) = config.networks {
+        for network in networks {
+            args.push("--network".to_string());
+            args.push(network.clone());
+        }
+    }
+
+    if let Some(ref restart) = config.restart_condition {
+        args.push("--restart-condition".to_string());
+        args.push(restart.clone());
+    }
+
+    if let Some(ref delay) = config.restart_delay {
+        args.push("--restart-delay".to_string());
+        args.push(delay.clone());
+    }
+
+    if let Some(max) = config.restart_max_attempts {
+        args.push("--restart-max-attempts".to_string());
+        args.push(max.to_string());
+    }
+
+    if let Some(ref window) = config.restart_window {
+        args.push("--restart-window".to_string());
+        args.push(window.clone());
+    }
+
+    if let Some(parallelism) = config.update_parallelism {
+        args.push("--update-parallelism".to_string());
+        args.push(parallelism.to_string());
+    }
+
+    if let Some(ref delay) = config.update_delay {
+        args.push("--update-delay".to_string());
+        args.push(delay.clone());
+    }
+
+    if let Some(ref action) = config.update_failure_action {
+        args.push("--update-failure-action".to_string());
+        args.push(action.clone());
+    }
+
+    if let Some(ref monitor) = config.update_monitor {
+        args.push("--update-monitor".to_string());
+        args.push(monitor.clone());
+    }
+
+    if let Some(ratio) = config.update_max_failure_ratio {
+        args.push("--update-max-failure-ratio".to_string());
+        args.push(ratio.to_string());
+    }
+
+    if let Some(ref constraints) = config.constraints {
+        for constraint in constraints {
+            args.push("--constraint".to_string());
+            args.push(constraint.clone());
+        }
+    }
+
+    if let Some(ref preferences) = config.preferences {
+        for preference in preferences {
+            args.push("--placement-pref".to_string());
+            args.push(preference.clone());
+        }
+    }
+
+    if let Some(ref labels) = config.labels {
+        for (key, value) in labels {
+            args.push("--label".to_string());
+            args.push(format_key_value(key, value));
+        }
+    }
+
+    if let Some(ref container_labels) = config.container_labels {
+        for (key, value) in container_labels {
+            args.push("--container-label".to_string());
+            args.push(format_key_value(key, value));
+        }
+    }
+
+    if let Some(ref hostname) = config.hostname {
+        args.push("--hostname".to_string());
+        args.push(hostname.clone());
+    }
+
+    if let Some(ref dns) = config.dns_servers {
+        for server in dns {
+            args.push("--dns".to_string());
+            args.push(server.clone());
+        }
+    }
+
+    if let Some(ref search) = config.dns_search {
+        for domain in search {
+            args.push("--dns-search".to_string());
+            args.push(domain.clone());
+        }
+    }
+
+    if let Some(ref opts) = config.dns_options {
+        for opt in opts {
+            args.push("--dns-option".to_string());
+            args.push(opt.clone());
+        }
+    }
+
+    if let Some(ref caps) = config.capabilities_add {
+        for cap in caps {
+            args.push("--cap-add".to_string());
+            args.push(cap.clone());
+        }
+    }
+
+    if let Some(ref caps) = config.capabilities_drop {
+        for cap in caps {
+            args.push("--cap-drop".to_string());
+            args.push(cap.clone());
+        }
+    }
+
+    if let Some(ref driver) = config.log_driver {
+        args.push("--log-driver".to_string());
+        args.push(driver.clone());
+    }
+
+    if let Some(ref opts) = config.log_options {
+        for (key, value) in opts {
+            args.push("--log-opt".to_string());
+            args.push(format_key_value(key, value));
+        }
+    }
+
+    if let Some(ref user) = config.user {
+        args.push("--user".to_string());
+        args.push(user.clone());
+    }
+
+    if let Some(ref workdir) = config.workdir {
+        args.push("--workdir".to_string());
+        args.push(workdir.clone());
+    }
+
+    if let Some(ref period) = config.stop_grace_period {
+        args.push("--stop-grace-period".to_string());
+        args.push(period.clone());
+    }
+
+    if let Some(ref signal) = config.stop_signal {
+        args.push("--stop-signal".to_string());
+        args.push(signal.clone());
+    }
+
+    if config.tty {
+        args.push("--tty".to_string());
+    }
+
+    if config.stdin {
+        args.push("--stdin".to_string());
+    }
+
+    if config.read_only {
+        args.push("--read-only".to_string());
+    }
+
+    if let Some(ref limits) = config.limits {
+        if let Some(ref cpu) = limits.cpu {
+            args.push("--limit-cpu".to_string());
+            args.push(cpu.clone());
+        }
+        if let Some(ref memory) = limits.memory {
+            args.push("--limit-memory".to_string());
+            args.push(memory.clone());
+        }
+    }
+
+    if let Some(ref reservations) = config.reservations {
+        if let Some(ref cpu) = reservations.cpu {
+            args.push("--reserve-cpu".to_string());
+            args.push(cpu.clone());
+        }
+        if let Some(ref memory) = reservations.memory {
+            args.push("--reserve-memory".to_string());
+            args.push(memory.clone());
+        }
+    }
+
+    if let Some(ref healthcheck) = config.healthcheck {
+        if let Some(ref test) = healthcheck.test
+            && !test.is_empty()
+        {
+            let test_str = if test[0] == "NONE" {
+                "--no-healthcheck".to_string()
+            } else {
+                format!("--health-cmd={}", test.join(" "))
+            };
+            args.push(test_str);
+        }
+        if let Some(ref interval) = healthcheck.interval {
+            args.push("--health-interval".to_string());
+            args.push(interval.clone());
+        }
+        if let Some(ref timeout) = healthcheck.timeout {
+            args.push("--health-timeout".to_string());
+            args.push(timeout.clone());
+        }
+        if let Some(retries) = healthcheck.retries {
+            args.push("--health-retries".to_string());
+            args.push(retries.to_string());
+        }
+        if let Some(ref start_period) = healthcheck.start_period {
+            args.push("--health-start-period".to_string());
+            args.push(start_period.clone());
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
@@ -570,286 +849,7 @@ impl DockerClient {
         args.push("--name".to_string());
         args.push(config.name.clone());
 
-        args.push("--replicas".to_string());
-        args.push(config.replicas.to_string());
-
-        if let Some(ref env_list) = config.env {
-            for env in env_list {
-                args.push("-e".to_string());
-                args.push(env.clone());
-            }
-        }
-
-        if let Some(ref env_dict) = config.env_dict {
-            for (key, value) in env_dict {
-                let env_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("-e".to_string());
-                args.push(env_str);
-            }
-        }
-
-        if let Some(ref ports) = config.ports {
-            for port in ports {
-                args.push("-p".to_string());
-                args.push(port.clone());
-            }
-        }
-
-        if let Some(ref mounts) = config.mounts {
-            for mount in mounts {
-                args.push("--mount".to_string());
-                args.push(mount.clone());
-            }
-        }
-
-        if let Some(ref volumes) = config.volumes {
-            for volume in volumes {
-                args.push("--mount".to_string());
-                args.push(format!(
-                    "type=volume,source={},target={}",
-                    volume.split(':').next().unwrap_or(volume),
-                    volume.split(':').nth(1).unwrap_or(volume)
-                ));
-            }
-        }
-
-        if let Some(ref networks) = config.networks {
-            for network in networks {
-                args.push("--network".to_string());
-                args.push(network.clone());
-            }
-        }
-
-        if let Some(ref restart) = config.restart_condition {
-            args.push("--restart-condition".to_string());
-            args.push(restart.clone());
-        }
-
-        if let Some(ref delay) = config.restart_delay {
-            args.push("--restart-delay".to_string());
-            args.push(delay.clone());
-        }
-
-        if let Some(max) = config.restart_max_attempts {
-            args.push("--restart-max-attempts".to_string());
-            args.push(max.to_string());
-        }
-
-        if let Some(ref window) = config.restart_window {
-            args.push("--restart-window".to_string());
-            args.push(window.clone());
-        }
-
-        if let Some(parallelism) = config.update_parallelism {
-            args.push("--update-parallelism".to_string());
-            args.push(parallelism.to_string());
-        }
-
-        if let Some(ref delay) = config.update_delay {
-            args.push("--update-delay".to_string());
-            args.push(delay.clone());
-        }
-
-        if let Some(ref action) = config.update_failure_action {
-            args.push("--update-failure-action".to_string());
-            args.push(action.clone());
-        }
-
-        if let Some(ref monitor) = config.update_monitor {
-            args.push("--update-monitor".to_string());
-            args.push(monitor.clone());
-        }
-
-        if let Some(ratio) = config.update_max_failure_ratio {
-            args.push("--update-max-failure-ratio".to_string());
-            args.push(ratio.to_string());
-        }
-
-        if let Some(ref constraints) = config.constraints {
-            for constraint in constraints {
-                args.push("--constraint".to_string());
-                args.push(constraint.clone());
-            }
-        }
-
-        if let Some(ref preferences) = config.preferences {
-            for preference in preferences {
-                args.push("--placement-pref".to_string());
-                args.push(preference.clone());
-            }
-        }
-
-        if let Some(ref labels) = config.labels {
-            for (key, value) in labels {
-                let label_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("--label".to_string());
-                args.push(label_str);
-            }
-        }
-
-        if let Some(ref container_labels) = config.container_labels {
-            for (key, value) in container_labels {
-                let label_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("--container-label".to_string());
-                args.push(label_str);
-            }
-        }
-
-        if let Some(ref hostname) = config.hostname {
-            args.push("--hostname".to_string());
-            args.push(hostname.clone());
-        }
-
-        if let Some(ref dns) = config.dns_servers {
-            for server in dns {
-                args.push("--dns".to_string());
-                args.push(server.clone());
-            }
-        }
-
-        if let Some(ref search) = config.dns_search {
-            for domain in search {
-                args.push("--dns-search".to_string());
-                args.push(domain.clone());
-            }
-        }
-
-        if let Some(ref opts) = config.dns_options {
-            for opt in opts {
-                args.push("--dns-option".to_string());
-                args.push(opt.clone());
-            }
-        }
-
-        if let Some(ref caps) = config.capabilities_add {
-            for cap in caps {
-                args.push("--cap-add".to_string());
-                args.push(cap.clone());
-            }
-        }
-
-        if let Some(ref caps) = config.capabilities_drop {
-            for cap in caps {
-                args.push("--cap-drop".to_string());
-                args.push(cap.clone());
-            }
-        }
-
-        if let Some(ref driver) = config.log_driver {
-            args.push("--log-driver".to_string());
-            args.push(driver.clone());
-        }
-
-        if let Some(ref opts) = config.log_options {
-            for (key, value) in opts {
-                let opt_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("--log-opt".to_string());
-                args.push(opt_str);
-            }
-        }
-
-        if let Some(ref user) = config.user {
-            args.push("--user".to_string());
-            args.push(user.clone());
-        }
-
-        if let Some(ref workdir) = config.workdir {
-            args.push("--workdir".to_string());
-            args.push(workdir.clone());
-        }
-
-        if let Some(ref period) = config.stop_grace_period {
-            args.push("--stop-grace-period".to_string());
-            args.push(period.clone());
-        }
-
-        if let Some(ref signal) = config.stop_signal {
-            args.push("--stop-signal".to_string());
-            args.push(signal.clone());
-        }
-
-        if config.tty {
-            args.push("--tty".to_string());
-        }
-
-        if config.stdin {
-            args.push("--stdin".to_string());
-        }
-
-        if config.read_only {
-            args.push("--read-only".to_string());
-        }
-
-        if let Some(ref limits) = config.limits {
-            if let Some(ref cpu) = limits.cpu {
-                args.push("--limit-cpu".to_string());
-                args.push(cpu.clone());
-            }
-            if let Some(ref memory) = limits.memory {
-                args.push("--limit-memory".to_string());
-                args.push(memory.clone());
-            }
-        }
-
-        if let Some(ref reservations) = config.reservations {
-            if let Some(ref cpu) = reservations.cpu {
-                args.push("--reserve-cpu".to_string());
-                args.push(cpu.clone());
-            }
-            if let Some(ref memory) = reservations.memory {
-                args.push("--reserve-memory".to_string());
-                args.push(memory.clone());
-            }
-        }
-
-        if let Some(ref healthcheck) = config.healthcheck {
-            if let Some(ref test) = healthcheck.test
-                && !test.is_empty()
-            {
-                let test_str = if test[0] == "NONE" {
-                    "--no-healthcheck".to_string()
-                } else {
-                    format!("--health-cmd={}", test.join(" "))
-                };
-                args.push(test_str);
-            }
-            if let Some(ref interval) = healthcheck.interval {
-                args.push("--health-interval".to_string());
-                args.push(interval.clone());
-            }
-            if let Some(ref timeout) = healthcheck.timeout {
-                args.push("--health-timeout".to_string());
-                args.push(timeout.clone());
-            }
-            if let Some(retries) = healthcheck.retries {
-                args.push("--health-retries".to_string());
-                args.push(retries.to_string());
-            }
-            if let Some(ref start_period) = healthcheck.start_period {
-                args.push("--health-start-period".to_string());
-                args.push(start_period.clone());
-            }
-        }
+        push_service_flags(&mut args, config)?;
 
         let image = config.image.as_ref().ok_or_else(|| {
             Error::new(
@@ -861,13 +861,11 @@ impl DockerClient {
         args.push(image.clone());
 
         if let Some(ref command) = config.command {
-            args.push(command.join(" "));
+            args.extend(command.iter().cloned());
         }
 
         if let Some(ref args_list) = config.args {
-            for arg in args_list {
-                args.push(arg.clone());
-            }
+            args.extend(args_list.iter().cloned());
         }
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -882,67 +880,12 @@ impl DockerClient {
 
         let mut args: Vec<String> = vec!["service".to_string(), "update".to_string()];
 
-        args.push("--replicas".to_string());
-        args.push(config.replicas.to_string());
-
         if let Some(ref image) = config.image {
             args.push("--image".to_string());
             args.push(image.clone());
         }
 
-        if let Some(ref env_list) = config.env {
-            for env in env_list {
-                args.push("-e".to_string());
-                args.push(env.clone());
-            }
-        }
-
-        if let Some(ref env_dict) = config.env_dict {
-            for (key, value) in env_dict {
-                let env_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("-e".to_string());
-                args.push(env_str);
-            }
-        }
-
-        if let Some(ref ports) = config.ports {
-            for port in ports {
-                args.push("-p".to_string());
-                args.push(port.clone());
-            }
-        }
-
-        if let Some(ref restart) = config.restart_condition {
-            args.push("--restart-condition".to_string());
-            args.push(restart.clone());
-        }
-
-        if let Some(ref limits) = config.limits {
-            if let Some(ref cpu) = limits.cpu {
-                args.push("--limit-cpu".to_string());
-                args.push(cpu.clone());
-            }
-            if let Some(ref memory) = limits.memory {
-                args.push("--limit-memory".to_string());
-                args.push(memory.clone());
-            }
-        }
-
-        if let Some(ref reservations) = config.reservations {
-            if let Some(ref cpu) = reservations.cpu {
-                args.push("--reserve-cpu".to_string());
-                args.push(cpu.clone());
-            }
-            if let Some(ref memory) = reservations.memory {
-                args.push("--reserve-memory".to_string());
-                args.push(memory.clone());
-            }
-        }
+        push_service_flags(&mut args, config)?;
 
         args.push(config.name.clone());
 
@@ -1199,12 +1142,19 @@ fn docker_swarm(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     }
                 }
                 ServiceState::Paused => {
-                    if client.scale_service(&service_config.name, 0)? {
+                    if !client.is_swarm_active()? {
+                        return Err(Error::new(ErrorKind::InvalidData, "Not in a swarm cluster"));
+                    }
+                    if client.service_exists(&service_config.name)? {
+                        client.scale_service(&service_config.name, 0)?;
                         output_messages.push(format!(
                             "Service '{}' paused (scaled to 0)",
                             service_config.name
                         ));
                         changed = true;
+                    } else {
+                        output_messages
+                            .push(format!("Service '{}' not found", service_config.name));
                     }
                 }
             }
@@ -1614,5 +1564,53 @@ mod tests {
         .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_format_key_value() {
+        assert_eq!(
+            format_key_value("K", &serde_json::Value::String("v".to_string())),
+            "K=v"
+        );
+        assert_eq!(format_key_value("K", &serde_json::json!(42)), "K=42");
+        assert_eq!(
+            format_key_value("K", &serde_json::Value::Bool(true)),
+            "K=true"
+        );
+        assert_eq!(format_key_value("K", &serde_json::Value::Null), "K=null");
+    }
+
+    #[test]
+    fn test_push_service_flags_volume_valid() {
+        let config: ServiceConfig = serde_norway::from_str(
+            r#"
+            name: test
+            image: nginx:latest
+            volumes:
+              - "data:/app"
+            "#,
+        )
+        .unwrap();
+        let mut args = Vec::new();
+        push_service_flags(&mut args, &config).unwrap();
+        assert!(args.contains(&"--mount".to_string()));
+        assert!(args.contains(&"type=volume,source=data,target=/app".to_string()));
+    }
+
+    #[test]
+    fn test_push_service_flags_volume_invalid() {
+        let config: ServiceConfig = serde_norway::from_str(
+            r#"
+            name: test
+            image: nginx:latest
+            volumes:
+              - "novolume"
+            "#,
+        )
+        .unwrap();
+        let mut args = Vec::new();
+        let result = push_service_flags(&mut args, &config);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
     }
 }
