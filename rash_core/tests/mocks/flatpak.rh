@@ -1,0 +1,54 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Flatpak binary mock for Flatpak module tests.
+#
+# Usage:
+#   ./flatpak.rh [options] (list|install|uninstall) [<targets>]...
+#
+# Options:
+#  --system             Install for all users.
+#  --user               Install for current user.
+#  --no-interaction     Don't ask for confirmation.
+#  --no-deps            Don't install dependencies.
+#  --app                List installed applications.
+#  --help               Display help.
+#
+- name: List installed apps
+  debug:
+    msg: |-
+      Name       Application ID           Version     Branch      Installation
+      Calendar   org.gnome.Calendar       stable      system
+      Todo       org.gnome.Todo           stable      system
+  when:
+    - list
+    - options.app
+
+- name: Install packages
+  debug:
+    msg: |-
+      Looking for matches…
+      Remote 'flathub' found in system installation.
+
+      Required runtime for {{ item }} (runtime/org.gnome.Platform/x86_64/stable) found in remote flathub
+
+      ID                                     Branch  Op  Remote   Download
+      {{ item }}                             stable  i   flathub   < 1.0 MB
+
+      Changes complete.
+  loop: "{{ targets | default([]) }}"
+  when:
+    - install
+    - options.no_interaction
+    - targets is defined and targets | length > 0
+
+- name: Uninstall packages
+  debug:
+    msg: |-
+      ID                                     Branch
+      {{ item }}                             stable
+
+      Uninstall complete.
+  loop: "{{ targets | default([]) }}"
+  when:
+    - uninstall
+    - targets is defined and targets | length > 0
