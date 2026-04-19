@@ -1,7 +1,7 @@
 use std::fs;
 use std::process::Command;
 
-use crate::cli::modules::run_test;
+use crate::cli::modules::{docker_test_lock, run_test};
 
 fn docker_available() -> bool {
     Command::new("docker")
@@ -17,6 +17,7 @@ macro_rules! skip_without_docker {
             eprintln!("Skipping test: Docker not available");
             return;
         }
+        let _lock = docker_test_lock();
     };
 }
 

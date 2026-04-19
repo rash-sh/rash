@@ -62,8 +62,18 @@ use super::execute_rash_with_env;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use tempfile::tempdir;
+
+static DOCKER_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+pub fn docker_test_lock() -> MutexGuard<'static, ()> {
+    DOCKER_TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap()
+}
 
 pub fn run_tests(
     scripts: HashMap<&str, &str>,
