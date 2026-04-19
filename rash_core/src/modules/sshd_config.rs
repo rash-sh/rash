@@ -63,7 +63,7 @@ use rash_derive::DocJsonSchema;
 
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -141,14 +141,14 @@ fn parse_sshd_config(content: &str) -> (Vec<SshdOption>, Vec<MatchBlock>) {
         let lower = trimmed.to_lowercase();
 
         if lower.starts_with("match ") {
-            if let Some(ref criteria) = current_match {
-                if let Some(start) = current_match_start {
-                    match_blocks.push(MatchBlock {
-                        criteria: criteria.clone(),
-                        line_start: start,
-                        line_end: idx.saturating_sub(1),
-                    });
-                }
+            if let Some(ref criteria) = current_match
+                && let Some(start) = current_match_start
+            {
+                match_blocks.push(MatchBlock {
+                    criteria: criteria.clone(),
+                    line_start: start,
+                    line_end: idx.saturating_sub(1),
+                });
             }
             current_match = Some(trimmed[6..].trim().to_string());
             current_match_start = Some(idx);
@@ -165,14 +165,14 @@ fn parse_sshd_config(content: &str) -> (Vec<SshdOption>, Vec<MatchBlock>) {
         }
     }
 
-    if let Some(ref criteria) = current_match {
-        if let Some(start) = current_match_start {
-            match_blocks.push(MatchBlock {
-                criteria: criteria.clone(),
-                line_start: start,
-                line_end: lines.len().saturating_sub(1),
-            });
-        }
+    if let Some(ref criteria) = current_match
+        && let Some(start) = current_match_start
+    {
+        match_blocks.push(MatchBlock {
+            criteria: criteria.clone(),
+            line_start: start,
+            line_end: lines.len().saturating_sub(1),
+        });
     }
 
     (options, match_blocks)
@@ -231,9 +231,7 @@ fn rebuild_config(
 
     match state {
         State::Present => {
-            let value = target_value
-                .as_deref()
-                .unwrap_or("");
+            let value = target_value.as_deref().unwrap_or("");
 
             if let Some(existing) = existing_option {
                 if existing.value == value {
@@ -276,26 +274,21 @@ fn rebuild_config(
                 let mut new_lines: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
                 new_lines.remove(existing.line_idx);
 
-                if let Some(criteria) = target_match {
-                    if let Some(block) = find_match_block(parsed_blocks, criteria) {
-                        let remaining_in_block = parsed_options.iter().any(|o| {
-                            o.match_block.as_deref() == Some(criteria.as_str())
-                                && o.key != target_key_lower
-                                && o.line_idx != existing.line_idx
-                        });
+                if let Some(criteria) = target_match
+                    && let Some(block) = find_match_block(parsed_blocks, criteria)
+                {
+                    let remaining_in_block = parsed_options.iter().any(|o| {
+                        o.match_block.as_deref() == Some(criteria.as_str())
+                            && o.key != target_key_lower
+                            && o.line_idx != existing.line_idx
+                    });
 
-                        if !remaining_in_block {
-                            let adjusted_block_start = if existing.line_idx < block.line_start {
-                                block.line_start
-                            } else {
-                                block.line_start
-                            };
-                            if adjusted_block_start < new_lines.len() {
-                                new_lines.remove(adjusted_block_start);
-                            }
-
-                            new_lines = clean_empty_lines(new_lines);
+                    if !remaining_in_block {
+                        if block.line_start < new_lines.len() {
+                            new_lines.remove(block.line_start);
                         }
+
+                        new_lines = clean_empty_lines(new_lines);
                     }
                 }
 
@@ -334,9 +327,7 @@ fn find_global_insert_position(
         }
         (Some(last_opt), None) => {
             let mut insert_pos = last_opt + 1;
-            while insert_pos < lines.len()
-                && lines[insert_pos].trim().is_empty()
-            {
+            while insert_pos < lines.len() && lines[insert_pos].trim().is_empty() {
                 insert_pos += 1;
             }
             insert_pos
@@ -381,7 +372,7 @@ fn create_backup(path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn validate_config(path: &PathBuf) -> Result<()> {
+fn validate_config(path: &Path) -> Result<()> {
     let output = std::process::Command::new("sshd")
         .arg("-t")
         .arg("-f")
@@ -459,10 +450,10 @@ pub fn sshd_config(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     create_backup(&config_path)?;
                 }
 
-                if let Some(parent) = config_path.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent)?;
-                    }
+                if let Some(parent) = config_path.parent()
+                    && !parent.exists()
+                {
+                    fs::create_dir_all(parent)?;
                 }
 
                 let mut file = fs::OpenOptions::new()
@@ -627,7 +618,8 @@ mod tests {
 
     #[test]
     fn test_parse_sshd_config_with_match_block() {
-        let content = "Port 22\nPermitRootLogin no\n\nMatch User admin\n    PasswordAuthentication yes\n";
+        let content =
+            "Port 22\nPermitRootLogin no\n\nMatch User admin\n    PasswordAuthentication yes\n";
         let (options, blocks) = parse_sshd_config(content);
         assert_eq!(options.len(), 3);
         assert_eq!(blocks.len(), 1);
@@ -685,7 +677,14 @@ mod tests {
         ];
 
         assert!(find_option(&options, "Port", &None).is_some());
-        assert!(find_option(&options, "PasswordAuthentication", &Some("User admin".to_string())).is_some());
+        assert!(
+            find_option(
+                &options,
+                "PasswordAuthentication",
+                &Some("User admin".to_string())
+            )
+            .is_some()
+        );
         assert!(find_option(&options, "PasswordAuthentication", &None).is_none());
     }
 
@@ -760,7 +759,11 @@ mod tests {
     fn test_sshd_config_remove_option() {
         let dir = tempdir().unwrap();
         let config_path = dir.path().join("sshd_config");
-        fs::write(&config_path, "Port 22\nPermitRootLogin no\nPasswordAuthentication no\n").unwrap();
+        fs::write(
+            &config_path,
+            "Port 22\nPermitRootLogin no\nPasswordAuthentication no\n",
+        )
+        .unwrap();
 
         let params = Params {
             option: "PermitRootLogin".to_string(),
@@ -962,15 +965,11 @@ mod tests {
         let backup_files: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with("sshd_config.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().starts_with("sshd_config."))
             .collect();
         assert_eq!(backup_files.len(), 1, "Expected exactly one backup file");
 
-        let backup_content = fs::read_to_string(&backup_files[0].path()).unwrap();
+        let backup_content = fs::read_to_string(backup_files[0].path()).unwrap();
         assert!(backup_content.contains("PermitRootLogin yes"));
     }
 
@@ -1020,6 +1019,11 @@ mod tests {
 
         let result = sshd_config(params, false);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("value parameter is required"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("value parameter is required")
+        );
     }
 }
