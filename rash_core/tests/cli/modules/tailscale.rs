@@ -1,7 +1,19 @@
 use crate::cli::modules::run_test;
 
+fn tailscale_available() -> bool {
+    std::process::Command::new("tailscale")
+        .arg("version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 #[test]
 fn test_tailscale_invalid_no_auth_key() {
+    if !tailscale_available() {
+        return;
+    }
+
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Connect without auth key
@@ -19,6 +31,10 @@ fn test_tailscale_invalid_no_auth_key() {
 
 #[test]
 fn test_tailscale_check_mode_down() {
+    if !tailscale_available() {
+        return;
+    }
+
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Disconnect in check mode

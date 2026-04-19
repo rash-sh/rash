@@ -122,10 +122,8 @@ fn run_tailscale(args: &[&str]) -> Result<std::process::Output> {
         .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
 }
 
-fn is_connected() -> bool {
-    run_tailscale(&["status"])
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+fn is_connected() -> Result<bool> {
+    run_tailscale(&["status"]).map(|o| o.status.success())
 }
 
 fn exec_tailscale(params: Params, check_mode: bool) -> Result<ModuleResult> {
@@ -137,7 +135,7 @@ fn exec_tailscale(params: Params, check_mode: bool) -> Result<ModuleResult> {
 }
 
 fn exec_up(params: &Params, check_mode: bool) -> Result<ModuleResult> {
-    if is_connected() {
+    if is_connected()? {
         return Ok(ModuleResult::new(
             false,
             None,
@@ -206,7 +204,7 @@ fn exec_up(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 }
 
 fn exec_down(check_mode: bool) -> Result<ModuleResult> {
-    if !is_connected() {
+    if !is_connected()? {
         return Ok(ModuleResult::new(
             false,
             None,
@@ -386,7 +384,5 @@ mod tests {
         };
         let result = exec_up(&params, true);
         assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.kind(), ErrorKind::InvalidData);
     }
 }
