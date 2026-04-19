@@ -282,7 +282,8 @@ fn calculate_checksum(path: &Path, algorithm: &str) -> Result<String> {
             use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         "md5" => {
             use md5::{Digest, Md5};
@@ -770,7 +771,8 @@ fn run_unarchive(params: Params, check_mode: bool) -> Result<ModuleResult> {
                         format!("Failed to open archive {}: {e}", archive_path.display()),
                     )
                 })?;
-                extract_zip(file, &dest, exclude)?
+                let reader = BufReader::new(file);
+                extract_zip(reader, &dest, exclude)?
             }
             None => {
                 return Err(Error::new(
