@@ -75,8 +75,9 @@ serde_yaml = "0.9"
 rpassword = "7.3"
 aws-sdk-s3 = "1.0"
 aws-config = "1.0"
-xattr = "1.6"
 iso9660 = "0.1"
+urlencoding = "2.1"
+xattr = "1.6"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.0"
