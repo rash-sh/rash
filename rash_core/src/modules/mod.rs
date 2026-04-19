@@ -29,6 +29,7 @@ mod docker_config;
 mod docker_container;
 mod docker_exec;
 mod docker_image;
+mod docker_info;
 mod docker_network;
 mod docker_prune;
 mod docker_volume;
@@ -170,6 +171,7 @@ use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::docker_info::DockerInfo;
 use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
@@ -403,6 +405,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerImage.get_name(),
             Box::new(DockerImage) as Box<dyn Module>,
+        ),
+        (
+            DockerInfo.get_name(),
+            Box::new(DockerInfo) as Box<dyn Module>,
         ),
         (
             DpkgSelections.get_name(),
