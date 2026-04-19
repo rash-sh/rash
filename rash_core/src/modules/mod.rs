@@ -12,6 +12,7 @@ mod aws_s3;
 mod blkdiscard;
 mod block;
 mod cargo;
+mod cgroups;
 mod chroot;
 mod command;
 mod composer;
@@ -162,6 +163,7 @@ use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::cargo::Cargo;
+use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
@@ -387,6 +389,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
+        (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
