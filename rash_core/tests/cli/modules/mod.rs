@@ -41,6 +41,7 @@ mod pids;
 mod pip;
 mod rclone;
 mod reboot;
+mod restic;
 mod replace;
 mod runit;
 mod seboolean;
