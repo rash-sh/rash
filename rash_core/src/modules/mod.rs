@@ -54,11 +54,13 @@ mod helm;
 mod helm_info;
 mod hostname;
 mod include;
+mod incus;
 mod ini_file;
 mod initramfs;
 mod interfaces_file;
 mod ipaddr;
 mod iptables;
+mod iso_extract;
 mod java_keystore;
 mod jenkins_job;
 mod json_file;
@@ -100,7 +102,9 @@ mod ping;
 mod pip;
 mod postgresql_db;
 mod postgresql_user;
+mod proxmox;
 mod rabbitmq_user;
+mod rclone;
 mod reboot;
 mod redis;
 mod replace;
@@ -115,6 +119,7 @@ mod sgdisk;
 mod slurp;
 mod ssh_config;
 mod stat;
+mod sudoers;
 mod swapfile;
 mod synchronize;
 mod sysctl;
@@ -131,6 +136,7 @@ mod user;
 mod vault;
 mod vdo;
 mod wait_for;
+mod wakeonlan;
 mod wipefs;
 mod xattr;
 mod xml;
@@ -197,11 +203,13 @@ use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
+use crate::modules::incus::Incus;
 use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
 use crate::modules::ipaddr::Ipaddr;
 use crate::modules::iptables::Iptables;
+use crate::modules::iso_extract::IsoExtract;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
@@ -243,7 +251,9 @@ use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
+use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::replace::Replace;
@@ -258,6 +268,7 @@ use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::stat::Stat;
+use crate::modules::sudoers::Sudoers;
 use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
@@ -274,6 +285,7 @@ use crate::modules::user::User;
 use crate::modules::vault::Vault;
 use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
+use crate::modules::wakeonlan::WakeOnLan;
 use crate::modules::wipefs::Wipefs;
 use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
@@ -461,6 +473,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (JsonFile.get_name(), Box::new(JsonFile) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
+        (Incus.get_name(), Box::new(Incus) as Box<dyn Module>),
         (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
         (Initramfs.get_name(), Box::new(Initramfs) as Box<dyn Module>),
         (
@@ -469,6 +482,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (Ipaddr.get_name(), Box::new(Ipaddr) as Box<dyn Module>),
+        (
+            IsoExtract.get_name(),
+            Box::new(IsoExtract) as Box<dyn Module>,
+        ),
         (
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
@@ -534,6 +551,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
+        (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
@@ -542,6 +560,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(RabbitmqUser) as Box<dyn Module>,
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
+        (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
@@ -560,6 +579,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Synchronize) as Box<dyn Module>,
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
+        (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
         (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
@@ -574,6 +594,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
+        (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
         (Xml.get_name(), Box::new(Xml) as Box<dyn Module>),
         (Xattr.get_name(), Box::new(Xattr) as Box<dyn Module>),

@@ -358,13 +358,7 @@ fn test_docker_network_with_ip_range() {
     );
 
     let output = Command::new("docker")
-        .args([
-            "network",
-            "inspect",
-            "--format",
-            "{{range .IPAM.Config}}{{.IPRange}}{{end}}",
-            network_name,
-        ])
+        .args(["network", "inspect", network_name])
         .output()
         .expect("Failed to check network");
     let stdout_check = String::from_utf8_lossy(&output.stdout);
@@ -381,46 +375,68 @@ fn test_docker_network_with_ip_range() {
 }
 
 fn ipv6_available() -> bool {
-    let test_network = "rash-ipv6-capability-check";
+    let ipv6_in_kernel = Command::new("docker")
+        .args([
+            "run",
+            "--rm",
+            "alpine:latest",
+            "cat",
+            "/proc/sys/net/ipv6/conf/all/disable_ipv6",
+        ])
+        .output()
+        .map(|o| {
+            if o.status.success() {
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                stdout.trim() == "0"
+            } else {
+                false
+            }
+        })
+        .unwrap_or(false);
+
+    if !ipv6_in_kernel {
+        return false;
+    }
+
+    let test_network = "rash-ipv6-check";
     let _ = Command::new("docker")
         .args(["network", "rm", "-f", test_network])
         .output();
 
-    let create_result = Command::new("docker")
+    let created = Command::new("docker")
         .args([
             "network",
             "create",
             "--ipv6",
             "--subnet",
-            "fd00:dead:beef::/48",
+            "fd00::/64",
             test_network,
         ])
-        .output();
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
 
-    let ipv6_enabled = match create_result {
-        Ok(output) if output.status.success() => {
-            let inspect = Command::new("docker")
-                .args([
-                    "network",
-                    "inspect",
-                    "--format",
-                    "{{.EnableIPv6}}",
-                    test_network,
-                ])
-                .output();
-            match inspect {
-                Ok(o) if o.status.success() => {
-                    let stdout = String::from_utf8_lossy(&o.stdout);
-                    stdout.trim().contains("true")
-                }
-                _ => false,
-            }
-        }
-        _ => false,
-    };
+    if !created {
+        let _ = Command::new("docker")
+            .args(["network", "rm", "-f", test_network])
+            .output();
+        return false;
+    }
+
+    let ipv6_enabled = Command::new("docker")
+        .args([
+            "network",
+            "inspect",
+            "--format",
+            "{{.EnableIPv6}}",
+            test_network,
+        ])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().contains("true"))
+        .unwrap_or(false);
 
     let _ = Command::new("docker")
-        .args(["network", "rm", test_network])
+        .args(["network", "rm", "-f", test_network])
         .output();
 
     ipv6_enabled
@@ -450,7 +466,7 @@ fn test_docker_network_ipv6() {
   docker_network:
     name: {}
     enable_ipv6: true
-    subnet: "fd00:cafe:babe::/48"
+    subnet: "fd00:dead:beef::/48"
 "#,
         network_name
     );

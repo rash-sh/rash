@@ -299,10 +299,8 @@ impl DockerClient {
 
         let mut args: Vec<String> = vec!["network".to_string(), "create".to_string()];
 
-        if params.driver != Driver::Bridge {
-            args.push("--driver".to_string());
-            args.push(driver_to_string(&params.driver));
-        }
+        args.push("--driver".to_string());
+        args.push(driver_to_string(&params.driver));
 
         if let Some(ref subnet) = params.subnet {
             args.push("--subnet".to_string());

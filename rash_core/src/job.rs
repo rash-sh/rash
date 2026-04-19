@@ -269,14 +269,9 @@ mod tests {
 
         let job_id = register_job(None, child);
 
-        let mut info = get_job_info(job_id);
-        for _ in 0..20 {
-            if info.as_ref().map(|i| &i.status) == Some(&JobStatus::Finished) {
-                break;
-            }
-            thread::sleep(Duration::from_millis(50));
-            info = get_job_info(job_id);
-        }
+        thread::sleep(Duration::from_millis(50));
+
+        let info = get_job_info(job_id);
         assert!(info.is_some());
         let info = info.unwrap();
         assert_eq!(info.status, JobStatus::Finished);
@@ -318,14 +313,9 @@ mod tests {
 
         let job_id = register_job(None, child);
 
-        let mut info = get_job_info(job_id);
-        for _ in 0..20 {
-            if info.as_ref().map(|i| &i.status) == Some(&JobStatus::Failed) {
-                break;
-            }
-            thread::sleep(Duration::from_millis(50));
-            info = get_job_info(job_id);
-        }
+        thread::sleep(Duration::from_millis(50));
+
+        let info = get_job_info(job_id);
         assert!(info.is_some());
         let info = info.unwrap();
         assert_eq!(info.status, JobStatus::Failed);

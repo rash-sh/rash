@@ -441,7 +441,7 @@ dependencies = [
  "http 1.4.0",
  "http-body 1.0.1",
  "http-body-util",
- "md-5 0.11.0",
+ "md-5",
  "pin-project-lite",
  "sha1 0.11.0",
  "sha2 0.11.0",
@@ -2355,6 +2355,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
+name = "iso9660"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40596d62fc30ad9c7b0c6eb52974f696d14b8f2faf98a76dbfb93435769aa0ff"
+dependencies = [
+ "bitflags",
+ "nom",
+ "time",
+]
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2592,16 +2603,6 @@ dependencies = [
  "log",
  "tendril",
  "web_atoms",
-]
-
-[[package]]
-name = "md-5"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
-dependencies = [
- "cfg-if",
- "digest 0.10.7",
 ]
 
 [[package]]
@@ -3502,11 +3503,12 @@ dependencies = [
  "glob",
  "ignore",
  "ipc-channel",
+ "iso9660",
  "itertools 0.14.0",
  "jemallocator",
  "libc",
  "log",
- "md-5 0.10.6",
+ "md-5",
  "minijinja",
  "nix 0.31.2",
  "prs-lib",
@@ -3525,7 +3527,7 @@ dependencies = [
  "serde_norway",
  "serde_with",
  "serde_yaml",
- "sha1 0.10.6",
+ "sha1 0.11.0",
  "sha2 0.11.0",
  "shlex",
  "similar",
@@ -3535,6 +3537,7 @@ dependencies = [
  "tempfile",
  "time",
  "tokio",
+ "urlencoding",
  "uuid",
  "vaultrs",
  "walkdir",

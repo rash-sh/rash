@@ -291,11 +291,7 @@ fn docker_login(params: Params, check_mode: bool) -> Result<ModuleResult> {
         Some(output_messages.join("\n"))
     };
 
-    Ok(ModuleResult {
-        changed,
-        output: final_output,
-        extra: None,
-    })
+    Ok(ModuleResult::new(changed, None, final_output))
 }
 
 #[cfg(test)]
