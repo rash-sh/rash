@@ -36,6 +36,7 @@ mod reboot;
 mod runit;
 mod seboolean;
 mod ssh_config;
+mod syslog;
 mod systemd;
 mod timezone;
 mod trace;
