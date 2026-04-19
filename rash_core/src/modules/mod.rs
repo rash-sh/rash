@@ -8,6 +8,7 @@ mod assert;
 mod async_status;
 mod at;
 mod authorized_key;
+mod aws_s3;
 mod blkdiscard;
 mod block;
 mod cargo;
@@ -31,6 +32,7 @@ mod docker_image;
 mod docker_network;
 mod docker_prune;
 mod docker_volume;
+mod dpkg_selections;
 mod dynamic;
 mod expect;
 mod fail;
@@ -53,6 +55,7 @@ mod include;
 mod ini_file;
 mod initramfs;
 mod interfaces_file;
+mod ipaddr;
 mod iptables;
 mod java_keystore;
 mod jenkins_job;
@@ -80,6 +83,7 @@ mod netplan;
 mod nftables;
 mod nmcli;
 mod npm;
+mod openrc;
 mod openssl_certificate;
 mod openssl_csr;
 mod openssl_privatekey;
@@ -97,6 +101,7 @@ mod postgresql_user;
 mod rabbitmq_user;
 mod reboot;
 mod redis;
+mod replace;
 mod runit;
 mod script;
 mod seboolean;
@@ -108,6 +113,7 @@ mod sgdisk;
 mod slurp;
 mod ssh_config;
 mod stat;
+mod swapfile;
 mod synchronize;
 mod sysctl;
 mod syslog;
@@ -143,6 +149,7 @@ use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
 use crate::modules::authorized_key::AuthorizedKey;
+use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::cargo::Cargo;
@@ -166,6 +173,7 @@ use crate::modules::docker_image::DockerImage;
 use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
+use crate::modules::dpkg_selections::DpkgSelections;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
@@ -188,6 +196,7 @@ use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
+use crate::modules::ipaddr::Ipaddr;
 use crate::modules::iptables::Iptables;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
@@ -215,6 +224,7 @@ use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
+use crate::modules::openrc::OpenRc;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
@@ -232,6 +242,7 @@ use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
+use crate::modules::replace::Replace;
 use crate::modules::runit::Runit;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
@@ -243,6 +254,7 @@ use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::stat::Stat;
+use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
 use crate::modules::syslog::Syslog;
@@ -350,6 +362,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
+        (AwsS3.get_name(), Box::new(AwsS3) as Box<dyn Module>),
         (
             Blkdiscard.get_name(),
             Box::new(Blkdiscard) as Box<dyn Module>,
@@ -390,6 +403,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerImage.get_name(),
             Box::new(DockerImage) as Box<dyn Module>,
+        ),
+        (
+            DpkgSelections.get_name(),
+            Box::new(DpkgSelections) as Box<dyn Module>,
         ),
         (
             DockerNetwork.get_name(),
@@ -439,6 +456,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
+        (Ipaddr.get_name(), Box::new(Ipaddr) as Box<dyn Module>),
         (
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
@@ -477,6 +495,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
+        (OpenRc.get_name(), Box::new(OpenRc) as Box<dyn Module>),
         (Opkg.get_name(), Box::new(Opkg) as Box<dyn Module>),
         (
             OpensslCertificate.get_name(),
@@ -512,6 +531,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
+        (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
@@ -530,6 +550,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
         (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
+        (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
