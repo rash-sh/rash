@@ -1,0 +1,70 @@
+#!/usr/bin/env rash
+#
+# incus module example
+#
+# This example demonstrates the basic functionality of the incus module:
+# - Creating containers and virtual machines
+# - Managing instance state (started, stopped, absent)
+# - Using configuration and devices
+#
+# Note: This example requires Incus/LXD to be installed and configured.
+#
+# Usage:
+#   incus.rh
+
+- name: Create and start a container
+  incus:
+    name: webapp
+    image: images:alpine/3.19
+    state: started
+    type: container
+  register: container_result
+
+- name: Verify container is running
+  assert:
+    that:
+      - container_result.extra.exists
+      - container_result.extra.running
+
+- name: Create container with config
+  incus:
+    name: configured_app
+    image: images:alpine/3.19
+    state: started
+    config:
+      limits.memory: 512MB
+      boot.autostart: true
+
+- name: Stop a container
+  incus:
+    name: webapp
+    state: stopped
+  register: stop_result
+
+- name: Verify container is stopped
+  assert:
+    that:
+      - stop_result.changed
+      - not stop_result.extra.running
+
+- name: Restart a container
+  incus:
+    name: webapp
+    state: restarted
+
+- name: Create a virtual machine
+  incus:
+    name: vmapp
+    image: images:ubuntu/22.04
+    state: started
+    type: virtual-machine
+
+- name: Remove instances
+  incus:
+    name: "{{ item }}"
+    state: absent
+    force: true
+  loop:
+    - webapp
+    - configured_app
+    - vmapp
