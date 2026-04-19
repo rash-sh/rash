@@ -13,15 +13,15 @@
     name: myapp
     state: stopped
 
-- name: Remove a container
-  podman:
-    name: myapp
-    state: absent
-
 - name: Restart a container
   podman:
     name: myapp
     state: restarted
+
+- name: Remove a container
+  podman:
+    name: myapp
+    state: absent
 
 - name: Create a rootless container with ports and environment
   podman:
