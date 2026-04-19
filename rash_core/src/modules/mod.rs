@@ -99,6 +99,7 @@ mod ping;
 mod pip;
 mod postgresql_db;
 mod postgresql_user;
+mod proxmox;
 mod rabbitmq_user;
 mod reboot;
 mod redis;
@@ -241,6 +242,7 @@ use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
@@ -528,6 +530,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
+        (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
