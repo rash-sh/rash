@@ -222,7 +222,8 @@ fn compute_file_md5(path: &Path) -> Result<String> {
     })?;
     let mut hasher = Md5::new();
     hasher.update(&data);
-    Ok(format!("{:x}", hasher.finalize()))
+    let hash = hasher.finalize();
+    Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
 }
 
 async fn exec_get(client: &Client, params: &Params, check_mode: bool) -> Result<ModuleResult> {

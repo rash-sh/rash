@@ -102,6 +102,7 @@ mod postgresql_db;
 mod postgresql_user;
 mod proxmox;
 mod rabbitmq_user;
+mod rclone;
 mod reboot;
 mod redis;
 mod replace;
@@ -116,6 +117,7 @@ mod sgdisk;
 mod slurp;
 mod ssh_config;
 mod stat;
+mod sudoers;
 mod swapfile;
 mod synchronize;
 mod sysctl;
@@ -247,6 +249,7 @@ use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
+use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::replace::Replace;
@@ -261,6 +264,7 @@ use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::stat::Stat;
+use crate::modules::sudoers::Sudoers;
 use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
@@ -544,6 +548,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(RabbitmqUser) as Box<dyn Module>,
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
+        (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
@@ -562,6 +567,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Synchronize) as Box<dyn Module>,
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
+        (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
         (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
