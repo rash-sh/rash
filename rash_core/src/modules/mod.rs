@@ -109,6 +109,7 @@ mod rclone;
 mod reboot;
 mod redis;
 mod replace;
+mod route;
 mod runit;
 mod script;
 mod seboolean;
@@ -259,6 +260,7 @@ use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::replace::Replace;
+use crate::modules::route::Route;
 use crate::modules::runit::Runit;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
@@ -566,6 +568,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
+        (Route.get_name(), Box::new(Route) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
