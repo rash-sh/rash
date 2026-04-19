@@ -450,7 +450,7 @@ fn test_docker_network_ipv6() {
   docker_network:
     name: {}
     enable_ipv6: true
-    subnet: "fd00:dead:beef::/48"
+    subnet: "fd00:cafe:babe::/48"
 "#,
         network_name
     );
