@@ -185,7 +185,7 @@ fn check_restic_available() -> Result<()> {
 fn validate_params(params: &Params) -> Result<()> {
     match params.state {
         State::Backup => {
-            if params.path.is_none() || params.path.as_ref().map_or(true, |p| p.is_empty()) {
+            if params.path.is_none() || params.path.as_ref().is_none_or(|p| p.is_empty()) {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
                     "state 'backup' requires 'path' parameter",
@@ -222,10 +222,7 @@ fn validate_params(params: &Params) -> Result<()> {
 }
 
 fn build_restic_env(params: &Params) -> Vec<(String, String)> {
-    let mut env = vec![(
-        "RESTIC_REPOSITORY".to_string(),
-        params.repository.clone(),
-    )];
+    let mut env = vec![("RESTIC_REPOSITORY".to_string(), params.repository.clone())];
     env.push(("RESTIC_PASSWORD".to_string(), params.password.clone()));
 
     if let Some(ref env_vars) = params.environment {
@@ -381,7 +378,10 @@ fn run_restic(params: Params, check_mode: bool) -> Result<(ModuleResult, Option<
     trace!("restic args: {:?}", args);
 
     let env = build_restic_env(&params);
-    trace!("restic env keys: {:?}", env.iter().map(|(k, _)| k).collect::<Vec<_>>());
+    trace!(
+        "restic env keys: {:?}",
+        env.iter().map(|(k, _)| k).collect::<Vec<_>>()
+    );
 
     let mut cmd = Command::new("restic");
     cmd.args(&args);
@@ -389,7 +389,9 @@ fn run_restic(params: Params, check_mode: bool) -> Result<(ModuleResult, Option<
         cmd.env(key, val);
     }
 
-    let output = cmd.output().map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    let output = cmd
+        .output()
+        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
 
     trace!("restic output: {:?}", output);
 
@@ -864,10 +866,7 @@ mod tests {
             environment: None,
         };
         let args = build_restic_args(&params, false);
-        assert_eq!(
-            args,
-            vec!["restore", "latest", "--target", "/tmp/restore"]
-        );
+        assert_eq!(args, vec!["restore", "latest", "--target", "/tmp/restore"]);
     }
 
     #[test]
@@ -1039,18 +1038,22 @@ mod tests {
             ]),
         };
         let env = build_restic_env(&params);
-        assert!(env
-            .iter()
-            .any(|(k, v)| k == "RESTIC_REPOSITORY" && v == "/mnt/backup"));
-        assert!(env
-            .iter()
-            .any(|(k, v)| k == "RESTIC_PASSWORD" && v == "secret123"));
-        assert!(env
-            .iter()
-            .any(|(k, v)| k == "AWS_ACCESS_KEY_ID" && v == "AKIAEXAMPLE"));
-        assert!(env
-            .iter()
-            .any(|(k, v)| k == "AWS_SECRET_ACCESS_KEY" && v == "secret"));
+        assert!(
+            env.iter()
+                .any(|(k, v)| k == "RESTIC_REPOSITORY" && v == "/mnt/backup")
+        );
+        assert!(
+            env.iter()
+                .any(|(k, v)| k == "RESTIC_PASSWORD" && v == "secret123")
+        );
+        assert!(
+            env.iter()
+                .any(|(k, v)| k == "AWS_ACCESS_KEY_ID" && v == "AKIAEXAMPLE")
+        );
+        assert!(
+            env.iter()
+                .any(|(k, v)| k == "AWS_SECRET_ACCESS_KEY" && v == "secret")
+        );
     }
 
     #[test]
@@ -1073,9 +1076,7 @@ mod tests {
             environment: Some(vec!["INVALID_NO_EQUALS".to_string()]),
         };
         let env = build_restic_env(&params);
-        assert!(!env
-            .iter()
-            .any(|(k, _)| k == "INVALID_NO_EQUALS"));
+        assert!(!env.iter().any(|(k, _)| k == "INVALID_NO_EQUALS"));
     }
 
     #[test]

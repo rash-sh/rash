@@ -45,11 +45,7 @@ fn test_restic_invalid_state_backup_no_path() {
     let args = ["--diff"];
     let (_, stderr) = run_test(script_text, &args);
 
-    assert!(
-        stderr.contains("requires 'path'"),
-        "stderr: {}",
-        stderr
-    );
+    assert!(stderr.contains("requires 'path'"), "stderr: {}", stderr);
 }
 
 #[test]
@@ -87,11 +83,7 @@ fn test_restic_invalid_state_forget_no_retention() {
     let args = ["--diff"];
     let (_, stderr) = run_test(script_text, &args);
 
-    assert!(
-        stderr.contains("retention policy"),
-        "stderr: {}",
-        stderr
-    );
+    assert!(stderr.contains("retention policy"), "stderr: {}", stderr);
 }
 
 #[test]
