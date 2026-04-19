@@ -36,6 +36,7 @@ mod pam_limits;
 mod pids;
 mod pip;
 mod reboot;
+mod replace;
 mod runit;
 mod seboolean;
 mod ssh_config;

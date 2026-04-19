@@ -101,6 +101,7 @@ mod postgresql_user;
 mod rabbitmq_user;
 mod reboot;
 mod redis;
+mod replace;
 mod runit;
 mod script;
 mod seboolean;
@@ -240,6 +241,7 @@ use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
+use crate::modules::replace::Replace;
 use crate::modules::runit::Runit;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
@@ -527,6 +529,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
+        (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
