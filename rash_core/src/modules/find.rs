@@ -187,9 +187,11 @@ pub fn find(params: Params) -> Result<ModuleResult> {
         // hidden criterion is opposite for params than for ignore library
         .hidden(!params.hidden.unwrap())
         .ignore(!params.hidden.unwrap())
-        .git_global(!params.hidden.unwrap())
-        .git_ignore(!params.hidden.unwrap())
-        .git_exclude(!params.hidden.unwrap())
+        // Disable git ignore rules for consistent behavior regardless of whether
+        // the script runs inside a git repository
+        .git_global(false)
+        .git_ignore(false)
+        .git_exclude(false)
         .build()
         .map(|dir_entry| dir_entry.map_err(|e| Error::new(ErrorKind::Other, e)))
         .collect::<Result<Vec<_>>>()?
@@ -790,6 +792,49 @@ mod tests {
                     value::to_value(json!(vec![file1_path.to_str().unwrap().to_owned(),])).unwrap()
                 ),
             }
+        );
+    }
+
+    #[test]
+    fn test_find_ignores_gitignore() {
+        let dir = tempdir().unwrap();
+
+        let git_dir = dir.path().join(".git");
+        create_dir(git_dir).unwrap();
+
+        let mut gitignore = File::create(dir.path().join(".gitignore")).unwrap();
+        writeln!(gitignore, "ignored_dir/").unwrap();
+
+        let ignored_dir = dir.path().join("ignored_dir");
+        create_dir(ignored_dir.clone()).unwrap();
+
+        let normal_dir = dir.path().join("normal_dir");
+        create_dir(normal_dir.clone()).unwrap();
+
+        let output = find(Params {
+            paths: vec![dir.path().to_str().unwrap().to_owned()],
+            file_type: Some(FileType::Directory),
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut finds = output
+            .extra
+            .unwrap()
+            .as_sequence()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_owned())
+            .collect::<Vec<String>>();
+        finds.sort();
+
+        assert_eq!(
+            finds,
+            vec![
+                dir.path().to_str().unwrap().to_owned(),
+                ignored_dir.to_str().unwrap().to_owned(),
+                normal_dir.to_str().unwrap().to_owned(),
+            ],
         );
     }
 }
