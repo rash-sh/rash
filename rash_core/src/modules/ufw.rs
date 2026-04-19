@@ -1,7 +1,7 @@
 /// ANCHOR: module
 /// # ufw
 ///
-/// Manage UFW (Uncomplicated Firewall) rules.
+/// Manage Ubuntu Uncomplicated Firewall (UFW).
 ///
 /// ## Attributes
 ///
@@ -14,55 +14,88 @@
 /// ## Examples
 ///
 /// ```yaml
-/// - name: Enable UFW with default deny policy
+/// - name: Enable UFW
 ///   ufw:
 ///     state: enabled
+///
+/// - name: Set default incoming policy to deny
+///   ufw:
 ///     policy: deny
+///     direction: in
 ///
-/// - name: Allow SSH traffic
+/// - name: Allow SSH
 ///   ufw:
 ///     rule: allow
-///     name: ssh
-///
-/// - name: Allow HTTP on port 80
-///   ufw:
-///     rule: allow
-///     port: 80
+///     port: "22"
 ///     proto: tcp
 ///
-/// - name: Allow HTTPS from specific IP
+/// - name: Allow HTTP
 ///   ufw:
 ///     rule: allow
-///     port: 443
+///     port: "80"
 ///     proto: tcp
-///     from: 192.168.1.100
 ///
-/// - name: Deny port 8080
+/// - name: Allow HTTPS
+///   ufw:
+///     rule: allow
+///     port: "443"
+///     proto: tcp
+///
+/// - name: Allow port from specific IP
+///   ufw:
+///     rule: allow
+///     port: "3306"
+///     proto: tcp
+///     from_ip: "192.168.1.0/24"
+///
+/// - name: Deny port
 ///   ufw:
 ///     rule: deny
-///     port: 8080
+///     port: "23"
 ///     proto: tcp
+///
+/// - name: Allow service
+///   ufw:
+///     rule: allow
+///     port: ssh
+///
+/// - name: Limit SSH connections
+///   ufw:
+///     rule: limit
+///     port: "22"
+///     proto: tcp
+///
+/// - name: Allow outgoing traffic to specific IP
+///   ufw:
+///     rule: allow
+///     to_ip: "10.0.0.1"
+///     direction: out
 ///
 /// - name: Delete a rule
 ///   ufw:
 ///     rule: allow
-///     port: 80
+///     port: "8080"
 ///     proto: tcp
-///     delete: true
+///     state: absent
 ///
-/// - name: Allow port range
+/// - name: Reload UFW
 ///   ufw:
-///     rule: allow
-///     port: 8000:8005
-///     proto: tcp
-///
-/// - name: Enable logging
-///   ufw:
-///     logging: on
+///     state: reloaded
 ///
 /// - name: Reset UFW to defaults
 ///   ufw:
 ///     state: reset
+///
+/// - name: Allow traffic on an interface
+///   ufw:
+///     rule: allow
+///     port: "53"
+///     proto: udp
+///     interface: eth0
+///
+/// - name: Enable logging
+///   ufw:
+///     logging: on
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
@@ -79,59 +112,56 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
-#[cfg(feature = "docs")]
-use strum_macros::{Display, EnumString};
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
-    /// Firewall state: enabled, disabled, or reset.
-    pub state: Option<UfwState>,
-    /// Default policy for incoming traffic: allow, deny, or reject.
-    /// **[default: `deny`]**
+    /// Whether the firewall should be enabled, disabled, reset, or reloaded.
+    pub state: Option<State>,
+    /// Set the default policy for incoming or outgoing traffic.
     pub policy: Option<Policy>,
-    /// The rule action: allow, deny, reject, or limit.
+    /// The direction for the policy (incoming or outgoing).
+    /// **[default: `"incoming"`]**
+    pub direction: Option<Direction>,
+    /// The rule action (allow, deny, reject, limit).
     pub rule: Option<Rule>,
-    /// Port number or range (e.g., 80, 8000:8005).
+    /// Port number or service name.
     pub port: Option<String>,
-    /// Protocol: tcp or udp.
-    /// **[default: `both`]**
-    pub proto: Option<Protocol>,
+    /// Protocol (tcp or udp).
+    pub proto: Option<Proto>,
+    /// Source IP address or CIDR.
+    pub from_ip: Option<String>,
+    /// Destination IP address or CIDR.
+    pub to_ip: Option<String>,
     /// Service name to allow/deny (e.g., ssh, http).
     pub name: Option<String>,
-    /// Source IP address or network.
-    pub from: Option<String>,
-    /// Destination IP address or network.
-    pub to: Option<String>,
-    /// Delete the rule instead of adding it.
-    /// **[default: `false`]**
-    pub delete: Option<bool>,
-    /// Interface for the rule.
+    /// Comment for the rule.
+    pub comment: Option<String>,
+    /// Whether the rule should be present or absent.
+    /// **[default: `"present"`]**
+    pub rule_state: Option<RuleState>,
+    /// Network interface for the rule.
     pub interface: Option<String>,
-    /// Interface direction: in or out.
-    /// **[default: `in`]**
-    pub direction: Option<Direction>,
     /// Logging level: off, on, low, medium, high, full.
     pub logging: Option<Logging>,
     /// Route traffic through the firewall.
     /// **[default: `false`]**
     pub route: Option<bool>,
-    /// Comment for the rule.
-    pub comment: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
-pub enum UfwState {
+pub enum State {
     Enabled,
     Disabled,
     Reset,
+    Reloaded,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Policy {
     Allow,
@@ -139,8 +169,17 @@ pub enum Policy {
     Reject,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[derive(Debug, PartialEq, Default, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    #[default]
+    In,
+    Out,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Rule {
     Allow,
@@ -149,25 +188,25 @@ pub enum Rule {
     Limit,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
-pub enum Protocol {
+pub enum Proto {
     Tcp,
     Udp,
-    Both,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[derive(Debug, PartialEq, Default, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
-pub enum Direction {
-    In,
-    Out,
+pub enum RuleState {
+    #[default]
+    Present,
+    Absent,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(EnumString, Display, JsonSchema))]
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Logging {
     Off,
@@ -178,490 +217,505 @@ pub enum Logging {
     Full,
 }
 
-#[derive(Debug)]
-pub struct Ufw;
+fn run_ufw_cmd(args: &[&str]) -> Result<String> {
+    let output = Command::new("ufw").args(args).output().map_err(|e| {
+        Error::new(
+            ErrorKind::SubprocessFail,
+            format!("Failed to execute ufw: {e}"),
+        )
+    })?;
 
-struct UfwClient {
-    check_mode: bool,
-}
-
-impl UfwClient {
-    pub fn new(check_mode: bool) -> Self {
-        UfwClient { check_mode }
+    if !output.status.success() {
+        return Err(Error::new(
+            ErrorKind::SubprocessFail,
+            format!(
+                "ufw failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ),
+        ));
     }
 
-    fn run_cmd(&self, args: &[&str]) -> Result<String> {
-        if self.check_mode {
-            return Ok(String::new());
-        }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
 
-        let output = Command::new("ufw").args(args).output().map_err(|e| {
+fn is_ufw_enabled() -> Result<bool> {
+    let output = Command::new("ufw").arg("status").output().map_err(|e| {
+        Error::new(
+            ErrorKind::SubprocessFail,
+            format!("Failed to execute ufw: {e}"),
+        )
+    })?;
+
+    if !output.status.success() {
+        return Ok(false);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout.contains("Status: active"))
+}
+
+fn get_default_policy(direction: Direction) -> Result<Option<Policy>> {
+    let output = Command::new("ufw")
+        .arg("status")
+        .arg("verbose")
+        .output()
+        .map_err(|e| {
             Error::new(
                 ErrorKind::SubprocessFail,
                 format!("Failed to execute ufw: {e}"),
             )
         })?;
 
-        if !output.status.success() {
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!(
-                    "ufw failed: {}",
-                    String::from_utf8_lossy(&output.stderr).trim()
-                ),
-            ));
-        }
-
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    if !output.status.success() {
+        return Ok(None);
     }
 
-    fn run_cmd_vec(&self, args: &[String]) -> Result<String> {
-        if self.check_mode {
-            return Ok(String::new());
-        }
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        self.run_cmd(&args_str)
-    }
-
-    fn run_cmd_with_input(&self, args: &[&str], input: &str) -> Result<String> {
-        if self.check_mode {
-            return Ok(String::new());
-        }
-
-        use std::io::Write;
-        use std::process::Stdio;
-
-        let mut child = Command::new("ufw")
-            .args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Failed to execute ufw: {e}"),
-                )
-            })?;
-
-        if let Some(stdin) = child.stdin.as_mut() {
-            stdin.write_all(input.as_bytes()).map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Failed to write to stdin: {e}"),
-                )
-            })?;
-        }
-
-        let output = child.wait_with_output().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to wait for ufw: {e}"),
-            )
-        })?;
-
-        if !output.status.success() {
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!(
-                    "ufw failed: {}",
-                    String::from_utf8_lossy(&output.stderr).trim()
-                ),
-            ));
-        }
-
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    }
-
-    pub fn is_enabled(&self) -> Result<bool> {
-        let output = self.run_cmd(&["status"])?;
-        Ok(output.contains("Status: active"))
-    }
-
-    pub fn enable(&self) -> Result<()> {
-        if self.check_mode {
-            return Ok(());
-        }
-        self.run_cmd_with_input(&["enable"], "y\n")?;
-        Ok(())
-    }
-
-    pub fn disable(&self) -> Result<()> {
-        self.run_cmd(&["disable"])?;
-        Ok(())
-    }
-
-    pub fn reset(&self) -> Result<()> {
-        if self.check_mode {
-            return Ok(());
-        }
-        self.run_cmd_with_input(&["reset"], "y\n")?;
-        Ok(())
-    }
-
-    pub fn set_default_policy(&self, policy: Policy) -> Result<()> {
-        let policy_str = match policy {
-            Policy::Allow => "allow",
-            Policy::Deny => "deny",
-            Policy::Reject => "reject",
-        };
-        self.run_cmd(&["default", policy_str, "incoming"])?;
-        self.run_cmd(&["default", "allow", "outgoing"])?;
-        Ok(())
-    }
-
-    pub fn set_logging(&self, logging: Logging) -> Result<()> {
-        let logging_str = match logging {
-            Logging::Off => "off",
-            Logging::On => "on",
-            Logging::Low => "low",
-            Logging::Medium => "medium",
-            Logging::High => "high",
-            Logging::Full => "full",
-        };
-        self.run_cmd(&["logging", logging_str])?;
-        Ok(())
-    }
-
-    pub fn rule_exists(&self, params: &Params) -> Result<bool> {
-        let output = self.run_cmd(&["status", "numbered"])?;
-
-        let rule_spec = build_rule_spec_for_check(params)?;
-        for line in output.lines() {
-            if line.contains(&rule_spec) {
-                return Ok(true);
+    for line in stdout.lines() {
+        if line.contains("Default:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                for part in &parts {
+                    if part.contains("(incoming)") && direction == Direction::In {
+                        let policy_str = parts[1].replace(',', "");
+                        return Ok(parse_policy_str(&policy_str));
+                    }
+                    if part.contains("(outgoing)") && direction == Direction::Out {
+                        for p in &parts {
+                            if !p.contains("Default")
+                                && !p.contains("(incoming)")
+                                && !p.contains("(outgoing)")
+                                && !p.contains("(routed)")
+                            {
+                                return Ok(parse_policy_str(p.replace(',', "").as_str()));
+                            }
+                        }
+                    }
+                }
             }
         }
-        Ok(false)
     }
 
-    pub fn add_rule(&self, params: &Params) -> Result<()> {
-        if self.check_mode {
-            return Ok(());
-        }
+    Ok(None)
+}
 
-        let args = build_rule_args(params, false)?;
-        self.run_cmd_vec(&args)?;
-        Ok(())
-    }
-
-    pub fn delete_rule(&self, params: &Params) -> Result<()> {
-        if self.check_mode {
-            return Ok(());
-        }
-
-        let args = build_rule_args(params, true)?;
-        self.run_cmd_vec(&args)?;
-        Ok(())
+fn parse_policy_str(s: &str) -> Option<Policy> {
+    match s.to_lowercase().as_str() {
+        "allow" => Some(Policy::Allow),
+        "deny" => Some(Policy::Deny),
+        "reject" => Some(Policy::Reject),
+        _ => None,
     }
 }
 
-fn build_rule_spec_for_check(params: &Params) -> Result<String> {
-    let mut spec = String::new();
+fn rule_exists(params: &Params) -> Result<bool> {
+    let args = vec!["status", "numbered"];
 
-    if let Some(from) = &params.from {
-        spec.push_str(from);
-        spec.push(' ');
+    let output = Command::new("ufw").args(&args).output().map_err(|e| {
+        Error::new(
+            ErrorKind::SubprocessFail,
+            format!("Failed to execute ufw: {e}"),
+        )
+    })?;
+
+    if !output.status.success() {
+        return Ok(false);
     }
 
-    let rule_str = match params.rule {
-        Some(Rule::Allow) => "ALLOW",
-        Some(Rule::Deny) => "DENY",
-        Some(Rule::Reject) => "REJECT",
-        Some(Rule::Limit) => "LIMIT",
-        None => "ALLOW",
-    };
-    spec.push_str(rule_str);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    if let Some(to) = &params.to {
-        spec.push(' ');
-        spec.push_str(to);
+    let rule_str = build_rule_search_string(params);
+
+    for line in stdout.lines() {
+        if line.contains(&rule_str) {
+            return Ok(true);
+        }
     }
 
-    if let Some(port) = &params.port {
-        spec.push(' ');
-        spec.push_str(port);
+    Ok(false)
+}
+
+fn build_rule_search_string(params: &Params) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    if let Some(rule) = &params.rule {
+        parts.push(rule_to_str(rule).to_string());
+    }
+
+    if let Some(from_ip) = &params.from_ip {
+        parts.push(format!("from {}", from_ip));
+    }
+
+    if let Some(to_ip) = &params.to_ip {
+        parts.push(format!("to {}", to_ip));
+    }
+
+    if let Some(name) = &params.name {
+        parts.push(name.clone());
+    } else if let Some(port) = &params.port {
+        parts.push(port.clone());
     }
 
     if let Some(proto) = &params.proto {
-        spec.push('/');
-        spec.push_str(match proto {
-            Protocol::Tcp => "tcp",
-            Protocol::Udp => "udp",
-            Protocol::Both => "",
-        });
+        parts.push(proto_to_str(proto).to_string());
     }
 
-    Ok(spec)
+    parts.join(" ")
 }
 
-fn build_rule_args(params: &Params, delete: bool) -> Result<Vec<String>> {
+fn rule_to_str(rule: &Rule) -> &'static str {
+    match rule {
+        Rule::Allow => "ALLOW",
+        Rule::Deny => "DENY",
+        Rule::Reject => "REJECT",
+        Rule::Limit => "LIMIT",
+    }
+}
+
+fn proto_to_str(proto: &Proto) -> &'static str {
+    match proto {
+        Proto::Tcp => "tcp",
+        Proto::Udp => "udp",
+    }
+}
+
+fn build_rule_args(params: &Params) -> Vec<String> {
     let mut args = Vec::new();
 
-    if delete {
-        args.push("delete".to_string());
-    }
-
-    let rule_str = match params.rule {
-        Some(Rule::Allow) => "allow",
-        Some(Rule::Deny) => "deny",
-        Some(Rule::Reject) => "reject",
-        Some(Rule::Limit) => "limit",
-        None => "allow",
-    };
-    args.push(rule_str.to_string());
-
-    if let Some(name) = &params.name {
-        args.push(name.clone());
-    } else if let Some(port) = &params.port {
-        if let Some(proto) = &params.proto {
-            args.push(format!(
-                "{}/{}",
-                port,
-                match proto {
-                    Protocol::Tcp => "tcp",
-                    Protocol::Udp => "udp",
-                    Protocol::Both => "any",
-                }
-            ));
-        } else {
-            args.push(port.clone());
+    if let Some(rule_state) = &params.rule_state {
+        match rule_state {
+            RuleState::Absent => args.push("delete".to_string()),
+            RuleState::Present => {}
         }
-    }
-
-    if let Some(from) = &params.from {
-        args.push("from".to_string());
-        args.push(from.clone());
-    }
-
-    if let Some(to) = &params.to {
-        args.push("to".to_string());
-        args.push(to.clone());
-    }
-
-    if let Some(interface) = &params.interface {
-        let dir = match params.direction {
-            Some(Direction::Out) => "out",
-            _ => "in",
-        };
-        args.push("on".to_string());
-        args.push(interface.clone());
-        if params.direction.is_some() {
-            args.push(dir.to_string());
-        }
-    }
-
-    if let Some(comment) = &params.comment {
-        args.push("comment".to_string());
-        args.push(comment.clone());
     }
 
     if params.route.unwrap_or(false) {
         args.push("route".to_string());
     }
 
-    Ok(args)
+    if let Some(rule) = &params.rule {
+        args.push(rule_to_str(rule).to_lowercase());
+    }
+
+    if let Some(from_ip) = &params.from_ip {
+        args.push("from".to_string());
+        args.push(from_ip.clone());
+    }
+
+    if let Some(to_ip) = &params.to_ip {
+        args.push("to".to_string());
+        args.push(to_ip.clone());
+    }
+
+    if let Some(name) = &params.name {
+        args.push(name.clone());
+    } else if let Some(port) = &params.port {
+        args.push(port.clone());
+    }
+
+    if let Some(proto) = &params.proto {
+        args.push(proto_to_str(proto).to_string());
+    }
+
+    if let Some(interface) = &params.interface {
+        args.push("on".to_string());
+        args.push(interface.clone());
+    }
+
+    if let Some(comment) = &params.comment {
+        args.push("comment".to_string());
+        args.push(format!("\"{comment}\""));
+    }
+
+    args
+}
+
+fn enable_ufw(check_mode: bool) -> Result<ModuleResult> {
+    if check_mode {
+        info!("Would enable UFW");
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some("UFW would be enabled".to_string()),
+        ));
+    }
+
+    run_ufw_cmd(&["enable"])?;
+    Ok(ModuleResult::new(
+        true,
+        None,
+        Some("UFW enabled".to_string()),
+    ))
+}
+
+fn disable_ufw(check_mode: bool) -> Result<ModuleResult> {
+    if check_mode {
+        info!("Would disable UFW");
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some("UFW would be disabled".to_string()),
+        ));
+    }
+
+    run_ufw_cmd(&["disable"])?;
+    Ok(ModuleResult::new(
+        true,
+        None,
+        Some("UFW disabled".to_string()),
+    ))
+}
+
+fn reset_ufw(check_mode: bool) -> Result<ModuleResult> {
+    if check_mode {
+        info!("Would reset UFW");
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some("UFW would be reset".to_string()),
+        ));
+    }
+
+    run_ufw_cmd(&["reset"])?;
+    Ok(ModuleResult::new(true, None, Some("UFW reset".to_string())))
+}
+
+fn reload_ufw(check_mode: bool) -> Result<ModuleResult> {
+    if check_mode {
+        info!("Would reload UFW");
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some("UFW would be reloaded".to_string()),
+        ));
+    }
+
+    run_ufw_cmd(&["reload"])?;
+    Ok(ModuleResult::new(
+        true,
+        None,
+        Some("UFW reloaded".to_string()),
+    ))
+}
+
+fn set_policy(policy: Policy, direction: Direction, check_mode: bool) -> Result<ModuleResult> {
+    let policy_str = match policy {
+        Policy::Allow => "allow",
+        Policy::Deny => "deny",
+        Policy::Reject => "reject",
+    };
+
+    let dir_str = match direction {
+        Direction::In => "incoming",
+        Direction::Out => "outgoing",
+    };
+
+    let current = get_default_policy(direction)?;
+    if current == Some(policy) {
+        return Ok(ModuleResult::new(
+            false,
+            None,
+            Some(format!("Policy {} for {} already set", policy_str, dir_str)),
+        ));
+    }
+
+    if check_mode {
+        info!("Would set {} policy to {}", dir_str, policy_str);
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some(format!("Would set {} policy to {}", dir_str, policy_str)),
+        ));
+    }
+
+    run_ufw_cmd(&["default", policy_str, dir_str])?;
+    Ok(ModuleResult::new(
+        true,
+        None,
+        Some(format!("Set {} policy to {}", dir_str, policy_str)),
+    ))
+}
+
+fn build_rule_description(params: &Params) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    if let Some(rule) = &params.rule {
+        parts.push(rule_to_str(rule).to_lowercase());
+    }
+
+    if let Some(from_ip) = &params.from_ip {
+        parts.push(format!("from {}", from_ip));
+    }
+
+    if let Some(to_ip) = &params.to_ip {
+        parts.push(format!("to {}", to_ip));
+    }
+
+    if let Some(name) = &params.name {
+        parts.push(format!("service {}", name));
+    } else if let Some(port) = &params.port {
+        parts.push(port.clone());
+    }
+
+    if let Some(proto) = &params.proto {
+        parts.push(proto_to_str(proto).to_string());
+    }
+
+    if let Some(interface) = &params.interface {
+        parts.push(format!("on {}", interface));
+    }
+
+    if let Some(comment) = &params.comment {
+        parts.push(format!("comment '{}'", comment));
+    }
+
+    parts.join(" ")
+}
+
+fn manage_rule(params: &Params, check_mode: bool) -> Result<ModuleResult> {
+    let exists = rule_exists(params)?;
+    let rule_state = params.rule_state.unwrap_or_default();
+    let rule_desc = build_rule_description(params);
+
+    match rule_state {
+        RuleState::Present => {
+            if exists {
+                return Ok(ModuleResult::new(
+                    false,
+                    None,
+                    Some(format!("Rule already exists: {}", rule_desc)),
+                ));
+            }
+
+            if check_mode {
+                info!("Would add rule: {}", rule_desc);
+                return Ok(ModuleResult::new(
+                    true,
+                    None,
+                    Some(format!("Would add rule: {}", rule_desc)),
+                ));
+            }
+
+            let args = build_rule_args(params);
+            let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+            run_ufw_cmd(&args_str)?;
+            Ok(ModuleResult::new(
+                true,
+                None,
+                Some(format!("Rule added: {}", rule_desc)),
+            ))
+        }
+        RuleState::Absent => {
+            if !exists {
+                return Ok(ModuleResult::new(
+                    false,
+                    None,
+                    Some(format!("Rule does not exist: {}", rule_desc)),
+                ));
+            }
+
+            if check_mode {
+                info!("Would delete rule: {}", rule_desc);
+                return Ok(ModuleResult::new(
+                    true,
+                    None,
+                    Some(format!("Would delete rule: {}", rule_desc)),
+                ));
+            }
+
+            let args = build_rule_args(params);
+            let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+            run_ufw_cmd(&args_str)?;
+            Ok(ModuleResult::new(
+                true,
+                None,
+                Some(format!("Rule deleted: {}", rule_desc)),
+            ))
+        }
+    }
+}
+
+fn set_logging(logging: Logging, check_mode: bool) -> Result<ModuleResult> {
+    let logging_str = match logging {
+        Logging::Off => "off",
+        Logging::On => "on",
+        Logging::Low => "low",
+        Logging::Medium => "medium",
+        Logging::High => "high",
+        Logging::Full => "full",
+    };
+
+    if check_mode {
+        info!("Would set UFW logging to {}", logging_str);
+        return Ok(ModuleResult::new(
+            true,
+            None,
+            Some(format!("Would set UFW logging to {}", logging_str)),
+        ));
+    }
+
+    run_ufw_cmd(&["logging", logging_str])?;
+    Ok(ModuleResult::new(
+        true,
+        None,
+        Some(format!("UFW logging set to {}", logging_str)),
+    ))
 }
 
 pub fn ufw(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
-    let client = UfwClient::new(check_mode);
-
-    if let Some(state) = params.state {
+    if let Some(state) = &params.state {
         match state {
-            UfwState::Enabled => {
-                let is_enabled = client.is_enabled()?;
-                if is_enabled {
+            State::Enabled => {
+                let enabled = is_ufw_enabled()?;
+                if enabled {
                     return Ok(ModuleResult::new(
                         false,
                         None,
-                        Some("UFW is already enabled".to_string()),
+                        Some("UFW already enabled".to_string()),
                     ));
                 }
-
-                if check_mode {
-                    info!("Would enable UFW");
-                    return Ok(ModuleResult::new(
-                        true,
-                        None,
-                        Some("Would enable UFW".to_string()),
-                    ));
-                }
-
-                if let Some(policy) = params.policy {
-                    client.set_default_policy(policy)?;
-                }
-                client.enable()?;
-                return Ok(ModuleResult::new(
-                    true,
-                    None,
-                    Some("UFW enabled".to_string()),
-                ));
+                return enable_ufw(check_mode);
             }
-            UfwState::Disabled => {
-                let is_enabled = client.is_enabled()?;
-                if !is_enabled {
+            State::Disabled => {
+                let enabled = is_ufw_enabled()?;
+                if !enabled {
                     return Ok(ModuleResult::new(
                         false,
                         None,
-                        Some("UFW is already disabled".to_string()),
+                        Some("UFW already disabled".to_string()),
                     ));
                 }
-
-                if check_mode {
-                    info!("Would disable UFW");
-                    return Ok(ModuleResult::new(
-                        true,
-                        None,
-                        Some("Would disable UFW".to_string()),
-                    ));
-                }
-
-                client.disable()?;
-                return Ok(ModuleResult::new(
-                    true,
-                    None,
-                    Some("UFW disabled".to_string()),
-                ));
+                return disable_ufw(check_mode);
             }
-            UfwState::Reset => {
-                if check_mode {
-                    info!("Would reset UFW to defaults");
-                    return Ok(ModuleResult::new(
-                        true,
-                        None,
-                        Some("Would reset UFW to defaults".to_string()),
-                    ));
-                }
-
-                client.reset()?;
-                return Ok(ModuleResult::new(
-                    true,
-                    None,
-                    Some("UFW reset to defaults".to_string()),
-                ));
-            }
+            State::Reset => return reset_ufw(check_mode),
+            State::Reloaded => return reload_ufw(check_mode),
         }
     }
 
-    if let Some(logging) = params.logging {
-        if check_mode {
-            info!(
-                "Would set logging to {}",
-                match logging {
-                    Logging::Off => "off",
-                    Logging::On => "on",
-                    Logging::Low => "low",
-                    Logging::Medium => "medium",
-                    Logging::High => "high",
-                    Logging::Full => "full",
-                }
-            );
-            return Ok(ModuleResult::new(
-                true,
-                None,
-                Some(format!("Would set logging level to {:?}", logging)),
-            ));
-        }
+    if let Some(policy) = &params.policy {
+        let direction = params.direction.unwrap_or_default();
+        return set_policy(*policy, direction, check_mode);
+    }
 
-        client.set_logging(logging)?;
-        return Ok(ModuleResult::new(
-            true,
-            None,
-            Some(format!("Logging set to {:?}", logging)),
-        ));
+    if let Some(logging) = &params.logging {
+        return set_logging(*logging, check_mode);
     }
 
     if params.rule.is_some() {
-        let delete = params.delete.unwrap_or(false);
-
-        let exists = client.rule_exists(&params)?;
-
-        if !delete && exists {
-            return Ok(ModuleResult::new(
-                false,
-                None,
-                Some("Rule already exists".to_string()),
-            ));
-        }
-
-        if delete && !exists {
-            return Ok(ModuleResult::new(
-                false,
-                None,
-                Some("Rule does not exist".to_string()),
-            ));
-        }
-
-        if check_mode {
-            let action = if delete { "delete" } else { "add" };
-            info!("Would {} rule", action);
-            return Ok(ModuleResult::new(
-                true,
-                None,
-                Some(format!("Would {} rule", action)),
-            ));
-        }
-
-        if delete {
-            client.delete_rule(&params)?;
-        } else {
-            client.add_rule(&params)?;
-        }
-
-        let rule_str = match params.rule {
-            Some(Rule::Allow) => "allow",
-            Some(Rule::Deny) => "deny",
-            Some(Rule::Reject) => "reject",
-            Some(Rule::Limit) => "limit",
-            None => "allow",
-        };
-
-        let msg = if let Some(name) = &params.name {
-            format!(
-                "Rule {} for service {}",
-                if delete { "deleted" } else { "added" },
-                name
-            )
-        } else if let Some(port) = &params.port {
-            format!(
-                "Rule {} for port {}",
-                if delete { "deleted" } else { "added" },
-                port
-            )
-        } else {
-            format!(
-                "Rule {} ({})",
-                if delete { "deleted" } else { "added" },
-                rule_str
-            )
-        };
-
-        let extra = serde_norway::to_value(serde_json::json!({
-            "rule": rule_str,
-            "port": params.port,
-            "proto": params.proto.map(|p| match p {
-                Protocol::Tcp => "tcp",
-                Protocol::Udp => "udp",
-                Protocol::Both => "both",
-            }),
-            "name": params.name,
-            "from": params.from,
-            "to": params.to,
-            "delete": delete,
-        }))
-        .ok();
-
-        return Ok(ModuleResult::new(true, extra, Some(msg)));
+        return manage_rule(&params, check_mode);
     }
 
     Err(Error::new(
         ErrorKind::InvalidData,
-        "One of 'state', 'logging', or 'rule' must be specified",
+        "Either 'state', 'policy', 'rule', or 'logging' must be specified",
     ))
 }
+
+#[derive(Debug)]
+pub struct Ufw;
 
 impl Module for Ufw {
     fn get_name(&self) -> &str {
@@ -693,13 +747,25 @@ mod tests {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             state: enabled
-            policy: deny
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.state, Some(UfwState::Enabled));
+        assert_eq!(params.state, Some(State::Enabled));
+    }
+
+    #[test]
+    fn test_parse_params_policy() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            policy: deny
+            direction: in
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.policy, Some(Policy::Deny));
+        assert_eq!(params.direction, Some(Direction::In));
     }
 
     #[test]
@@ -707,145 +773,75 @@ mod tests {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             rule: allow
-            port: "80"
+            port: "22"
             proto: tcp
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.rule, Some(Rule::Allow));
-        assert_eq!(params.port, Some("80".to_string()));
-        assert_eq!(params.proto, Some(Protocol::Tcp));
+        assert_eq!(params.port, Some("22".to_string()));
+        assert_eq!(params.proto, Some(Proto::Tcp));
     }
 
     #[test]
-    fn test_parse_params_rule_with_from() {
+    fn test_parse_params_rule_with_from_ip() {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             rule: allow
-            port: "443"
+            port: "3306"
             proto: tcp
-            from: 192.168.1.100
+            from_ip: "192.168.1.0/24"
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.rule, Some(Rule::Allow));
-        assert_eq!(params.from, Some("192.168.1.100".to_string()));
+        assert_eq!(params.from_ip, Some("192.168.1.0/24".to_string()));
     }
 
     #[test]
-    fn test_parse_params_service() {
+    fn test_parse_params_rule_absent() {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             rule: allow
-            name: ssh
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.rule, Some(Rule::Allow));
-        assert_eq!(params.name, Some("ssh".to_string()));
-    }
-
-    #[test]
-    fn test_parse_params_delete() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            rule: allow
-            port: "80"
+            port: "8080"
             proto: tcp
-            delete: true
+            rule_state: absent
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.delete, Some(true));
+        assert_eq!(params.rule_state, Some(RuleState::Absent));
     }
 
     #[test]
-    fn test_parse_params_logging() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            logging: on
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.logging, Some(Logging::On));
-    }
-
-    #[test]
-    fn test_parse_params_port_range() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            rule: allow
-            port: 8000:8005
-            proto: tcp
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.port, Some("8000:8005".to_string()));
-    }
-
-    #[test]
-    fn test_parse_params_interface() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            rule: allow
-            port: "80"
-            interface: eth0
-            direction: in
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.interface, Some("eth0".to_string()));
-        assert_eq!(params.direction, Some(Direction::In));
-    }
-
-    #[test]
-    fn test_parse_params_comment() {
+    fn test_parse_params_with_comment() {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             rule: allow
             port: "22"
             proto: tcp
-            comment: "Allow SSH access"
+            comment: "Allow SSH"
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.comment, Some("Allow SSH access".to_string()));
+        assert_eq!(params.comment, Some("Allow SSH".to_string()));
     }
 
     #[test]
-    fn test_parse_params_invalid_field() {
+    fn test_parse_params_limit_rule() {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
-            rule: allow
-            port: "80"
-            invalid: value
-            "#,
-        )
-        .unwrap();
-        let error = parse_params::<Params>(yaml).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::InvalidData);
-    }
-
-    #[test]
-    fn test_parse_params_no_required_field() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            port: "80"
+            rule: limit
+            port: "22"
+            proto: tcp
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert!(params.state.is_none());
-        assert!(params.rule.is_none());
-        assert!(params.logging.is_none());
+        assert_eq!(params.rule, Some(Rule::Limit));
     }
 
     #[test]
@@ -853,22 +849,46 @@ mod tests {
         let params = Params {
             state: None,
             policy: None,
-            rule: Some(Rule::Allow),
-            port: Some("80".to_string()),
-            proto: Some(Protocol::Tcp),
-            name: None,
-            from: None,
-            to: None,
-            delete: Some(false),
-            interface: None,
             direction: None,
+            rule: Some(Rule::Allow),
+            port: Some("22".to_string()),
+            proto: Some(Proto::Tcp),
+            from_ip: None,
+            to_ip: None,
+            name: None,
+            comment: None,
+            rule_state: None,
+            interface: None,
             logging: None,
             route: None,
-            comment: None,
         };
-        let args = build_rule_args(&params, false).unwrap();
+        let args = build_rule_args(&params);
         assert!(args.contains(&"allow".to_string()));
-        assert!(args.contains(&"80/tcp".to_string()));
+        assert!(args.contains(&"22".to_string()));
+        assert!(args.contains(&"tcp".to_string()));
+    }
+
+    #[test]
+    fn test_build_rule_args_with_from_ip() {
+        let params = Params {
+            state: None,
+            policy: None,
+            direction: None,
+            rule: Some(Rule::Allow),
+            port: Some("3306".to_string()),
+            proto: Some(Proto::Tcp),
+            from_ip: Some("192.168.1.0/24".to_string()),
+            to_ip: None,
+            name: None,
+            comment: None,
+            rule_state: None,
+            interface: None,
+            logging: None,
+            route: None,
+        };
+        let args = build_rule_args(&params);
+        assert!(args.contains(&"from".to_string()));
+        assert!(args.contains(&"192.168.1.0/24".to_string()));
     }
 
     #[test]
@@ -876,89 +896,47 @@ mod tests {
         let params = Params {
             state: None,
             policy: None,
-            rule: Some(Rule::Allow),
-            port: Some("80".to_string()),
-            proto: Some(Protocol::Tcp),
-            name: None,
-            from: None,
-            to: None,
-            delete: Some(true),
-            interface: None,
             direction: None,
+            rule: Some(Rule::Allow),
+            port: Some("8080".to_string()),
+            proto: Some(Proto::Tcp),
+            from_ip: None,
+            to_ip: None,
+            name: None,
+            comment: None,
+            rule_state: Some(RuleState::Absent),
+            interface: None,
             logging: None,
             route: None,
-            comment: None,
         };
-        let args = build_rule_args(&params, true).unwrap();
+        let args = build_rule_args(&params);
         assert!(args.contains(&"delete".to_string()));
-        assert!(args.contains(&"allow".to_string()));
     }
 
     #[test]
-    fn test_build_rule_args_with_from() {
-        let params = Params {
-            state: None,
-            policy: None,
-            rule: Some(Rule::Allow),
-            port: Some("443".to_string()),
-            proto: Some(Protocol::Tcp),
-            name: None,
-            from: Some("192.168.1.100".to_string()),
-            to: None,
-            delete: Some(false),
-            interface: None,
-            direction: None,
-            logging: None,
-            route: None,
-            comment: None,
-        };
-        let args = build_rule_args(&params, false).unwrap();
-        assert!(args.contains(&"from".to_string()));
-        assert!(args.contains(&"192.168.1.100".to_string()));
+    fn test_rule_to_str() {
+        assert_eq!(rule_to_str(&Rule::Allow), "ALLOW");
+        assert_eq!(rule_to_str(&Rule::Deny), "DENY");
+        assert_eq!(rule_to_str(&Rule::Reject), "REJECT");
+        assert_eq!(rule_to_str(&Rule::Limit), "LIMIT");
     }
 
     #[test]
-    fn test_build_rule_args_service() {
-        let params = Params {
-            state: None,
-            policy: None,
-            rule: Some(Rule::Allow),
-            port: None,
-            proto: None,
-            name: Some("ssh".to_string()),
-            from: None,
-            to: None,
-            delete: Some(false),
-            interface: None,
-            direction: None,
-            logging: None,
-            route: None,
-            comment: None,
-        };
-        let args = build_rule_args(&params, false).unwrap();
-        assert!(args.contains(&"allow".to_string()));
-        assert!(args.contains(&"ssh".to_string()));
+    fn test_proto_to_str() {
+        assert_eq!(proto_to_str(&Proto::Tcp), "tcp");
+        assert_eq!(proto_to_str(&Proto::Udp), "udp");
     }
 
     #[test]
-    fn test_ufw_no_required_field() {
-        let params = Params {
-            state: None,
-            policy: None,
-            rule: None,
-            port: Some("80".to_string()),
-            proto: None,
-            name: None,
-            from: None,
-            to: None,
-            delete: None,
-            interface: None,
-            direction: None,
-            logging: None,
-            route: None,
-            comment: None,
-        };
-        let error = ufw(params, false).unwrap_err();
+    fn test_parse_params_invalid_field() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            state: enabled
+            invalid: value
+            "#,
+        )
+        .unwrap();
+        let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 }

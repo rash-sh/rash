@@ -74,7 +74,7 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_norway::Value as YamlValue;
 use serde_norway::value;
-use sha2::{Digest, Sha256};
+use sha2::{Digest as Sha2Digest, Sha256};
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -134,8 +134,9 @@ fn calculate_file_checksum(path: &Path, algorithm: &str) -> Result<String> {
     match algorithm.to_lowercase().as_str() {
         "sha256" => {
             let mut hasher = Sha256::new();
-            hasher.update(&contents);
-            Ok(format!("{:x}", hasher.finalize()))
+            Sha2Digest::update(&mut hasher, &contents);
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         _ => Err(Error::new(
             ErrorKind::InvalidData,
