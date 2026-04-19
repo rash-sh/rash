@@ -200,6 +200,20 @@ fn build_remove_acl_args(params: &Params) -> Result<Vec<String>> {
     Ok(args)
 }
 
+fn parse_acl_entry(entry_type: &str, rest: &str, is_default: bool) -> Option<serde_json::Value> {
+    let (qualifier, permissions) = if let Some((q, p)) = rest.rsplit_once(':') {
+        (Some(q.to_string()), p)
+    } else {
+        (None, rest)
+    };
+    Some(json!({
+        "type": entry_type,
+        "qualifier": qualifier,
+        "permissions": permissions,
+        "default": is_default,
+    }))
+}
+
 fn parse_getfacl_output(output: &str) -> Vec<serde_json::Value> {
     let mut entries = Vec::new();
 
@@ -209,102 +223,70 @@ fn parse_getfacl_output(output: &str) -> Vec<serde_json::Value> {
             continue;
         }
 
-        if let Some(rest) = line.strip_prefix("user::") {
+        let (line_content, is_default) = match line.strip_prefix("default:") {
+            Some(rest) => (rest, true),
+            None => (line, false),
+        };
+
+        if let Some(rest) = line_content.strip_prefix("user::") {
             entries.push(json!({
                 "type": "user",
                 "qualifier": null,
                 "permissions": rest,
-                "default": false,
+                "default": is_default,
             }));
-        } else if let Some(rest) = line.strip_prefix("user:") {
-            if let Some((qualifier, perms)) = rest.rsplit_once(':') {
-                entries.push(json!({
-                    "type": "user",
-                    "qualifier": qualifier,
-                    "permissions": perms,
-                    "default": false,
-                }));
+        } else if let Some(rest) = line_content.strip_prefix("user:") {
+            if let Some(entry) = parse_acl_entry("user", rest, is_default) {
+                entries.push(entry);
             }
-        } else if let Some(rest) = line.strip_prefix("group::") {
+        } else if let Some(rest) = line_content.strip_prefix("group::") {
             entries.push(json!({
                 "type": "group",
                 "qualifier": null,
                 "permissions": rest,
-                "default": false,
+                "default": is_default,
             }));
-        } else if let Some(rest) = line.strip_prefix("group:") {
-            if let Some((qualifier, perms)) = rest.rsplit_once(':') {
-                entries.push(json!({
-                    "type": "group",
-                    "qualifier": qualifier,
-                    "permissions": perms,
-                    "default": false,
-                }));
+        } else if let Some(rest) = line_content.strip_prefix("group:") {
+            if let Some(entry) = parse_acl_entry("group", rest, is_default) {
+                entries.push(entry);
             }
-        } else if let Some(rest) = line.strip_prefix("other::") {
+        } else if let Some(rest) = line_content.strip_prefix("other::") {
             entries.push(json!({
                 "type": "other",
                 "qualifier": null,
                 "permissions": rest,
-                "default": false,
+                "default": is_default,
             }));
-        } else if let Some(rest) = line.strip_prefix("mask::") {
+        } else if let Some(rest) = line_content.strip_prefix("mask::") {
             entries.push(json!({
                 "type": "mask",
                 "qualifier": null,
                 "permissions": rest,
-                "default": false,
-            }));
-        } else if let Some(rest) = line.strip_prefix("default:user::") {
-            entries.push(json!({
-                "type": "user",
-                "qualifier": null,
-                "permissions": rest,
-                "default": true,
-            }));
-        } else if let Some(rest) = line.strip_prefix("default:user:") {
-            if let Some((qualifier, perms)) = rest.rsplit_once(':') {
-                entries.push(json!({
-                    "type": "user",
-                    "qualifier": qualifier,
-                    "permissions": perms,
-                    "default": true,
-                }));
-            }
-        } else if let Some(rest) = line.strip_prefix("default:group::") {
-            entries.push(json!({
-                "type": "group",
-                "qualifier": null,
-                "permissions": rest,
-                "default": true,
-            }));
-        } else if let Some(rest) = line.strip_prefix("default:group:") {
-            if let Some((qualifier, perms)) = rest.rsplit_once(':') {
-                entries.push(json!({
-                    "type": "group",
-                    "qualifier": qualifier,
-                    "permissions": perms,
-                    "default": true,
-                }));
-            }
-        } else if let Some(rest) = line.strip_prefix("default:other::") {
-            entries.push(json!({
-                "type": "other",
-                "qualifier": null,
-                "permissions": rest,
-                "default": true,
-            }));
-        } else if let Some(rest) = line.strip_prefix("default:mask::") {
-            entries.push(json!({
-                "type": "mask",
-                "qualifier": null,
-                "permissions": rest,
-                "default": true,
+                "default": is_default,
             }));
         }
     }
 
     entries
+}
+
+fn get_qualifier(params: &Params) -> Result<(&str, &str)> {
+    let qualifier_type = if params.user.is_some() {
+        "user"
+    } else {
+        "group"
+    };
+    let qualifier = params
+        .user
+        .as_deref()
+        .or(params.group.as_deref())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidData,
+                "either 'user' or 'group' must be specified",
+            )
+        })?;
+    Ok((qualifier_type, qualifier))
 }
 
 fn get_current_acl_for(
@@ -322,8 +304,6 @@ fn get_current_acl_for(
     ]))?;
 
     let entries = parse_getfacl_output(&output);
-
-    let _prefix = if is_default { "default:" } else { "" };
 
     for entry in &entries {
         let entry_type = entry["type"].as_str().unwrap_or("");
@@ -344,22 +324,7 @@ fn get_current_acl_for(
 
 fn handle_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     check_path_exists(&params.path)?;
-
-    let qualifier_type = if params.user.is_some() {
-        "user"
-    } else {
-        "group"
-    };
-    let qualifier = params
-        .user
-        .as_deref()
-        .or(params.group.as_deref())
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                "either 'user' or 'group' must be specified",
-            )
-        })?;
+    let (qualifier_type, qualifier) = get_qualifier(params)?;
 
     let mode = params
         .mode
@@ -368,63 +333,39 @@ fn handle_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     let current = get_current_acl_for(&params.path, qualifier_type, qualifier, params.default)?;
 
-    match current {
-        Some(ref current_mode) if current_mode == mode => Ok(ModuleResult {
-            changed: false,
-            output: Some(params.path.clone()),
-            extra: None,
-        }),
-        Some(ref current_mode) => {
-            debug!(
-                "ACL {}:{} changing from '{}' to '{}' on '{}'",
-                qualifier_type, qualifier, current_mode, mode, params.path
-            );
-            if !check_mode {
-                let args = build_setfacl_args(params)?;
-                run_command(Command::new("setfacl").args(&args))?;
-            }
-            Ok(ModuleResult {
-                changed: true,
+    if let Some(ref current_mode) = current {
+        if current_mode == mode {
+            return Ok(ModuleResult {
+                changed: false,
                 output: Some(params.path.clone()),
                 extra: None,
-            })
+            });
         }
-        None => {
-            debug!(
-                "Setting ACL {}:{} to '{}' on '{}'",
-                qualifier_type, qualifier, mode, params.path
-            );
-            if !check_mode {
-                let args = build_setfacl_args(params)?;
-                run_command(Command::new("setfacl").args(&args))?;
-            }
-            Ok(ModuleResult {
-                changed: true,
-                output: Some(params.path.clone()),
-                extra: None,
-            })
-        }
+        debug!(
+            "ACL {}:{} changing from '{}' to '{}' on '{}'",
+            qualifier_type, qualifier, current_mode, mode, params.path
+        );
+    } else {
+        debug!(
+            "Setting ACL {}:{} to '{}' on '{}'",
+            qualifier_type, qualifier, mode, params.path
+        );
     }
+
+    if !check_mode {
+        let args = build_setfacl_args(params)?;
+        run_command(Command::new("setfacl").args(&args))?;
+    }
+    Ok(ModuleResult {
+        changed: true,
+        output: Some(params.path.clone()),
+        extra: None,
+    })
 }
 
 fn handle_absent(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     check_path_exists(&params.path)?;
-
-    let qualifier_type = if params.user.is_some() {
-        "user"
-    } else {
-        "group"
-    };
-    let qualifier = params
-        .user
-        .as_deref()
-        .or(params.group.as_deref())
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                "either 'user' or 'group' must be specified",
-            )
-        })?;
+    let (qualifier_type, qualifier) = get_qualifier(params)?;
 
     let current = get_current_acl_for(&params.path, qualifier_type, qualifier, params.default)?;
 
