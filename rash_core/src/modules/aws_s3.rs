@@ -79,7 +79,9 @@ use serde_norway::value;
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::Client;
 use aws_sdk_s3::config::{Credentials, Region};
+use aws_sdk_s3::operation::head_object::HeadObjectError;
 use aws_sdk_s3::primitives::ByteStream;
+use md5::{Digest, Md5};
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
@@ -211,6 +213,18 @@ fn validate_params(params: &Params) -> Result<()> {
     Ok(())
 }
 
+fn compute_file_md5(path: &Path) -> Result<String> {
+    let data = fs::read(path).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Failed to read file for checksum: {e}"),
+        )
+    })?;
+    let mut hasher = Md5::new();
+    hasher.update(&data);
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 async fn exec_get(client: &Client, params: &Params, check_mode: bool) -> Result<ModuleResult> {
     let object = params
         .object
@@ -243,19 +257,27 @@ async fn exec_get(client: &Client, params: &Params, check_mode: bool) -> Result<
                     )
                 })?;
 
-                if local_size == object_size as u64 && etag.is_some() {
-                    return Ok(ModuleResult::new(
-                        false,
-                        Some(value::to_value(json!({
-                            "bucket": params.bucket,
-                            "object": object,
-                            "dest": dest,
-                            "size": object_size,
-                            "etag": etag,
-                            "msg": "File already exists with same size"
-                        }))?),
-                        Some("File already exists, skipped".to_string()),
-                    ));
+                if local_size == object_size as u64
+                    && let Some(ref remote_etag) = etag
+                {
+                    let clean_etag = remote_etag.trim_matches('"');
+                    if !clean_etag.contains('-')
+                        && let Ok(local_md5) = compute_file_md5(dest_path)
+                        && clean_etag == local_md5
+                    {
+                        return Ok(ModuleResult::new(
+                            false,
+                            Some(value::to_value(json!({
+                                "bucket": params.bucket,
+                                "object": object,
+                                "dest": dest,
+                                "size": object_size,
+                                "etag": etag,
+                                "msg": "File already exists with same checksum"
+                            }))?),
+                            Some("File already exists, skipped".to_string()),
+                        ));
+                    }
                 }
             }
 
@@ -325,8 +347,9 @@ async fn exec_get(client: &Client, params: &Params, check_mode: bool) -> Result<
             ))
         }
         Err(e) => {
-            let error_msg = e.to_string();
-            if error_msg.contains("NotFound") || error_msg.contains("404") {
+            if e.as_service_error()
+                .is_some_and(HeadObjectError::is_not_found)
+            {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
                     format!("Object {} not found in bucket {}", object, params.bucket),
@@ -463,8 +486,9 @@ async fn exec_delete(client: &Client, params: &Params, check_mode: bool) -> Resu
             ))
         }
         Err(e) => {
-            let error_msg = e.to_string();
-            if error_msg.contains("NotFound") || error_msg.contains("404") {
+            if e.as_service_error()
+                .is_some_and(HeadObjectError::is_not_found)
+            {
                 return Ok(ModuleResult::new(
                     false,
                     Some(value::to_value(json!({
