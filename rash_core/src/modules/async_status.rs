@@ -51,23 +51,23 @@ where
     D: serde::Deserializer<'de>,
 {
     use serde::de::{self, Visitor};
-    
+
     struct JidVisitor;
-    
+
     impl<'de> Visitor<'de> for JidVisitor {
         type Value = u64;
-        
+
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
             formatter.write_str("a u64 or a string containing a u64")
         }
-        
+
         fn visit_u64<E>(self, v: u64) -> std::result::Result<u64, E>
         where
             E: de::Error,
         {
             Ok(v)
         }
-        
+
         fn visit_i64<E>(self, v: i64) -> std::result::Result<u64, E>
         where
             E: de::Error,
@@ -78,7 +78,7 @@ where
                 Err(de::Error::custom("jid must be a positive number"))
             }
         }
-        
+
         fn visit_str<E>(self, v: &str) -> std::result::Result<u64, E>
         where
             E: de::Error,
@@ -87,7 +87,7 @@ where
                 de::Error::custom(format!("invalid jid value: '{}', expected a number", v))
             })
         }
-        
+
         fn visit_string<E>(self, v: String) -> std::result::Result<u64, E>
         where
             E: de::Error,
@@ -95,7 +95,7 @@ where
             self.visit_str(&v)
         }
     }
-    
+
     deserializer.deserialize_any(JidVisitor)
 }
 
