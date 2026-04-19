@@ -18,6 +18,7 @@ mod composer;
 mod consul_kv;
 mod copy;
 mod cron;
+mod crypttab;
 mod dconf;
 mod debconf;
 mod debootstrap;
@@ -167,6 +168,7 @@ use crate::modules::composer::Composer;
 use crate::modules::consul_kv::ConsulKv;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
+use crate::modules::crypttab::Crypttab;
 use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debootstrap::Debootstrap;
@@ -391,6 +393,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
+        (Crypttab.get_name(), Box::new(Crypttab) as Box<dyn Module>),
         (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
         (Debconf.get_name(), Box::new(Debconf) as Box<dyn Module>),
         (
