@@ -8,7 +8,7 @@ case "$1" in
     --get-selections)
         # Return current selections for requested package
         package="$2"
-        
+
         # Simulate some pre-held packages
         case "$package" in
             nginx)
