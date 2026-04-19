@@ -13,6 +13,7 @@ mod blkdiscard;
 mod block;
 mod cargo;
 mod chroot;
+mod cloud_init;
 mod command;
 mod composer;
 mod consul_kv;
@@ -163,6 +164,7 @@ use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::cargo::Cargo;
 use crate::modules::chroot::Chroot;
+use crate::modules::cloud_init::CloudInit;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
 use crate::modules::consul_kv::ConsulKv;
@@ -388,6 +390,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
+        (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
