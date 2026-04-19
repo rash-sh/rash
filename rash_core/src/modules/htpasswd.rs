@@ -101,33 +101,40 @@ pub enum CryptScheme {
 const APR1_BASE64_CHARS: &[u8; 64] =
     b"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-fn apr1_encode_base64(data: &[u8]) -> String {
-    let mut result = String::new();
-    let mut i = 0;
-    while i < data.len() {
-        let value = if i + 2 < data.len() {
-            ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8) | (data[i + 2] as u32)
-        } else if i + 1 < data.len() {
-            ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8)
-        } else {
-            (data[i] as u32) << 16
-        };
-
-        result.push(APR1_BASE64_CHARS[((value >> 18) & 0x3f) as usize] as char);
-        result.push(APR1_BASE64_CHARS[((value >> 12) & 0x3f) as usize] as char);
-
-        if i + 1 < data.len() {
-            result.push(APR1_BASE64_CHARS[((value >> 6) & 0x3f) as usize] as char);
-        } else {
-            result.push(APR1_BASE64_CHARS[((value >> 6) & 0x3f) as usize] as char);
-        }
-
-        if i + 2 < data.len() {
-            result.push(APR1_BASE64_CHARS[(value & 0x3f) as usize] as char);
-        }
-
-        i += 3;
+fn to64(v: u32, n: usize) -> String {
+    let mut s = String::with_capacity(n);
+    let mut v = v;
+    for _ in 0..n {
+        s.push(APR1_BASE64_CHARS[(v & 0x3f) as usize] as char);
+        v >>= 6;
     }
+    s
+}
+
+fn encode_apr1_hash(final_hash: &[u8]) -> String {
+    let f = final_hash;
+    let mut result = String::with_capacity(22);
+    result.push_str(&to64(
+        (f[0] as u32) << 16 | (f[6] as u32) << 8 | (f[12] as u32),
+        4,
+    ));
+    result.push_str(&to64(
+        (f[1] as u32) << 16 | (f[7] as u32) << 8 | (f[13] as u32),
+        4,
+    ));
+    result.push_str(&to64(
+        (f[2] as u32) << 16 | (f[8] as u32) << 8 | (f[14] as u32),
+        4,
+    ));
+    result.push_str(&to64(
+        (f[3] as u32) << 16 | (f[9] as u32) << 8 | (f[15] as u32),
+        4,
+    ));
+    result.push_str(&to64(
+        (f[4] as u32) << 16 | (f[10] as u32) << 8 | (f[5] as u32),
+        4,
+    ));
+    result.push_str(&to64(f[11] as u32, 2));
     result
 }
 
@@ -193,13 +200,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
         result = ctx2.finalize();
     }
 
-    let rearranged = [
-        result[0], result[6], result[12], result[1], result[7], result[13], result[2], result[8],
-        result[14], result[3], result[9], result[15], result[4], result[10], result[5],
-        result[11],
-    ];
-
-    format!("$apr1${}${}", salt, apr1_encode_base64(&rearranged))
+    format!("$apr1${}${}", salt, encode_apr1_hash(&result))
 }
 
 fn hash_sha1(password: &str) -> String {
@@ -499,7 +500,10 @@ mod tests {
     #[test]
     fn test_apr1_known_value() {
         let hash = hash_apr1("password", "xxxxxxxx");
-        assert!(hash.starts_with("$apr1$xxxxxxxx$"));
+        assert_eq!(
+            hash,
+            "$apr1$xxxxxxxx$dxHfLAsjHkDRmG83UXe8K0"
+        );
     }
 
     #[test]
