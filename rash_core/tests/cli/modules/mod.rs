@@ -22,6 +22,7 @@ mod group;
 mod grub;
 mod hostname;
 mod include;
+mod incus;
 mod kernel_blacklist;
 mod kubectl;
 mod logrotate;

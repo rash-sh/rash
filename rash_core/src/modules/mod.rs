@@ -50,6 +50,7 @@ mod helm;
 mod helm_info;
 mod hostname;
 mod include;
+mod incus;
 mod ini_file;
 mod initramfs;
 mod interfaces_file;
@@ -184,6 +185,7 @@ use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
 use crate::modules::include::Include;
+use crate::modules::incus::Incus;
 use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
@@ -430,6 +432,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (JsonFile.get_name(), Box::new(JsonFile) as Box<dyn Module>),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
+        (Incus.get_name(), Box::new(Incus) as Box<dyn Module>),
         (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
         (Initramfs.get_name(), Box::new(Initramfs) as Box<dyn Module>),
         (
