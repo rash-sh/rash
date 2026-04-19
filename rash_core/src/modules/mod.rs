@@ -1,3 +1,4 @@
+mod acl;
 mod alternatives;
 mod apk;
 mod apt;
@@ -12,6 +13,7 @@ mod aws_s3;
 mod blkdiscard;
 mod block;
 mod cargo;
+mod cgroups;
 mod chroot;
 mod command;
 mod composer;
@@ -86,6 +88,7 @@ mod mysql_db;
 mod mysql_user;
 mod netplan;
 mod nftables;
+mod nginx;
 mod nmcli;
 mod npm;
 mod openrc;
@@ -109,6 +112,7 @@ mod rclone;
 mod reboot;
 mod redis;
 mod replace;
+mod restic;
 mod route;
 mod runit;
 mod script;
@@ -120,6 +124,7 @@ mod setup;
 mod sgdisk;
 mod slurp;
 mod ssh_config;
+mod sshd_config;
 mod stat;
 mod sudoers;
 mod swapfile;
@@ -149,6 +154,7 @@ mod zypper;
 
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::acl::Acl;
 use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
@@ -163,6 +169,7 @@ use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::cargo::Cargo;
+use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
@@ -237,6 +244,7 @@ use crate::modules::mysql_db::MysqlDb;
 use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
+use crate::modules::nginx::Nginx;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
 use crate::modules::openrc::OpenRc;
@@ -260,6 +268,7 @@ use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::replace::Replace;
+use crate::modules::restic::Restic;
 use crate::modules::route::Route;
 use crate::modules::runit::Runit;
 use crate::modules::script::Script;
@@ -271,6 +280,7 @@ use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
+use crate::modules::sshd_config::SshdConfig;
 use crate::modules::stat::Stat;
 use crate::modules::sudoers::Sudoers;
 use crate::modules::swapfile::Swapfile;
@@ -362,6 +372,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
         ),
+        (Acl.get_name(), Box::new(Acl) as Box<dyn Module>),
         (Fail2ban.get_name(), Box::new(Fail2ban) as Box<dyn Module>),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
@@ -389,6 +400,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
+        (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
@@ -526,6 +538,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
+        (Nginx.get_name(), Box::new(Nginx) as Box<dyn Module>),
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
@@ -565,6 +578,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(RabbitmqUser) as Box<dyn Module>,
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
+        (Restic.get_name(), Box::new(Restic) as Box<dyn Module>),
         (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
@@ -579,6 +593,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Setup.get_name(), Box::new(Setup) as Box<dyn Module>),
         (Slurp.get_name(), Box::new(Slurp) as Box<dyn Module>),
         (SshConfig.get_name(), Box::new(SshConfig) as Box<dyn Module>),
+        (
+            SshdConfig.get_name(),
+            Box::new(SshdConfig) as Box<dyn Module>,
+        ),
         (Stat.get_name(), Box::new(Stat) as Box<dyn Module>),
         (
             Synchronize.get_name(),

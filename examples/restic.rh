@@ -1,0 +1,40 @@
+#!/usr/bin/env rash
+
+- name: Initialize restic repository
+  restic:
+    repository: "{{ restic_repo }}"
+    password: "{{ vault.restic_password }}"
+    state: init
+
+- name: Backup data with tags
+  restic:
+    repository: "{{ restic_repo }}"
+    password: "{{ vault.restic_password }}"
+    state: backup
+    path:
+      - /data
+      - /etc
+    tag:
+      - daily
+      - "{{ inventory_hostname }}"
+
+- name: Forget old snapshots with retention policy
+  restic:
+    repository: "{{ restic_repo }}"
+    password: "{{ vault.restic_password }}"
+    state: forget
+    keep_daily: 7
+    keep_weekly: 4
+    keep_monthly: 6
+
+- name: Prune unused data
+  restic:
+    repository: "{{ restic_repo }}"
+    password: "{{ vault.restic_password }}"
+    state: prune
+
+- name: Check repository integrity
+  restic:
+    repository: "{{ restic_repo }}"
+    password: "{{ vault.restic_password }}"
+    state: check
