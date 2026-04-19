@@ -45,7 +45,7 @@ jobs:
           .ci/generate-pkgbuild.rh ${{ matrix.package.pkgbuild }}
 
       - name: Publish AUR package
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
         with:
           pkgname: ${{ matrix.package.name }}
           pkgbuild: ./${{ matrix.package.pkgbuild }}
