@@ -8,15 +8,15 @@
     image: nginx:latest
     state: started
 
-- name: Stop a container
-  podman:
-    name: myapp
-    state: stopped
-
 - name: Restart a container
   podman:
     name: myapp
     state: restarted
+
+- name: Stop a container
+  podman:
+    name: myapp
+    state: stopped
 
 - name: Remove a container
   podman:
