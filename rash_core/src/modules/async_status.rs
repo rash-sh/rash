@@ -324,7 +324,13 @@ mod tests {
         )
         .unwrap();
         let params: PollParams = parse_params(yaml).unwrap();
-        assert_eq!(params, PollParams { jid: 789, interval: Some(2) });
+        assert_eq!(
+            params,
+            PollParams {
+                jid: 789,
+                interval: Some(2)
+            }
+        );
     }
 
     #[test]
