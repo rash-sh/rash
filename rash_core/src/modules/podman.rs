@@ -635,6 +635,9 @@ fn podman_container(params: Params, check_mode: bool) -> Result<ModuleResult> {
     match params.state {
         State::Absent => {
             let was_running = client.is_running(&params.name)?;
+            if was_running && !params.force {
+                client.stop_container(&params.name)?;
+            }
             if client.remove_container(&params.name, params.force)? {
                 diff("state: present".to_string(), "state: absent".to_string());
                 output_messages.push(format!("Container '{}' removed", params.name));
