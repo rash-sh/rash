@@ -8,6 +8,7 @@ mod assert;
 mod async_status;
 mod at;
 mod authorized_key;
+mod aws_s3;
 mod blkdiscard;
 mod block;
 mod cargo;
@@ -28,10 +29,12 @@ mod docker_config;
 mod docker_container;
 mod docker_exec;
 mod docker_image;
+mod docker_info;
 mod docker_login;
 mod docker_network;
 mod docker_prune;
 mod docker_volume;
+mod dpkg_selections;
 mod dynamic;
 mod expect;
 mod fail;
@@ -54,6 +57,7 @@ mod include;
 mod ini_file;
 mod initramfs;
 mod interfaces_file;
+mod ipaddr;
 mod iptables;
 mod java_keystore;
 mod jenkins_job;
@@ -81,6 +85,7 @@ mod netplan;
 mod nftables;
 mod nmcli;
 mod npm;
+mod openrc;
 mod openssl_certificate;
 mod openssl_csr;
 mod openssl_privatekey;
@@ -95,9 +100,12 @@ mod ping;
 mod pip;
 mod postgresql_db;
 mod postgresql_user;
+mod proxmox;
 mod rabbitmq_user;
+mod rclone;
 mod reboot;
 mod redis;
+mod replace;
 mod runit;
 mod script;
 mod seboolean;
@@ -109,8 +117,11 @@ mod sgdisk;
 mod slurp;
 mod ssh_config;
 mod stat;
+mod sudoers;
+mod swapfile;
 mod synchronize;
 mod sysctl;
+mod syslog;
 mod systemd;
 mod tempfile;
 mod template;
@@ -123,6 +134,7 @@ mod user;
 mod vault;
 mod vdo;
 mod wait_for;
+mod wakeonlan;
 mod wipefs;
 mod xattr;
 mod xml;
@@ -143,6 +155,7 @@ use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
 use crate::modules::authorized_key::AuthorizedKey;
+use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::cargo::Cargo;
@@ -163,10 +176,12 @@ use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::docker_info::DockerInfo;
 use crate::modules::docker_login::DockerLogin;
 use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
+use crate::modules::dpkg_selections::DpkgSelections;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
@@ -189,6 +204,7 @@ use crate::modules::include::Include;
 use crate::modules::ini_file::IniFile;
 use crate::modules::initramfs::Initramfs;
 use crate::modules::interfaces_file::InterfacesFile;
+use crate::modules::ipaddr::Ipaddr;
 use crate::modules::iptables::Iptables;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
@@ -216,6 +232,7 @@ use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
+use crate::modules::openrc::OpenRc;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
 use crate::modules::openssl_privatekey::OpensslPrivatekey;
@@ -230,9 +247,12 @@ use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
+use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
+use crate::modules::replace::Replace;
 use crate::modules::runit::Runit;
 use crate::modules::script::Script;
 use crate::modules::seboolean::Seboolean;
@@ -244,8 +264,11 @@ use crate::modules::sgdisk::Sgdisk;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::stat::Stat;
+use crate::modules::sudoers::Sudoers;
+use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
+use crate::modules::syslog::Syslog;
 use crate::modules::systemd::Systemd;
 use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
@@ -258,6 +281,7 @@ use crate::modules::user::User;
 use crate::modules::vault::Vault;
 use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
+use crate::modules::wakeonlan::WakeOnLan;
 use crate::modules::wipefs::Wipefs;
 use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
@@ -350,6 +374,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
+        (AwsS3.get_name(), Box::new(AwsS3) as Box<dyn Module>),
         (
             Blkdiscard.get_name(),
             Box::new(Blkdiscard) as Box<dyn Module>,
@@ -390,6 +415,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerImage.get_name(),
             Box::new(DockerImage) as Box<dyn Module>,
+        ),
+        (
+            DockerInfo.get_name(),
+            Box::new(DockerInfo) as Box<dyn Module>,
         ),
         (
             DockerLogin.get_name(),
@@ -443,6 +472,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
+        (Ipaddr.get_name(), Box::new(Ipaddr) as Box<dyn Module>),
         (
             KernelBlacklist.get_name(),
             Box::new(KernelBlacklist) as Box<dyn Module>,
@@ -481,6 +511,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
+        (OpenRc.get_name(), Box::new(OpenRc) as Box<dyn Module>),
         (Opkg.get_name(), Box::new(Opkg) as Box<dyn Module>),
         (
             OpensslCertificate.get_name(),
@@ -507,6 +538,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
+        (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
@@ -515,7 +547,9 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(RabbitmqUser) as Box<dyn Module>,
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
+        (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
+        (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
@@ -532,7 +566,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Synchronize) as Box<dyn Module>,
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
+        (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
+        (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
+        (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
@@ -544,6 +581,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
+        (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
         (Xml.get_name(), Box::new(Xml) as Box<dyn Module>),
         (Xattr.get_name(), Box::new(Xattr) as Box<dyn Module>),
