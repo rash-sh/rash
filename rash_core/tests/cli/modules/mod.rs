@@ -48,6 +48,7 @@ mod timezone;
 mod trace;
 mod ufw;
 mod user;
+mod wakeonlan;
 mod xattr;
 mod zypper;
 
