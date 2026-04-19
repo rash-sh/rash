@@ -117,6 +117,16 @@ fn build_route_spec(params: &Params) -> Vec<String> {
     args
 }
 
+fn token_matches(line: &str, key: &str, value: &str) -> bool {
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    for i in 0..parts.len().saturating_sub(1) {
+        if parts[i] == key && parts[i + 1] == value {
+            return true;
+        }
+    }
+    false
+}
+
 fn route_exists(params: &Params) -> Result<bool> {
     let mut args = vec!["route".to_string(), "show".to_string()];
 
@@ -158,12 +168,12 @@ fn route_exists(params: &Params) -> Result<bool> {
             params
                 .interface
                 .as_ref()
-                .is_none_or(|iface| line.contains(&format!("dev {iface}")))
+                .is_none_or(|iface| token_matches(line, "dev", iface))
         })
         .filter(|line| {
             params
                 .metric
-                .is_none_or(|m| line.contains(&format!("metric {m}")))
+                .is_none_or(|m| token_matches(line, "metric", &m.to_string()))
         })
         .collect();
 
@@ -493,6 +503,25 @@ mod tests {
         };
         let args = build_route_spec(&params);
         assert_eq!(args, vec!["default", "via", "192.168.1.1"]);
+    }
+
+    #[test]
+    fn test_token_matches_exact() {
+        let line = "10.0.0.0/24 via 192.168.1.1 dev eth0 metric 100";
+        assert!(token_matches(line, "dev", "eth0"));
+        assert!(token_matches(line, "metric", "100"));
+        assert!(token_matches(line, "via", "192.168.1.1"));
+        assert!(!token_matches(line, "dev", "eth01"));
+        assert!(!token_matches(line, "dev", "eth0.1"));
+        assert!(!token_matches(line, "metric", "1000"));
+        assert!(!token_matches(line, "metric", "10"));
+    }
+
+    #[test]
+    fn test_token_matches_no_substring_false_positive() {
+        let line = "default via 10.0.0.1 dev eth01 metric 1000";
+        assert!(!token_matches(line, "dev", "eth0"));
+        assert!(!token_matches(line, "metric", "100"));
     }
 
     #[test]
