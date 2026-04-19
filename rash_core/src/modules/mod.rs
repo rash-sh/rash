@@ -23,10 +23,12 @@ mod debootstrap;
 mod debug;
 mod dmsetup;
 mod dnf;
+mod docker_compose;
 mod docker_config;
 mod docker_container;
 mod docker_exec;
 mod docker_image;
+mod docker_network;
 mod docker_prune;
 mod docker_volume;
 mod dynamic;
@@ -69,9 +71,11 @@ mod make;
 mod mdadm;
 mod meta;
 mod modprobe;
+mod mongodb_db;
 mod mongodb_user;
 mod mount;
 mod mysql_db;
+mod mysql_user;
 mod netplan;
 mod nftables;
 mod nmcli;
@@ -86,9 +90,11 @@ mod pacman;
 mod pam_limits;
 mod parted;
 mod pause;
+mod pids;
 mod ping;
 mod pip;
 mod postgresql_db;
+mod postgresql_user;
 mod rabbitmq_user;
 mod reboot;
 mod redis;
@@ -152,10 +158,12 @@ use crate::modules::debootstrap::Debootstrap;
 use crate::modules::debug::Debug;
 use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
+use crate::modules::docker_compose::DockerCompose;
 use crate::modules::docker_config::DockerConfig;
 use crate::modules::docker_container::DockerContainer;
 use crate::modules::docker_exec::DockerExec;
 use crate::modules::docker_image::DockerImage;
+use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
@@ -198,9 +206,11 @@ use crate::modules::make::Make;
 use crate::modules::mdadm::Mdadm;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
+use crate::modules::mongodb_db::MongodbDb;
 use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
 use crate::modules::mysql_db::MysqlDb;
+use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
 use crate::modules::nmcli::Nmcli;
@@ -215,9 +225,11 @@ use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
 use crate::modules::pause::Pause;
+use crate::modules::pids::Pids;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::postgresql_db::PostgresqlDb;
+use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
@@ -360,6 +372,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
         (
+            DockerCompose.get_name(),
+            Box::new(DockerCompose) as Box<dyn Module>,
+        ),
+        (
             DockerConfig.get_name(),
             Box::new(DockerConfig) as Box<dyn Module>,
         ),
@@ -374,6 +390,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerImage.get_name(),
             Box::new(DockerImage) as Box<dyn Module>,
+        ),
+        (
+            DockerNetwork.get_name(),
+            Box::new(DockerNetwork) as Box<dyn Module>,
         ),
         (
             DockerPrune.get_name(),
@@ -445,12 +465,14 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Mdadm.get_name(), Box::new(Mdadm) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
+        (MongodbDb.get_name(), Box::new(MongodbDb) as Box<dyn Module>),
         (
             MongodbUser.get_name(),
             Box::new(MongodbUser) as Box<dyn Module>,
         ),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
+        (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
@@ -473,9 +495,14 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
         (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
+        (Pids.get_name(), Box::new(Pids) as Box<dyn Module>),
         (
             PostgresqlDb.get_name(),
             Box::new(PostgresqlDb) as Box<dyn Module>,
+        ),
+        (
+            PostgresqlUser.get_name(),
+            Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
