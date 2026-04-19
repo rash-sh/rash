@@ -197,6 +197,14 @@ fn parse_option_line(line: &str) -> Option<(String, String)> {
     None
 }
 
+fn match_criteria_eq(a: &Option<String>, b: &Option<String>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(a), Some(b)) => a.to_lowercase() == b.to_lowercase(),
+        _ => false,
+    }
+}
+
 fn find_option<'a>(
     options: &'a [SshdOption],
     key: &str,
@@ -205,7 +213,24 @@ fn find_option<'a>(
     let key_lower = key.to_lowercase();
     options
         .iter()
-        .find(|o| o.key == key_lower && o.match_block == *match_criteria)
+        .find(|o| o.key == key_lower && match_criteria_eq(&o.match_block, match_criteria))
+}
+
+fn get_indent(line: &str) -> String {
+    line.chars().take_while(|c| c.is_whitespace()).collect()
+}
+
+fn find_block_indent(options: &[SshdOption], criteria: &str, lines: &[&str]) -> String {
+    let criteria_lower = criteria.to_lowercase();
+    options
+        .iter()
+        .find(|o| {
+            o.match_block
+                .as_deref()
+                .is_some_and(|m| m.to_lowercase() == criteria_lower)
+        })
+        .map(|o| get_indent(lines[o.line_idx]))
+        .unwrap_or_else(|| "    ".to_string())
 }
 
 fn find_match_block<'a>(blocks: &'a [MatchBlock], criteria: &str) -> Option<&'a MatchBlock> {
@@ -238,7 +263,8 @@ fn rebuild_config(
                     return original_content.to_string();
                 }
                 let mut new_lines: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
-                new_lines[existing.line_idx] = format!("{target_key} {value}");
+                let indent = get_indent(&new_lines[existing.line_idx]);
+                new_lines[existing.line_idx] = format!("{indent}{target_key} {value}");
                 return new_lines.join("\n");
             }
 
@@ -247,7 +273,8 @@ fn rebuild_config(
             if let Some(criteria) = target_match {
                 if let Some(block) = find_match_block(parsed_blocks, criteria) {
                     let insert_pos = block.line_end + 1;
-                    new_lines.insert(insert_pos, format!("{target_key} {value}"));
+                    let indent = find_block_indent(parsed_options, criteria, &lines);
+                    new_lines.insert(insert_pos, format!("{indent}{target_key} {value}"));
                 } else {
                     if !new_lines.is_empty()
                         && !new_lines.last().map(|l| l.is_empty()).unwrap_or(true)
@@ -278,7 +305,7 @@ fn rebuild_config(
                     && let Some(block) = find_match_block(parsed_blocks, criteria)
                 {
                     let remaining_in_block = parsed_options.iter().any(|o| {
-                        o.match_block.as_deref() == Some(criteria.as_str())
+                        match_criteria_eq(&o.match_block, &Some(criteria.clone()))
                             && o.key != target_key_lower
                             && o.line_idx != existing.line_idx
                     });
@@ -361,7 +388,7 @@ fn clean_trailing_empty(mut lines: Vec<String>) -> Vec<String> {
     lines
 }
 
-fn create_backup(path: &PathBuf) -> Result<()> {
+fn create_backup(path: &Path) -> Result<()> {
     use std::time::SystemTime;
     let timestamp = SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1024,6 +1051,100 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("value parameter is required")
+        );
+    }
+
+    #[test]
+    fn test_find_option_case_insensitive_match_criteria() {
+        let options = vec![SshdOption {
+            key: "passwordauthentication".to_string(),
+            value: "yes".to_string(),
+            line_idx: 4,
+            match_block: Some("User admin".to_string()),
+        }];
+
+        assert!(
+            find_option(
+                &options,
+                "PasswordAuthentication",
+                &Some("user admin".to_string())
+            )
+            .is_some(),
+            "find_option should match match_criteria case-insensitively"
+        );
+        assert!(
+            find_option(
+                &options,
+                "PasswordAuthentication",
+                &Some("USER ADMIN".to_string())
+            )
+            .is_some(),
+            "find_option should match match_criteria case-insensitively"
+        );
+    }
+
+    #[test]
+    fn test_sshd_config_match_block_preserves_indentation_on_update() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("sshd_config");
+        fs::write(
+            &config_path,
+            "Port 22\n\nMatch User admin\n    PasswordAuthentication yes\n",
+        )
+        .unwrap();
+
+        let params = Params {
+            option: "PasswordAuthentication".to_string(),
+            value: Some("no".to_string()),
+            state: Some(State::Present),
+            path: Some(config_path.to_string_lossy().to_string()),
+            match_criteria: Some("User admin".to_string()),
+            validate: None,
+            backup: None,
+        };
+
+        let result = sshd_config(params, false).unwrap();
+        assert!(result.changed);
+
+        let content = fs::read_to_string(&config_path).unwrap();
+        assert!(
+            content.contains("    PasswordAuthentication no"),
+            "indentation should be preserved within match block, got: {content:?}"
+        );
+        assert!(
+            !content.contains("PasswordAuthentication no\n")
+                || content.contains("    PasswordAuthentication no"),
+            "option should not appear without indentation"
+        );
+    }
+
+    #[test]
+    fn test_sshd_config_insert_into_match_block_uses_indentation() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("sshd_config");
+        fs::write(
+            &config_path,
+            "Port 22\n\nMatch User admin\n    PasswordAuthentication yes\n",
+        )
+        .unwrap();
+
+        let params = Params {
+            option: "AllowTcpForwarding".to_string(),
+            value: Some("yes".to_string()),
+            state: Some(State::Present),
+            path: Some(config_path.to_string_lossy().to_string()),
+            match_criteria: Some("User admin".to_string()),
+            validate: None,
+            backup: None,
+        };
+
+        let result = sshd_config(params, false).unwrap();
+        assert!(result.changed);
+
+        let content = fs::read_to_string(&config_path).unwrap();
+        assert!(
+            content.contains("    AllowTcpForwarding yes"),
+            "new option in existing match block should use block indentation, got: {content:?}"
         );
     }
 }
