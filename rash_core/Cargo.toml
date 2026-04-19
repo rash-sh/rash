@@ -25,7 +25,7 @@ docs = ["rash_derive/docs", "schemars"]
 passwordstore = ["prs-lib"]
 
 [dependencies]
-rash_derive = { path = "../rash_derive", version = "2.19.1" }
+rash_derive = { path = "../rash_derive", version = "2.19.2" }
 log.workspace = true
 regex.workspace = true
 schemars = { workspace = true, optional = true }
@@ -66,7 +66,6 @@ flate2 = "1.0"
 bzip2 = "0.6"
 xz2 = "0.1"
 zip = { version = "8.0", default-features = false, features = ["deflate"] }
-iso9660 = "0.1"
 glob = "0.3"
 rcgen = "0.14"
 redis = "1.0"
@@ -75,6 +74,7 @@ uuid = { version = "1.0", features = ["v4"] }
 serde_yaml = "0.9"
 rpassword = "7.3"
 xattr = "1.6"
+iso9660 = "0.1"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.5.0"
