@@ -1,0 +1,109 @@
+#!/usr/bin/env rash
+# podman module example
+# Manage Podman containers with rootless support and systemd integration
+
+- name: Start a container
+  podman:
+    name: myapp
+    image: nginx:latest
+    state: started
+
+- name: Stop a container
+  podman:
+    name: myapp
+    state: stopped
+
+- name: Remove a container
+  podman:
+    name: myapp
+    state: absent
+
+- name: Restart a container
+  podman:
+    name: myapp
+    state: restarted
+
+- name: Create a rootless container with ports and environment
+  podman:
+    name: webapp
+    image: nginx:latest
+    state: started
+    ports:
+      - "8080:80"
+      - "443:443"
+    env:
+      NGINX_HOST: example.com
+    rootless: true
+
+- name: Create a container with volumes
+  podman:
+    name: dataapp
+    image: alpine:latest
+    state: started
+    volumes:
+      - "/host/path:/container/path"
+      - "named_volume:/data"
+
+- name: Create a container with resource limits
+  podman:
+    name: limited_app
+    image: nginx:latest
+    state: started
+    memory: "512m"
+    cpus: "1.5"
+
+- name: Create a container connected to a network
+  podman:
+    name: networked_app
+    image: nginx:latest
+    state: started
+    networks:
+      - mynetwork
+
+- name: Create a container with systemd integration
+  podman:
+    name: systemd_app
+    image: nginx:latest
+    state: started
+    systemd: always
+    generate_systemd: true
+
+- name: Create a container with environment dict
+  podman:
+    name: envapp
+    image: nginx:latest
+    state: started
+    env_dict:
+      APP_ENV: production
+      APP_PORT: 8080
+      DEBUG: false
+
+- name: Force remove a running container
+  podman:
+    name: myapp
+    state: absent
+    force: true
+
+- name: Create a privileged container
+  podman:
+    name: privileged_app
+    image: nginx:latest
+    state: started
+    privileged: true
+    capabilities_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+
+- name: Create a container with restart policy
+  podman:
+    name: resilient_app
+    image: nginx:latest
+    state: started
+    restart_policy: always
+
+- name: Pull image before starting
+  podman:
+    name: updated_app
+    image: nginx:latest
+    state: started
+    pull: true
