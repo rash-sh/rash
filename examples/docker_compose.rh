@@ -1,0 +1,103 @@
+#!/usr/bin/env rash
+# docker_compose module example
+# Manage Docker Compose projects for multi-container applications
+
+- name: Start a docker-compose project
+  docker_compose:
+    project_src: /app
+    state: started
+
+- name: Stop a docker-compose project
+  docker_compose:
+    project_src: /app
+    state: stopped
+
+- name: Remove a docker-compose project
+  docker_compose:
+    project_src: /app
+    state: absent
+
+- name: Restart a docker-compose project
+  docker_compose:
+    project_src: /app
+    state: restarted
+
+- name: Start specific services
+  docker_compose:
+    project_src: /app
+    state: started
+    services:
+      - web
+      - db
+
+- name: Pull images before starting
+  docker_compose:
+    project_src: /app
+    state: started
+    pull: true
+
+- name: Scale services
+  docker_compose:
+    project_src: /app
+    state: started
+    scale:
+      web: 3
+      worker: 5
+
+- name: Use specific compose files
+  docker_compose:
+    project_src: /app
+    files:
+      - docker-compose.yml
+      - docker-compose.prod.yml
+    state: started
+
+- name: Build images before starting
+  docker_compose:
+    project_src: /app
+    state: started
+    build: true
+
+- name: Start with a custom project name
+  docker_compose:
+    project_src: /app
+    project_name: myproject
+    state: started
+
+- name: Remove project including volumes
+  docker_compose:
+    project_src: /app
+    state: absent
+    remove_volumes: true
+
+- name: Remove project including images
+  docker_compose:
+    project_src: /app
+    state: absent
+    remove_images: true
+
+- name: Start with force recreate
+  docker_compose:
+    project_src: /app
+    state: started
+    force_recreate: true
+
+- name: Start without dependencies
+  docker_compose:
+    project_src: /app
+    state: started
+    no_deps: true
+    services:
+      - web
+
+- name: Start with timeout
+  docker_compose:
+    project_src: /app
+    state: started
+    timeout: 60
+
+- name: Remove orphans during startup
+  docker_compose:
+    project_src: /app
+    state: started
+    remove_orphans: true
