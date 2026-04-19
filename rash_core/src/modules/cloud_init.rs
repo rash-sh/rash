@@ -159,6 +159,10 @@ impl Module for CloudInit {
         ))
     }
 
+    fn force_string_on_params(&self) -> bool {
+        false
+    }
+
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<Schema> {
         Some(Params::get_json_schema())
@@ -231,7 +235,7 @@ fn normalize_yaml(value: &YamlValue) -> YamlValue {
     }
 }
 
-fn build_cloud_cfg_content(params: &Params) -> Option<String> {
+fn build_cloud_cfg_content(params: &Params) -> Result<Option<String>> {
     let mut cloud_cfg = serde_norway::Mapping::new();
 
     if let Some(YamlValue::Mapping(map)) = &params.user_data {
@@ -241,13 +245,18 @@ fn build_cloud_cfg_content(params: &Params) -> Option<String> {
     }
 
     if cloud_cfg.is_empty() {
-        return None;
+        return Ok(None);
     }
 
     let mut content = String::from("#cloud-config\n");
-    let yaml_str = serde_norway::to_string(&YamlValue::Mapping(cloud_cfg)).unwrap_or_default();
+    let yaml_str = serde_norway::to_string(&YamlValue::Mapping(cloud_cfg)).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Failed to serialize cloud-config: {e}"),
+        )
+    })?;
     content.push_str(&yaml_str);
-    Some(content)
+    Ok(Some(content))
 }
 
 fn write_config_file(path: &Path, content: &str, backup: bool, check_mode: bool) -> Result<bool> {
@@ -401,7 +410,7 @@ fn cloud_init(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 validate_user_data_content(user_data_content)?;
             }
 
-            if let Some(ref cloud_cfg) = build_cloud_cfg_content(&params) {
+            if let Some(ref cloud_cfg) = build_cloud_cfg_content(&params)? {
                 let config_path = get_config_path(&params);
                 if write_config_file(&config_path, cloud_cfg, backup, check_mode)? {
                     changed = true;
@@ -436,7 +445,12 @@ fn cloud_init(params: Params, check_mode: bool) -> Result<ModuleResult> {
                         .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
                 } else {
                     let mut content = String::from("#cloud-config\n");
-                    content.push_str(&serde_norway::to_string(user_data).unwrap_or_default());
+                    content.push_str(&serde_norway::to_string(user_data).map_err(|e| {
+                        Error::new(
+                            ErrorKind::InvalidData,
+                            format!("Failed to serialize user-data: {e}"),
+                        )
+                    })?);
                     content
                 };
 
@@ -469,7 +483,12 @@ fn cloud_init(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     .map(PathBuf::from)
                     .unwrap_or_else(|| PathBuf::from(DEFAULT_USER_DATA_DIR).join("meta-data"));
 
-                let yaml_content = serde_norway::to_string(meta_data).unwrap_or_default();
+                let yaml_content = serde_norway::to_string(meta_data).map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Failed to serialize meta-data: {e}"),
+                    )
+                })?;
 
                 if write_config_file(&meta_data_path, &yaml_content, backup, check_mode)? {
                     changed = true;
@@ -487,7 +506,12 @@ fn cloud_init(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     .map(PathBuf::from)
                     .unwrap_or_else(|| PathBuf::from(DEFAULT_USER_DATA_DIR).join("network-config"));
 
-                let yaml_content = serde_norway::to_string(network_config).unwrap_or_default();
+                let yaml_content = serde_norway::to_string(network_config).map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Failed to serialize network-config: {e}"),
+                    )
+                })?;
 
                 if write_config_file(&network_config_path, &yaml_content, backup, check_mode)? {
                     changed = true;
@@ -665,7 +689,7 @@ mod tests {
             network_config_path: None,
         };
 
-        let content = build_cloud_cfg_content(&params);
+        let content = build_cloud_cfg_content(&params).unwrap();
         assert!(content.is_some());
         let content = content.unwrap();
         assert!(content.starts_with("#cloud-config\n"));
@@ -687,7 +711,7 @@ mod tests {
             network_config_path: None,
         };
 
-        let content = build_cloud_cfg_content(&params);
+        let content = build_cloud_cfg_content(&params).unwrap();
         assert!(content.is_none());
     }
 
