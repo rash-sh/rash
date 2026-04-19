@@ -358,13 +358,7 @@ fn test_docker_network_with_ip_range() {
     );
 
     let output = Command::new("docker")
-        .args([
-            "network",
-            "inspect",
-            "--format",
-            "{{range .IPAM.Config}}{{.IPRange}}{{end}}",
-            network_name,
-        ])
+        .args(["network", "inspect", network_name])
         .output()
         .expect("Failed to check network");
     let stdout_check = String::from_utf8_lossy(&output.stdout);
