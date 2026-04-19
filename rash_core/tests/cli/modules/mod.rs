@@ -36,6 +36,7 @@ mod pacman;
 mod pam_limits;
 mod pids;
 mod pip;
+mod rclone;
 mod reboot;
 mod replace;
 mod runit;

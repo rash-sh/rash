@@ -101,6 +101,7 @@ mod postgresql_db;
 mod postgresql_user;
 mod proxmox;
 mod rabbitmq_user;
+mod rclone;
 mod reboot;
 mod redis;
 mod replace;
@@ -245,6 +246,7 @@ use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
+use crate::modules::rclone::Rclone;
 use crate::modules::reboot::Reboot;
 use crate::modules::redis::Redis;
 use crate::modules::replace::Replace;
@@ -541,6 +543,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(RabbitmqUser) as Box<dyn Module>,
         ),
         (Reboot.get_name(), Box::new(Reboot) as Box<dyn Module>),
+        (Rclone.get_name(), Box::new(Rclone) as Box<dyn Module>),
         (Redis.get_name(), Box::new(Redis) as Box<dyn Module>),
         (Replace.get_name(), Box::new(Replace) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
