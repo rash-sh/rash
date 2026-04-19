@@ -54,6 +54,7 @@ mod grub;
 mod helm;
 mod helm_info;
 mod hostname;
+mod htpasswd;
 mod include;
 mod incus;
 mod ini_file;
@@ -204,6 +205,7 @@ use crate::modules::grub::Grub;
 use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
+use crate::modules::htpasswd::Htpasswd;
 use crate::modules::include::Include;
 use crate::modules::incus::Incus;
 use crate::modules::ini_file::IniFile;
@@ -466,6 +468,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
+        (Htpasswd.get_name(), Box::new(Htpasswd) as Box<dyn Module>),
         (
             JavaKeystore.get_name(),
             Box::new(JavaKeystore) as Box<dyn Module>,
