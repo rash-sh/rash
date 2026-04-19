@@ -151,23 +151,23 @@ fn route_exists(params: &Params) -> Result<bool> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut matching_lines = stdout.lines().filter(|line| !line.is_empty());
+    let matching_lines: Vec<&str> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter(|line| {
+            params
+                .interface
+                .as_ref()
+                .is_none_or(|iface| line.contains(&format!("dev {iface}")))
+        })
+        .filter(|line| {
+            params
+                .metric
+                .is_none_or(|m| line.contains(&format!("metric {m}")))
+        })
+        .collect();
 
-    if let Some(interface) = &params.interface {
-        matching_lines = matching_lines
-            .filter(|line| line.contains(&format!("dev {interface}")))
-            .collect::<Vec<_>>()
-            .into_iter();
-    }
-
-    if let Some(metric) = params.metric {
-        matching_lines = matching_lines
-            .filter(|line| line.contains(&format!("metric {metric}")))
-            .collect::<Vec<_>>()
-            .into_iter();
-    }
-
-    Ok(matching_lines.count() > 0)
+    Ok(!matching_lines.is_empty())
 }
 
 fn get_current_routes(params: &Params) -> Result<String> {
@@ -259,14 +259,11 @@ pub fn route(params: Params, check_mode: bool) -> Result<ModuleResult> {
             let exists = route_exists(&params)?;
             if exists {
                 let current = get_current_routes(&params)?;
-                return Ok(ModuleResult::new(
-                    false,
-                    Some(serde_norway::to_value(&serde_json::json!({
-                        "routes": current,
-                    }))
-                    .unwrap_or(None)),
-                    None,
-                ));
+                let extra = serde_norway::to_value(serde_json::json!({
+                    "routes": current,
+                }))
+                .ok();
+                return Ok(ModuleResult::new(false, extra, None));
             }
 
             if check_mode {
@@ -279,14 +276,11 @@ pub fn route(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
             add_route(&params)?;
             let current = get_current_routes(&params)?;
-            Ok(ModuleResult::new(
-                true,
-                Some(serde_norway::to_value(&serde_json::json!({
-                    "routes": current,
-                }))
-                .unwrap_or(None)),
-                None,
-            ))
+            let extra = serde_norway::to_value(serde_json::json!({
+                "routes": current,
+            }))
+            .ok();
+            Ok(ModuleResult::new(true, extra, None))
         }
         State::Absent => {
             let exists = route_exists(&params)?;
@@ -460,8 +454,15 @@ mod tests {
         assert_eq!(
             args,
             vec![
-                "table", "100", "172.16.0.0/16", "via", "10.0.0.1", "dev",
-                "eth0", "metric", "100",
+                "table",
+                "100",
+                "172.16.0.0/16",
+                "via",
+                "10.0.0.1",
+                "dev",
+                "eth0",
+                "metric",
+                "100",
             ]
         );
     }
