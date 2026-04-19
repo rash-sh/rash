@@ -370,7 +370,6 @@ fn test_docker_container_already_stopped() {
             container_name
         );
     }
-
     let stop_script = format!(
         r#"
 #!/usr/bin/env rash
