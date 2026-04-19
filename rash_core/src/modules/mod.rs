@@ -87,6 +87,7 @@ mod mysql_db;
 mod mysql_user;
 mod netplan;
 mod nftables;
+mod nginx;
 mod nmcli;
 mod npm;
 mod openrc;
@@ -239,6 +240,7 @@ use crate::modules::mysql_db::MysqlDb;
 use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
+use crate::modules::nginx::Nginx;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
 use crate::modules::openrc::OpenRc;
@@ -529,6 +531,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
+        (Nginx.get_name(), Box::new(Nginx) as Box<dyn Module>),
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
