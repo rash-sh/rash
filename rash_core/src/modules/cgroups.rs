@@ -176,11 +176,6 @@ fn read_cgroup_file(path: &Path) -> Result<String> {
     })
 }
 
-#[allow(dead_code)]
-fn cgroup_exists_v2(base_path: &str, name: &str) -> bool {
-    get_cgroup_path_v2(base_path, name).exists()
-}
-
 fn cgroup_exists_v1(base_path: &str, name: &str) -> bool {
     get_cgroup_path_v1(base_path, name, "cpu").exists()
 }
@@ -314,7 +309,7 @@ fn read_current_v1(base_path: &str, name: &str) -> serde_norway::Mapping {
     mapping
 }
 
-fn apply_v2_resource(
+fn apply_cgroup_resource(
     cgroup_path: &Path,
     file_name: &str,
     new_val: &str,
@@ -326,9 +321,9 @@ fn apply_v2_resource(
     if path.exists()
         && let Ok(current) = read_cgroup_file(&path)
     {
-        let current_trimmed = current.trim().to_string();
+        let current_trimmed = current.trim();
         if current_trimmed != new_val {
-            diff(&current_trimmed, new_val);
+            diff(current_trimmed, new_val);
             if !check_mode {
                 write_cgroup_file(&path, new_val)?;
             }
@@ -368,7 +363,7 @@ fn apply_v2(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
                     } else {
                         format!("{quota} 100000")
                     };
-                    if apply_v2_resource(
+                    if apply_cgroup_resource(
                         &cgroup_path,
                         "cpu.max",
                         &new_val,
@@ -381,7 +376,7 @@ fn apply_v2(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
                 }
 
                 if let Some(ref mem) = params.memory_limit
-                    && apply_v2_resource(
+                    && apply_cgroup_resource(
                         &cgroup_path,
                         "memory.max",
                         mem,
@@ -400,7 +395,7 @@ fn apply_v2(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
                             format!("io_weight must be between 10 and 1000, got {weight}"),
                         ));
                     }
-                    if apply_v2_resource(
+                    if apply_cgroup_resource(
                         &cgroup_path,
                         "io.bfq.weight",
                         &weight.to_string(),
@@ -413,7 +408,7 @@ fn apply_v2(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
                 }
 
                 if let Some(pids) = params.pids_limit
-                    && apply_v2_resource(
+                    && apply_cgroup_resource(
                         &cgroup_path,
                         "pids.max",
                         &pids.to_string(),
@@ -580,31 +575,6 @@ fn apply_v2(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
     }
 }
 
-fn apply_v1_resource(
-    cgroup_path: &Path,
-    file_name: &str,
-    new_val: &str,
-    label: &str,
-    check_mode: bool,
-    changes: &mut Vec<String>,
-) -> Result<bool> {
-    let path = cgroup_path.join(file_name);
-    if path.exists()
-        && let Ok(current) = read_cgroup_file(&path)
-    {
-        let current_val = current.trim();
-        if current_val != new_val {
-            diff(current_val, new_val);
-            if !check_mode {
-                write_cgroup_file(&path, new_val)?;
-            }
-            changes.push(label.to_string());
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
 fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<ModuleResult> {
     let state = params.state.clone().unwrap_or_default();
     let controllers = get_v1_controllers(params);
@@ -635,7 +605,7 @@ fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
 
                 if *controller == "cpu"
                     && let Some(quota) = params.cpu_quota
-                    && apply_v1_resource(
+                    && apply_cgroup_resource(
                         &cgroup_path,
                         "cpu.cfs_quota_us",
                         &quota.to_string(),
@@ -649,7 +619,7 @@ fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
 
                 if *controller == "memory"
                     && let Some(ref mem) = params.memory_limit
-                    && apply_v1_resource(
+                    && apply_cgroup_resource(
                         &cgroup_path,
                         "memory.limit_in_bytes",
                         mem,
@@ -670,7 +640,7 @@ fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
                             format!("io_weight must be between 10 and 1000, got {weight}"),
                         ));
                     }
-                    if apply_v1_resource(
+                    if apply_cgroup_resource(
                         &cgroup_path,
                         "blkio.weight",
                         &weight.to_string(),
@@ -684,7 +654,7 @@ fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
 
                 if *controller == "pids"
                     && let Some(pids) = params.pids_limit
-                    && apply_v1_resource(
+                    && apply_cgroup_resource(
                         &cgroup_path,
                         "pids.max",
                         &pids.to_string(),
@@ -751,43 +721,50 @@ fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
                 )
             })?;
 
-            let cpu_path = get_cgroup_path_v1(base_path, &params.name, "cpu");
-            if !cpu_path.exists() {
+            let first_controller = controllers.first().ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    "no controllers available for cgroup operation",
+                )
+            })?;
+            let first_path = get_cgroup_path_v1(base_path, &params.name, first_controller);
+            if !first_path.exists() {
                 return Err(Error::new(
                     ErrorKind::NotFound,
                     format!("cgroup '{}' does not exist", params.name),
                 ));
             }
 
+            let existing_tasks = {
+                let tasks_path = first_path.join("tasks");
+                if tasks_path.exists() {
+                    read_cgroup_file(&tasks_path)
+                        .unwrap_or_default()
+                        .trim()
+                        .lines()
+                        .map(|l| l.to_string())
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                }
+            };
+
             let mut changed = false;
             let mut attached = Vec::new();
 
             for pid in tasks {
                 let pid_str = pid.to_string();
-                let mut already_attached = false;
-
-                for controller in &controllers {
-                    let cgroup_path = get_cgroup_path_v1(base_path, &params.name, controller);
-                    let tasks_path = cgroup_path.join("tasks");
-                    if tasks_path.exists()
-                        && let Ok(existing) = read_cgroup_file(&tasks_path)
-                        && existing.trim().lines().any(|l| l == pid_str)
-                    {
-                        already_attached = true;
-                    }
+                if existing_tasks.contains(&pid_str) {
+                    continue;
                 }
-
-                if !already_attached {
-                    changed = true;
-                    attached.push(*pid);
-                    if !check_mode {
-                        for controller in &controllers {
-                            let cgroup_path =
-                                get_cgroup_path_v1(base_path, &params.name, controller);
-                            let tasks_path = cgroup_path.join("tasks");
-                            if tasks_path.exists() {
-                                write_cgroup_file(&tasks_path, &pid_str)?;
-                            }
+                changed = true;
+                attached.push(*pid);
+                if !check_mode {
+                    for controller in &controllers {
+                        let cgroup_path = get_cgroup_path_v1(base_path, &params.name, controller);
+                        let tasks_path = cgroup_path.join("tasks");
+                        if tasks_path.exists() {
+                            write_cgroup_file(&tasks_path, &pid_str)?;
                         }
                     }
                 }
@@ -809,15 +786,21 @@ fn apply_v1(params: &Params, base_path: &str, check_mode: bool) -> Result<Module
             Ok(ModuleResult::new(changed, None, output))
         }
         State::Detached => {
-            let cpu_path = get_cgroup_path_v1(base_path, &params.name, "cpu");
-            if !cpu_path.exists() {
+            let first_controller = controllers.first().ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    "no controllers available for cgroup operation",
+                )
+            })?;
+            let first_path = get_cgroup_path_v1(base_path, &params.name, first_controller);
+            if !first_path.exists() {
                 return Err(Error::new(
                     ErrorKind::NotFound,
                     format!("cgroup '{}' does not exist", params.name),
                 ));
             }
 
-            let tasks_path = cpu_path.join("tasks");
+            let tasks_path = first_path.join("tasks");
             let tasks_content = if tasks_path.exists() {
                 read_cgroup_file(&tasks_path).unwrap_or_default()
             } else {
