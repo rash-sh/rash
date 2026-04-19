@@ -50,7 +50,7 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::{Value as YamlValue, value};
-use sha1::{Digest as Sha1Digest, Sha1};
+use sha1::Sha1;
 use sha2::{Digest as Sha2Digest, Sha256};
 #[cfg(feature = "docs")]
 use strum_macros::{Display, EnumString};
@@ -117,19 +117,24 @@ fn calculate_checksum(path: &Path, algorithm: &ChecksumAlgorithm) -> Result<Stri
 
     match algorithm {
         ChecksumAlgorithm::Md5 => {
+            use md5::Digest;
             let mut hasher = Md5::new();
-            Sha2Digest::update(&mut hasher, &contents);
-            Ok(hex::encode(Sha2Digest::finalize(hasher)))
+            hasher.update(&contents);
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         ChecksumAlgorithm::Sha1 => {
+            use sha1::Digest;
             let mut hasher = Sha1::new();
-            Sha1Digest::update(&mut hasher, &contents);
-            Ok(hex::encode(Sha1Digest::finalize(hasher).as_slice()))
+            hasher.update(&contents);
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
         ChecksumAlgorithm::Sha256 => {
             let mut hasher = Sha256::new();
             Sha2Digest::update(&mut hasher, &contents);
-            Ok(hex::encode(Sha2Digest::finalize(hasher)))
+            let hash = hasher.finalize();
+            Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
         }
     }
 }

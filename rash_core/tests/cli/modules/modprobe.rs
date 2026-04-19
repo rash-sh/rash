@@ -3,8 +3,18 @@ use std::path::Path;
 use std::process::Command;
 
 fn can_run_modprobe_tests() -> bool {
-    Path::new("/proc/modules").exists()
-        && Command::new("modprobe").arg("--version").output().is_ok()
+    if !Path::new("/proc/modules").exists() {
+        return false;
+    }
+    if Command::new("modprobe").arg("--version").output().is_err() {
+        return false;
+    }
+    let output = Command::new("modprobe").args(["-n", "dummy"]).output();
+    let modprobe_available = match output {
+        Ok(o) => o.status.success(),
+        Err(_) => false,
+    };
+    modprobe_available && unsafe { libc::getuid() } == 0
 }
 
 #[test]
