@@ -184,21 +184,17 @@ fn check_restic_available() -> Result<()> {
 
 fn validate_params(params: &Params) -> Result<()> {
     match params.state {
-        State::Backup => {
-            if params.path.as_ref().is_none_or(|p| p.is_empty()) {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "state 'backup' requires 'path' parameter",
-                ));
-            }
+        State::Backup if params.path.as_ref().is_none_or(|p| p.is_empty()) => {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "state 'backup' requires 'path' parameter",
+            ));
         }
-        State::Restore => {
-            if params.restore_path.is_none() {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "state 'restore' requires 'restore_path' parameter",
-                ));
-            }
+        State::Restore if params.restore_path.is_none() => {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "state 'restore' requires 'restore_path' parameter",
+            ));
         }
         _ => {}
     }
