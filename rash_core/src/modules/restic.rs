@@ -185,7 +185,7 @@ fn check_restic_available() -> Result<()> {
 fn validate_params(params: &Params) -> Result<()> {
     match params.state {
         State::Backup => {
-            if params.path.is_none() || params.path.as_ref().is_none_or(|p| p.is_empty()) {
+            if params.path.as_ref().is_none_or(|p| p.is_empty()) {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
                     "state 'backup' requires 'path' parameter",
@@ -463,6 +463,26 @@ impl Module for Restic {
 mod tests {
     use super::*;
 
+    fn test_params() -> Params {
+        Params {
+            repository: "/mnt/backup".to_string(),
+            password: "secret123".to_string(),
+            state: State::Init,
+            path: None,
+            restore_path: None,
+            tag: None,
+            keep_daily: None,
+            keep_weekly: None,
+            keep_monthly: None,
+            keep_yearly: None,
+            keep_last: None,
+            exclude: None,
+            include: None,
+            restic_opts: None,
+            environment: None,
+        }
+    }
+
     #[test]
     fn test_parse_params_init() {
         let yaml: YamlValue = serde_norway::from_str(
@@ -629,21 +649,8 @@ mod tests {
     #[test]
     fn test_validate_params_backup_without_path() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let result = validate_params(&params);
         assert!(result.is_err());
@@ -653,21 +660,9 @@ mod tests {
     #[test]
     fn test_validate_params_backup_with_empty_path() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
             path: Some(vec![]),
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let result = validate_params(&params);
         assert!(result.is_err());
@@ -677,21 +672,8 @@ mod tests {
     #[test]
     fn test_validate_params_restore_without_restore_path() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Restore,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let result = validate_params(&params);
         assert!(result.is_err());
@@ -701,21 +683,8 @@ mod tests {
     #[test]
     fn test_validate_params_forget_without_retention() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Forget,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let result = validate_params(&params);
         assert!(result.is_err());
@@ -724,89 +693,33 @@ mod tests {
 
     #[test]
     fn test_validate_params_init_valid() {
-        let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
-            state: State::Init,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
-        };
-        assert!(validate_params(&params).is_ok());
+        assert!(validate_params(&test_params()).is_ok());
     }
 
     #[test]
     fn test_validate_params_backup_valid() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
             path: Some(vec!["/etc".to_string(), "/home".to_string()]),
-            restore_path: None,
             tag: Some(vec!["daily".to_string()]),
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         assert!(validate_params(&params).is_ok());
     }
 
     #[test]
     fn test_build_restic_args_init() {
-        let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
-            state: State::Init,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
-        };
-        let args = build_restic_args(&params, false);
+        let args = build_restic_args(&test_params(), false);
         assert_eq!(args, vec!["init"]);
     }
 
     #[test]
     fn test_build_restic_args_backup_with_tags() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
             path: Some(vec!["/etc".to_string(), "/home".to_string()]),
-            restore_path: None,
             tag: Some(vec!["daily".to_string(), "important".to_string()]),
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert_eq!(
@@ -826,21 +739,9 @@ mod tests {
     #[test]
     fn test_build_restic_args_backup_check_mode() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
             path: Some(vec!["/data".to_string()]),
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, true);
         assert!(args.contains(&"--dry-run".to_string()));
@@ -849,21 +750,10 @@ mod tests {
     #[test]
     fn test_build_restic_args_restore() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Restore,
-            path: None,
             restore_path: Some("/tmp/restore".to_string()),
             tag: Some(vec!["latest".to_string()]),
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert_eq!(args, vec!["restore", "latest", "--target", "/tmp/restore"]);
@@ -872,21 +762,9 @@ mod tests {
     #[test]
     fn test_build_restic_args_restore_default_latest() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Restore,
-            path: None,
             restore_path: Some("/tmp/restore".to_string()),
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert!(args.contains(&"latest".to_string()));
@@ -895,21 +773,11 @@ mod tests {
     #[test]
     fn test_build_restic_args_forget_with_retention() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Forget,
-            path: None,
-            restore_path: None,
-            tag: None,
             keep_daily: Some(7),
             keep_weekly: Some(4),
             keep_monthly: Some(6),
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert!(args.contains(&"--keep-daily".to_string()));
@@ -923,21 +791,8 @@ mod tests {
     #[test]
     fn test_build_restic_args_prune() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Prune,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert_eq!(args, vec!["prune"]);
@@ -946,21 +801,8 @@ mod tests {
     #[test]
     fn test_build_restic_args_check() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Check,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert_eq!(args, vec!["check"]);
@@ -969,21 +811,10 @@ mod tests {
     #[test]
     fn test_build_restic_args_with_excludes() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
             path: Some(vec!["/data".to_string()]),
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
             exclude: Some(vec!["*.tmp".to_string(), "*.cache".to_string()]),
-            include: None,
-            restic_opts: None,
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert!(args.contains(&"--exclude".to_string()));
@@ -994,21 +825,10 @@ mod tests {
     #[test]
     fn test_build_restic_args_with_restic_opts() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
             state: State::Backup,
             path: Some(vec!["/data".to_string()]),
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
             restic_opts: Some(vec!["--compression".to_string(), "max".to_string()]),
-            environment: None,
+            ..test_params()
         };
         let args = build_restic_args(&params, false);
         assert!(args.contains(&"--compression".to_string()));
@@ -1018,24 +838,11 @@ mod tests {
     #[test]
     fn test_build_restic_env() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
-            state: State::Init,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
             environment: Some(vec![
                 "AWS_ACCESS_KEY_ID=AKIAEXAMPLE".to_string(),
                 "AWS_SECRET_ACCESS_KEY=secret".to_string(),
             ]),
+            ..test_params()
         };
         let env = build_restic_env(&params);
         assert!(
@@ -1059,21 +866,8 @@ mod tests {
     #[test]
     fn test_build_restic_env_invalid_pair_skipped() {
         let params = Params {
-            repository: "/mnt/backup".to_string(),
-            password: "secret123".to_string(),
-            state: State::Init,
-            path: None,
-            restore_path: None,
-            tag: None,
-            keep_daily: None,
-            keep_weekly: None,
-            keep_monthly: None,
-            keep_yearly: None,
-            keep_last: None,
-            exclude: None,
-            include: None,
-            restic_opts: None,
             environment: Some(vec!["INVALID_NO_EQUALS".to_string()]),
+            ..test_params()
         };
         let env = build_restic_env(&params);
         assert!(!env.iter().any(|(k, _)| k == "INVALID_NO_EQUALS"));
