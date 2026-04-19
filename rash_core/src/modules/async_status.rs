@@ -326,4 +326,28 @@ mod tests {
         let params: PollParams = parse_params(yaml).unwrap();
         assert_eq!(params, PollParams { jid: 789, interval: Some(2) });
     }
+
+    #[test]
+    fn test_parse_params_jid_invalid_string() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: "not_a_number"
+            "#,
+        )
+        .unwrap();
+        let result: std::result::Result<Params, _> = parse_params(yaml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_params_jid_negative() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: -1
+            "#,
+        )
+        .unwrap();
+        let result: std::result::Result<Params, _> = parse_params(yaml);
+        assert!(result.is_err());
+    }
 }
