@@ -184,7 +184,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
         if j & 1 != 0 {
             ctx2.update(password.as_bytes());
         } else {
-            ctx2.update(&result);
+            ctx2.update(result);
         }
         if j % 3 != 0 {
             ctx2.update(salt.as_bytes());
@@ -193,7 +193,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
             ctx2.update(password.as_bytes());
         }
         if j & 1 != 0 {
-            ctx2.update(&result);
+            ctx2.update(result);
         } else {
             ctx2.update(password.as_bytes());
         }
@@ -313,10 +313,11 @@ pub fn htpasswd(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 diff(&original_content, &new_content);
 
                 if !check_mode {
-                    if let Some(parent) = path.parent() {
-                        if !parent.as_os_str().is_empty() && !parent.exists() {
-                            fs::create_dir_all(parent)?;
-                        }
+                    if let Some(parent) = path.parent()
+                        && !parent.as_os_str().is_empty()
+                        && !parent.exists()
+                    {
+                        fs::create_dir_all(parent)?;
                     }
                     let mut file = fs::File::create(path)?;
                     file.write_all(new_content.as_bytes())?;
@@ -500,10 +501,7 @@ mod tests {
     #[test]
     fn test_apr1_known_value() {
         let hash = hash_apr1("password", "xxxxxxxx");
-        assert_eq!(
-            hash,
-            "$apr1$xxxxxxxx$dxHfLAsjHkDRmG83UXe8K0"
-        );
+        assert_eq!(hash, "$apr1$xxxxxxxx$dxHfLAsjHkDRmG83UXe8K0");
     }
 
     #[test]
