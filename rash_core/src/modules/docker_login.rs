@@ -166,29 +166,8 @@ impl DockerClient {
 
         let output = self.exec_cmd(&["credential", "list"], false)?;
 
-        if !output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if stdout.contains(registry_arg) || stdout.contains("index.docker.io") {
-                return Ok(true);
-            }
-            return Ok(false);
-        }
-
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.contains(registry_arg) || stdout.contains("index.docker.io"))
-    }
-
-    fn check_config_auth(&self, registry: Option<&str>) -> Result<bool> {
-        let output = self.exec_cmd(
-            &["config", "list", "--format", "{{.CredentialsStore}}"],
-            false,
-        )?;
-
-        if !output.status.success() {
-            return self.is_logged_in(registry);
-        }
-
-        self.is_logged_in(registry)
+        Ok(stdout.contains(registry_arg))
     }
 
     fn login(&self, params: &Params) -> Result<bool> {
@@ -264,7 +243,7 @@ fn docker_login(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 Error::new(ErrorKind::InvalidData, "password is required for login")
             })?;
 
-            let is_logged_in = client.check_config_auth(params.registry.as_deref())?;
+            let is_logged_in = client.is_logged_in(params.registry.as_deref())?;
 
             if !is_logged_in || params.reauthorize {
                 if params.reauthorize && is_logged_in {
@@ -290,7 +269,7 @@ fn docker_login(params: Params, check_mode: bool) -> Result<ModuleResult> {
             }
         }
         State::Absent => {
-            let is_logged_in = client.check_config_auth(params.registry.as_deref())?;
+            let is_logged_in = client.is_logged_in(params.registry.as_deref())?;
 
             if is_logged_in {
                 diff(
@@ -306,23 +285,17 @@ fn docker_login(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     }
 
-    let extra: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
-
     let final_output = if output_messages.is_empty() {
         None
     } else {
         Some(output_messages.join("\n"))
     };
 
-    Ok(ModuleResult::new(
+    Ok(ModuleResult {
         changed,
-        if extra.is_empty() {
-            None
-        } else {
-            Some(serde_norway::value::to_value(extra)?)
-        },
-        final_output,
-    ))
+        output: final_output,
+        extra: None,
+    })
 }
 
 #[cfg(test)]
