@@ -1,0 +1,16 @@
+#!/usr/bin/env -S rash --
+#
+# Extract contents from ISO files.
+#
+# Usage:
+#   iso_extract.rh [options] <iso> <dest>
+#   iso_extract.rh
+#
+# Options:
+#   -h --help    show this help message and exit
+#   --force      overwrite existing files
+
+- iso_extract:
+    iso: "{{ iso | default('/tmp/image.iso') }}"
+    dest: "{{ dest | default('/mnt/extracted') }}"
+    force: "{{ options.force if options.force else omit }}"

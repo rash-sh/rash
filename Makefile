@@ -115,6 +115,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/docker_compose.rh' \
 		-not -path 'examples/dpkg_selections.rh' \
 		-not -path 'examples/incus.rh' \
+		-not -path 'examples/iso_extract.rh' \
 		-not -path 'examples/proxmox.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
