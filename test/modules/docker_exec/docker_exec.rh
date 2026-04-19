@@ -1,0 +1,33 @@
+#!/usr/bin/env rash
+- name: Test docker_exec check mode
+  docker_exec:
+    container: test_container
+    command: echo "hello"
+  check_mode: true
+  register: check_result
+
+- name: Verify check mode output
+  assert:
+    that:
+      - check_result.changed
+      - "'Would execute' in check_result.output"
+
+- name: Test docker_exec with all parameters (check mode)
+  docker_exec:
+    container: myapp
+    command: /scripts/update.sh
+    user: appuser
+    workdir: /app
+    env:
+      DEBUG: "true"
+      LOG_LEVEL: info
+    detach: true
+    tty: true
+    stdin: true
+  check_mode: true
+  register: full_params_result
+
+- name: Verify full params result
+  assert:
+    that:
+      - full_params_result.changed
