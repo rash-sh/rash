@@ -146,10 +146,7 @@ impl Module for Ethtool {
 
 fn validate_device(device: &str) -> Result<()> {
     if device.is_empty() {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "device cannot be empty",
-        ));
+        return Err(Error::new(ErrorKind::InvalidData, "device cannot be empty"));
     }
 
     if device.len() > 15 {
@@ -172,7 +169,9 @@ fn validate_device(device: &str) -> Result<()> {
 }
 
 fn validate_speed(speed: u32) -> Result<()> {
-    let valid_speeds = [10, 100, 1000, 2500, 5000, 10000, 25000, 40000, 50000, 100000];
+    let valid_speeds = [
+        10, 100, 1000, 2500, 5000, 10000, 25000, 40000, 50000, 100000,
+    ];
     if !valid_speeds.contains(&speed) {
         return Err(Error::new(
             ErrorKind::InvalidData,
@@ -343,11 +342,7 @@ fn apply_link_settings(
     Ok(true)
 }
 
-fn apply_offload(
-    device: &str,
-    offload: &Offload,
-    check_mode: bool,
-) -> Result<bool> {
+fn apply_offload(device: &str, offload: &Offload, check_mode: bool) -> Result<bool> {
     let mut changed = false;
 
     let features = [
@@ -611,10 +606,12 @@ mod tests {
         let params: Params = parse_params(yaml).unwrap();
         let result = ethtool_exec(params, true);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("duplex is required"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("duplex is required")
+        );
     }
 
     #[test]
@@ -629,9 +626,11 @@ mod tests {
         let params: Params = parse_params(yaml).unwrap();
         let result = ethtool_exec(params, true);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("speed is required"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("speed is required")
+        );
     }
 }
