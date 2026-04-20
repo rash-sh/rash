@@ -41,6 +41,7 @@ mod docker_prune;
 mod docker_volume;
 mod dpkg_selections;
 mod dynamic;
+mod ethtool;
 mod expect;
 mod fail;
 mod fail2ban;
@@ -215,6 +216,7 @@ use crate::modules::docker_volume::DockerVolume;
 use crate::modules::dpkg_selections::DpkgSelections;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
+use crate::modules::ethtool::Ethtool;
 use crate::modules::fail::Fail;
 use crate::modules::fail2ban::Fail2ban;
 use crate::modules::fetch::Fetch;
@@ -497,6 +499,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(DockerVolume) as Box<dyn Module>,
         ),
         (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
+        (Ethtool.get_name(), Box::new(Ethtool) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (Fail2ban.get_name(), Box::new(Fail2ban) as Box<dyn Module>),
         (Fetch.get_name(), Box::new(Fetch) as Box<dyn Module>),
