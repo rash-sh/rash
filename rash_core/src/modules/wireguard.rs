@@ -56,6 +56,7 @@
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
+use crate::logger::diff_files;
 use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
@@ -162,21 +163,37 @@ fn validate_interface_name(name: &str) -> Result<()> {
         ));
     }
 
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Interface name contains invalid characters",
+        ));
+    }
+
     Ok(())
 }
 
 fn run_wg(args: &[&str]) -> Result<std::process::Output> {
-    Command::new("wg")
+    trace!("exec - wg {:?}", args);
+    let output = Command::new("wg")
         .args(args)
         .output()
-        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
+        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    trace!("exec - output: {output:?}");
+    Ok(output)
 }
 
 fn run_wg_quick(args: &[&str]) -> Result<std::process::Output> {
-    Command::new("wg-quick")
+    trace!("exec - wg-quick {:?}", args);
+    let output = Command::new("wg-quick")
         .args(args)
         .output()
-        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
+        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    trace!("exec - output: {output:?}");
+    Ok(output)
 }
 
 fn is_interface_up(interface: &str) -> Result<bool> {
@@ -325,11 +342,16 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     if existing_config.as_ref() == Some(&config) {
         let status = get_interface_status(interface)?;
-        let extra = serde_norway::to_value(serde_json::json!({
+        let extra = Some(serde_norway::to_value(serde_json::json!({
             "status": status,
-        }))
-        .ok();
+        }))?);
         return Ok(ModuleResult::new(false, extra, None));
+    }
+
+    if let Some(ref existing) = existing_config {
+        diff_files(existing, &config);
+    } else {
+        diff_files("", &config);
     }
 
     if check_mode {
@@ -340,10 +362,9 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     write_config(interface, &config)?;
 
     let status = get_interface_status(interface)?;
-    let extra = serde_norway::to_value(serde_json::json!({
+    let extra = Some(serde_norway::to_value(serde_json::json!({
         "status": status,
-    }))
-    .ok();
+    }))?);
 
     Ok(ModuleResult::new(true, extra, None))
 }
@@ -414,10 +435,9 @@ fn exec_up(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     }
 
     let status = get_interface_status(interface)?;
-    let extra = serde_norway::to_value(serde_json::json!({
+    let extra = Some(serde_norway::to_value(serde_json::json!({
         "status": status,
-    }))
-    .ok();
+    }))?);
 
     Ok(ModuleResult::new(true, extra, None))
 }
@@ -458,6 +478,7 @@ fn exec_down(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 }
 
 fn wireguard(params: Params, check_mode: bool) -> Result<ModuleResult> {
+    trace!("params: {params:?}");
     validate_interface_name(&params.interface)?;
 
     match params.state {
@@ -659,9 +680,13 @@ mod tests {
         assert!(validate_interface_name("wg0").is_ok());
         assert!(validate_interface_name("wg1").is_ok());
         assert!(validate_interface_name("wgtest").is_ok());
+        assert!(validate_interface_name("wg_server").is_ok());
         assert!(validate_interface_name("").is_err());
         assert!(validate_interface_name("eth0").is_err());
         assert!(validate_interface_name("wg12345678901234").is_err());
+        assert!(validate_interface_name("wg/../../tmp").is_err());
+        assert!(validate_interface_name("wg0\x00evil").is_err());
+        assert!(validate_interface_name("wg space").is_err());
     }
 
     #[test]
