@@ -520,6 +520,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             InterfacesFile.get_name(),
             Box::new(InterfacesFile) as Box<dyn Module>,
         ),
+        (Ipaddr.get_name(), Box::new(Ipaddr) as Box<dyn Module>),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (Iscsi.get_name(), Box::new(Iscsi) as Box<dyn Module>),
         (
