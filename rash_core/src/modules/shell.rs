@@ -153,7 +153,7 @@ impl Module for Shell {
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
 
         if let Some(ref stdin_data) = params.stdin
-            && let Some(ref mut stdin_handle) = child.stdin
+            && let Some(mut stdin_handle) = child.stdin.take()
         {
             stdin_handle
                 .write_all(stdin_data.as_bytes())
@@ -448,6 +448,22 @@ mod tests {
 
         assert!(result.get_changed());
         assert!(outfile.exists());
+    }
+
+    #[test]
+    fn test_shell_execution_failure() {
+        let shell = Shell;
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            cmd: "false"
+            "#,
+        )
+        .unwrap();
+
+        let result = shell.exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
     }
 
     #[test]
