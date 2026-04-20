@@ -1,0 +1,62 @@
+#!/usr/bin/env rash
+#
+# Example: grafana module usage
+#
+
+- name: Add a Prometheus datasource
+  grafana:
+    action: add
+    url: http://grafana:3000
+    api_key: "{{ grafana_api_key }}"
+    datasource:
+      name: Prometheus
+      type: prometheus
+      url: http://prometheus:9090
+
+- name: Get datasource info
+  grafana:
+    action: get
+    url: http://grafana:3000
+    api_key: "{{ grafana_api_key }}"
+    datasource:
+      name: Prometheus
+  register: ds_info
+
+- name: Add a dashboard
+  grafana:
+    action: add
+    url: http://grafana:3000
+    api_key: "{{ grafana_api_key }}"
+    dashboard:
+      title: My Dashboard
+      uid: my-dashboard
+      panels:
+        - title: CPU Usage
+          type: graph
+          datasource: Prometheus
+
+- name: Create a folder
+  grafana:
+    action: add
+    url: http://grafana:3000
+    api_key: "{{ grafana_api_key }}"
+    folder:
+      title: Monitoring
+      uid: monitoring
+
+- name: Create an organization
+  grafana:
+    action: add
+    url: http://grafana:3000
+    username: admin
+    password: admin
+    org:
+      name: Engineering
+
+- name: Remove a dashboard
+  grafana:
+    action: remove
+    url: http://grafana:3000
+    api_key: "{{ grafana_api_key }}"
+    dashboard:
+      uid: my-dashboard
