@@ -372,26 +372,21 @@ fn create_collection(params: &Params, check_mode: bool) -> Result<ModuleResult> 
         || params.validation_action.is_some();
 
     if has_validator {
-        let mut validation = serde_json::Map::new();
         if let Some(ref v) = params.validator {
-            validation.insert("validator".to_string(), hashmap_to_json_value(v));
+            options_json.insert("validator".to_string(), hashmap_to_json_value(v));
         }
         if let Some(ref level) = params.validation_level {
-            validation.insert(
+            options_json.insert(
                 "validationLevel".to_string(),
                 serde_json::Value::String(level.to_string()),
             );
         }
         if let Some(ref action) = params.validation_action {
-            validation.insert(
+            options_json.insert(
                 "validationAction".to_string(),
                 serde_json::Value::String(action.to_string()),
             );
         }
-        options_json.insert(
-            "validator".to_string(),
-            serde_json::Value::Object(validation),
-        );
     }
 
     let command = if options_json.is_empty() {
@@ -978,5 +973,66 @@ mod tests {
         assert_eq!(index.key.len(), 2);
         assert!(index.key.contains_key("email"));
         assert!(index.key.contains_key("username"));
+    }
+
+    #[test]
+    fn test_build_mongo_uri_with_user_no_password() {
+        let params = Params {
+            name: "users".to_string(),
+            database: "myapp".to_string(),
+            state: State::Present,
+            indexes: None,
+            validator: None,
+            validation_level: None,
+            validation_action: None,
+            collation: None,
+            replica_set: None,
+            login_host: "localhost".to_string(),
+            login_user: Some("admin".to_string()),
+            login_password: None,
+            login_port: 27017,
+            connection_options: None,
+            auth_database: "admin".to_string(),
+        };
+        let uri = build_mongo_uri(&params);
+        assert_eq!(uri, "mongodb://admin@localhost:27017/admin");
+    }
+
+    #[test]
+    fn test_build_mongo_uri_with_replica_set_and_options() {
+        let params = Params {
+            name: "users".to_string(),
+            database: "myapp".to_string(),
+            state: State::Present,
+            indexes: None,
+            validator: None,
+            validation_level: None,
+            validation_action: None,
+            collation: None,
+            replica_set: Some("rs0".to_string()),
+            login_host: "localhost".to_string(),
+            login_user: None,
+            login_password: None,
+            login_port: 27017,
+            connection_options: Some("readPreference=secondary".to_string()),
+            auth_database: "admin".to_string(),
+        };
+        let uri = build_mongo_uri(&params);
+        assert_eq!(
+            uri,
+            "mongodb://localhost:27017/admin?replicaSet=rs0&readPreference=secondary"
+        );
+    }
+
+    #[test]
+    fn test_hashmap_to_json_value_conversion() {
+        let mut map = HashMap::new();
+        map.insert("locale".to_string(), serde_json::json!("en"));
+        map.insert("strength".to_string(), serde_json::json!(2));
+        let json_val = hashmap_to_json_value(&map);
+        assert!(json_val.is_object());
+        let obj = json_val.as_object().unwrap();
+        assert_eq!(obj.get("locale").unwrap(), &serde_json::json!("en"));
+        assert_eq!(obj.get("strength").unwrap(), &serde_json::json!(2));
     }
 }
