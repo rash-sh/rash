@@ -483,7 +483,7 @@ mod tests {
         let extra = result.get_extra().unwrap();
         let extra_map = extra.as_mapping().unwrap();
         assert_eq!(
-            extra_map.get(&serde_norway::Value::String("rc".to_string())),
+            extra_map.get(serde_norway::Value::String("rc".to_string())),
             Some(&serde_norway::Value::Number(0.into()))
         );
     }
