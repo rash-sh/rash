@@ -201,6 +201,52 @@ fn cancel_scheduled_poweroff(check_mode: bool) -> Result<ModuleResult> {
     ))
 }
 
+fn run_cmd(cmd: &mut Command) -> Result<()> {
+    let program = cmd.get_program().to_string_lossy().to_string();
+    let status = cmd
+        .status()
+        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    if !status.success() {
+        return Err(Error::new(
+            ErrorKind::SubprocessFail,
+            format!(
+                "{} failed with exit code {}",
+                program,
+                status
+                    .code()
+                    .map_or("unknown".to_string(), |c| c.to_string())
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn execute_systemctl_action(
+    action: &str,
+    msg: &Option<String>,
+    delay: u64,
+    force: bool,
+) -> Result<()> {
+    let msg_arg = msg
+        .as_ref()
+        .map(|m| format!("'{}'", m))
+        .unwrap_or_else(|| "'System powering off'".to_string());
+
+    if delay > 0 {
+        let delay_str = format!("--when=+{}", delay / 60 + 1);
+        run_cmd(
+            Command::new("systemctl")
+                .args([action, &delay_str])
+                .arg("--message")
+                .arg(&msg_arg),
+        )
+    } else if force {
+        run_cmd(Command::new("systemctl").args([action, "--force"]))
+    } else {
+        run_cmd(Command::new("systemctl").arg(action))
+    }
+}
+
 fn execute_poweroff(
     state: &PowerState,
     msg: &Option<String>,
@@ -215,144 +261,67 @@ fn execute_poweroff(
     match state {
         PowerState::Poweroff => {
             if has_systemctl() {
-                if delay > 0 {
-                    let delay_str = format!("--when=+{}", delay / 60 + 1);
-                    Command::new("systemctl")
-                        .args(["poweroff", &delay_str])
-                        .arg("--message")
-                        .arg(&msg_arg)
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                } else if force {
-                    Command::new("systemctl")
-                        .args(["poweroff", "--force"])
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                } else {
-                    Command::new("systemctl")
-                        .arg("poweroff")
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                }
+                execute_systemctl_action("poweroff", msg, delay, force)
             } else if force {
-                Command::new("poweroff")
-                    .arg("-f")
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(Command::new("poweroff").arg("-f"))
             } else if delay > 0 {
                 let time_arg = format!("+{}", delay.div_ceil(60));
-                Command::new("shutdown")
-                    .arg("-h")
-                    .arg(&time_arg)
-                    .arg(&msg_arg)
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(
+                    Command::new("shutdown")
+                        .arg("-h")
+                        .arg(&time_arg)
+                        .arg(&msg_arg),
+                )
             } else {
-                Command::new("shutdown")
-                    .args(["-h", "now"])
-                    .arg(&msg_arg)
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(Command::new("shutdown").args(["-h", "now"]).arg(&msg_arg))
             }
         }
         PowerState::Shutdown => {
             if delay > 0 {
                 let time_arg = format!("+{}", delay.div_ceil(60));
-                Command::new("shutdown")
-                    .arg("-h")
-                    .arg(&time_arg)
-                    .arg(&msg_arg)
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(
+                    Command::new("shutdown")
+                        .arg("-h")
+                        .arg(&time_arg)
+                        .arg(&msg_arg),
+                )
             } else if force {
-                Command::new("shutdown")
-                    .args(["-h", "now"])
-                    .arg(&msg_arg)
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(
+                    Command::new("shutdown")
+                        .args(["-f", "-h", "now"])
+                        .arg(&msg_arg),
+                )
             } else {
-                Command::new("shutdown")
-                    .args(["-h", "now"])
-                    .arg(&msg_arg)
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(Command::new("shutdown").args(["-h", "now"]).arg(&msg_arg))
             }
         }
         PowerState::Halt => {
             if has_systemctl() {
-                if delay > 0 {
-                    let delay_str = format!("--when=+{}", delay / 60 + 1);
-                    Command::new("systemctl")
-                        .args(["halt", &delay_str])
-                        .arg("--message")
-                        .arg(&msg_arg)
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                } else if force {
-                    Command::new("systemctl")
-                        .args(["halt", "--force"])
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                } else {
-                    Command::new("systemctl")
-                        .arg("halt")
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                }
+                execute_systemctl_action("halt", msg, delay, force)
             } else if force {
-                Command::new("halt")
-                    .arg("-f")
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(Command::new("halt").arg("-f"))
             } else {
-                Command::new("halt")
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(&mut Command::new("halt"))
             }
         }
         PowerState::Reboot => {
             if has_systemctl() {
-                if delay > 0 {
-                    let delay_str = format!("--when=+{}", delay / 60 + 1);
-                    Command::new("systemctl")
-                        .args(["reboot", &delay_str])
-                        .arg("--message")
-                        .arg(&msg_arg)
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                } else if force {
-                    Command::new("systemctl")
-                        .args(["reboot", "--force"])
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                } else {
-                    Command::new("systemctl")
-                        .arg("reboot")
-                        .status()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                }
+                execute_systemctl_action("reboot", msg, delay, force)
             } else if force {
-                Command::new("reboot")
-                    .arg("-f")
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(Command::new("reboot").arg("-f"))
             } else if delay > 0 {
                 let time_arg = format!("+{}", delay.div_ceil(60));
-                Command::new("shutdown")
-                    .arg("-r")
-                    .arg(&time_arg)
-                    .arg(&msg_arg)
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(
+                    Command::new("shutdown")
+                        .arg("-r")
+                        .arg(&time_arg)
+                        .arg(&msg_arg),
+                )
             } else {
-                Command::new("reboot")
-                    .status()
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                run_cmd(&mut Command::new("reboot"))
             }
         }
     }
-
-    Ok(())
 }
 
 fn poweroff(params: Params, check_mode: bool) -> Result<ModuleResult> {
