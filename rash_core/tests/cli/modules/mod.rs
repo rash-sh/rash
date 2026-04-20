@@ -75,7 +75,7 @@ pub fn docker_test_lock() -> MutexGuard<'static, ()> {
     DOCKER_TEST_LOCK
         .get_or_init(|| Mutex::new(()))
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 pub fn run_tests(

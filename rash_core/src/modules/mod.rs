@@ -104,6 +104,7 @@ mod pause;
 mod pids;
 mod ping;
 mod pip;
+mod podman;
 mod postgresql_db;
 mod postgresql_user;
 mod proxmox;
@@ -260,6 +261,7 @@ use crate::modules::pause::Pause;
 use crate::modules::pids::Pids;
 use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
+use crate::modules::podman::Podman;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::proxmox::Proxmox;
@@ -368,6 +370,7 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 
 pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock::new(|| {
     vec![
+        (Acl.get_name(), Box::new(Acl) as Box<dyn Module>),
         (
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
@@ -561,6 +564,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
         (Pids.get_name(), Box::new(Pids) as Box<dyn Module>),
+        (Podman.get_name(), Box::new(Podman) as Box<dyn Module>),
         (
             PostgresqlDb.get_name(),
             Box::new(PostgresqlDb) as Box<dyn Module>,
