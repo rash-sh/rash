@@ -94,7 +94,7 @@ pub struct Params {
 fn build_patch_command(params: &Params, dry_run_force: bool) -> Result<Command> {
     let mut cmd = Command::new("patch");
 
-    if dry_run_force || params.dry_run.unwrap_or(false) {
+    if dry_run_force {
         cmd.arg("--dry-run");
     }
 
@@ -130,8 +130,21 @@ fn build_patch_command(params: &Params, dry_run_force: bool) -> Result<Command> 
     Ok(cmd)
 }
 
+fn resolve_effective_path(path: &str, basedir: Option<&str>) -> std::path::PathBuf {
+    let p = Path::new(path);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else if let Some(basedir) = basedir {
+        Path::new(basedir).join(p)
+    } else {
+        p.to_path_buf()
+    }
+}
+
 fn run_patch(params: &Params, check_mode: bool) -> Result<(bool, String)> {
-    let src_path = Path::new(&params.src);
+    let basedir = params.basedir.as_deref();
+
+    let src_path = resolve_effective_path(&params.src, basedir);
     if !src_path.exists() {
         return Err(Error::new(
             ErrorKind::NotFound,
@@ -139,7 +152,7 @@ fn run_patch(params: &Params, check_mode: bool) -> Result<(bool, String)> {
         ));
     }
 
-    let dest_path = Path::new(&params.dest);
+    let dest_path = resolve_effective_path(&params.dest, basedir);
     if !dest_path.exists() {
         return Err(Error::new(
             ErrorKind::NotFound,
