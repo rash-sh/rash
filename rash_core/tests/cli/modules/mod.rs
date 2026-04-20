@@ -32,6 +32,7 @@ mod ipaddr;
 mod kernel_blacklist;
 mod kubectl;
 mod logrotate;
+mod luks;
 mod modprobe;
 mod netplan;
 mod npm;

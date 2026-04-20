@@ -81,6 +81,7 @@ mod libvirt;
 mod lineinfile;
 mod locale;
 mod logrotate;
+mod luks;
 mod lvg;
 mod lvol;
 mod lxd_container;
@@ -253,6 +254,7 @@ use crate::modules::libvirt::Libvirt;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
+use crate::modules::luks::Luks;
 use crate::modules::lvg::Lvg;
 use crate::modules::lvol::Lvol;
 use crate::modules::lxd_container::LxdContainer;
@@ -560,6 +562,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Lbu.get_name(), Box::new(Lbu) as Box<dyn Module>),
         (Locale.get_name(), Box::new(Locale) as Box<dyn Module>),
         (Logrotate.get_name(), Box::new(Logrotate) as Box<dyn Module>),
+        (Luks.get_name(), Box::new(Luks) as Box<dyn Module>),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
         (Lvol.get_name(), Box::new(Lvol) as Box<dyn Module>),
         (
