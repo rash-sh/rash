@@ -72,6 +72,7 @@ mod kernel_blacklist;
 mod known_hosts;
 mod kubectl;
 mod lbu;
+mod ldap_entry;
 mod lineinfile;
 mod locale;
 mod logrotate;
@@ -233,6 +234,7 @@ use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
 use crate::modules::kubectl::Kubectl;
 use crate::modules::lbu::Lbu;
+use crate::modules::ldap_entry::LdapEntry;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
@@ -520,6 +522,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(KernelBlacklist) as Box<dyn Module>,
         ),
         (Kubectl.get_name(), Box::new(Kubectl) as Box<dyn Module>),
+        (LdapEntry.get_name(), Box::new(LdapEntry) as Box<dyn Module>),
         (
             KnownHosts.get_name(),
             Box::new(KnownHosts) as Box<dyn Module>,
