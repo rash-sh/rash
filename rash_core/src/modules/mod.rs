@@ -86,6 +86,7 @@ mod modprobe;
 mod mongodb_db;
 mod mongodb_user;
 mod mount;
+mod mqtt;
 mod mysql_db;
 mod mysql_query;
 mod mysql_user;
@@ -251,6 +252,7 @@ use crate::modules::modprobe::Modprobe;
 use crate::modules::mongodb_db::MongodbDb;
 use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
+use crate::modules::mqtt::Mqtt;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::mysql_query::MysqlQuery;
 use crate::modules::mysql_user::MysqlUser;
@@ -555,6 +557,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             MongodbUser.get_name(),
             Box::new(MongodbUser) as Box<dyn Module>,
         ),
+        (Mqtt.get_name(), Box::new(Mqtt) as Box<dyn Module>),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (
