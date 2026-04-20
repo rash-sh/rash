@@ -131,6 +131,7 @@ mod synchronize;
 mod sysctl;
 mod syslog;
 mod systemd;
+mod tailscale;
 mod tempfile;
 mod template;
 mod timezone;
@@ -286,6 +287,7 @@ use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
 use crate::modules::syslog::Syslog;
 use crate::modules::systemd::Systemd;
+use crate::modules::tailscale::Tailscale;
 use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
 use crate::modules::timezone::Timezone;
@@ -603,6 +605,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
         (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
+        (Tailscale.get_name(), Box::new(Tailscale) as Box<dyn Module>),
         (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
