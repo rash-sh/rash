@@ -213,6 +213,7 @@ use crate::modules::fail2ban::Fail2ban;
 use crate::modules::fetch::Fetch;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
+use crate::modules::find::Find;
 use crate::modules::firewalld::Firewalld;
 use crate::modules::flatpak::Flatpak;
 use crate::modules::gem::Gem;
@@ -490,6 +491,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Filesystem.get_name(),
             Box::new(Filesystem) as Box<dyn Module>,
         ),
+        (Find.get_name(), Box::new(Find) as Box<dyn Module>),
         (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
         (Flatpak.get_name(), Box::new(Flatpak) as Box<dyn Module>),
         (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
