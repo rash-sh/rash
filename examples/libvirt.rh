@@ -1,0 +1,115 @@
+#!/usr/bin/env rash
+#
+# libvirt module example
+#
+# This example demonstrates the libvirt module for Libvirt VM management.
+# It shows how to define, start, stop, pause, restart, and remove VMs.
+#
+# Requirements:
+# - libvirt and virsh installed
+# - Appropriate permissions to manage VMs
+#
+# Usage:
+#   rash libvirt.rh
+
+- name: Define and start a VM
+  libvirt:
+    name: webserver
+    state: running
+    memory: 2048
+    vcpu: 2
+    disk:
+      path: /var/lib/libvirt/images/webserver.qcow2
+      size: 20G
+      format: qcow2
+      bus: virtio
+    network:
+      network_type: bridge
+      source: virbr0
+      model: virtio
+  register: vm_result
+
+- name: Show VM result
+  debug:
+    msg: "VM result: {{ vm_result }}"
+
+- name: Define VM with custom XML
+  libvirt:
+    name: customvm
+    state: present
+    xml: |
+      <domain type='kvm'>
+        <name>customvm</name>
+        <memory unit='MiB'>4096</memory>
+        <vcpu>4</vcpu>
+        <os>
+          <type arch='x86_64'>hvm</type>
+        </os>
+        <devices>
+          <disk type='file' device='disk'>
+            <driver name='qemu' type='qcow2'/>
+            <source file='/var/lib/libvirt/images/customvm.qcow2'/>
+            <target dev='vda' bus='virtio'/>
+          </disk>
+          <interface type='network'>
+            <source network='default'/>
+            <model type='virtio'/>
+          </interface>
+          <graphics type='vnc' port='-1' autoport='yes'/>
+        </devices>
+      </domain>
+
+- name: Start the VM
+  libvirt:
+    name: webserver
+    state: running
+
+- name: Enable autostart
+  libvirt:
+    name: webserver
+    autostart: true
+
+- name: Pause the VM
+  libvirt:
+    name: webserver
+    state: paused
+
+- name: Resume (start) the paused VM
+  libvirt:
+    name: webserver
+    state: running
+
+- name: Gracefully stop the VM
+  libvirt:
+    name: webserver
+    state: stopped
+
+- name: Force stop the VM
+  libvirt:
+    name: webserver
+    state: stopped
+    force: true
+
+- name: Restart the VM
+  libvirt:
+    name: webserver
+    state: restarted
+
+- name: Connect to remote libvirt
+  libvirt:
+    name: remotevm
+    state: running
+    uri: qemu+ssh://root@192.168.1.10/system
+    memory: 4096
+    vcpu: 4
+
+- name: Undefine VM keeping storage
+  libvirt:
+    name: webserver
+    state: undefined
+
+- name: Undefine VM removing storage
+  libvirt:
+    name: customvm
+    state: undefined
+    remove_storage: true

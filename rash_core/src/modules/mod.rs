@@ -77,6 +77,7 @@ mod known_hosts;
 mod kubectl;
 mod kubernetes;
 mod lbu;
+mod libvirt;
 mod lineinfile;
 mod locale;
 mod logrotate;
@@ -248,6 +249,7 @@ use crate::modules::known_hosts::KnownHosts;
 use crate::modules::kubectl::Kubectl;
 use crate::modules::kubernetes::Kubernetes;
 use crate::modules::lbu::Lbu;
+use crate::modules::libvirt::Libvirt;
 use crate::modules::lineinfile::Lineinfile;
 use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
@@ -564,6 +566,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             LxdContainer.get_name(),
             Box::new(LxdContainer) as Box<dyn Module>,
         ),
+        (Libvirt.get_name(), Box::new(Libvirt) as Box<dyn Module>),
         (Make.get_name(), Box::new(Make) as Box<dyn Module>),
         (Mdadm.get_name(), Box::new(Mdadm) as Box<dyn Module>),
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
