@@ -222,7 +222,7 @@ impl Module for Podman {
     }
 
     fn force_string_on_params(&self) -> bool {
-        false
+        true
     }
 
     #[cfg(feature = "docs")]
