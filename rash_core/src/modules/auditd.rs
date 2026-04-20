@@ -94,20 +94,19 @@ pub enum State {
     Absent,
 }
 
-fn read_existing_rules(path: &Path) -> Vec<String> {
+fn read_existing_rules(path: &Path) -> Result<Vec<String>> {
     if !path.exists() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
-    fs::read_to_string(path)
-        .unwrap_or_default()
+    Ok(fs::read_to_string(path)?
         .lines()
         .filter(|line| {
             let trimmed = line.trim();
             !trimmed.is_empty() && !trimmed.starts_with('#')
         })
         .map(|line| line.trim().to_string())
-        .collect()
+        .collect())
 }
 
 fn normalize_rule(rule: &str) -> String {
@@ -146,8 +145,12 @@ pub fn auditd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         .unwrap_or(DEFAULT_RULES_FILE);
     let path = Path::new(rules_file);
 
-    let mut existing_rules = read_existing_rules(path);
-    let original_content = fs::read_to_string(path).unwrap_or_default();
+    let mut existing_rules = read_existing_rules(path)?;
+    let original_content = if path.exists() {
+        fs::read_to_string(path)?
+    } else {
+        String::new()
+    };
     let mut changed = false;
 
     match state {
@@ -340,7 +343,7 @@ mod tests {
     fn test_read_existing_rules_empty() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("audit.rules");
-        let rules = read_existing_rules(file_path.as_path());
+        let rules = read_existing_rules(file_path.as_path()).unwrap();
         assert!(rules.is_empty());
     }
 
@@ -354,7 +357,7 @@ mod tests {
         )
         .unwrap();
 
-        let rules = read_existing_rules(&file_path);
+        let rules = read_existing_rules(&file_path).unwrap();
         assert_eq!(rules.len(), 2);
         assert_eq!(rules[0], "-w /etc/passwd -p wa -k identity");
         assert_eq!(rules[1], "-w /var/log -p wa -k logs");
