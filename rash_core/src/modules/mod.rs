@@ -129,6 +129,7 @@ mod service;
 mod set_vars;
 mod setup;
 mod sgdisk;
+mod shell;
 mod slurp;
 mod ssh_config;
 mod sshd_config;
@@ -294,6 +295,7 @@ use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
+use crate::modules::shell::Shell;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::sshd_config::SshdConfig;
@@ -624,6 +626,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Route.get_name(), Box::new(Route) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
+        (Shell.get_name(), Box::new(Shell) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
         (Selinux.get_name(), Box::new(Selinux) as Box<dyn Module>),
