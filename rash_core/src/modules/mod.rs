@@ -101,6 +101,7 @@ mod package;
 mod pacman;
 mod pam_limits;
 mod parted;
+mod patch;
 mod pause;
 mod pids;
 mod ping;
@@ -260,6 +261,7 @@ use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
+use crate::modules::patch::Patch;
 use crate::modules::pause::Pause;
 use crate::modules::pids::Pids;
 use crate::modules::ping::Ping;
@@ -566,6 +568,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
+        (Patch.get_name(), Box::new(Patch) as Box<dyn Module>),
         (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
         (Pids.get_name(), Box::new(Pids) as Box<dyn Module>),
