@@ -353,7 +353,7 @@ fn apply_offload(
     let features = [
         ("rx", offload.rx, "rx-checksumming"),
         ("tx", offload.tx, "tx-checksumming"),
-        ("tso", offload.tx, "tcp-segmentation-offload"),
+        ("tso", offload.tso, "tcp-segmentation-offload"),
         ("gso", offload.gso, "generic-segmentation-offload"),
     ];
 
