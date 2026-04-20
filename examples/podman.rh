@@ -32,7 +32,7 @@
       - "8080:80"
       - "443:443"
     env:
-      NGINX_HOST: example.com
+      - "NGINX_HOST=example.com"
     rootless: true
 
 - name: Create a container with volumes
