@@ -1,5 +1,6 @@
 mod acl;
 mod alternatives;
+mod auditd;
 mod apk;
 mod apt;
 mod apt_repository;
@@ -173,6 +174,7 @@ use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::acl::Acl;
 use crate::modules::alternatives::Alternatives;
+use crate::modules::auditd::Auditd;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
 use crate::modules::apt_repository::AptRepository;
@@ -407,6 +409,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
         ),
+        (Auditd.get_name(), Box::new(Auditd) as Box<dyn Module>),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
         (
