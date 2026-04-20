@@ -72,6 +72,7 @@ mod iso_extract;
 mod java_keystore;
 mod jenkins_job;
 mod json_file;
+mod kafka_topic;
 mod kernel_blacklist;
 mod known_hosts;
 mod kubectl;
@@ -245,6 +246,7 @@ use crate::modules::iso_extract::IsoExtract;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
+use crate::modules::kafka_topic::KafkaTopic;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
 use crate::modules::kubectl::Kubectl;
@@ -527,6 +529,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(JenkinsJob) as Box<dyn Module>,
         ),
         (JsonFile.get_name(), Box::new(JsonFile) as Box<dyn Module>),
+        (
+            KafkaTopic.get_name(),
+            Box::new(KafkaTopic) as Box<dyn Module>,
+        ),
         (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (Incus.get_name(), Box::new(Incus) as Box<dyn Module>),
         (IniFile.get_name(), Box::new(IniFile) as Box<dyn Module>),
