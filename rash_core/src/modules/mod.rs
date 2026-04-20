@@ -546,7 +546,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
-        (MysqlQuery.get_name(), Box::new(MysqlQuery) as Box<dyn Module>),
+        (
+            MysqlQuery.get_name(),
+            Box::new(MysqlQuery) as Box<dyn Module>,
+        ),
         (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
         (Nginx.get_name(), Box::new(Nginx) as Box<dyn Module>),

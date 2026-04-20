@@ -375,10 +375,7 @@ mod tests {
             config_file: Some("/etc/mysql/debian.cnf".to_string()),
         };
         let args = build_mysql_base_args(&params);
-        assert_eq!(
-            args[0],
-            "--defaults-file=/etc/mysql/debian.cnf".to_string()
-        );
+        assert_eq!(args[0], "--defaults-file=/etc/mysql/debian.cnf".to_string());
     }
 
     #[test]
