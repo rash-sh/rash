@@ -111,11 +111,7 @@ fn fetch_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     if !src_path.exists() {
         if !params.fail_on_missing {
             debug!("Source file '{}' not found, skipping", params.src);
-            return Ok(ModuleResult::new(
-                false,
-                None,
-                Some(params.dest.clone()),
-            ));
+            return Ok(ModuleResult::new(false, None, Some(params.dest.clone())));
         }
         return Err(Error::new(
             ErrorKind::NotFound,
@@ -147,10 +143,12 @@ fn fetch_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
         if src_checksum == dest_checksum {
             let src_meta = fs::metadata(src_path)?;
             let extra = serde_norway::to_value(FetchResult {
-                dest: dest_path.to_str().ok_or_else(|| {
-                    Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in destination path")
-                })?
-                .to_owned(),
+                dest: dest_path
+                    .to_str()
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in destination path")
+                    })?
+                    .to_owned(),
                 src: params.src.clone(),
                 checksum: src_checksum,
                 size: src_meta.len(),
@@ -172,28 +170,29 @@ fn fetch_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
     fs::copy(src_path, &dest_path)?;
 
-    if params.validate_checksum {
+    let src_meta = fs::metadata(src_path)?;
+    let checksum = if params.validate_checksum {
         let src_checksum = calculate_checksum(src_path)?;
         let dest_checksum = calculate_checksum(&dest_path)?;
         if src_checksum != dest_checksum {
             return Err(Error::new(
-                ErrorKind::SubprocessFail,
+                ErrorKind::InvalidData,
                 format!(
                     "Checksum mismatch after copy: src={} dest={}",
                     src_checksum, dest_checksum
                 ),
             ));
         }
-    }
-
-    let src_meta = fs::metadata(src_path)?;
-    let checksum = calculate_checksum(&dest_path)?;
+        dest_checksum
+    } else {
+        calculate_checksum(&dest_path)?
+    };
 
     let extra = serde_norway::to_value(FetchResult {
-        dest: dest_path.to_str().ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in destination path")
-        })?
-        .to_owned(),
+        dest: dest_path
+            .to_str()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in destination path"))?
+            .to_owned(),
         src: params.src.clone(),
         checksum,
         size: src_meta.len(),
@@ -219,7 +218,10 @@ impl Module for Fetch {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        Ok((fetch_file(parse_params(optional_params)?, check_mode)?, None))
+        Ok((
+            fetch_file(parse_params(optional_params)?, check_mode)?,
+            None,
+        ))
     }
 
     #[cfg(feature = "docs")]
@@ -328,13 +330,15 @@ mod tests {
 
         let extra = result.get_extra().unwrap();
         let result_map: serde_norway::Mapping = extra.as_mapping().unwrap().clone();
-        assert!(result_map
-            .get(&YamlValue::String("checksum".to_owned()))
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .len()
-            == 64);
+        assert!(
+            result_map
+                .get(YamlValue::String("checksum".to_owned()))
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .len()
+                == 64
+        );
     }
 
     #[test]
@@ -559,5 +563,33 @@ mod tests {
         assert!(result.get_changed());
         let content = fs::read_to_string(&dest_file).unwrap();
         assert_eq!(content, "new content");
+    }
+
+    #[test]
+    fn test_fetch_file_flat_false_no_trailing_slash() {
+        let src_dir = tempdir().unwrap();
+        let dest_dir = tempdir().unwrap();
+
+        let src_file = src_dir.path().join("test.txt");
+        let mut file = File::create(&src_file).unwrap();
+        write!(file, "hello").unwrap();
+
+        let dest_file = dest_dir.path().join("output.txt");
+
+        let result = fetch_file(
+            Params {
+                src: src_file.to_str().unwrap().to_owned(),
+                dest: dest_file.to_str().unwrap().to_owned(),
+                flat: false,
+                validate_checksum: true,
+                fail_on_missing: true,
+            },
+            false,
+        )
+        .unwrap();
+
+        assert!(result.get_changed());
+        let content = fs::read_to_string(&dest_file).unwrap();
+        assert_eq!(content, "hello");
     }
 }
