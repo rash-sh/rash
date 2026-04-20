@@ -349,8 +349,12 @@ impl HomebrewClient {
         let stdout = String::from_utf8_lossy(&query_output.stdout);
         let has_upgrades = stdout.lines().any(|line| !line.trim().is_empty());
 
-        if !has_upgrades || self.check_mode {
-            return Ok(has_upgrades && !self.check_mode);
+        if !has_upgrades {
+            return Ok(false);
+        };
+
+        if self.check_mode {
+            return Ok(true);
         };
 
         let mut cmd = self.get_cmd();
