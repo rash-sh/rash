@@ -233,23 +233,15 @@ impl Module for Podman {
 
 struct PodmanClient {
     check_mode: bool,
-    rootless: bool,
 }
 
 impl PodmanClient {
-    fn new(check_mode: bool, rootless: bool) -> Self {
-        PodmanClient {
-            check_mode,
-            rootless,
-        }
+    fn new(check_mode: bool, _rootless: bool) -> Self {
+        PodmanClient { check_mode }
     }
 
     fn exec_cmd(&self, args: &[&str], check_success: bool) -> Result<Output> {
-        let mut cmd = Command::new("podman");
-        if self.rootless {
-            cmd.arg("--rootless");
-        }
-        let output = cmd
+        let output = Command::new("podman")
             .args(args)
             .output()
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;

@@ -23,7 +23,7 @@
     name: myapp
     state: absent
 
-- name: Create a rootless container with ports and environment
+- name: Create a container with ports and environment
   podman:
     name: webapp
     image: nginx:latest
@@ -33,7 +33,6 @@
       - "443:443"
     env:
       - "NGINX_HOST=example.com"
-    rootless: true
 
 - name: Create a container with volumes
   podman:
