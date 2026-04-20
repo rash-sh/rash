@@ -1,0 +1,53 @@
+# Cloud-init module examples
+# Note: These tests manage cloud-init configuration files
+
+- name: Configure cloud-init user-data with packages and users
+  cloud_init:
+    state: present
+    user_data:
+      users:
+        - name: admin
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          shell: /bin/bash
+      packages:
+        - nginx
+        - curl
+      runcmd:
+        - systemctl enable nginx
+        - systemctl start nginx
+    directory: /tmp/cloud-init-test
+    user_data_path: /tmp/cloud-init-test/user-data
+    meta_data_path: /tmp/cloud-init-test/meta-data
+    network_config_path: /tmp/cloud-init-test/network-config
+
+- name: Set instance metadata
+  cloud_init:
+    state: present
+    meta_data:
+      instance-id: i-test12345
+      local-hostname: test-instance
+    directory: /tmp/cloud-init-test
+    user_data_path: /tmp/cloud-init-test/user-data
+    meta_data_path: /tmp/cloud-init-test/meta-data
+    network_config_path: /tmp/cloud-init-test/network-config
+
+- name: Configure network via cloud-init
+  cloud_init:
+    state: present
+    network_config:
+      version: 2
+      ethernets:
+        eth0:
+          dhcp4: true
+    directory: /tmp/cloud-init-test
+    user_data_path: /tmp/cloud-init-test/user-data
+    meta_data_path: /tmp/cloud-init-test/meta-data
+    network_config_path: /tmp/cloud-init-test/network-config
+
+- name: Remove cloud-init configuration
+  cloud_init:
+    state: absent
+    directory: /tmp/cloud-init-test
+    user_data_path: /tmp/cloud-init-test/user-data
+    meta_data_path: /tmp/cloud-init-test/meta-data
+    network_config_path: /tmp/cloud-init-test/network-config
