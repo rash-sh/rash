@@ -1,0 +1,147 @@
+#!/usr/bin/env -S rash --
+#
+# kubernetes module example
+#
+# This example demonstrates the basic functionality of the kubernetes module:
+# - Creating namespaces
+# - Deploying applications with inline definitions
+# - Creating services
+# - Deleting resources
+#
+# Usage:
+#   kubernetes.rh
+#
+# Note: This example requires kubectl to be installed and configured.
+# Run with: rash kubernetes.rh
+
+- name: Check if kubectl is installed and cluster is reachable
+  command:
+    cmd: kubectl cluster-info
+  register: kubectl_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Skip if kubectl not available
+  debug:
+    msg: "kubectl is not installed or cluster not reachable. Skipping example."
+  when: kubectl_check.failed
+
+- block:
+    - name: Create namespace (check mode)
+      kubernetes:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: rash-example
+      check_mode: true
+      register: ns_check
+
+    - name: Verify check mode would create namespace
+      assert:
+        that:
+          - ns_check.changed
+
+    - name: Create namespace
+      kubernetes:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: rash-example
+
+    - name: Deploy nginx application
+      kubernetes:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nginx
+            namespace: rash-example
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: nginx
+            template:
+              metadata:
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                  - name: nginx
+                    image: nginx:1.25
+                    ports:
+                      - containerPort: 80
+
+    - name: Create nginx service
+      kubernetes:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: nginx-svc
+            namespace: rash-example
+          spec:
+            selector:
+              app: nginx
+            ports:
+              - port: 80
+                targetPort: 80
+
+    - name: Create ConfigMap
+      kubernetes:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: nginx-config
+            namespace: rash-example
+          data:
+            nginx.conf: |
+              server {
+                listen 80;
+                location / {
+                  return 200 "Hello from rash!";
+                }
+              }
+
+    - name: Delete the ConfigMap
+      kubernetes:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: nginx-config
+            namespace: rash-example
+
+    - name: Delete deployment by kind and name
+      kubernetes:
+        state: absent
+        kind: Deployment
+        name: nginx
+        namespace: rash-example
+
+    - name: Delete service by kind and name
+      kubernetes:
+        state: absent
+        kind: Service
+        name: nginx-svc
+        namespace: rash-example
+
+    - name: Delete namespace
+      kubernetes:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: rash-example
+
+  when: not kubectl_check.failed

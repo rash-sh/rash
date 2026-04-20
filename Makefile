@@ -118,6 +118,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/iso_extract.rh' \
 		-not -path 'examples/proxmox.rh' \
 		-not -path 'examples/restic.rh' \
+		-not -path 'examples/kubernetes.rh' \
 		-not -path 'examples/postgresql_query.rh' \
 		-name '*.rh'); do \
 		echo $$example; \

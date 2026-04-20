@@ -1,0 +1,73 @@
+# Kubernetes module examples
+# Note: These tests require kubectl to be installed and configured with a Kubernetes cluster
+
+- name: Example - Create namespace with definition
+  kubernetes:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: test-rash
+  check_mode: true
+
+- name: Example - Create deployment with definition
+  kubernetes:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nginx
+        namespace: test-rash
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: nginx
+        template:
+          metadata:
+            labels:
+              app: nginx
+          spec:
+            containers:
+              - name: nginx
+                image: nginx:latest
+                ports:
+                  - containerPort: 80
+  check_mode: true
+
+- name: Example - Create service with definition
+  kubernetes:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: nginx-svc
+        namespace: test-rash
+      spec:
+        selector:
+          app: nginx
+        ports:
+          - port: 80
+            targetPort: 80
+  check_mode: true
+
+- name: Example - Delete by kind and name
+  kubernetes:
+    state: absent
+    kind: Deployment
+    name: nginx
+    namespace: test-rash
+  check_mode: true
+
+- name: Example - Delete with inline definition
+  kubernetes:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: test-rash
+  check_mode: true
