@@ -157,7 +157,16 @@ fn run_iscsiadm(args: &[&str]) -> Result<std::process::Output> {
         .args(args)
         .env("LC_ALL", "C")
         .output()
-        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Error::new(
+                    ErrorKind::NotFound,
+                    "iscsiadm command not found; install open-iscsi to use this module",
+                )
+            } else {
+                Error::new(ErrorKind::SubprocessFail, e)
+            }
+        })?;
     trace!("exec - output: {output:?}");
     Ok(output)
 }
