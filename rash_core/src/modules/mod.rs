@@ -244,6 +244,7 @@ use crate::modules::ipaddr::Ipaddr;
 use crate::modules::iptables::Iptables;
 use crate::modules::iscsi::Iscsi;
 use crate::modules::iso_extract::IsoExtract;
+use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
 use crate::modules::kernel_blacklist::KernelBlacklist;
@@ -540,6 +541,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             IsoExtract.get_name(),
             Box::new(IsoExtract) as Box<dyn Module>,
+        ),
+        (
+            JavaKeystore.get_name(),
+            Box::new(JavaKeystore) as Box<dyn Module>,
         ),
         (
             KernelBlacklist.get_name(),
