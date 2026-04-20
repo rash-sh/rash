@@ -1,0 +1,44 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Snap binary mock for Snap module tests.
+#
+# Usage:
+#   ./snap.rh [options] (list|install|remove) [<targets>]...
+#
+# Options:
+#   --classic          Install with classic confinement.
+#   --channel=<chan>   Channel to install from.
+#   --verbose          Verbose output.
+#
+
+- name: List installed snaps
+  debug:
+    msg: |-
+      Name                       Version           Rev    Tracking         Publisher   Notes
+      core18                     20231219          2812   latest/stable    canonical**  base
+      code                       1.85.1            152    latest/stable    msasci✓     classic
+      slack                      4.38.121          119    latest/stable    slack✓      -
+  when:
+    - list
+
+- name: Install packages
+  debug:
+    msg: |-
+      {% for pkg in targets | default([]) -%}
+      {{ pkg }} installed
+      {% endfor -%}
+  loop: "{{ targets | default([]) }}"
+  when:
+    - install
+    - targets is defined and targets | length > 0
+
+- name: Remove packages
+  debug:
+    msg: |-
+      {% for pkg in targets | default([]) -%}
+      {{ pkg }} removed
+      {% endfor -%}
+  loop: "{{ targets | default([]) }}"
+  when:
+    - remove
+    - targets is defined and targets | length > 0

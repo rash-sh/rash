@@ -48,6 +48,7 @@ mod replace;
 mod restic;
 mod runit;
 mod seboolean;
+mod snap;
 mod ssh_config;
 mod sshd_config;
 mod sudoers;
