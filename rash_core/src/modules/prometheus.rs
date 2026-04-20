@@ -125,8 +125,10 @@ pub struct Params {
     pub action: Action,
     /// List of scrape target configurations. Each entry should be a scrape job
     /// with at least a `job_name` key.
+    #[cfg_attr(feature = "docs", schemars(skip))]
     pub targets: Option<Vec<YamlValue>>,
     /// Alert rule configuration in Prometheus alerting rule format.
+    #[cfg_attr(feature = "docs", schemars(skip))]
     pub alert_rules: Option<YamlValue>,
     /// Path to the main Prometheus configuration file.
     /// **[default: `"/etc/prometheus/prometheus.yml"`]**
@@ -327,14 +329,16 @@ fn exec_add(params: Params, check_mode: bool) -> Result<ModuleResult> {
         let alert_path = determine_alert_rules_path(&params);
         let alert_path_ref = Path::new(&alert_path);
         let mut alert_config = read_yaml_file(alert_path_ref)?;
+        let original_alert_config = alert_config.clone();
         let original_alert_content = fs::read_to_string(alert_path_ref).unwrap_or_default();
 
         merge_alert_rules(&mut alert_config, alert_rules);
 
-        if alert_config != read_yaml_file(alert_path_ref)? {
+        if alert_config != original_alert_config {
             alert_changed = true;
+            let new_alert_content = serde_norway::to_string(&alert_config)?;
+            diff(&original_alert_content, &new_alert_content);
             if !check_mode {
-                diff(&original_alert_content, &serde_norway::to_string(&alert_config)?);
                 write_yaml_file(alert_path_ref, &alert_config)?;
             }
         }
@@ -351,8 +355,12 @@ fn exec_add(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
     let any_changed = changed || alert_changed;
 
-    if any_changed && !check_mode && params.reload {
-        let _ = reload_prometheus();
+    if any_changed
+        && !check_mode
+        && params.reload
+        && let Err(e) = reload_prometheus()
+    {
+        warn!("Failed to reload Prometheus: {e}");
     }
 
     Ok(ModuleResult {
@@ -369,8 +377,7 @@ fn merge_alert_rules(config: &mut YamlValue, new_rules: &YamlValue) {
     let YamlValue::Mapping(new_map) = new_rules else {
         return;
     };
-    let Some(YamlValue::Sequence(new_groups)) =
-        new_map.get(YamlValue::String("groups".to_owned()))
+    let Some(YamlValue::Sequence(new_groups)) = new_map.get(YamlValue::String("groups".to_owned()))
     else {
         return;
     };
@@ -442,12 +449,13 @@ fn exec_remove(params: Params, check_mode: bool) -> Result<ModuleResult> {
         let alert_path = determine_alert_rules_path(&params);
         let alert_path_ref = Path::new(&alert_path);
         let mut alert_config = read_yaml_file(alert_path_ref)?;
+        let original_alert_content = fs::read_to_string(alert_path_ref).unwrap_or_default();
 
         if remove_alert_rules(&mut alert_config, alert_rules) {
             changed = true;
+            let new_alert_content = serde_norway::to_string(&alert_config)?;
+            diff(&original_alert_content, &new_alert_content);
             if !check_mode {
-                let original_alert = fs::read_to_string(alert_path_ref).unwrap_or_default();
-                diff(&original_alert, &serde_norway::to_string(&alert_config)?);
                 write_yaml_file(alert_path_ref, &alert_config)?;
             }
         }
@@ -462,8 +470,12 @@ fn exec_remove(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     }
 
-    if changed && !check_mode && params.reload {
-        let _ = reload_prometheus();
+    if changed
+        && !check_mode
+        && params.reload
+        && let Err(e) = reload_prometheus()
+    {
+        warn!("Failed to reload Prometheus: {e}");
     }
 
     Ok(ModuleResult {
@@ -578,8 +590,8 @@ fn exec_update(params: Params, check_mode: bool) -> Result<ModuleResult> {
         let new_alert_content = serde_norway::to_string(&alert_config)?;
         if original_alert.trim() != new_alert_content.trim() {
             changed = true;
+            diff(&original_alert, &new_alert_content);
             if !check_mode {
-                diff(&original_alert, &new_alert_content);
                 write_yaml_file(alert_path_ref, &alert_config)?;
             }
         }
@@ -594,8 +606,12 @@ fn exec_update(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     }
 
-    if changed && !check_mode && params.reload {
-        let _ = reload_prometheus();
+    if changed
+        && !check_mode
+        && params.reload
+        && let Err(e) = reload_prometheus()
+    {
+        warn!("Failed to reload Prometheus: {e}");
     }
 
     Ok(ModuleResult {
@@ -801,14 +817,16 @@ mod tests {
 
         let params = Params {
             action: Action::Add,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: node
                 static_configs:
                   - targets: ['localhost:9100']
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -844,14 +862,16 @@ scrape_configs:
 
         let params = Params {
             action: Action::Add,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: node
                 static_configs:
                   - targets: ['localhost:9100']
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -925,12 +945,14 @@ scrape_configs:
 
         let params = Params {
             action: Action::Remove,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: node
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -965,12 +987,14 @@ scrape_configs:
 
         let params = Params {
             action: Action::Remove,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: nonexistent
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -999,13 +1023,15 @@ scrape_configs:
 
         let params = Params {
             action: Action::Update,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: node
                 scrape_interval: 15s
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -1019,12 +1045,11 @@ scrape_configs:
         let config: YamlValue = serde_norway::from_str(&content).unwrap();
         let jobs = get_scrape_jobs(&config);
         let job = &jobs[0];
-        if let YamlValue::Mapping(map) = job {
-            if let Some(YamlValue::String(val)) =
-                map.get(&YamlValue::String("scrape_interval".to_owned()))
-            {
-                assert_eq!(val, "15s");
-            }
+        if let YamlValue::Mapping(map) = job
+            && let Some(YamlValue::String(val)) =
+                map.get(YamlValue::String("scrape_interval".to_owned()))
+        {
+            assert_eq!(val, "15s");
         }
     }
 
@@ -1045,13 +1070,15 @@ scrape_configs:
 
         let params = Params {
             action: Action::Update,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: nonexistent
                 scrape_interval: 15s
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -1109,14 +1136,16 @@ scrape_configs:
 
         let params = Params {
             action: Action::Add,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 job_name: prometheus
                 static_configs:
                   - targets: ['localhost:9090']
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -1139,16 +1168,18 @@ scrape_configs:
         let params = Params {
             action: Action::Add,
             targets: None,
-            alert_rules: Some(serde_norway::from_str(
-                r#"
+            alert_rules: Some(
+                serde_norway::from_str(
+                    r#"
                 groups:
                   - name: test
                     rules:
                       - alert: HighLatency
                         expr: up == 0
                 "#,
-            )
-            .unwrap()),
+                )
+                .unwrap(),
+            ),
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: Some(alert_path.to_str().unwrap().to_owned()),
             reload: false,
@@ -1161,7 +1192,7 @@ scrape_configs:
         let alert_config: YamlValue = serde_norway::from_str(&content).unwrap();
         if let YamlValue::Mapping(map) = &alert_config {
             if let Some(YamlValue::Sequence(groups)) =
-                map.get(&YamlValue::String("groups".to_owned()))
+                map.get(YamlValue::String("groups".to_owned()))
             {
                 assert_eq!(groups.len(), 1);
             } else {
@@ -1204,12 +1235,11 @@ scrape_configs:
         let removed = super::remove_alert_rules(&mut config, &rules_to_remove);
         assert!(removed);
 
-        if let YamlValue::Mapping(map) = &config {
-            if let Some(YamlValue::Sequence(groups)) =
-                map.get(&YamlValue::String("groups".to_owned()))
-            {
-                assert_eq!(groups.len(), 1);
-            }
+        if let YamlValue::Mapping(map) = &config
+            && let Some(YamlValue::Sequence(groups)) =
+                map.get(YamlValue::String("groups".to_owned()))
+        {
+            assert_eq!(groups.len(), 1);
         }
     }
 
@@ -1252,13 +1282,15 @@ scrape_configs:
 
         let params = Params {
             action: Action::Add,
-            targets: Some(vec![serde_norway::from_str(
-                r#"
+            targets: Some(vec![
+                serde_norway::from_str(
+                    r#"
                 static_configs:
                   - targets: ['localhost:9100']
                 "#,
-            )
-            .unwrap()]),
+                )
+                .unwrap(),
+            ]),
             alert_rules: None,
             config_file: config_path.to_str().unwrap().to_owned(),
             alert_rules_file: None,
@@ -1267,5 +1299,36 @@ scrape_configs:
 
         let result = prometheus(params, false);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_check_mode_alert_rules_no_write() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("prometheus.yml");
+        let alert_path = dir.path().join("alert_rules.yml");
+
+        let params = Params {
+            action: Action::Add,
+            targets: None,
+            alert_rules: Some(
+                serde_norway::from_str(
+                    r#"
+                groups:
+                  - name: test
+                    rules:
+                      - alert: HighLatency
+                        expr: up == 0
+                "#,
+                )
+                .unwrap(),
+            ),
+            config_file: config_path.to_str().unwrap().to_owned(),
+            alert_rules_file: Some(alert_path.to_str().unwrap().to_owned()),
+            reload: false,
+        };
+
+        let result = prometheus(params, true).unwrap();
+        assert!(result.changed);
+        assert!(!alert_path.exists());
     }
 }
