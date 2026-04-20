@@ -3,32 +3,62 @@ mod apt;
 mod authorized_key;
 mod cargo;
 mod cron;
+mod crypttab;
 mod dconf;
 mod dnf;
+mod docker_compose;
+mod docker_config;
 mod docker_container;
 mod docker_image;
+mod docker_info;
+mod docker_login;
+mod docker_network;
+mod docker_prune;
+mod docker_volume;
+mod dpkg_selections;
 mod fail;
+mod fail2ban;
 mod firewalld;
+mod flatpak;
 mod gem;
 mod git;
 mod group;
 mod grub;
 mod hostname;
 mod include;
+mod incus;
+mod ipaddr;
 mod kernel_blacklist;
+mod kubectl;
 mod logrotate;
 mod modprobe;
 mod netplan;
 mod npm;
+mod openrc;
 mod pacman;
 mod pam_limits;
+mod patch;
+mod pids;
 mod pip;
+mod rclone;
 mod reboot;
+mod replace;
+mod restic;
+mod runit;
 mod seboolean;
+mod ssh_config;
+mod sshd_config;
+mod sudoers;
+mod swapfile;
+mod syslog;
 mod systemd;
+mod tailscale;
 mod timezone;
 mod trace;
+mod ufw;
 mod user;
+mod wakeonlan;
+mod xattr;
 mod zypper;
 
 use super::execute_rash_with_env;
@@ -36,8 +66,18 @@ use super::execute_rash_with_env;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use tempfile::tempdir;
+
+static DOCKER_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+pub fn docker_test_lock() -> MutexGuard<'static, ()> {
+    DOCKER_TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
 
 pub fn run_tests(
     scripts: HashMap<&str, &str>,

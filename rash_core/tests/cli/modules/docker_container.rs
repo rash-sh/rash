@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use crate::cli::modules::run_test;
+use crate::cli::modules::{docker_test_lock, run_test};
 
 fn docker_available() -> bool {
     Command::new("docker")
@@ -16,6 +16,7 @@ macro_rules! skip_without_docker {
             eprintln!("Skipping test: Docker not available");
             return;
         }
+        let _lock = docker_test_lock();
     };
 }
 
@@ -336,6 +337,10 @@ fn test_docker_container_already_stopped() {
     cleanup_container(container_name);
 
     let _ = Command::new("docker")
+        .args(["pull", "alpine:latest"])
+        .output();
+
+    let _ = Command::new("docker")
         .args([
             "run",
             "--name",
@@ -346,6 +351,26 @@ fn test_docker_container_already_stopped() {
         ])
         .output();
 
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let output = Command::new("docker")
+        .args([
+            "ps",
+            "-a",
+            "--filter",
+            &format!("name=^{}$", container_name),
+            "--format",
+            "{{.Names}}",
+        ])
+        .output()
+        .expect("Failed to check container status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !stdout.contains(container_name) {
+        eprintln!(
+            "Warning: Container {} does not exist after creation",
+            container_name
+        );
+    }
     let stop_script = format!(
         r#"
 #!/usr/bin/env rash

@@ -1,7 +1,9 @@
 use std::fs;
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
-use crate::cli::modules::run_test;
+use crate::cli::modules::{docker_test_lock, run_test};
 
 fn docker_available() -> bool {
     Command::new("docker")
@@ -11,19 +13,65 @@ fn docker_available() -> bool {
         .unwrap_or(false)
 }
 
+fn is_rate_limited(stderr: &str) -> bool {
+    stderr.contains("toomanyrequests") || stderr.contains("rate limit")
+}
+
 macro_rules! skip_without_docker {
     () => {
         if !docker_available() {
             eprintln!("Skipping test: Docker not available");
             return;
         }
+        let _lock = docker_test_lock();
+    };
+}
+
+macro_rules! assert_no_error {
+    ($stderr:expr) => {
+        let stderr_ref: &str = &$stderr;
+        if is_rate_limited(stderr_ref) {
+            eprintln!("Skipping test: Docker Hub rate limit reached");
+            return;
+        }
+        assert!(
+            stderr_ref.is_empty(),
+            "stderr should be empty: {}",
+            stderr_ref
+        );
     };
 }
 
 fn cleanup_image(name: &str) {
-    let _ = Command::new("docker")
-        .args(["image", "rm", "-f", name])
-        .output();
+    let max_retries = 5;
+    for _ in 0..max_retries {
+        let _ = Command::new("docker")
+            .args(["image", "rm", "-f", name])
+            .output();
+
+        let output = Command::new("docker")
+            .args(["image", "inspect", "--format", "{{.Id}}", name])
+            .output()
+            .unwrap_or_else(|_| panic!("Failed to check image"));
+        if !output.status.success() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+}
+
+fn wait_for_image(name: &str, max_retries: u32) -> bool {
+    for _ in 0..max_retries {
+        let output = Command::new("docker")
+            .args(["image", "inspect", "--format", "{{.Id}}", name])
+            .output()
+            .expect("Failed to check image");
+        if output.status.success() {
+            return true;
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+    false
 }
 
 fn create_test_dockerfile(dir: &std::path::Path) {
@@ -55,18 +103,17 @@ fn test_docker_image_pull() {
     let args = ["--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed': {}",
         stdout
     );
 
-    let output = Command::new("docker")
-        .args(["image", "inspect", "--format", "{{.Id}}", image_name])
-        .output()
-        .expect("Failed to check image");
-    assert!(output.status.success(), "Image should exist");
+    assert!(
+        wait_for_image(image_name, 10),
+        "Image should exist after pull"
+    );
 
     cleanup_image(image_name);
 }
@@ -91,7 +138,7 @@ fn test_docker_image_pull_idempotent() {
 
     let args = ["--diff"];
     let (stdout1, stderr1) = run_test(&script_text, &args);
-    assert!(stderr1.is_empty(), "stderr should be empty: {}", stderr1);
+    assert_no_error!(stderr1);
     assert!(
         stdout1.contains("changed"),
         "First run should show changed: {}",
@@ -99,7 +146,7 @@ fn test_docker_image_pull_idempotent() {
     );
 
     let (_stdout2, stderr2) = run_test(&script_text, &args);
-    assert!(stderr2.is_empty(), "stderr should be empty: {}", stderr2);
+    assert_no_error!(stderr2);
 
     cleanup_image(image_name);
 }
@@ -126,18 +173,17 @@ fn test_docker_image_remove() {
     let args = ["--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed': {}",
         stdout
     );
 
-    let output = Command::new("docker")
-        .args(["image", "inspect", "--format", "{{.Id}}", image_name])
-        .output()
-        .expect("Failed to check image");
-    assert!(!output.status.success(), "Image should not exist");
+    assert!(
+        !wait_for_image(image_name, 3),
+        "Image should not exist after removal"
+    );
 }
 
 #[test]
@@ -167,7 +213,7 @@ fn test_docker_image_build() {
     let args = ["--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed': {}",
@@ -216,7 +262,7 @@ LABEL test="rash-integration"
     let args = ["--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed': {}",
@@ -236,7 +282,7 @@ LABEL test="rash-integration"
 fn test_docker_image_force_pull() {
     skip_without_docker!();
 
-    let image_name = "alpine:3.19";
+    let image_name = "alpine:3.21";
 
     let _ = Command::new("docker").args(["pull", image_name]).output();
 
@@ -255,7 +301,7 @@ fn test_docker_image_force_pull() {
     let args = ["--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed' with force_source: {}",
@@ -286,7 +332,7 @@ fn test_docker_image_check_mode() {
     let args = ["--check", "--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed' in check mode: {}",
@@ -325,7 +371,7 @@ fn test_docker_image_local_source() {
     let args = ["--diff"];
     let (_stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
 
     cleanup_image(image_name);
 }
@@ -382,7 +428,7 @@ fn test_docker_image_with_tag() {
     let args = ["--diff"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty(), "stderr should be empty: {}", stderr);
+    assert_no_error!(stderr);
     assert!(
         stdout.contains("changed"),
         "stdout should contain 'changed': {}",

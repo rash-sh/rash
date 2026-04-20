@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.19.2](https://github.com/rash-sh/rash/tree/v2.19.2) - 2026-04-07
+
+### Fixed
+
+- Correct import ordering in find.rs for rustfmt ([8f1ca6c](https://github.com/rash-sh/rash/commit/8f1ca6c07cf757d76fa399a98c06c7cd8e50dca8))
+
 ## [v2.19.1](https://github.com/rash-sh/rash/tree/v2.19.1) - 2026-03-26
 
 ### Added

@@ -46,11 +46,65 @@ use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 use serde_norway::value;
 
+fn deserialize_jid<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+
+    struct JidVisitor;
+
+    impl<'de> Visitor<'de> for JidVisitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a u64 or a string containing a u64")
+        }
+
+        fn visit_u64<E>(self, v: u64) -> std::result::Result<u64, E>
+        where
+            E: de::Error,
+        {
+            Ok(v)
+        }
+
+        fn visit_i64<E>(self, v: i64) -> std::result::Result<u64, E>
+        where
+            E: de::Error,
+        {
+            if v >= 0 {
+                Ok(v as u64)
+            } else {
+                Err(de::Error::custom("jid must be a positive number"))
+            }
+        }
+
+        fn visit_str<E>(self, v: &str) -> std::result::Result<u64, E>
+        where
+            E: de::Error,
+        {
+            v.parse::<u64>().map_err(|_| {
+                de::Error::custom(format!("invalid jid value: '{}', expected a number", v))
+            })
+        }
+
+        fn visit_string<E>(self, v: String) -> std::result::Result<u64, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&v)
+        }
+    }
+
+    deserializer.deserialize_any(JidVisitor)
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
     /// Job ID to check status for.
+    #[serde(deserialize_with = "deserialize_jid")]
     pub jid: u64,
 }
 
@@ -136,6 +190,7 @@ pub struct AsyncPoll;
 #[serde(deny_unknown_fields)]
 pub struct PollParams {
     /// Job ID to poll.
+    #[serde(deserialize_with = "deserialize_jid")]
     pub jid: u64,
     /// Poll interval in seconds.
     pub interval: Option<u64>,
@@ -233,5 +288,72 @@ mod tests {
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params, Params { jid: 123 });
+    }
+
+    #[test]
+    fn test_parse_params_jid_from_string() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: "123"
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(params, Params { jid: 123 });
+    }
+
+    #[test]
+    fn test_parse_params_jid_from_string_quoted() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: '456'
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(params, Params { jid: 456 });
+    }
+
+    #[test]
+    fn test_parse_poll_params_jid_from_string() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: "789"
+            interval: 2
+            "#,
+        )
+        .unwrap();
+        let params: PollParams = parse_params(yaml).unwrap();
+        assert_eq!(
+            params,
+            PollParams {
+                jid: 789,
+                interval: Some(2)
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_params_jid_invalid_string() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: "not_a_number"
+            "#,
+        )
+        .unwrap();
+        let result: std::result::Result<Params, _> = parse_params(yaml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_params_jid_negative() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            jid: -1
+            "#,
+        )
+        .unwrap();
+        let result: std::result::Result<Params, _> = parse_params(yaml);
+        assert!(result.is_err());
     }
 }
