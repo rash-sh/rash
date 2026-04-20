@@ -97,6 +97,25 @@ impl std::fmt::Display for State {
     }
 }
 
+impl std::fmt::Display for ValidationLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationLevel::Off => write!(f, "off"),
+            ValidationLevel::Strict => write!(f, "strict"),
+            ValidationLevel::Moderate => write!(f, "moderate"),
+        }
+    }
+}
+
+impl std::fmt::Display for ValidationAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationAction::Error => write!(f, "error"),
+            ValidationAction::Warn => write!(f, "warn"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(deny_unknown_fields)]
@@ -275,21 +294,14 @@ fn build_create_options(params: &Params) -> serde_json::Value {
     if let Some(ref level) = params.validation_level {
         options.insert(
             "validationLevel".to_string(),
-            serde_json::Value::String(match level {
-                ValidationLevel::Off => "off".to_string(),
-                ValidationLevel::Strict => "strict".to_string(),
-                ValidationLevel::Moderate => "moderate".to_string(),
-            }),
+            serde_json::Value::String(level.to_string()),
         );
     }
 
     if let Some(ref action) = params.validation_action {
         options.insert(
             "validationAction".to_string(),
-            serde_json::Value::String(match action {
-                ValidationAction::Error => "error".to_string(),
-                ValidationAction::Warn => "warn".to_string(),
-            }),
+            serde_json::Value::String(action.to_string()),
         );
     }
 
@@ -326,14 +338,19 @@ fn create_collection(params: &Params, check_mode: bool) -> Result<ModuleResult> 
             "state": params.state.to_string(),
         }))?);
 
-        return Ok(ModuleResult::new(
-            update_needed,
-            extra,
-            Some(format!(
+        let msg = if update_needed {
+            format!(
+                "Collection '{}' in database '{}' updated",
+                params.name, params.database
+            )
+        } else {
+            format!(
                 "Collection '{}' already exists in database '{}'",
                 params.name, params.database
-            )),
-        ));
+            )
+        };
+
+        return Ok(ModuleResult::new(update_needed, extra, Some(msg)));
     }
 
     if check_mode {
@@ -392,22 +409,19 @@ fn apply_collection_options(params: &Params, check_mode: bool) -> Result<ModuleR
     if let Some(ref level) = params.validation_level {
         collation_cmd.insert(
             "validationLevel".to_string(),
-            serde_json::Value::String(match level {
-                ValidationLevel::Off => "off".to_string(),
-                ValidationLevel::Strict => "strict".to_string(),
-                ValidationLevel::Moderate => "moderate".to_string(),
-            }),
+            serde_json::Value::String(level.to_string()),
         );
     }
 
     if let Some(ref action) = params.validation_action {
         collation_cmd.insert(
             "validationAction".to_string(),
-            serde_json::Value::String(match action {
-                ValidationAction::Error => "error".to_string(),
-                ValidationAction::Warn => "warn".to_string(),
-            }),
+            serde_json::Value::String(action.to_string()),
         );
+    }
+
+    if let Some(ref collation) = params.collation {
+        collation_cmd.insert("collation".to_string(), collation.clone());
     }
 
     if collation_cmd.is_empty() {
@@ -883,48 +897,15 @@ mod tests {
 
     #[test]
     fn test_validation_level_display() {
-        assert_eq!(
-            match ValidationLevel::Off {
-                ValidationLevel::Off => "off",
-                ValidationLevel::Strict => "strict",
-                ValidationLevel::Moderate => "moderate",
-            },
-            "off"
-        );
-        assert_eq!(
-            match ValidationLevel::Strict {
-                ValidationLevel::Off => "off",
-                ValidationLevel::Strict => "strict",
-                ValidationLevel::Moderate => "moderate",
-            },
-            "strict"
-        );
-        assert_eq!(
-            match ValidationLevel::Moderate {
-                ValidationLevel::Off => "off",
-                ValidationLevel::Strict => "strict",
-                ValidationLevel::Moderate => "moderate",
-            },
-            "moderate"
-        );
+        assert_eq!(ValidationLevel::Off.to_string(), "off");
+        assert_eq!(ValidationLevel::Strict.to_string(), "strict");
+        assert_eq!(ValidationLevel::Moderate.to_string(), "moderate");
     }
 
     #[test]
     fn test_validation_action_display() {
-        assert_eq!(
-            match ValidationAction::Error {
-                ValidationAction::Error => "error",
-                ValidationAction::Warn => "warn",
-            },
-            "error"
-        );
-        assert_eq!(
-            match ValidationAction::Warn {
-                ValidationAction::Error => "error",
-                ValidationAction::Warn => "warn",
-            },
-            "warn"
-        );
+        assert_eq!(ValidationAction::Error.to_string(), "error");
+        assert_eq!(ValidationAction::Warn.to_string(), "warn");
     }
 
     #[test]
