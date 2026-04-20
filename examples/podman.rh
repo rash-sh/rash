@@ -100,9 +100,6 @@
     image: nginx:latest
     state: started
     privileged: true
-    capabilities_add:
-      - NET_ADMIN
-      - SYS_PTRACE
 
 - name: Create a container with restart policy
   podman:
