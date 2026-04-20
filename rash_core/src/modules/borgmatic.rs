@@ -244,7 +244,11 @@ fn build_borgmatic_args(params: &Params, check_mode: bool) -> Vec<String> {
         State::Extract => {
             args.push("extract".to_string());
             if let Some(ref archive) = params.archive {
-                args.push(format!("{}::{}", params.repository.as_deref().unwrap_or_default(), archive));
+                args.push(format!(
+                    "{}::{}",
+                    params.repository.as_deref().unwrap_or_default(),
+                    archive
+                ));
             }
             if let Some(ref extract_path) = params.extract_path {
                 args.push("--destination".to_string());
@@ -791,10 +795,7 @@ mod tests {
             env.iter()
                 .any(|(k, v)| k == "BORG_REMOTE_PATH" && v == "/usr/bin/borg")
         );
-        assert!(
-            env.iter()
-                .any(|(k, v)| k == "CUSTOM_VAR" && v == "value")
-        );
+        assert!(env.iter().any(|(k, v)| k == "CUSTOM_VAR" && v == "value"));
     }
 
     #[test]

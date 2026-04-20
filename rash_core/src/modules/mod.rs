@@ -412,10 +412,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Blkdiscard) as Box<dyn Module>,
         ),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
-        (
-            Borgmatic.get_name(),
-            Box::new(Borgmatic) as Box<dyn Module>,
-        ),
+        (Borgmatic.get_name(), Box::new(Borgmatic) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
         (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
