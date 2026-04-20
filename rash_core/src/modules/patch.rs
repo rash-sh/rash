@@ -104,6 +104,8 @@ fn build_patch_command(params: &Params, dry_run_force: bool) -> Result<Command> 
         cmd.arg("--no-backup-if-mismatch");
     }
 
+    cmd.arg("--forward");
+
     if let Some(strip) = params.strip {
         cmd.arg(format!("-p{}", strip));
     }
@@ -189,10 +191,12 @@ fn run_patch(params: &Params, check_mode: bool) -> Result<(bool, String)> {
         ));
     }
 
-    let changed = stdout.contains("patching")
-        || stdout.contains("checking file")
-        || stderr.contains("patching")
-        || stderr.contains("checking file");
+    let all_output = format!("{}{}", stdout, stderr);
+    let skipped = all_output.contains("Skipping patch")
+        || all_output.contains("previously applied) patch detected");
+
+    let changed =
+        !skipped && (all_output.contains("patching") || all_output.contains("checking file"));
 
     Ok((changed, stdout))
 }
