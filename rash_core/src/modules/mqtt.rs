@@ -213,7 +213,19 @@ fn exec_publish(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     let mqtt_opts = build_mqtt_options(params)?;
     let (client, mut connection) = Client::new(mqtt_opts, DEFAULT_QUEUE_CAP);
 
+    let deadline = std::time::Instant::now() + Duration::from_secs(params.subscribe_timeout);
+
     for notification in connection.iter() {
+        if std::time::Instant::now() > deadline {
+            return Err(Error::new(
+                ErrorKind::SubprocessFail,
+                format!(
+                    "MQTT publish timed out after {}s waiting for broker",
+                    params.subscribe_timeout
+                ),
+            ));
+        }
+
         match notification {
             Ok(rumqttc::Event::Incoming(rumqttc::Incoming::ConnAck(_))) => {
                 client
