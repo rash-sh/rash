@@ -12,7 +12,7 @@ fn test_luks_parse_error_invalid_field() {
     "#;
 
     let args = ["--diff"];
-    let (_stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(script_text, &args);
 
     assert!(!stderr.is_empty());
 }
@@ -28,7 +28,7 @@ fn test_luks_parse_error_missing_creds() {
     "#;
 
     let args = ["--diff"];
-    let (_stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(script_text, &args);
 
     assert!(!stderr.is_empty());
 }
@@ -45,7 +45,7 @@ fn test_luks_parse_error_opened_no_name() {
     "#;
 
     let args = ["--diff"];
-    let (_stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(script_text, &args);
 
     assert!(!stderr.is_empty());
 }
@@ -61,7 +61,7 @@ fn test_luks_parse_error_closed_no_name() {
     "#;
 
     let args = ["--diff"];
-    let (_stdout, stderr) = run_test(&script_text, &args);
+    let (_stdout, stderr) = run_test(script_text, &args);
 
     assert!(!stderr.is_empty());
 }

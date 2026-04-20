@@ -162,6 +162,25 @@ impl LuksClient {
         Ok(output)
     }
 
+    fn exec_cmd_with_stdin(&self, cmd: &mut Command, input: &[u8]) -> Result<Output> {
+        use std::io::Write;
+        cmd.stdin(std::process::Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+        if let Some(ref mut stdin) = child.stdin {
+            stdin
+                .write_all(input)
+                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+        }
+        let output = child
+            .wait_with_output()
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+        trace!("command: `{cmd:?}`");
+        trace!("{output:?}");
+        Ok(output)
+    }
+
     fn is_luks_device(&self, device: &str) -> Result<bool> {
         let output = self.exec_cmd(Command::new("cryptsetup").args(["isLuks", device]))?;
         Ok(output.status.success())
@@ -213,22 +232,7 @@ impl LuksClient {
                 ));
             }
         } else if let Some(passphrase) = &params.passphrase {
-            cmd.stdin(std::process::Stdio::piped());
-            let mut child = cmd
-                .spawn()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
-            if let Some(ref mut stdin) = child.stdin {
-                use std::io::Write;
-                stdin
-                    .write_all(passphrase.as_bytes())
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-            }
-
-            let output = child
-                .wait_with_output()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
+            let output = self.exec_cmd_with_stdin(&mut cmd, passphrase.as_bytes())?;
             if !output.status.success() {
                 return Err(Error::new(
                     ErrorKind::SubprocessFail,
@@ -322,22 +326,7 @@ impl LuksClient {
                 ));
             }
         } else if let Some(passphrase) = &params.passphrase {
-            cmd.stdin(std::process::Stdio::piped());
-            let mut child = cmd
-                .spawn()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
-            if let Some(ref mut stdin) = child.stdin {
-                use std::io::Write;
-                stdin
-                    .write_all(passphrase.as_bytes())
-                    .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-            }
-
-            let output = child
-                .wait_with_output()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
+            let output = self.exec_cmd_with_stdin(&mut cmd, passphrase.as_bytes())?;
             if !output.status.success() {
                 return Err(Error::new(
                     ErrorKind::SubprocessFail,
