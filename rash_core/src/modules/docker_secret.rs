@@ -140,6 +140,19 @@ impl Module for DockerSecret {
     }
 }
 
+fn build_label_args(labels: &serde_json::Map<String, serde_json::Value>, args: &mut Vec<String>) {
+    for (key, value) in labels {
+        let label_str = match value {
+            serde_json::Value::String(s) => format!("{}={}", key, s),
+            serde_json::Value::Number(n) => format!("{}={}", key, n),
+            serde_json::Value::Bool(b) => format!("{}={}", key, b),
+            _ => format!("{}={}", key, value),
+        };
+        args.push("--label".to_string());
+        args.push(label_str);
+    }
+}
+
 struct DockerClient {
     check_mode: bool,
 }
@@ -235,16 +248,7 @@ impl DockerClient {
         let mut args: Vec<String> = vec!["secret".to_string(), "create".to_string()];
 
         if let Some(ref labels) = params.labels {
-            for (key, value) in labels {
-                let label_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("--label".to_string());
-                args.push(label_str);
-            }
+            build_label_args(labels, &mut args);
         }
 
         args.push(params.name.clone());
@@ -259,11 +263,15 @@ impl DockerClient {
             .spawn()
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
 
-        if let Some(ref mut stdin) = child.stdin {
-            stdin
-                .write_all(secret_data.as_bytes())
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-        }
+        let stdin = child.stdin.as_mut().ok_or_else(|| {
+            Error::new(
+                ErrorKind::SubprocessFail,
+                "Failed to open stdin for docker secret create",
+            )
+        })?;
+        stdin
+            .write_all(secret_data.as_bytes())
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
 
         let output = child
             .wait_with_output()
@@ -292,25 +300,16 @@ impl DockerClient {
 
         let mut args: Vec<String> = vec!["secret".to_string(), "create".to_string()];
 
-        if let Some(ref _labels) = params.labels {
-            for (key, value) in params.labels.as_ref().unwrap() {
-                let label_str = match value {
-                    serde_json::Value::String(s) => format!("{}={}", key, s),
-                    serde_json::Value::Number(n) => format!("{}={}", key, n),
-                    serde_json::Value::Bool(b) => format!("{}={}", key, b),
-                    _ => format!("{}={}", key, value),
-                };
-                args.push("--label".to_string());
-                args.push(label_str);
-            }
+        if let Some(ref labels) = params.labels {
+            build_label_args(labels, &mut args);
         }
 
         args.push(params.name.clone());
         args.push(file_path.to_string());
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        let output = self.exec_cmd(&args_refs, true)?;
-        Ok(output.status.success())
+        self.exec_cmd(&args_refs, true)?;
+        Ok(true)
     }
 
     fn remove_secret(&self, name: &str) -> Result<bool> {
@@ -459,32 +458,19 @@ fn docker_secret(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     }
 
-    if !check_mode {
-        let extra = client.get_secret_state(&params.name)?;
-        let final_output = if output_messages.is_empty() {
-            None
-        } else {
-            Some(output_messages.join("\n"))
-        };
+    let extra = client.get_secret_state(&params.name)?;
 
-        Ok(ModuleResult {
-            changed,
-            output: final_output,
-            extra: Some(value::to_value(extra)?),
-        })
+    let final_output = if output_messages.is_empty() {
+        None
     } else {
-        let final_output = if output_messages.is_empty() {
-            None
-        } else {
-            Some(output_messages.join("\n"))
-        };
+        Some(output_messages.join("\n"))
+    };
 
-        Ok(ModuleResult {
-            changed,
-            output: final_output,
-            extra: None,
-        })
-    }
+    Ok(ModuleResult {
+        changed,
+        output: final_output,
+        extra: Some(value::to_value(extra)?),
+    })
 }
 
 #[cfg(test)]
