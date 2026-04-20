@@ -120,6 +120,7 @@ mod podman;
 mod postgresql_db;
 mod postgresql_query;
 mod postgresql_user;
+mod prometheus;
 mod proxmox;
 mod rabbitmq_user;
 mod rclone;
@@ -293,6 +294,7 @@ use crate::modules::podman::Podman;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_query::PostgresqlQuery;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::prometheus::Prometheus;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::rclone::Rclone;
@@ -628,6 +630,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
+        ),
+        (
+            Prometheus.get_name(),
+            Box::new(Prometheus) as Box<dyn Module>,
         ),
         (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
