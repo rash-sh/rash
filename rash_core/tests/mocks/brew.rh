@@ -1,0 +1,135 @@
+#!/usr/bin/env -S rash --output raw --
+#
+# Homebrew binary mock for Homebrew module tests.
+#
+# Usage:
+#   ./brew.rh (list|install|uninstall|upgrade|update|outdated) [options] [<packages>...]
+#
+# Options:
+#   --formula            Operate on formulae.
+#   --cask               Operate on casks.
+#   -1                   Output one entry per line.
+#
+
+- name: List installed formulae
+  debug:
+    msg: |-
+      git
+      curl
+      jq
+      wget
+      openssl
+  when:
+    - list
+    - options.formula
+
+- name: List installed casks
+  debug:
+    msg: |-
+      docker
+      firefox
+  when:
+    - list
+    - options.cask
+
+- name: Install formula packages
+  debug:
+    msg: |-
+      {% for package in rash.args[1:] -%}
+      Installing {{ package }}
+      {% endfor -%}
+  when:
+    - install
+    - not options.cask
+
+- name: Install cask packages
+  debug:
+    msg: |-
+      {% for package in rash.args[2:] -%}
+      Installing {{ package }}
+      {% endfor -%}
+  when:
+    - install
+    - options.cask
+
+- name: Uninstall formula packages
+  debug:
+    msg: |-
+      {% for package in rash.args[1:] -%}
+      Uninstalling {{ package }}
+      {% endfor -%}
+  when:
+    - uninstall
+    - not options.cask
+
+- name: Uninstall cask packages
+  debug:
+    msg: |-
+      {% for package in rash.args[2:] -%}
+      Uninstalling {{ package }}
+      {% endfor -%}
+  when:
+    - uninstall
+    - options.cask
+
+- name: Update Homebrew
+  debug:
+    msg: |-
+      Updated Homebrew.
+  when:
+    - update
+
+- name: Upgrade all packages
+  debug:
+    msg: |-
+      Upgrading packages...
+  when:
+    - upgrade
+    - rash.args | length == 1
+
+- name: Upgrade formula packages
+  debug:
+    msg: |-
+      {% for package in rash.args[1:] -%}
+      Upgrading {{ package }}
+      {% endfor -%}
+  when:
+    - upgrade
+    - not options.cask
+    - rash.args | length > 1
+
+- name: Upgrade cask packages
+  debug:
+    msg: |-
+      {% for package in rash.args[2:] -%}
+      Upgrading {{ package }}
+      {% endfor -%}
+  when:
+    - upgrade
+    - options.cask
+
+- name: List outdated packages
+  debug:
+    msg: |-
+      curl (8.4.0) < 8.5.0
+      jq (1.6) < 1.7
+  when:
+    - outdated
+    - not options.formula
+    - not options.cask
+
+- name: List outdated formulae
+  debug:
+    msg: |-
+      curl (8.4.0) < 8.5.0
+      jq (1.6) < 1.7
+  when:
+    - outdated
+    - options.formula
+
+- name: List outdated casks
+  debug:
+    msg: ""
+  when:
+    - outdated
+    - options.cask
