@@ -42,6 +42,7 @@ mod pam_limits;
 mod patch;
 mod pids;
 mod pip;
+mod poweroff;
 mod rclone;
 mod reboot;
 mod replace;
