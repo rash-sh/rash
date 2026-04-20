@@ -187,7 +187,7 @@ impl Module for Supervisor {
     }
 
     fn force_string_on_params(&self) -> bool {
-        false
+        true
     }
 
     #[cfg(feature = "docs")]
@@ -241,6 +241,9 @@ impl SupervisorctlClient {
     }
 
     fn is_running(&self, program: &str) -> Result<bool> {
+        if self.check_mode {
+            return Ok(false);
+        }
         let output = self.exec_cmd(&["status", program], false)?;
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         Ok(stdout.contains("RUNNING"))
