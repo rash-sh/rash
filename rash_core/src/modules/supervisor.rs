@@ -368,7 +368,7 @@ fn generate_config_content(params: &Params) -> String {
     if let Some(ref env) = params.environment {
         let env_pairs: Vec<String> = env
             .iter()
-            .map(|(k, v)| format!("{}=\"{}\"", k, v))
+            .map(|(k, v)| format!("{}=\"{}\"", k, v.replace('"', "\\\"")))
             .collect();
         lines.push(format!("environment={}", env_pairs.join(",")));
     }
@@ -411,6 +411,18 @@ fn validate_program_name(name: &str) -> Result<()> {
 fn is_config_enabled(params: &Params) -> bool {
     let config_path = get_config_path(params);
     Path::new(&config_path).exists()
+}
+
+fn would_config_change(params: &Params) -> bool {
+    let config_path = get_config_path(params);
+    if !Path::new(&config_path).exists() {
+        return true;
+    }
+    let content = generate_config_content(params);
+    match fs::read_to_string(&config_path) {
+        Ok(existing) => existing != content,
+        Err(_) => true,
+    }
 }
 
 fn write_config(params: &Params) -> Result<bool> {
@@ -496,7 +508,7 @@ fn supervisor(params: Params, check_mode: bool) -> Result<ModuleResult> {
                         }
                     }
                 } else {
-                    if !is_config_enabled(&params) {
+                    if would_config_change(&params) {
                         diff("enabled: false".to_string(), "enabled: true".to_string());
                         output_messages
                             .push(format!("Would write config for program '{}'", params.name));
@@ -946,5 +958,47 @@ mod tests {
             params.config_dir,
             Some("/etc/custom/supervisor".to_string())
         );
+    }
+
+    #[test]
+    fn test_would_config_change_no_existing_file() {
+        let params = Params {
+            name: "nonexistent_test_program_12345".to_string(),
+            command: Some("/usr/bin/test".to_string()),
+            state: None,
+            enabled: None,
+            user: None,
+            autostart: None,
+            autorestart: None,
+            stdout_logfile: None,
+            stderr_logfile: None,
+            environment: None,
+            config_dir: None,
+        };
+        assert!(would_config_change(&params));
+    }
+
+    #[test]
+    fn test_generate_config_content_escapes_quotes_in_env() {
+        let mut env = HashMap::new();
+        env.insert("FOO".to_string(), "bar\"baz".to_string());
+
+        let params = Params {
+            name: "myapp".to_string(),
+            command: Some("/usr/bin/myapp".to_string()),
+            state: None,
+            enabled: None,
+            user: None,
+            autostart: None,
+            autorestart: None,
+            stdout_logfile: None,
+            stderr_logfile: None,
+            environment: Some(env),
+            config_dir: None,
+        };
+
+        let content = generate_config_content(&params);
+        assert!(content.contains("FOO=\"bar\\\"baz\""));
+        assert!(!content.contains("FOO=\"bar\"baz\""));
     }
 }
