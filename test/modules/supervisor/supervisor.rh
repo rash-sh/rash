@@ -1,0 +1,48 @@
+# Supervisor module examples
+# Note: These tests require supervisor/supervisord to be installed and running
+
+- name: Example - Start a program
+  supervisor:
+    name: myapp
+    state: started
+  check_mode: true
+
+- name: Example - Stop a program
+  supervisor:
+    name: myapp
+    state: stopped
+  check_mode: true
+
+- name: Example - Restart a program
+  supervisor:
+    name: myapp
+    state: restarted
+  check_mode: true
+
+- name: Example - Enable and start a program with full config
+  supervisor:
+    name: myapp
+    command: /usr/bin/myapp --port 8080
+    state: started
+    enabled: true
+    user: appuser
+    autostart: true
+    autorestart: true
+    stdout_logfile: /var/log/myapp-stdout.log
+    stderr_logfile: /var/log/myapp-stderr.log
+    environment:
+      PORT: "8080"
+      NODE_ENV: production
+  check_mode: true
+
+- name: Example - Disable a program
+  supervisor:
+    name: myapp
+    enabled: false
+  check_mode: true
+
+- name: Example - Reload supervisor config
+  supervisor:
+    name: myapp
+    state: reloaded
+  check_mode: true

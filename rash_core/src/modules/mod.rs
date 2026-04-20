@@ -136,6 +136,7 @@ mod ssh_config;
 mod sshd_config;
 mod stat;
 mod sudoers;
+mod supervisor;
 mod swapfile;
 mod synchronize;
 mod sysctl;
@@ -303,6 +304,7 @@ use crate::modules::ssh_config::SshConfig;
 use crate::modules::sshd_config::SshdConfig;
 use crate::modules::stat::Stat;
 use crate::modules::sudoers::Sudoers;
+use crate::modules::supervisor::Supervisor;
 use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
@@ -652,6 +654,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
         (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
+        (
+            Supervisor.get_name(),
+            Box::new(Supervisor) as Box<dyn Module>,
+        ),
         (Syslog.get_name(), Box::new(Syslog) as Box<dyn Module>),
         (Systemd.get_name(), Box::new(Systemd) as Box<dyn Module>),
         (Tailscale.get_name(), Box::new(Tailscale) as Box<dyn Module>),
