@@ -24,6 +24,7 @@ mod gem;
 mod git;
 mod group;
 mod grub;
+mod homebrew;
 mod hostname;
 mod htpasswd;
 mod include;

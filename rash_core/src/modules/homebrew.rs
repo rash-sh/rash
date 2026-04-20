@@ -395,14 +395,8 @@ fn homebrew(params: Params, check_mode: bool) -> Result<ModuleResult> {
             let installed = client.get_installed()?;
             let outdated = client.get_outdated()?;
 
-            let p_to_install: Vec<String> = packages
-                .difference(&installed)
-                .cloned()
-                .collect();
-            let p_to_upgrade: Vec<String> = packages
-                .intersection(&outdated)
-                .cloned()
-                .collect();
+            let p_to_install: Vec<String> = packages.difference(&installed).cloned().collect();
+            let p_to_upgrade: Vec<String> = packages.intersection(&outdated).cloned().collect();
             let p_to_remove: Vec<String> = Vec::new();
             (p_to_install, p_to_remove, p_to_upgrade)
         }

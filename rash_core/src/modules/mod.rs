@@ -244,7 +244,6 @@ use crate::modules::ipaddr::Ipaddr;
 use crate::modules::iptables::Iptables;
 use crate::modules::iscsi::Iscsi;
 use crate::modules::iso_extract::IsoExtract;
-use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
 use crate::modules::kernel_blacklist::KernelBlacklist;
@@ -520,14 +519,8 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Htpasswd.get_name(), Box::new(Htpasswd) as Box<dyn Module>),
-        (
-            Homebrew.get_name(),
-            Box::new(Homebrew) as Box<dyn Module>,
-        ),
-        (
-            Include.get_name(),
-            Box::new(Include) as Box<dyn Module>,
-        ),
+        (Homebrew.get_name(), Box::new(Homebrew) as Box<dyn Module>),
+        (Include.get_name(), Box::new(Include) as Box<dyn Module>),
         (
             JenkinsJob.get_name(),
             Box::new(JenkinsJob) as Box<dyn Module>,
