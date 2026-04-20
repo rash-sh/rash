@@ -37,6 +37,7 @@ mod npm;
 mod openrc;
 mod pacman;
 mod pam_limits;
+mod patch;
 mod pids;
 mod pip;
 mod rclone;
