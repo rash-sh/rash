@@ -262,7 +262,8 @@ impl KafkaAdminClient {
             }
         }
 
-        Err(last_error.unwrap())
+        Err(last_error
+            .unwrap_or_else(|| Error::new(ErrorKind::InvalidData, "No bootstrap servers provided")))
     }
 
     fn connect_to_server(server: &str) -> Result<TcpStream> {
@@ -353,6 +354,12 @@ impl KafkaAdminClient {
             )
         })?;
         let response_size = i32::from_be_bytes(size_buf) as usize;
+        if response_size > 16 * 1024 * 1024 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Kafka response too large: {response_size} bytes"),
+            ));
+        }
 
         let mut response_buf = vec![0u8; response_size];
         self.stream.read_exact(&mut response_buf).map_err(|e| {
