@@ -250,6 +250,9 @@ impl SupervisorctlClient {
     }
 
     fn status(&self, program: &str) -> Result<String> {
+        if self.check_mode {
+            return Ok(format!("{} STOPPED", program));
+        }
         let output = self.exec_cmd(&["status", program], false)?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
