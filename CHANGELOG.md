@@ -5,6 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.20.0](https://github.com/rash-sh/rash/tree/v2.20.0) - 2026-04-20
+
+**Milestone: rash reaches 100 modules!** This release marks a major milestone with over 100 modules available for declarative infrastructure automation, container entrypoints, and IoT device management.
+
+### Added
+
+- dpkg_selections: Add dpkg_selections module for Debian package selections ([8ecb745](https://github.com/rash-sh/rash/commit/8ecb7458fb7ffba05c2b25f50bcc4f96c47e57a6))
+- module: Add pids module for process matching ([46861dd](https://github.com/rash-sh/rash/commit/46861ddb322c7e65aa5bfa7a7df9e3ee2b8ce43b))
+- module: Add syslog module for system logging ([e3938da](https://github.com/rash-sh/rash/commit/e3938da9b8922374f3b2d8fc23c437344a8bc883))
+- module: Add aws_s3 module for S3 object management ([d07dc35](https://github.com/rash-sh/rash/commit/d07dc35a70fdc279ad5d60aa65736e518b9f0c4f))
+- module: Add ipaddr module for IP address management ([4d457fb](https://github.com/rash-sh/rash/commit/4d457fb3caaedf7bd2201f609e054f685e8d7e12))
+- module: Add replace module for regex pattern replacement ([c186853](https://github.com/rash-sh/rash/commit/c18685349f6bf3921722c84c5657a93f1aa40cd2))
+- module: Add ufw module for UFW firewall management ([6e2b528](https://github.com/rash-sh/rash/commit/6e2b5285cc9b4db1cfec55ced2eea56d44e9cb95))
+- module: Add swapfile module for swap file management ([4417834](https://github.com/rash-sh/rash/commit/4417834a1fbb2ff61f8a6181172640c147d18b64))
+- module: Add docker_info module for Docker system information ([cd66054](https://github.com/rash-sh/rash/commit/cd66054d23d06af9bb21a9b1a4f98f6f853501db))
+- module: Add aws_s3 module for S3 object management ([ab646e3](https://github.com/rash-sh/rash/commit/ab646e311a50828480ac0dbab50a55a15a6d3601))
+- module: Add wakeonlan module for Wake-on-LAN ([7d48f5e](https://github.com/rash-sh/rash/commit/7d48f5e85e464595284921488fab37e5bb767fba))
+- module: Add rclone module for cloud storage sync ([ad63944](https://github.com/rash-sh/rash/commit/ad63944dd659392fc8c64dd3a3bb960491cb1824))
+- module: Add sudoers module for sudo configuration management ([26edad3](https://github.com/rash-sh/rash/commit/26edad37eae6236393508f3049a75fdb19575849))
+- module: Add docker_volume module for Docker volume management ([ac691f1](https://github.com/rash-sh/rash/commit/ac691f1374690a8038a0b20236b82eb17bcdae1b))
+- module: Add iso_extract module for extracting ISO files ([da9cacf](https://github.com/rash-sh/rash/commit/da9cacf66d2981f1a0693fcfb1f5a55c42f17e1a))
+- module: Add incus module for Incus/LXD container management ([7e7fdcb](https://github.com/rash-sh/rash/commit/7e7fdcb845bc5808d59779b706b0e069a890cd17))
+- module: Add docker_login module for Docker registry authentication ([b218344](https://github.com/rash-sh/rash/commit/b2183448467a6d2fecfc26b2ee959e9b4d162efe))
+- module: Add crypttab module for encrypted filesystem management ([5cbcc14](https://github.com/rash-sh/rash/commit/5cbcc14a48748edd3e9650704b6578924c8b9c3e))
+- module: Add proxmox module for Proxmox VM management ([ef32015](https://github.com/rash-sh/rash/commit/ef320152a239c1f4aa9e1905f1c85170ced0b362))
+- module: Add docker_network module for Docker network management ([bb959a5](https://github.com/rash-sh/rash/commit/bb959a59bb68d80eef49067786725e62003eb204))
+- module: Add acl module for file ACL management ([6d6137c](https://github.com/rash-sh/rash/commit/6d6137c329d1536f916bed111838f183ba7a2eab))
+- module: Add patch module for applying patch files ([eff7ed1](https://github.com/rash-sh/rash/commit/eff7ed1b5ee0165c912d0a2344fe792316b19015))
+- module: Add wireguard module for WireGuard VPN management ([cecd35b](https://github.com/rash-sh/rash/commit/cecd35b366e23a5a713e437fe47171e2121b0166))
+- module: Add kubernetes module example and test files ([05c0140](https://github.com/rash-sh/rash/commit/05c014096c16e3d2983a1b5701fdc30feade66aa))
+- module: Add supervisor module for Supervisor process management ([27ea7bd](https://github.com/rash-sh/rash/commit/27ea7bdb212245074ff2c49db4ed8d14ba8c0bdb))
+- module: Add fetch module for retrieving files ([28ac99a](https://github.com/rash-sh/rash/commit/28ac99a0bb26dfac72d0250f5dbe7f5c4856737b))
+- module: Add luks module for encrypted volume management ([c5ab2cd](https://github.com/rash-sh/rash/commit/c5ab2cdd921e0fbb357a59c632b63bc7cd5e866e))
+- modules: Add tailscale module for mesh VPN networking ([5865340](https://github.com/rash-sh/rash/commit/5865340a4270ff2dd363202d8c4d933c44da8214))
+- proxmox: Add proxmox module for VM/container management ([a2155c8](https://github.com/rash-sh/rash/commit/a2155c8878c7ac3d29657699f3521790c79680bc))
+- Add mongodb_db module for MongoDB database management ([4c7d297](https://github.com/rash-sh/rash/commit/4c7d29718a760b73d44a3b2f276d7c77a2e7a9c6))
+- Add docker_network module for Docker network management ([e768ad3](https://github.com/rash-sh/rash/commit/e768ad3199014ddf4f9988e855920518ee30e6bc))
+- Add postgresql_user module for PostgreSQL user management ([b028ff6](https://github.com/rash-sh/rash/commit/b028ff6aabcf8903e9d242bded448257108eecce))
+- Add mysql_user module for MySQL/MariaDB user management ([74f43be](https://github.com/rash-sh/rash/commit/74f43beb33f38b1d4211eff25a15767af97d5ddf))
+- Add openrc module for OpenRC service management ([ee3811c](https://github.com/rash-sh/rash/commit/ee3811cc0d22c76e0975b73750d1b72262ef5b21))
+- Add sshd_config module for SSH server configuration management ([6db2974](https://github.com/rash-sh/rash/commit/6db297440fa4b04e485f0fa28534e0fc65778283))
+- Add nginx module for site configuration management ([b1c69c1](https://github.com/rash-sh/rash/commit/b1c69c1e5bb35f526b01066d92cd4dfd3934684c))
+- Add cgroups module for control group resource management ([4f6b658](https://github.com/rash-sh/rash/commit/4f6b6582989666211131343c2f628d5aec8a157c))
+- Add restic module for Restic backup management ([454858c](https://github.com/rash-sh/rash/commit/454858c8e504e71d1c9cc2e97667f9e39a34b7b8))
+- Add podman module for Podman container management ([59490e7](https://github.com/rash-sh/rash/commit/59490e724da37fc02bb31904a748212da1e978a8))
+- Add cloud-init module for cloud/IoT instance initialization ([528fd8d](https://github.com/rash-sh/rash/commit/528fd8d9fd5731854386af93baa47f8cc671c69e))
+- Add route module for network routing management ([9c7eaed](https://github.com/rash-sh/rash/commit/9c7eaed7859bdecbd7c1e8918c74be0cee0b52eb))
+- Add mysql_query module for MySQL query execution ([a2f4238](https://github.com/rash-sh/rash/commit/a2f4238ec4c78f3487a5bea2d3d405b07960727b))
+- Add passwordstore module for pass (password-store) management ([bec788c](https://github.com/rash-sh/rash/commit/bec788cf1d76b030225433f26fea03fb31ad8e4d))
+- Add postgresql_query module for PostgreSQL query execution ([406c893](https://github.com/rash-sh/rash/commit/406c89344860a87bf60829dd6018e2877c5a65fa))
+- Add borgmatic module for Borg backup management ([f32a629](https://github.com/rash-sh/rash/commit/f32a629f5ef839f811175f0076c914ba9cbab283))
+- Add htpasswd module for HTTP Basic Auth password file management ([405a2d5](https://github.com/rash-sh/rash/commit/405a2d56644eab046a857d34d936b67e85b83cc9))
+- Add iscsi module for iSCSI storage management ([500eb20](https://github.com/rash-sh/rash/commit/500eb203a94244cbde3f186798ded03160232e6e))
+- Add mqtt module for MQTT messaging ([0598218](https://github.com/rash-sh/rash/commit/05982187aca38e86b0dae3505f0e74c424199014))
+- Add libvirt module for VM management ([dfe7061](https://github.com/rash-sh/rash/commit/dfe7061fa14e943cded4c2c2b1b82fd2165fdc81))
+
+### Fixed
+
+- async_status: Accept jid as string or number ([5a60a02](https://github.com/rash-sh/rash/commit/5a60a02f5d9b3e53ff12fe47620f980eafd3586c))
+- ci: Prevent publish job from running after build failure ([971aaba](https://github.com/rash-sh/rash/commit/971aaba9a3868befabea98f86456dc2d829a295e))
+- Make docker_compose.rh executable and add trailing newline ([12a7b10](https://github.com/rash-sh/rash/commit/12a7b10eff5e6088d22c890715a1a65e2c895286))
+- Properly set executable bit on docker_compose.rh ([dee18ca](https://github.com/rash-sh/rash/commit/dee18ca9dbfa91cee2541b1517298e186b64d2fa))
+- Add proper check_mode handling to docker_compose module ([3eae669](https://github.com/rash-sh/rash/commit/3eae66961ab4007205779421f24e70c590c9b7ab))
+- Apply cargo fmt formatting to docker_compose module ([fb29abf](https://github.com/rash-sh/rash/commit/fb29abf2df6aae965ca73b535c2322266d694bf7))
+- Verify docker image exists after pull/build operations ([ab6cdad](https://github.com/rash-sh/rash/commit/ab6cdad5ba056bd3f45fcc8620b76e65e685b97c))
+- Add retry logic to docker_image tests for race conditions ([9d38334](https://github.com/rash-sh/rash/commit/9d3833420b9ad3764d0c683e310319d080f26485))
+- Mark pids tests as Linux-only ([a3239e7](https://github.com/rash-sh/rash/commit/a3239e705f988f68f4e9f05353460cd1016aa4ed))
+- Add cfg attribute to unused import on non-Linux platforms ([19a8dfd](https://github.com/rash-sh/rash/commit/19a8dfd7e312ddca587355b2d68e7b0caace627d))
+
+### Build
+
+- deps: Update Rust crate tokio to v1.51.1 ([d1e4824](https://github.com/rash-sh/rash/commit/d1e48244b9ba85c85440cc02fbc4eed5f9c12cf0))
+- deps: Update Rust crate rand to v0.10.1 ([dcc9327](https://github.com/rash-sh/rash/commit/dcc9327a59c3c8af9603d9356e3aff09e940e33c))
+- deps: Update Rust crate similar to v3.1.0 ([8e1d38c](https://github.com/rash-sh/rash/commit/8e1d38c27fd7a90de4c1b0cd25a02f8f5dfab262))
+- deps: Update Rust crate libc to v0.2.185 ([abb395f](https://github.com/rash-sh/rash/commit/abb395f0faf93d24e6e3f63b8e75678a4bf607d5))
+- deps: Update softprops/action-gh-release action to v3 ([8563638](https://github.com/rash-sh/rash/commit/85636389a821fcdc8f468fbb5b0721c3c89cc80b))
+- deps: Update Rust crate clap to v4.6.1 ([b6cf7e4](https://github.com/rash-sh/rash/commit/b6cf7e4127c107a822190c698f0e4e6bf610d3cd))
+- deps: Update Rust crate uuid to v1.23.1 ([f6eee97](https://github.com/rash-sh/rash/commit/f6eee97a2100eaa4c59951702496a9abdf0db227))
+- deps: Update rust Docker tag to v1.95.0 ([13a4b05](https://github.com/rash-sh/rash/commit/13a4b0577fc53c0acbf421d46f229f8a0284c1fb))
+- deps: Update KSXGitHub/github-actions-deploy-aur action to v4.1.3 ([47c96d2](https://github.com/rash-sh/rash/commit/47c96d27eebf42d1af694587475c6211c746ddc3))
+- deps: Update clechasseur/rs-clippy-check action to v6 - abandoned ([622397b](https://github.com/rash-sh/rash/commit/622397bb3b8e26908cd0bde2cbfb23126ad08369))
+- deps: Update Rust crate md-5 to 0.11 ([5c250fd](https://github.com/rash-sh/rash/commit/5c250fddcdf221f0dd1770eb9f2e9bae1f236c5b))
+- deps: Update Rust crate sha1 to 0.11 ([a12c01c](https://github.com/rash-sh/rash/commit/a12c01cf288653964d5ac619680d55f6486d010e))
+
 ## [v2.19.2](https://github.com/rash-sh/rash/tree/v2.19.2) - 2026-04-07
 
 ### Fixed
