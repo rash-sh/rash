@@ -151,6 +151,17 @@ pub struct Params {
     pub ns: Option<String>,
 }
 
+fn build_policy_links(policies: &[String]) -> Vec<JsonValue> {
+    policies
+        .iter()
+        .map(|p| {
+            let mut map = serde_json::Map::new();
+            map.insert("Name".to_string(), JsonValue::String(p.clone()));
+            JsonValue::Object(map)
+        })
+        .collect()
+}
+
 struct ConsulAclClient {
     host: String,
     port: u16,
@@ -348,15 +359,10 @@ impl ConsulAclClient {
         }
 
         if let Some(ref policies) = params.policies {
-            let policy_links: Vec<JsonValue> = policies
-                .iter()
-                .map(|p| {
-                    let mut map = serde_json::Map::new();
-                    map.insert("Name".to_string(), JsonValue::String(p.clone()));
-                    JsonValue::Object(map)
-                })
-                .collect();
-            body.insert("Policies".to_string(), JsonValue::Array(policy_links));
+            body.insert(
+                "Policies".to_string(),
+                JsonValue::Array(build_policy_links(policies)),
+            );
         }
 
         if let Some(ref ttl) = params.ttl {
@@ -413,15 +419,10 @@ impl ConsulAclClient {
         }
 
         if let Some(ref policies) = params.policies {
-            let policy_links: Vec<JsonValue> = policies
-                .iter()
-                .map(|p| {
-                    let mut map = serde_json::Map::new();
-                    map.insert("Name".to_string(), JsonValue::String(p.clone()));
-                    JsonValue::Object(map)
-                })
-                .collect();
-            body.insert("Policies".to_string(), JsonValue::Array(policy_links));
+            body.insert(
+                "Policies".to_string(),
+                JsonValue::Array(build_policy_links(policies)),
+            );
         }
 
         if let Some(ref ttl) = params.ttl {
@@ -528,6 +529,16 @@ fn needs_update(existing: &JsonValue, params: &Params) -> bool {
             .unwrap_or_default();
 
         if &existing_policies != policies {
+            return true;
+        }
+    }
+
+    if let Some(ref ttl) = params.ttl {
+        let existing_ttl = existing
+            .get("ExpirationTTL")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if existing_ttl != ttl {
             return true;
         }
     }
@@ -1085,6 +1096,54 @@ mod tests {
             ns: None,
         };
         assert!(needs_update(&existing, &params));
+    }
+
+    #[test]
+    fn test_needs_update_ttl_changed() {
+        let existing = serde_json::json!({
+            "Description": "temp-token",
+            "ExpirationTTL": "30m",
+        });
+        let params = Params {
+            name: "temp-token".to_string(),
+            token_type: TokenType::Client,
+            rules: None,
+            state: State::Present,
+            token: None,
+            token_id: None,
+            policies: None,
+            ttl: Some("1h".to_string()),
+            host: "localhost".to_string(),
+            port: 8500,
+            validate_certs: true,
+            dc: None,
+            ns: None,
+        };
+        assert!(needs_update(&existing, &params));
+    }
+
+    #[test]
+    fn test_needs_update_ttl_unchanged() {
+        let existing = serde_json::json!({
+            "Description": "temp-token",
+            "ExpirationTTL": "1h",
+        });
+        let params = Params {
+            name: "temp-token".to_string(),
+            token_type: TokenType::Client,
+            rules: None,
+            state: State::Present,
+            token: None,
+            token_id: None,
+            policies: None,
+            ttl: Some("1h".to_string()),
+            host: "localhost".to_string(),
+            port: 8500,
+            validate_certs: true,
+            dc: None,
+            ns: None,
+        };
+        assert!(!needs_update(&existing, &params));
     }
 
     #[test]
