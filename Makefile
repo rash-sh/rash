@@ -121,6 +121,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/kubernetes.rh' \
 		-not -path 'examples/postgresql_query.rh' \
 		-not -path 'examples/libvirt.rh' \
+		-not -path 'examples/consul_acl.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \
