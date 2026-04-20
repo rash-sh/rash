@@ -444,21 +444,18 @@ mod tests {
 
     #[test]
     fn test_snap_client_parse_installed() {
-        let stdout = r#"Name                       Version           Rev    Tracking         Publisher   Notes
+        let stdout =
+            "Name                       Version           Rev    Tracking         Publisher   Notes
 core18                     20231219          2812   latest/stable    canonical**  base
 code                       1.85.1            152    latest/stable    msasci✓     classic
 slack                      4.38.121          119    latest/stable    slack✓      -
 "
-        .as_bytes();
+            .as_bytes();
         let parsed = SnapClient::parse_installed(stdout.to_vec());
 
         assert_eq!(
             parsed,
-            BTreeSet::from([
-                "core18".to_owned(),
-                "code".to_owned(),
-                "slack".to_owned(),
-            ])
+            BTreeSet::from(["core18".to_owned(), "code".to_owned(), "slack".to_owned(),])
         );
     }
 
