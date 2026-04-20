@@ -1,0 +1,57 @@
+#!/usr/bin/env rash
+#
+# influxdb_query module example
+#
+# This example demonstrates the influxdb_query module for writing and
+# querying time-series data in InfluxDB.
+#
+# Requirements:
+# - InfluxDB v1.x server running
+# - Network access to InfluxDB API
+#
+# Usage:
+#   rash influxdb_query.rh
+
+- name: Create InfluxDB database
+  influxdb_query:
+    database: iot_metrics
+    state: present
+    hostname: "{{ influxdb_host | default('localhost') }}"
+
+- name: Write sensor data points
+  influxdb_query:
+    database: iot_metrics
+    hostname: "{{ influxdb_host | default('localhost') }}"
+    state: write
+    data:
+      - "temperature,device=sensor1 value=23.5"
+      - "humidity,device=sensor1 value=65.2"
+
+- name: Write a single data point
+  influxdb_query:
+    database: iot_metrics
+    hostname: "{{ influxdb_host | default('localhost') }}"
+    state: write
+    data: "temperature,device=sensor2 value=19.8"
+
+- name: Query average temperature
+  influxdb_query:
+    database: iot_metrics
+    hostname: "{{ influxdb_host | default('localhost') }}"
+    query: "SELECT mean(value) FROM temperature GROUP BY time(1h)"
+  register: result
+
+- name: Query with authentication and SSL
+  influxdb_query:
+    database: iot_metrics
+    hostname: influxdb.example.com
+    query: "SHOW MEASUREMENTS"
+    username: admin
+    password: "{{ influxdb_password }}"
+    ssl: true
+
+- name: Drop old database
+  influxdb_query:
+    database: old_metrics
+    hostname: "{{ influxdb_host | default('localhost') }}"
+    state: absent
