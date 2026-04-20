@@ -150,6 +150,7 @@ mod systemd;
 mod tailscale;
 mod tempfile;
 mod template;
+mod timer;
 mod timezone;
 mod trace;
 mod ufw;
@@ -323,6 +324,7 @@ use crate::modules::systemd::Systemd;
 use crate::modules::tailscale::Tailscale;
 use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
+use crate::modules::timer::Timer;
 use crate::modules::timezone::Timezone;
 use crate::modules::trace::Trace;
 use crate::modules::ufw::Ufw;
@@ -679,6 +681,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
         (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
+        (Timer.get_name(), Box::new(Timer) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
         (Unarchive.get_name(), Box::new(Unarchive) as Box<dyn Module>),
         (Uri.get_name(), Box::new(Uri) as Box<dyn Module>),
