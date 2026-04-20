@@ -123,7 +123,7 @@ pub struct Params {
     #[serde(default)]
     pub state: State,
     /// Document body or index settings/mappings.
-    pub body: Option<YamlValue>,
+    pub body: Option<JsonValue>,
     /// Document ID (for document-level operations).
     pub id: Option<String>,
     /// Authentication username.
@@ -193,10 +193,15 @@ impl ElasticsearchClient {
         }
     }
 
-    fn check_response(&self, response: reqwest::blocking::Response) -> Result<reqwest::blocking::Response> {
+    fn check_response(
+        &self,
+        response: reqwest::blocking::Response,
+    ) -> Result<reqwest::blocking::Response> {
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(Error::new(
                 ErrorKind::SubprocessFail,
                 format!("Elasticsearch returned status {}: {}", status, error_text),
@@ -218,22 +223,13 @@ impl ElasticsearchClient {
         Ok(response.status().is_success())
     }
 
-    fn create_index(&self, index: &str, body: Option<&YamlValue>) -> Result<bool> {
+    fn create_index(&self, index: &str, body: Option<&JsonValue>) -> Result<bool> {
         let url = self.build_url(index);
         let client = self.build_client()?;
-        let json_body = body
-            .map(|b| serde_json::to_value(b))
-            .transpose()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Failed to serialize body: {e}"),
-                )
-            })?;
 
         let mut request = self.add_auth(client.put(&url));
-        if let Some(json) = json_body {
-            request = request.json(&json);
+        if let Some(json_body) = body {
+            request = request.json(json_body);
         }
 
         let response = self.check_response(request.send().map_err(|e| {
@@ -276,22 +272,11 @@ impl ElasticsearchClient {
         Ok(true)
     }
 
-    fn index_document(
-        &self,
-        index: &str,
-        id: &str,
-        body: &YamlValue,
-    ) -> Result<(bool, String)> {
+    fn index_document(&self, index: &str, id: &str, body: &JsonValue) -> Result<(bool, String)> {
         let url = self.build_url(&format!("{}/_doc/{}", index, id));
         let client = self.build_client()?;
-        let json_body = serde_json::to_value(body).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to serialize body: {e}"),
-            )
-        })?;
 
-        let request = self.add_auth(client.put(&url).json(&json_body));
+        let request = self.add_auth(client.put(&url).json(body));
         let response = self.check_response(request.send().map_err(|e| {
             Error::new(
                 ErrorKind::SubprocessFail,
@@ -306,24 +291,21 @@ impl ElasticsearchClient {
             )
         })?;
 
-        let result_val = result.get("result").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let result_val = result
+            .get("result")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
         let changed = result_val != "noop";
         Ok((changed, result_val.to_string()))
     }
 
-    fn query_index(&self, index: &str, body: Option<&YamlValue>) -> Result<JsonValue> {
+    fn query_index(&self, index: &str, body: Option<&JsonValue>) -> Result<JsonValue> {
         let url = self.build_url(&format!("{}/_search", index));
         let client = self.build_client()?;
 
         let mut request = self.add_auth(client.get(&url));
         if let Some(query_body) = body {
-            let json_body = serde_json::to_value(query_body).map_err(|e| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Failed to serialize query body: {e}"),
-                )
-            })?;
-            request = request.json(&json_body);
+            request = request.json(query_body);
         }
 
         let response = self.check_response(request.send().map_err(|e| {
@@ -345,14 +327,13 @@ impl ElasticsearchClient {
 fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     let client = ElasticsearchClient::new(params);
 
-    if params.id.is_some() {
+    if let Some(doc_id) = &params.id {
         let body = params.body.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidData,
                 "body parameter is required when indexing a document",
             )
         })?;
-        let doc_id = params.id.as_ref().unwrap();
 
         if check_mode {
             return Ok(ModuleResult::new(true, None, None));
@@ -366,10 +347,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                 "id": doc_id,
                 "result": result
             }))?),
-            Some(format!(
-                "Document {} indexed in {}",
-                doc_id, params.index
-            )),
+            Some(format!("Document {} indexed in {}", doc_id, params.index)),
         ))
     } else {
         let exists = client.index_exists(&params.index)?;
@@ -391,14 +369,9 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                 )
             })?;
 
-            let existing_settings = existing
-                .get(&params.index)
-                .and_then(|v| v.get("settings"));
+            let existing_settings = existing.get(&params.index).and_then(|v| v.get("settings"));
 
-            let new_settings = params
-                .body
-                .as_ref()
-                .and_then(|b| b.get("settings"));
+            let new_settings = params.body.as_ref().and_then(|b| b.get("settings"));
 
             if existing_settings.is_some() && new_settings.is_some() {
                 if check_mode {
@@ -413,7 +386,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                     Some(format!("Index {} already exists", params.index)),
                 ))
             } else if check_mode {
-                return Ok(ModuleResult::new(true, None, None));
+                Ok(ModuleResult::new(true, None, None))
             } else {
                 Ok(ModuleResult::new(
                     false,
