@@ -10,74 +10,91 @@
 # - CONSUL_HTTP_TOKEN environment variable set with a management token
 #
 # Usage:
-#   CONSUL_HTTP_TOKEN=xxx rash consul_acl.rh
+#   consul_acl.rh
+#
+# Note: This example requires Consul to be installed and running with ACLs enabled.
+#   Set CONSUL_HTTP_TOKEN=xxx before running.
 
-- name: Create a client ACL token with rules
-  consul_acl:
-    name: agent-token
-    token_type: client
-    rules: |
-      node "" {
-        policy = "read"
-      }
-    state: present
-  register: agent_token
+- name: Check if Consul is available
+  command:
+    cmd: sh -c "consul members >/dev/null 2>&1 && echo yes || echo no"
+  register: consul_check
+  changed_when: false
 
-- name: Show agent token result
+- name: Skip if Consul not available
   debug:
-    msg: "Agent token accessor: {{ agent_token.accessor_id }}"
+    msg: "Consul is not available. Skipping example."
+  when: "'no' in consul_check.output"
 
-- name: Create a management ACL token
-  consul_acl:
-    name: admin-token
-    token_type: management
-    state: present
-  register: admin_token
+- block:
+    - name: Create a client ACL token with rules
+      consul_acl:
+        name: agent-token
+        token_type: client
+        rules: |
+          node "" {
+            policy = "read"
+          }
+        state: present
+      register: agent_token
 
-- name: Create a token with policies
-  consul_acl:
-    name: app-token
-    policies:
-      - read-only
-      - service-write
-    state: present
-  register: app_token
+    - name: Show agent token result
+      debug:
+        msg: "Agent token accessor: {{ agent_token.accessor_id }}"
 
-- name: Create a temporary token with TTL
-  consul_acl:
-    name: temp-token
-    token_type: client
-    ttl: 1h
-    rules: |
-      service "myapp" {
-        policy = "read"
-      }
-    state: present
-  register: temp_token
+    - name: Create a management ACL token
+      consul_acl:
+        name: admin-token
+        token_type: management
+        state: present
+      register: admin_token
 
-- name: Create token on remote Consul server
-  consul_acl:
-    name: remote-token
-    token_type: client
-    host: consul-server.example.com
-    port: 8500
-    token: "{{ consul_management_token }}"
-    rules: |
-      key_prefix "myapp/" {
-        policy = "write"
-      }
-    state: present
-  ignore_errors: true
+    - name: Create a token with policies
+      consul_acl:
+        name: app-token
+        policies:
+          - read-only
+          - service-write
+        state: present
+      register: app_token
 
-- name: Update existing token (add policies)
-  consul_acl:
-    name: agent-token
-    policies:
-      - node-read
-      - service-read
-    state: present
+    - name: Create a temporary token with TTL
+      consul_acl:
+        name: temp-token
+        token_type: client
+        ttl: 1h
+        rules: |
+          service "myapp" {
+            policy = "read"
+          }
+        state: present
+      register: temp_token
 
-- name: Delete an old ACL token
-  consul_acl:
-    name: old-token
-    state: absent
+    - name: Create token on remote Consul server
+      consul_acl:
+        name: remote-token
+        token_type: client
+        host: consul-server.example.com
+        port: 8500
+        token: "{{ consul_management_token }}"
+        rules: |
+          key_prefix "myapp/" {
+            policy = "write"
+          }
+        state: present
+      ignore_errors: true
+
+    - name: Update existing token (add policies)
+      consul_acl:
+        name: agent-token
+        policies:
+          - node-read
+          - service-read
+        state: present
+
+    - name: Delete an old ACL token
+      consul_acl:
+        name: old-token
+        state: absent
+
+  when: "'yes' in consul_check.output"
