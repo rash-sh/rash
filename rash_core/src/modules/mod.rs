@@ -8,6 +8,7 @@ mod assemble;
 mod assert;
 mod async_status;
 mod at;
+mod auditd;
 mod authorized_key;
 mod aws_s3;
 mod blkdiscard;
@@ -181,6 +182,7 @@ use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
+use crate::modules::auditd::Auditd;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
@@ -422,6 +424,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(AsyncStatus) as Box<dyn Module>,
         ),
         (At.get_name(), Box::new(At) as Box<dyn Module>),
+        (Auditd.get_name(), Box::new(Auditd) as Box<dyn Module>),
         (
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
