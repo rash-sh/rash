@@ -244,11 +244,8 @@ fn build_borgmatic_args(params: &Params, check_mode: bool) -> Vec<String> {
         State::Extract => {
             args.push("extract".to_string());
             if let Some(ref archive) = params.archive {
-                args.push(format!(
-                    "{}::{}",
-                    params.repository.as_deref().unwrap_or_default(),
-                    archive
-                ));
+                args.push("--archive".to_string());
+                args.push(archive.clone());
             }
             if let Some(ref extract_path) = params.extract_path {
                 args.push("--destination".to_string());
@@ -684,6 +681,9 @@ mod tests {
         };
         let args = build_borgmatic_args(&params, false);
         assert!(args.contains(&"extract".to_string()));
+        assert!(args.contains(&"--archive".to_string()));
+        assert!(args.contains(&"my-backup-2024-01-15".to_string()));
+        assert!(!args.iter().any(|a| a.contains("::")));
         assert!(args.contains(&"--destination".to_string()));
         assert!(args.contains(&"/tmp/restore".to_string()));
     }
