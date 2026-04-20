@@ -152,9 +152,7 @@ fn build_group(params: &Params) -> Result<YamlValue> {
 }
 
 fn groups_equal(a: &YamlValue, b: &YamlValue) -> bool {
-    let a_str = serde_norway::to_string(a).unwrap_or_default();
-    let b_str = serde_norway::to_string(b).unwrap_or_default();
-    a_str == b_str
+    a == b
 }
 
 pub fn prometheus_rule(params: Params, check_mode: bool) -> Result<ModuleResult> {
@@ -179,7 +177,7 @@ pub fn prometheus_rule(params: Params, check_mode: bool) -> Result<ModuleResult>
 
     let groups_key = YamlValue::String("groups".to_string());
     let groups = root
-        .entry(groups_key.clone())
+        .entry(groups_key)
         .or_insert_with(|| YamlValue::Sequence(Vec::new()));
 
     let groups_list = match groups {
@@ -671,5 +669,37 @@ mod tests {
         let content = fs::read_to_string(&file_path).unwrap();
         assert!(content.contains("severity"));
         assert!(content.contains("summary"));
+    }
+
+    #[test]
+    fn test_prometheus_rule_idempotent_with_different_key_order() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("alert.rules");
+
+        fs::write(
+            &file_path,
+            "groups:\n  - rules:\n      - for: 5m\n        expr: cpu_usage > 80\n        alert: HighCPU\n    name: node_alerts\n",
+        )
+        .unwrap();
+
+        let params = Params {
+            file: file_path.to_str().unwrap().to_string(),
+            name: "node_alerts".to_string(),
+            rules: Some(vec![
+                serde_norway::from_str(
+                    r#"
+                alert: HighCPU
+                expr: cpu_usage > 80
+                for: 5m
+                "#,
+                )
+                .unwrap(),
+            ]),
+            interval: None,
+            state: Some(State::Present),
+        };
+
+        let result = prometheus_rule(params, false).unwrap();
+        assert!(!result.changed);
     }
 }
