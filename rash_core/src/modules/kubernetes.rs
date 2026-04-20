@@ -122,8 +122,8 @@ use crate::modules::{Module, ModuleResult, parse_params};
 use rash_derive::DocJsonSchema;
 
 use log::trace;
+use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
 use std::process::{Command, Output};
 
 use minijinja::Value;
@@ -343,10 +343,7 @@ impl KubectlRunner {
         self.check_output_success(&output)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.contains("configured")
-            || stdout.contains("created")
-            || stdout.contains("unchanged")
-            || output.status.success())
+        Ok(stdout.contains("configured") || stdout.contains("created"))
     }
 
     fn apply_src(
@@ -380,10 +377,7 @@ impl KubectlRunner {
         self.check_output_success(&output)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.contains("configured")
-            || stdout.contains("created")
-            || stdout.contains("unchanged")
-            || output.status.success())
+        Ok(stdout.contains("configured") || stdout.contains("created"))
     }
 
     fn delete_definition(
@@ -572,11 +566,10 @@ impl KubectlRunner {
 }
 
 fn validate_src_path(src: &str) -> Result<()> {
-    let path = PathBuf::from(src);
-    if !path.exists() {
+    if !fs::metadata(src).map(|m| m.is_file()).unwrap_or(false) {
         return Err(Error::new(
             ErrorKind::InvalidData,
-            format!("Manifest file '{}' does not exist", src),
+            format!("Manifest file '{}' does not exist or is not a file", src),
         ));
     }
     Ok(())
@@ -639,8 +632,7 @@ fn kubernetes(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 )?;
                 if applied {
                     diff("state: absent".to_string(), "state: present".to_string());
-                    let (kind, name, _) = extract_resource_meta(definition).unwrap_or_default();
-                    if !kind.is_empty() && !name.is_empty() {
+                    if let Ok((kind, name, _)) = extract_resource_meta(definition) {
                         output_messages.push(format!("Applied {} '{}'", kind.to_lowercase(), name));
                     } else {
                         output_messages.push("Applied inline definition".to_string());
@@ -670,8 +662,7 @@ fn kubernetes(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 let deleted = runner.delete_definition(definition, &params.namespace, &params)?;
                 if deleted {
                     diff("state: present".to_string(), "state: absent".to_string());
-                    let (kind, name, _) = extract_resource_meta(definition).unwrap_or_default();
-                    if !kind.is_empty() && !name.is_empty() {
+                    if let Ok((kind, name, _)) = extract_resource_meta(definition) {
                         output_messages.push(format!("Deleted {} '{}'", kind.to_lowercase(), name));
                     } else {
                         output_messages.push("Deleted inline definition".to_string());
