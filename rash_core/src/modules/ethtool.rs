@@ -260,6 +260,7 @@ fn settings_match(current: &str, params: &Params) -> bool {
 }
 
 fn apply_link_settings(device: &str, params: &Params) -> Result<()> {
+    let speed_str = params.speed.map(|s| s.to_string());
     let mut args = vec![device];
 
     if let Some(autoneg) = params.autoneg {
@@ -267,9 +268,9 @@ fn apply_link_settings(device: &str, params: &Params) -> Result<()> {
         args.push(if autoneg { "on" } else { "off" });
     }
 
-    if let Some(speed) = params.speed {
+    if let Some(ref speed) = speed_str {
         args.push("speed");
-        args.push(Box::leak(speed.to_string().into_boxed_str()) as &str);
+        args.push(speed.as_str());
     }
 
     if let Some(ref duplex) = params.duplex {
