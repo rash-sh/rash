@@ -139,10 +139,7 @@ pub fn auditd(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
     let state = params.state.unwrap_or_default();
     let reload = params.reload.unwrap_or(true);
-    let rules_file = params
-        .rules_file
-        .as_deref()
-        .unwrap_or(DEFAULT_RULES_FILE);
+    let rules_file = params.rules_file.as_deref().unwrap_or(DEFAULT_RULES_FILE);
     let path = Path::new(rules_file);
 
     let mut existing_rules = read_existing_rules(path)?;
@@ -585,7 +582,10 @@ mod tests {
 
         let content = fs::read_to_string(&file_path).unwrap();
         assert_eq!(
-            content.lines().filter(|l| l.trim() == "-w /etc/passwd -p wa -k identity").count(),
+            content
+                .lines()
+                .filter(|l| l.trim() == "-w /etc/passwd -p wa -k identity")
+                .count(),
             1
         );
     }
