@@ -44,6 +44,7 @@ mod dynamic;
 mod expect;
 mod fail;
 mod fail2ban;
+mod fetch;
 mod file;
 mod filesystem;
 pub mod find;
@@ -209,6 +210,7 @@ pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::fail2ban::Fail2ban;
+use crate::modules::fetch::Fetch;
 use crate::modules::file::File;
 use crate::modules::filesystem::Filesystem;
 use crate::modules::find::Find;
@@ -484,15 +486,11 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Expect.get_name(), Box::new(Expect) as Box<dyn Module>),
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
-        (File.get_name(), Box::new(File) as Box<dyn Module>),
-        (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
-        (Flatpak.get_name(), Box::new(Flatpak) as Box<dyn Module>),
-        (Find.get_name(), Box::new(Find) as Box<dyn Module>),
-        (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (
-            Filesystem.get_name(),
-            Box::new(Filesystem) as Box<dyn Module>,
+            Fail2ban.get_name(),
+            Box::new(Fail2ban) as Box<dyn Module>,
         ),
+        (Fetch.get_name(), Box::new(Fetch) as Box<dyn Module>),
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
