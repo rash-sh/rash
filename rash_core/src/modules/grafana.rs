@@ -309,7 +309,7 @@ fn exec_dashboard_get(
     let data = handle_response(response, "dashboard get")?;
     Ok(ModuleResult::new(
         false,
-        Some(value::to_value(data.clone())?),
+        Some(value::to_value(data)?),
         Some(format!("Dashboard '{uid}' retrieved successfully")),
     ))
 }
@@ -437,7 +437,7 @@ fn exec_datasource_get(
     let data = handle_response(response, "datasource get")?;
     Ok(ModuleResult::new(
         false,
-        Some(value::to_value(data.clone())?),
+        Some(value::to_value(data)?),
         Some(format!("Datasource '{name}' retrieved successfully")),
     ))
 }
@@ -616,7 +616,7 @@ fn exec_folder_get(
     let data = handle_response(response, "folder get")?;
     Ok(ModuleResult::new(
         false,
-        Some(value::to_value(data.clone())?),
+        Some(value::to_value(data)?),
         Some(format!("Folder '{uid}' retrieved successfully")),
     ))
 }
@@ -744,7 +744,7 @@ fn exec_org_get(
     base_url: &str,
     config: &JsonValue,
 ) -> Result<ModuleResult> {
-    if let Some(org_id) = get_string_field(config, "id") {
+    if let Some(org_id) = config.get("id").and_then(|v| v.as_u64()) {
         let url = format!("{base_url}/api/orgs/{org_id}");
         let response = add_auth(params, client.get(&url)).send().map_err(|e| {
             Error::new(
@@ -755,7 +755,7 @@ fn exec_org_get(
         let data = handle_response(response, "org get")?;
         Ok(ModuleResult::new(
             false,
-            Some(value::to_value(data.clone())?),
+            Some(value::to_value(data)?),
             Some(format!("Organization '{org_id}' retrieved successfully")),
         ))
     } else {
@@ -769,7 +769,7 @@ fn exec_org_get(
         let data = handle_response(response, "orgs list")?;
         Ok(ModuleResult::new(
             false,
-            Some(value::to_value(data.clone())?),
+            Some(value::to_value(data)?),
             Some("Organizations retrieved successfully".to_string()),
         ))
     }
