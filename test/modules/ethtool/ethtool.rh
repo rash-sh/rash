@@ -1,0 +1,37 @@
+#!/usr/bin/env rash
+- name: Query ethtool settings (check mode validation)
+  ethtool:
+    device: lo
+    state: query
+  check_mode: true
+  ignore_errors: true
+  register: query_result
+
+- name: Set link settings with check mode
+  ethtool:
+    device: eth0
+    speed: 1000
+    duplex: full
+    autoneg: off
+  check_mode: true
+  ignore_errors: true
+  register: speed_result
+
+- name: Configure offload with check mode
+  ethtool:
+    device: eth0
+    offload:
+      rx: "on"
+      tx: "on"
+      tso: "off"
+  check_mode: true
+  ignore_errors: true
+  register: offload_result
+
+- name: Reset interface with check mode
+  ethtool:
+    device: eth0
+    state: absent
+  check_mode: true
+  ignore_errors: true
+  register: absent_result
