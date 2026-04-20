@@ -1,0 +1,83 @@
+#!/usr/bin/env rash
+#
+# consul_acl module example
+#
+# This example demonstrates the consul_acl module for managing Consul ACL tokens.
+# It shows how to create, update, and delete ACL tokens with various configurations.
+#
+# Requirements:
+# - A running Consul server with ACLs enabled
+# - CONSUL_HTTP_TOKEN environment variable set with a management token
+#
+# Usage:
+#   CONSUL_HTTP_TOKEN=xxx rash consul_acl.rh
+
+- name: Create a client ACL token with rules
+  consul_acl:
+    name: agent-token
+    token_type: client
+    rules: |
+      node "" {
+        policy = "read"
+      }
+    state: present
+  register: agent_token
+
+- name: Show agent token result
+  debug:
+    msg: "Agent token accessor: {{ agent_token.accessor_id }}"
+
+- name: Create a management ACL token
+  consul_acl:
+    name: admin-token
+    token_type: management
+    state: present
+  register: admin_token
+
+- name: Create a token with policies
+  consul_acl:
+    name: app-token
+    policies:
+      - read-only
+      - service-write
+    state: present
+  register: app_token
+
+- name: Create a temporary token with TTL
+  consul_acl:
+    name: temp-token
+    token_type: client
+    ttl: 1h
+    rules: |
+      service "myapp" {
+        policy = "read"
+      }
+    state: present
+  register: temp_token
+
+- name: Create token on remote Consul server
+  consul_acl:
+    name: remote-token
+    token_type: client
+    host: consul-server.example.com
+    port: 8500
+    token: "{{ consul_management_token }}"
+    rules: |
+      key_prefix "myapp/" {
+        policy = "write"
+      }
+    state: present
+  ignore_errors: true
+
+- name: Update existing token (add policies)
+  consul_acl:
+    name: agent-token
+    policies:
+      - node-read
+      - service-read
+    state: present
+
+- name: Delete an old ACL token
+  consul_acl:
+    name: old-token
+    state: absent
