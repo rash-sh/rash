@@ -182,7 +182,8 @@ impl GrafanaClient {
     }
 
     fn search_dashboard_by_name(&self, name: &str) -> Result<Option<JsonValue>> {
-        let url = format!("{}/api/search?query={name}", self.url);
+        let encoded = urlencoding::encode(name);
+        let url = format!("{}/api/search?query={encoded}", self.url);
         let client = self.build_client()?;
         let request = self.add_auth_header(client.get(&url));
 
@@ -229,11 +230,10 @@ impl GrafanaClient {
         } else {
             match self.search_dashboard_by_name(&params.name)? {
                 Some(search_result) => {
-                    let uid = search_result
-                        .get("uid")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
+                    let uid = match search_result.get("uid").and_then(|v| v.as_str()) {
+                        Some(uid) if !uid.is_empty() => uid.to_string(),
+                        _ => return Ok(None),
+                    };
                     match self.get_dashboard_by_uid(&uid)? {
                         Some(data) => Ok(Some((uid, data))),
                         None => Ok(None),
@@ -310,7 +310,7 @@ impl GrafanaClient {
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
 
-        let changed = status_val != "unchanged" || new_uid.is_some();
+        let changed = status_val != "unchanged";
 
         Ok((changed, new_uid))
     }
