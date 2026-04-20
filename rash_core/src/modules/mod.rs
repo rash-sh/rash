@@ -153,6 +153,7 @@ mod vdo;
 mod wait_for;
 mod wakeonlan;
 mod wipefs;
+mod wireguard;
 mod xattr;
 mod xml;
 mod yum_repository;
@@ -317,6 +318,7 @@ use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wakeonlan::WakeOnLan;
 use crate::modules::wipefs::Wipefs;
+use crate::modules::wireguard::Wireguard;
 use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
@@ -655,6 +657,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
+        (Wireguard.get_name(), Box::new(Wireguard) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
