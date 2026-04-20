@@ -16,15 +16,15 @@
 
 - name: Check if kubectl is installed
   command:
-    cmd: kubectl version --client --short 2>/dev/null || kubectl version --client -o json 2>/dev/null
+    cmd: which kubectl
   register: kubectl_check
-  failed_when: false
+  ignore_errors: true
   changed_when: false
 
 - name: Skip if kubectl not available
   debug:
     msg: "kubectl is not installed. Skipping example."
-  when: kubectl_check.rc != 0
+  when: kubectl_check is not defined
 
 - block:
     - name: Create namespace (check mode)
@@ -144,4 +144,4 @@
           metadata:
             name: rash-example
 
-  when: kubectl_check.rc == 0
+  when: kubectl_check is defined
