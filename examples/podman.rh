@@ -52,7 +52,6 @@
     image: nginx:latest
     state: started
     memory: "512m"
-    cpus: "1.5"
 
 - name: Create podman network
   command: podman network create mynetwork
