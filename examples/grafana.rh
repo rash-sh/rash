@@ -7,7 +7,7 @@
   grafana:
     action: add
     url: http://grafana:3000
-    api_key: "{{ grafana_api_key }}"
+    api_key: test-api-key
     datasource:
       name: Prometheus
       type: prometheus
@@ -17,7 +17,7 @@
   grafana:
     action: get
     url: http://grafana:3000
-    api_key: "{{ grafana_api_key }}"
+    api_key: test-api-key
     datasource:
       name: Prometheus
   register: ds_info
@@ -26,7 +26,7 @@
   grafana:
     action: add
     url: http://grafana:3000
-    api_key: "{{ grafana_api_key }}"
+    api_key: test-api-key
     dashboard:
       title: My Dashboard
       uid: my-dashboard
@@ -39,7 +39,7 @@
   grafana:
     action: add
     url: http://grafana:3000
-    api_key: "{{ grafana_api_key }}"
+    api_key: test-api-key
     folder:
       title: Monitoring
       uid: monitoring
@@ -57,6 +57,6 @@
   grafana:
     action: remove
     url: http://grafana:3000
-    api_key: "{{ grafana_api_key }}"
+    api_key: test-api-key
     dashboard:
       uid: my-dashboard
