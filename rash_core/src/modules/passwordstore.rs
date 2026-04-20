@@ -246,6 +246,13 @@ fn exec_present(
     store_dir: Option<&str>,
     check_mode: bool,
 ) -> Result<ModuleResult> {
+    if params.password.is_some() && params.userpass.is_some() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "'password' and 'userpass' are mutually exclusive",
+        ));
+    }
+
     let exists = password_exists(&params.path, store_dir);
 
     if exists && !params.generate {
@@ -276,13 +283,6 @@ fn exec_present(
         return Err(Error::new(
             ErrorKind::InvalidData,
             "One of 'password', 'userpass', or 'generate' is required when creating a new password entry",
-        ));
-    }
-
-    if params.password.is_some() && params.userpass.is_some() {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "'password' and 'userpass' are mutually exclusive",
         ));
     }
 
@@ -359,11 +359,13 @@ fn exec_present(
         });
     }
 
-    Ok(ModuleResult {
-        changed: false,
-        output: Some(format!("Password {} unchanged", params.path)),
-        extra: None,
-    })
+    Err(Error::new(
+        ErrorKind::InvalidData,
+        format!(
+            "No action specified for password {}: provide 'password', 'userpass', or 'generate'",
+            params.path
+        ),
+    ))
 }
 
 fn exec_absent(params: &Params, store_dir: Option<&str>, check_mode: bool) -> Result<ModuleResult> {
