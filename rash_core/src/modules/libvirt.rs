@@ -205,8 +205,6 @@ pub struct Params {
     /// Force stop (destroy) instead of graceful shutdown.
     #[serde(default)]
     force: bool,
-    /// Enable or disable the domain (alias for state management).
-    enabled: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -328,7 +326,7 @@ impl LibvirtClient {
         if let Some(ref mut stdin) = child.stdin {
             stdin
                 .write_all(xml.as_bytes())
-                .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
         }
 
         let output = child
@@ -931,7 +929,6 @@ mod tests {
             autostart: None,
             remove_storage: false,
             force: false,
-            enabled: None,
         };
         let xml = generate_domain_xml(&params);
         assert!(xml.contains("<name>testvm</name>"));
@@ -959,7 +956,6 @@ mod tests {
             autostart: None,
             remove_storage: false,
             force: false,
-            enabled: None,
         };
         let xml = generate_domain_xml(&params);
         assert!(xml.contains("<source file='/tmp/test.qcow2'/>"));
@@ -985,7 +981,6 @@ mod tests {
             autostart: None,
             remove_storage: false,
             force: false,
-            enabled: None,
         };
         let xml = generate_domain_xml(&params);
         assert!(xml.contains("<source bridge='virbr0'/>"));
@@ -1007,7 +1002,6 @@ mod tests {
             autostart: None,
             remove_storage: false,
             force: false,
-            enabled: None,
         };
         let xml = generate_domain_xml(&params);
         assert_eq!(xml, custom_xml);
@@ -1062,7 +1056,6 @@ mod tests {
             autostart: None,
             remove_storage: false,
             force: false,
-            enabled: None,
         };
         let xml = generate_domain_xml(&params);
         assert!(xml.contains("<source network='default'/>"));
@@ -1087,7 +1080,6 @@ mod tests {
             autostart: None,
             remove_storage: false,
             force: false,
-            enabled: None,
         };
         let xml = generate_domain_xml(&params);
         assert!(xml.contains("<source network='default'/>"));
