@@ -561,25 +561,11 @@ fn image_contains_tag(image: &str) -> bool {
     }
 }
 
-fn validate_params(params: &Params) -> Result<()> {
+fn docker_service(params: Params, check_mode: bool) -> Result<ModuleResult> {
     if params.name.is_empty() {
         return Err(Error::new(ErrorKind::InvalidData, "name cannot be empty"));
     }
 
-    if params.state == State::Present && params.image.is_none() {
-        let client = DockerServiceClient::new(false);
-        if !client.service_exists(&params.name)? {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "image is required when creating a new service",
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-fn docker_service(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let client = DockerServiceClient::new(check_mode);
     let mut changed = false;
     let mut output_messages = Vec::new();
@@ -595,66 +581,43 @@ fn docker_service(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
                 if let Some(ref info) = current_info {
                     if client.needs_update(&params, info) {
-                        if check_mode {
-                            diff(
-                                format!("service {} (current)", serialize_service_info(info)),
-                                format!("service {} (desired)", serialize_desired_state(&params)),
-                            );
-                            output_messages
-                                .push(format!("Service {} would be updated", params.name));
-                            changed = true;
-                        } else {
-                            client.update_service(&params)?;
-                            diff(
-                                format!("service {} (current)", serialize_service_info(info)),
-                                format!("service {} (desired)", serialize_desired_state(&params)),
-                            );
-                            output_messages.push(format!("Service {} updated", params.name));
-                            changed = true;
-                        }
+                        client.update_service(&params)?;
+                        diff(
+                            format!("service {} (current)", serialize_service_info(info)),
+                            format!("service {} (desired)", serialize_desired_state(&params)),
+                        );
+                        output_messages.push(format!("Service {} updated", params.name));
+                        changed = true;
                     } else {
                         output_messages.push(format!("Service {} is up to date", params.name));
                     }
                 }
             } else {
-                validate_params(&params)?;
-
-                if check_mode {
-                    diff(
-                        "service absent".to_string(),
-                        format!("service {} (created)", serialize_desired_state(&params)),
-                    );
-                    output_messages.push(format!("Service {} would be created", params.name));
-                    changed = true;
-                } else {
-                    client.create_service(&params)?;
-                    diff(
-                        "service absent".to_string(),
-                        format!("service {} (created)", serialize_desired_state(&params)),
-                    );
-                    output_messages.push(format!("Service {} created", params.name));
-                    changed = true;
+                if params.image.is_none() {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "image is required when creating a new service",
+                    ));
                 }
+
+                client.create_service(&params)?;
+                diff(
+                    "service absent".to_string(),
+                    format!("service {} (created)", serialize_desired_state(&params)),
+                );
+                output_messages.push(format!("Service {} created", params.name));
+                changed = true;
             }
         }
         State::Absent => {
             if exists {
-                if check_mode {
-                    diff(
-                        format!("service {} present", params.name),
-                        "service absent".to_string(),
-                    );
-                    output_messages.push(format!("Service {} would be removed", params.name));
-                    changed = true;
-                } else {
-                    client.remove_service(&params.name)?;
-                    diff(
-                        format!("service {} present", params.name),
-                        "service absent".to_string(),
-                    );
-                    output_messages.push(format!("Service {} removed", params.name));
-                    changed = true;
-                }
+                client.remove_service(&params.name)?;
+                diff(
+                    format!("service {} present", params.name),
+                    "service absent".to_string(),
+                );
+                output_messages.push(format!("Service {} removed", params.name));
+                changed = true;
             } else {
                 output_messages.push(format!("Service {} already absent", params.name));
             }
