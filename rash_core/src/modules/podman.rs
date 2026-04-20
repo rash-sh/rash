@@ -35,7 +35,7 @@
 ///     name: myapp
 ///     state: absent
 ///
-/// - name: Create a rootless container with ports and environment
+/// - name: Create a container with ports and environment
 ///   podman:
 ///     name: webapp
 ///     image: nginx:latest
@@ -45,7 +45,6 @@
 ///       - "443:443"
 ///     env:
 ///       - "NGINX_HOST=example.com"
-///     rootless: true
 ///
 /// - name: Create a container with volumes
 ///   podman:
@@ -177,9 +176,6 @@ pub struct Params {
     /// Run container in detached mode (background).
     #[serde(default = "default_true")]
     detach: bool,
-    /// Run as rootless container.
-    #[serde(default)]
-    rootless: bool,
     /// Configure systemd support in the container (true, false, always).
     systemd: Option<String>,
     /// Generate a systemd service unit for the container.
@@ -236,7 +232,7 @@ struct PodmanClient {
 }
 
 impl PodmanClient {
-    fn new(check_mode: bool, _rootless: bool) -> Self {
+    fn new(check_mode: bool) -> Self {
         PodmanClient { check_mode }
     }
 
@@ -620,7 +616,7 @@ fn validate_image_name(image: &str) -> Result<()> {
 fn podman_container(params: Params, check_mode: bool) -> Result<ModuleResult> {
     validate_container_name(&params.name)?;
 
-    let client = PodmanClient::new(check_mode, params.rootless);
+    let client = PodmanClient::new(check_mode);
     let mut changed = false;
     let mut output_messages = Vec::new();
 
@@ -769,7 +765,6 @@ mod tests {
             cpus: "1.5"
             privileged: true
             restart_policy: always
-            rootless: true
             "#,
         )
         .unwrap();
@@ -790,7 +785,6 @@ mod tests {
         assert_eq!(params.cpus, Some("1.5".to_string()));
         assert!(params.privileged);
         assert_eq!(params.restart_policy, Some("always".to_string()));
-        assert!(params.rootless);
     }
 
     #[test]
@@ -817,20 +811,6 @@ mod tests {
             env_dict.get("BOOL").unwrap(),
             &serde_json::Value::Bool(true)
         );
-    }
-
-    #[test]
-    fn test_parse_params_rootless() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            name: myapp
-            image: nginx:latest
-            rootless: true
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert!(params.rootless);
     }
 
     #[test]
