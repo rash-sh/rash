@@ -34,13 +34,16 @@
     env:
       - "NGINX_HOST=example.com"
 
+- name: Create host directory for volume mount
+  command: mkdir -p /tmp/host_path
+
 - name: Create a container with volumes
   podman:
     name: dataapp
     image: alpine:latest
     state: started
     volumes:
-      - "/host/path:/container/path"
+      - "/tmp/host_path:/container/path"
       - "named_volume:/data"
 
 - name: Create a container with resource limits
