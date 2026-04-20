@@ -13,8 +13,15 @@ fn docker_available() -> bool {
         .unwrap_or(false)
 }
 
-fn is_rate_limited(stderr: &str) -> bool {
-    stderr.contains("toomanyrequests") || stderr.contains("rate limit")
+fn is_transient_network_error(stderr: &str) -> bool {
+    stderr.contains("toomanyrequests")
+        || stderr.contains("rate limit")
+        || stderr.contains("TLS handshake timeout")
+        || stderr.contains("connection refused")
+        || stderr.contains("network is unreachable")
+        || stderr.contains("no such host")
+        || stderr.contains("i/o timeout")
+        || stderr.contains("dial tcp")
 }
 
 macro_rules! skip_without_docker {
@@ -30,8 +37,8 @@ macro_rules! skip_without_docker {
 macro_rules! assert_no_error {
     ($stderr:expr) => {
         let stderr_ref: &str = &$stderr;
-        if is_rate_limited(stderr_ref) {
-            eprintln!("Skipping test: Docker Hub rate limit reached");
+        if is_transient_network_error(stderr_ref) {
+            eprintln!("Skipping test: transient network error: {}", stderr_ref);
             return;
         }
         assert!(
