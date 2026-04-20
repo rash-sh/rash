@@ -353,50 +353,17 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         let exists = client.index_exists(&params.index)?;
 
         if exists {
-            let index_url = client.build_url(&params.index);
-            let http_client = client.build_client()?;
-            let request = client.add_auth(http_client.get(&index_url));
-            let response = client.check_response(request.send().map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Elasticsearch get index request failed: {e}"),
-                )
-            })?)?;
-            let existing: JsonValue = response.json().map_err(|e| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Failed to parse response: {e}"),
-                )
-            })?;
-
-            let existing_settings = existing.get(&params.index).and_then(|v| v.get("settings"));
-
-            let new_settings = params.body.as_ref().and_then(|b| b.get("settings"));
-
-            if existing_settings.is_some() && new_settings.is_some() {
-                if check_mode {
-                    return Ok(ModuleResult::new(false, None, None));
-                }
-                Ok(ModuleResult::new(
-                    false,
-                    Some(value::to_value(json!({
-                        "index": params.index,
-                        "changed": false
-                    }))?),
-                    Some(format!("Index {} already exists", params.index)),
-                ))
-            } else if check_mode {
-                Ok(ModuleResult::new(true, None, None))
-            } else {
-                Ok(ModuleResult::new(
-                    false,
-                    Some(value::to_value(json!({
-                        "index": params.index,
-                        "changed": false
-                    }))?),
-                    Some(format!("Index {} already exists", params.index)),
-                ))
+            if check_mode {
+                return Ok(ModuleResult::new(false, None, None));
             }
+            Ok(ModuleResult::new(
+                false,
+                Some(value::to_value(json!({
+                    "index": params.index,
+                    "changed": false
+                }))?),
+                Some(format!("Index {} already exists", params.index)),
+            ))
         } else {
             if check_mode {
                 return Ok(ModuleResult::new(true, None, None));
