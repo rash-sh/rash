@@ -211,6 +211,11 @@ use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::fail2ban::Fail2ban;
 use crate::modules::fetch::Fetch;
+use crate::modules::file::File;
+use crate::modules::filesystem::Filesystem;
+use crate::modules::firewalld::Firewalld;
+use crate::modules::flatpak::Flatpak;
+use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
@@ -387,8 +392,6 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Alternatives.get_name(),
             Box::new(Alternatives) as Box<dyn Module>,
         ),
-        (Acl.get_name(), Box::new(Acl) as Box<dyn Module>),
-        (Fail2ban.get_name(), Box::new(Fail2ban) as Box<dyn Module>),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
         (
@@ -482,6 +485,14 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Fail.get_name(), Box::new(Fail) as Box<dyn Module>),
         (Fail2ban.get_name(), Box::new(Fail2ban) as Box<dyn Module>),
         (Fetch.get_name(), Box::new(Fetch) as Box<dyn Module>),
+        (File.get_name(), Box::new(File) as Box<dyn Module>),
+        (
+            Filesystem.get_name(),
+            Box::new(Filesystem) as Box<dyn Module>,
+        ),
+        (Firewalld.get_name(), Box::new(Firewalld) as Box<dyn Module>),
+        (Flatpak.get_name(), Box::new(Flatpak) as Box<dyn Module>),
+        (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
