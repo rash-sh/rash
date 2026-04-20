@@ -99,6 +99,10 @@ pub struct Params {
 fn build_mysql_base_args(params: &Params) -> Vec<String> {
     let mut args = Vec::new();
 
+    if let Some(ref config_file) = params.config_file {
+        args.push(format!("--defaults-file={}", config_file));
+    }
+
     if let Some(ref socket) = params.login_unix_socket {
         args.push(format!("--socket={}", socket));
     } else {
@@ -112,10 +116,6 @@ fn build_mysql_base_args(params: &Params) -> Vec<String> {
 
     if let Some(ref password) = params.login_password {
         args.push(format!("--password={}", password));
-    }
-
-    if let Some(ref config_file) = params.config_file {
-        args.push(format!("--defaults-file={}", config_file));
     }
 
     args
@@ -198,8 +198,9 @@ fn execute_query(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 }
 
 fn truncate_query(query: &str) -> String {
-    if query.len() > 100 {
-        format!("{}...", &query[..100])
+    let chars: String = query.chars().take(100).collect();
+    if query.chars().count() > 100 {
+        format!("{}...", chars)
     } else {
         query.to_string()
     }
@@ -361,6 +362,26 @@ mod tests {
     }
 
     #[test]
+    fn test_build_mysql_base_args_config_file_first() {
+        let params = Params {
+            query: "SELECT 1".to_string(),
+            database: None,
+            login_host: "192.168.1.100".to_string(),
+            login_user: Some("admin".to_string()),
+            login_password: Some("secret".to_string()),
+            login_port: 3307,
+            login_unix_socket: None,
+            single_transaction: false,
+            config_file: Some("/etc/mysql/debian.cnf".to_string()),
+        };
+        let args = build_mysql_base_args(&params);
+        assert_eq!(
+            args[0],
+            "--defaults-file=/etc/mysql/debian.cnf".to_string()
+        );
+    }
+
+    #[test]
     fn test_truncate_query_short() {
         assert_eq!(truncate_query("SELECT 1"), "SELECT 1");
     }
@@ -371,6 +392,14 @@ mod tests {
         let result = truncate_query(&long_query);
         assert!(result.ends_with("..."));
         assert_eq!(result.len(), 103);
+    }
+
+    #[test]
+    fn test_truncate_query_multibyte() {
+        let long_query = "日本語".repeat(50);
+        let result = truncate_query(&long_query);
+        assert!(result.ends_with("..."));
+        assert_eq!(result.chars().take(100).count(), 100);
     }
 
     #[test]
