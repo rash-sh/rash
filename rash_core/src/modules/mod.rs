@@ -12,6 +12,7 @@ mod authorized_key;
 mod aws_s3;
 mod blkdiscard;
 mod block;
+mod borgmatic;
 mod cargo;
 mod cgroups;
 mod chroot;
@@ -103,6 +104,7 @@ mod package;
 mod pacman;
 mod pam_limits;
 mod parted;
+mod passwordstore;
 mod patch;
 mod pause;
 mod pids;
@@ -110,6 +112,7 @@ mod ping;
 mod pip;
 mod podman;
 mod postgresql_db;
+mod postgresql_query;
 mod postgresql_user;
 mod proxmox;
 mod rabbitmq_user;
@@ -151,6 +154,7 @@ mod vdo;
 mod wait_for;
 mod wakeonlan;
 mod wipefs;
+mod wireguard;
 mod xattr;
 mod xml;
 mod yum_repository;
@@ -174,6 +178,7 @@ use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
+use crate::modules::borgmatic::Borgmatic;
 use crate::modules::cargo::Cargo;
 use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
@@ -265,6 +270,7 @@ use crate::modules::package::Package;
 use crate::modules::pacman::Pacman;
 use crate::modules::pam_limits::PamLimits;
 use crate::modules::parted::Parted;
+use crate::modules::passwordstore::Passwordstore;
 use crate::modules::patch::Patch;
 use crate::modules::pause::Pause;
 use crate::modules::pids::Pids;
@@ -272,6 +278,7 @@ use crate::modules::ping::Ping;
 use crate::modules::pip::Pip;
 use crate::modules::podman::Podman;
 use crate::modules::postgresql_db::PostgresqlDb;
+use crate::modules::postgresql_query::PostgresqlQuery;
 use crate::modules::postgresql_user::PostgresqlUser;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
@@ -313,6 +320,7 @@ use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wakeonlan::WakeOnLan;
 use crate::modules::wipefs::Wipefs;
+use crate::modules::wireguard::Wireguard;
 use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
@@ -412,6 +420,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Blkdiscard) as Box<dyn Module>,
         ),
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
+        (Borgmatic.get_name(), Box::new(Borgmatic) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
         (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
@@ -580,6 +589,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Pacman.get_name(), Box::new(Pacman) as Box<dyn Module>),
         (Parted.get_name(), Box::new(Parted) as Box<dyn Module>),
+        (
+            Passwordstore.get_name(),
+            Box::new(Passwordstore) as Box<dyn Module>,
+        ),
         (Patch.get_name(), Box::new(Patch) as Box<dyn Module>),
         (Pause.get_name(), Box::new(Pause) as Box<dyn Module>),
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
@@ -590,6 +603,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(PostgresqlDb) as Box<dyn Module>,
         ),
         (
+            PostgresqlQuery.get_name(),
+            Box::new(PostgresqlQuery) as Box<dyn Module>,
+        ),
+        (
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
@@ -597,6 +614,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
+        (
+            Passwordstore.get_name(),
+            Box::new(Passwordstore) as Box<dyn Module>,
+        ),
         (
             RabbitmqUser.get_name(),
             Box::new(RabbitmqUser) as Box<dyn Module>,
@@ -642,6 +663,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
+        (Wireguard.get_name(), Box::new(Wireguard) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
         (Wipefs.get_name(), Box::new(Wipefs) as Box<dyn Module>),
