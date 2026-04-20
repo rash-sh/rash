@@ -58,6 +58,7 @@ mod group;
 mod grub;
 mod helm;
 mod helm_info;
+mod homebrew;
 mod hostname;
 mod htpasswd;
 mod include;
@@ -231,6 +232,7 @@ use crate::modules::group::Group;
 use crate::modules::grub::Grub;
 use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
+use crate::modules::homebrew::Homebrew;
 use crate::modules::hostname::Hostname;
 use crate::modules::htpasswd::Htpasswd;
 use crate::modules::include::Include;
@@ -519,8 +521,12 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Htpasswd.get_name(), Box::new(Htpasswd) as Box<dyn Module>),
         (
-            JavaKeystore.get_name(),
-            Box::new(JavaKeystore) as Box<dyn Module>,
+            Homebrew.get_name(),
+            Box::new(Homebrew) as Box<dyn Module>,
+        ),
+        (
+            Include.get_name(),
+            Box::new(Include) as Box<dyn Module>,
         ),
         (
             JenkinsJob.get_name(),
