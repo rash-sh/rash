@@ -1,0 +1,45 @@
+#!/usr/bin/env rash
+#
+# postgresql_query module example
+#
+# This example demonstrates the postgresql_query module for executing
+# SQL queries against PostgreSQL databases.
+#
+# Requirements:
+# - PostgreSQL client (psql) installed
+# - Access to a PostgreSQL server
+#
+# Usage:
+#   rash postgresql_query.rh
+
+- name: Create application schema
+  postgresql_query:
+    database: myapp
+    query: "CREATE SCHEMA IF NOT EXISTS app_schema"
+    login_user: postgres
+    login_password: "{{ pg_pass | default('postgres') }}"
+
+- name: Create extension
+  postgresql_query:
+    database: myapp
+    query: "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""
+    login_user: postgres
+    login_password: "{{ pg_pass | default('postgres') }}"
+  ignore_errors: true
+
+- name: Query with SSL
+  postgresql_query:
+    database: myapp
+    query: "SELECT * FROM users LIMIT 10"
+    login_host: db.example.com
+    login_user: admin
+    login_password: secret
+    ssl_mode: require
+
+- name: Run migration in a single transaction
+  postgresql_query:
+    database: myapp
+    query: "{{ lookup('file', 'migrations/v1.sql') }}"
+    login_user: appuser
+    login_password: "{{ app_pass }}"
+    single_transaction: true
