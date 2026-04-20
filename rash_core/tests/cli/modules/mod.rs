@@ -25,6 +25,7 @@ mod git;
 mod group;
 mod grub;
 mod hostname;
+mod htpasswd;
 mod include;
 mod incus;
 mod ipaddr;
