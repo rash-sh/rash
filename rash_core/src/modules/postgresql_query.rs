@@ -122,6 +122,18 @@ fn build_env(params: &Params) -> Vec<(String, String)> {
         env.push(("PGPASSWORD".to_string(), password.clone()));
     }
 
+    if let Some(ssl_mode) = &params.ssl_mode {
+        env.push(("PGSSLMODE".to_string(), ssl_mode.clone()));
+    }
+
+    if let Some(ssl_cert) = &params.ssl_cert {
+        env.push(("PGSSLCERT".to_string(), ssl_cert.clone()));
+    }
+
+    if let Some(ssl_key) = &params.ssl_key {
+        env.push(("PGSSLKEY".to_string(), ssl_key.clone()));
+    }
+
     env
 }
 
@@ -142,18 +154,6 @@ fn build_psql_args(params: &Params) -> Vec<String> {
     if let Some(ref user) = params.login_user {
         args.push("-U".to_string());
         args.push(user.clone());
-    }
-
-    if let Some(ref ssl_mode) = params.ssl_mode {
-        args.push(format!("sslmode={}", ssl_mode));
-    }
-
-    if let Some(ref ssl_cert) = params.ssl_cert {
-        args.push(format!("sslcert={}", ssl_cert));
-    }
-
-    if let Some(ref ssl_key) = params.ssl_key {
-        args.push(format!("sslkey={}", ssl_key));
     }
 
     args.push(params.database.clone());
@@ -405,7 +405,7 @@ database: myapp
             login_password: Some("secret".to_string()),
             login_port: 5433,
             login_unix_socket: None,
-            ssl_mode: Some("require".to_string()),
+            ssl_mode: None,
             ssl_cert: None,
             ssl_key: None,
             single_transaction: false,
@@ -417,7 +417,6 @@ database: myapp
         assert!(args.contains(&"5433".to_string()));
         assert!(args.contains(&"-U".to_string()));
         assert!(args.contains(&"admin".to_string()));
-        assert!(args.contains(&"sslmode=require".to_string()));
         assert!(args.contains(&"myapp".to_string()));
     }
 
@@ -443,7 +442,7 @@ database: myapp
     }
 
     #[test]
-    fn test_build_psql_args_ssl_cert_key() {
+    fn test_build_env_ssl_params() {
         let params = Params {
             query: "SELECT 1".to_string(),
             database: "myapp".to_string(),
@@ -457,9 +456,36 @@ database: myapp
             ssl_key: Some("/etc/ssl/private/client.key".to_string()),
             single_transaction: false,
         };
-        let args = build_psql_args(&params);
-        assert!(args.contains(&"sslcert=/etc/ssl/certs/client.crt".to_string()));
-        assert!(args.contains(&"sslkey=/etc/ssl/private/client.key".to_string()));
+        let env = build_env(&params);
+        assert!(env.contains(&("PGPASSWORD".to_string(), "secret".to_string())));
+        assert!(env.contains(&("PGSSLMODE".to_string(), "verify-full".to_string())));
+        assert!(env.contains(&(
+            "PGSSLCERT".to_string(),
+            "/etc/ssl/certs/client.crt".to_string()
+        )));
+        assert!(env.contains(&(
+            "PGSSLKEY".to_string(),
+            "/etc/ssl/private/client.key".to_string()
+        )));
+    }
+
+    #[test]
+    fn test_build_env_no_ssl_params() {
+        let params = Params {
+            query: "SELECT 1".to_string(),
+            database: "myapp".to_string(),
+            login_host: "localhost".to_string(),
+            login_user: Some("postgres".to_string()),
+            login_password: None,
+            login_port: 5432,
+            login_unix_socket: None,
+            ssl_mode: None,
+            ssl_cert: None,
+            ssl_key: None,
+            single_transaction: false,
+        };
+        let env = build_env(&params);
+        assert!(!env.iter().any(|(k, _)| k.starts_with("PGSSL")));
     }
 
     #[test]
