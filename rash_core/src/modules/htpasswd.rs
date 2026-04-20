@@ -298,19 +298,16 @@ impl HtpasswdEntry {
     }
 }
 
-fn read_htpasswd_file(path: &Path) -> Vec<String> {
+fn read_htpasswd_file(path: &Path) -> Result<Vec<String>> {
     if !path.exists() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
-    fs::File::open(path)
-        .map(|f| {
-            BufReader::new(f)
-                .lines()
-                .map_while(std::result::Result::ok)
-                .collect()
-        })
-        .unwrap_or_default()
+    let file = fs::File::open(path)?;
+    Ok(BufReader::new(file)
+        .lines()
+        .map_while(std::result::Result::ok)
+        .collect())
 }
 
 fn find_entry_in_lines(lines: &[String], username: &str) -> Option<(usize, HtpasswdEntry)> {
@@ -328,7 +325,7 @@ pub fn htpasswd(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
     let path = Path::new(&params.path);
-    let lines = read_htpasswd_file(path);
+    let lines = read_htpasswd_file(path)?;
     let original = lines.join("\n");
     let state = params.state.clone().unwrap_or_default();
 
@@ -354,10 +351,6 @@ pub fn htpasswd(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 }
             } else {
                 let new_hash = hash_password(password, &crypt_scheme);
-                if !new_lines.is_empty() && !new_lines.last().map(|l| l.is_empty()).unwrap_or(true)
-                {
-                    new_lines.push(String::new());
-                }
                 new_lines.push(format!("{}:{}", params.name, new_hash));
                 changed = true;
             }
@@ -370,22 +363,24 @@ pub fn htpasswd(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     }
 
-    if changed && !check_mode {
+    if changed {
         let new_content = new_lines.join("\n");
         diff(format!("{original}\n"), format!("{new_content}\n"));
 
-        if let Some(parent) = path.parent()
-            && !parent.exists()
-        {
-            fs::create_dir_all(parent)?;
-        }
+        if !check_mode {
+            if let Some(parent) = path.parent()
+                && !parent.exists()
+            {
+                fs::create_dir_all(parent)?;
+            }
 
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)?;
-        write!(file, "{new_content}")?;
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)?;
+            write!(file, "{new_content}")?;
+        }
     }
 
     Ok(ModuleResult::new(changed, None, Some(params.name)))
