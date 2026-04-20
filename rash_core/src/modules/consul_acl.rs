@@ -305,8 +305,7 @@ impl ConsulAclClient {
         for token_entry in tokens {
             if let Some(entry_name) = token_entry.get("Description").and_then(|v| v.as_str())
                 && entry_name == name
-                && let Some(accessor_id) =
-                    token_entry.get("AccessorID").and_then(|v| v.as_str())
+                && let Some(accessor_id) = token_entry.get("AccessorID").and_then(|v| v.as_str())
             {
                 return self.get_token_by_accessor(accessor_id);
             }
@@ -322,21 +321,12 @@ impl ConsulAclClient {
         }
     }
 
-    fn create_token(&self, params: &Params) -> Result<JsonValue> {
-        let url = self.build_url("token");
-        let client = self.build_client()?;
-
+    fn build_token_body(&self, params: &Params) -> serde_json::Map<String, JsonValue> {
         let mut body = serde_json::Map::new();
-        body.insert("Description".to_string(), JsonValue::String(params.name.clone()));
-
-        match params.token_type {
-            TokenType::Management => {
-                body.insert("Type".to_string(), JsonValue::String("management".to_string()));
-            }
-            TokenType::Client => {
-                body.insert("Type".to_string(), JsonValue::String("client".to_string()));
-            }
-        }
+        body.insert(
+            "Description".to_string(),
+            JsonValue::String(params.name.clone()),
+        );
 
         if let Some(ref rules) = params.rules {
             body.insert("Rules".to_string(), JsonValue::String(rules.clone()));
@@ -355,14 +345,30 @@ impl ConsulAclClient {
         }
 
         if let Some(ref ttl) = params.ttl {
-            body.insert(
-                "ExpirationTTL".to_string(),
-                JsonValue::String(ttl.clone()),
-            );
+            body.insert("ExpirationTTL".to_string(), JsonValue::String(ttl.clone()));
         }
 
-        let request = self
-            .add_token_header(client.put(&url).json(&JsonValue::Object(body)));
+        body
+    }
+
+    fn create_token(&self, params: &Params) -> Result<JsonValue> {
+        let url = self.build_url("token");
+        let client = self.build_client()?;
+
+        let mut body = self.build_token_body(params);
+        match params.token_type {
+            TokenType::Management => {
+                body.insert(
+                    "Type".to_string(),
+                    JsonValue::String("management".to_string()),
+                );
+            }
+            TokenType::Client => {
+                body.insert("Type".to_string(), JsonValue::String("client".to_string()));
+            }
+        }
+
+        let request = self.add_token_header(client.put(&url).json(&JsonValue::Object(body)));
 
         let response = request.send().map_err(|e| {
             Error::new(
@@ -401,34 +407,9 @@ impl ConsulAclClient {
         let url = self.build_url(&format!("token/{}", accessor_id));
         let client = self.build_client()?;
 
-        let mut body = serde_json::Map::new();
-        body.insert("Description".to_string(), JsonValue::String(params.name.clone()));
+        let body = self.build_token_body(params);
 
-        if let Some(ref rules) = params.rules {
-            body.insert("Rules".to_string(), JsonValue::String(rules.clone()));
-        }
-
-        if let Some(ref policies) = params.policies {
-            let policy_links: Vec<JsonValue> = policies
-                .iter()
-                .map(|p| {
-                    let mut map = serde_json::Map::new();
-                    map.insert("Name".to_string(), JsonValue::String(p.clone()));
-                    JsonValue::Object(map)
-                })
-                .collect();
-            body.insert("Policies".to_string(), JsonValue::Array(policy_links));
-        }
-
-        if let Some(ref ttl) = params.ttl {
-            body.insert(
-                "ExpirationTTL".to_string(),
-                JsonValue::String(ttl.clone()),
-            );
-        }
-
-        let request = self
-            .add_token_header(client.put(&url).json(&JsonValue::Object(body)));
+        let request = self.add_token_header(client.put(&url).json(&JsonValue::Object(body)));
 
         let response = request.send().map_err(|e| {
             Error::new(
@@ -518,7 +499,11 @@ fn needs_update(existing: &JsonValue, params: &Params) -> bool {
             .and_then(|v| v.as_array())
             .map(|arr| {
                 arr.iter()
-                    .filter_map(|p| p.get("Name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+                    .filter_map(|p| {
+                        p.get("Name")
+                            .and_then(|n| n.as_str())
+                            .map(|s| s.to_string())
+                    })
                     .collect()
             })
             .unwrap_or_default();
@@ -528,7 +513,34 @@ fn needs_update(existing: &JsonValue, params: &Params) -> bool {
         }
     }
 
+    if let Some(ref ttl) = params.ttl {
+        if let Some(existing_ttl) = existing.get("ExpirationTTL").and_then(|v| v.as_str())
+            && existing_ttl != ttl
+        {
+            return true;
+        } else if existing
+            .get("ExpirationTTL")
+            .and_then(|v| v.as_str())
+            .is_none()
+        {
+            return true;
+        }
+    }
+
     false
+}
+
+fn get_accessor_id(token: &JsonValue, context: &str) -> Result<String> {
+    token
+        .get("AccessorID")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Consul response missing AccessorID{}", context),
+            )
+        })
 }
 
 fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
@@ -536,11 +548,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     match client.find_token(params)? {
         Some(existing) => {
-            let accessor_id = existing
-                .get("AccessorID")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            let accessor_id = get_accessor_id(&existing, " in existing token")?;
 
             if needs_update(&existing, params) {
                 if check_mode {
@@ -579,12 +587,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
             }
 
             let created = client.create_token(params)?;
-
-            let accessor_id = created
-                .get("AccessorID")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            let accessor_id = get_accessor_id(&created, " in create response")?;
 
             Ok(ModuleResult::new(
                 true,
@@ -604,11 +607,7 @@ fn exec_absent(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     match client.find_token(params)? {
         Some(existing) => {
-            let accessor_id = existing
-                .get("AccessorID")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            let accessor_id = get_accessor_id(&existing, " in existing token")?;
 
             if check_mode {
                 return Ok(ModuleResult::new(true, None, None));
@@ -626,7 +625,10 @@ fn exec_absent(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                 if deleted {
                     Some(format!("ACL token '{}' deleted", params.name))
                 } else {
-                    Some(format!("ACL token '{}' not found for deletion", params.name))
+                    Some(format!(
+                        "ACL token '{}' not found for deletion",
+                        params.name
+                    ))
                 },
             ))
         }
@@ -665,7 +667,10 @@ impl Module for ConsulAcl {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        Ok((consul_acl_impl(parse_params(optional_params)?, check_mode)?, None))
+        Ok((
+            consul_acl_impl(parse_params(optional_params)?, check_mode)?,
+            None,
+        ))
     }
 
     #[cfg(feature = "docs")]
@@ -745,10 +750,7 @@ mod tests {
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(
             params.policies,
-            Some(vec![
-                "read-only".to_string(),
-                "service-write".to_string(),
-            ])
+            Some(vec!["read-only".to_string(), "service-write".to_string(),])
         );
     }
 
@@ -858,8 +860,7 @@ mod tests {
 
     #[test]
     fn test_default_values() {
-        let yaml: YamlValue =
-            serde_norway::from_str(r#"name: test-token"#).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(r#"name: test-token"#).unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.host, "localhost");
         assert_eq!(params.port, 8500);
@@ -1082,6 +1083,77 @@ mod tests {
     }
 
     #[test]
+    fn test_needs_update_ttl_changed() {
+        let existing = serde_json::json!({
+            "Description": "agent-token",
+            "ExpirationTTL": "1h",
+        });
+        let params = Params {
+            name: "agent-token".to_string(),
+            token_type: TokenType::Client,
+            rules: None,
+            state: State::Present,
+            token: None,
+            token_id: None,
+            policies: None,
+            ttl: Some("2h".to_string()),
+            host: "localhost".to_string(),
+            port: 8500,
+            validate_certs: true,
+            dc: None,
+            ns: None,
+        };
+        assert!(needs_update(&existing, &params));
+    }
+
+    #[test]
+    fn test_needs_update_ttl_added() {
+        let existing = serde_json::json!({
+            "Description": "agent-token",
+        });
+        let params = Params {
+            name: "agent-token".to_string(),
+            token_type: TokenType::Client,
+            rules: None,
+            state: State::Present,
+            token: None,
+            token_id: None,
+            policies: None,
+            ttl: Some("1h".to_string()),
+            host: "localhost".to_string(),
+            port: 8500,
+            validate_certs: true,
+            dc: None,
+            ns: None,
+        };
+        assert!(needs_update(&existing, &params));
+    }
+
+    #[test]
+    fn test_needs_update_ttl_unchanged() {
+        let existing = serde_json::json!({
+            "Description": "agent-token",
+            "ExpirationTTL": "1h",
+        });
+        let params = Params {
+            name: "agent-token".to_string(),
+            token_type: TokenType::Client,
+            rules: None,
+            state: State::Present,
+            token: None,
+            token_id: None,
+            policies: None,
+            ttl: Some("1h".to_string()),
+            host: "localhost".to_string(),
+            port: 8500,
+            validate_certs: true,
+            dc: None,
+            ns: None,
+        };
+        assert!(!needs_update(&existing, &params));
+    }
+
+    #[test]
     fn test_parse_params_unknown_field() {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
@@ -1131,10 +1203,7 @@ mod tests {
         );
         assert_eq!(
             params.policies,
-            Some(vec![
-                "global-read".to_string(),
-                "global-write".to_string(),
-            ])
+            Some(vec!["global-read".to_string(), "global-write".to_string(),])
         );
         assert_eq!(params.ttl, Some("2h".to_string()));
         assert_eq!(params.host, "consul.example.com");
