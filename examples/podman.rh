@@ -30,7 +30,7 @@
     state: started
     ports:
       - "8080:80"
-      - "443:443"
+      - "8443:443"
     env:
       - "NGINX_HOST=example.com"
 
