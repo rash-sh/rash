@@ -300,10 +300,6 @@ fn build_network_config(params: &Params) -> String {
 
     sections.push_str(&build_ini_section("Network", &network_entries));
 
-    if let Some(ref bridge) = params.bridge {
-        let _ = bridge;
-    }
-
     sections.trim_end().to_string()
 }
 
@@ -315,9 +311,6 @@ fn build_link_config(params: &Params) -> String {
         for iface in interfaces {
             match_entries.push(("OriginalName".to_string(), iface.clone()));
         }
-    }
-    if let Some(ref mac) = params.mac_address {
-        match_entries.push(("MACAddress".to_string(), mac.clone()));
     }
     sections.push_str(&build_ini_section("Match", &match_entries));
 
@@ -765,11 +758,15 @@ mod tests {
         };
 
         let config = build_link_config(&params);
-        assert!(config.contains("[Match]"));
-        assert!(config.contains("OriginalName=eth0"));
-        assert!(config.contains("[Link]"));
-        assert!(config.contains("MACAddress=00:11:22:33:44:55"));
-        assert!(config.contains("MTU=9000"));
+
+        let match_section = &config[..config.find("[Link]").unwrap_or(0)];
+        let link_section = &config[config.find("[Link]").unwrap_or(0)..];
+
+        assert!(match_section.contains("[Match]"));
+        assert!(match_section.contains("OriginalName=eth0"));
+        assert!(!match_section.contains("MACAddress="));
+        assert!(link_section.contains("MACAddress=00:11:22:33:44:55"));
+        assert!(link_section.contains("MTU=9000"));
     }
 
     #[test]
