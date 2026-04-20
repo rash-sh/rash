@@ -1,0 +1,95 @@
+#!/usr/bin/env -S rash --
+#
+# grafana_dashboard module example
+#
+# This example demonstrates the basic functionality of the grafana_dashboard module:
+# - Creating dashboards with JSON definitions
+# - Using folders for organization
+# - Overwriting existing dashboards
+# - Deleting dashboards
+#
+# Usage:
+#   grafana_dashboard.rh
+#
+# Note: This example requires a Grafana server running at localhost:3000.
+# Run with: rash grafana_dashboard.rh
+
+- name: Check if Grafana is reachable
+  command:
+    cmd: curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health
+  register: grafana_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Skip if Grafana not available
+  debug:
+    msg: "Grafana is not reachable. Skipping example."
+  when: grafana_check.failed or grafana_check.stdout != "200"
+
+- block:
+    - name: Create dashboard (check mode)
+      grafana_dashboard:
+        name: App Metrics
+        folder: Applications
+        dashboard:
+          title: App Metrics
+          panels: []
+        state: present
+      check_mode: true
+      register: dashboard_check
+
+    - name: Verify check mode would create dashboard
+      assert:
+        that:
+          - dashboard_check.changed
+
+    - name: Create App Metrics dashboard
+      grafana_dashboard:
+        name: App Metrics
+        folder: Applications
+        dashboard:
+          title: App Metrics
+          tags:
+            - app
+            - metrics
+          panels:
+            - title: CPU Usage
+              type: graph
+              gridPos:
+                x: 0
+                y: 0
+                w: 12
+                h: 8
+            - title: Memory Usage
+              type: graph
+              gridPos:
+                x: 12
+                y: 0
+                w: 12
+                h: 8
+        state: present
+
+    - name: Create dashboard with UID and overwrite
+      grafana_dashboard:
+        name: System Overview
+        uid: sys-overview-01
+        dashboard:
+          title: System Overview
+          panels:
+            - title: CPU Usage
+              type: graph
+        overwrite: true
+        state: present
+
+    - name: Delete System Overview dashboard
+      grafana_dashboard:
+        name: System Overview
+        uid: sys-overview-01
+        state: absent
+
+    - name: Delete App Metrics dashboard
+      grafana_dashboard:
+        name: App Metrics
+        state: absent
+
+  when: not grafana_check.failed and grafana_check.stdout == "200"
