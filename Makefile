@@ -118,6 +118,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/iso_extract.rh' \
 		-not -path 'examples/proxmox.rh' \
 		-not -path 'examples/restic.rh' \
+		-not -path 'examples/kubernetes.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \
