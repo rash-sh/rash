@@ -127,7 +127,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
     let mut i = plen;
     loop {
         if i > 16 {
-            ctx.update(&final_hash);
+            ctx.update(final_hash);
         } else {
             ctx.update(&final_hash[..i]);
         }
@@ -142,7 +142,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
         if i & 1 != 0 {
             ctx.update(b"\x00");
         } else {
-            ctx.update(password.as_bytes()[..1].to_vec());
+            ctx.update(&password.as_bytes()[..1]);
         }
         i >>= 1;
     }
@@ -154,7 +154,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
         if j & 1 != 0 {
             ctx2.update(password.as_bytes());
         } else {
-            ctx2.update(&final_hash);
+            ctx2.update(final_hash);
         }
         if j % 3 != 0 {
             ctx2.update(salt.as_bytes());
@@ -163,7 +163,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
             ctx2.update(password.as_bytes());
         }
         if j & 1 != 0 {
-            ctx2.update(&final_hash);
+            ctx2.update(final_hash);
         } else {
             ctx2.update(password.as_bytes());
         }
@@ -173,11 +173,7 @@ fn hash_apr1(password: &str, salt: &str) -> String {
     let mut to_encode = [0u8; 16];
     to_encode.copy_from_slice(&final_hash);
 
-    format!(
-        "$apr1${}${}",
-        salt,
-        apr1_custom_base64(&to_encode)
-    )
+    format!("$apr1${}${}", salt, apr1_custom_base64(&to_encode))
 }
 
 fn apr1_custom_base64(hash: &[u8]) -> String {
@@ -264,15 +260,13 @@ fn verify_password(password: &str, stored_hash: &str) -> bool {
         let mut hasher = Sha256::new();
         hasher.update(password.as_bytes());
         let result = hasher.finalize();
-        let computed =
-            base64::engine::general_purpose::STANDARD.encode(result);
+        let computed = base64::engine::general_purpose::STANDARD.encode(result);
         computed == hash_b64
     } else if let Some(hash_b64) = stored_hash.strip_prefix("{SHA512}") {
         let mut hasher = Sha512::new();
         hasher.update(password.as_bytes());
         let result = hasher.finalize();
-        let computed =
-            base64::engine::general_purpose::STANDARD.encode(result);
+        let computed = base64::engine::general_purpose::STANDARD.encode(result);
         computed == hash_b64
     } else {
         false
@@ -298,6 +292,7 @@ impl HtpasswdEntry {
         })
     }
 
+    #[allow(dead_code)]
     fn to_line(&self) -> String {
         format!("{}:{}", self.username, self.password_hash)
     }
@@ -359,8 +354,7 @@ pub fn htpasswd(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 }
             } else {
                 let new_hash = hash_password(password, &crypt_scheme);
-                if !new_lines.is_empty()
-                    && !new_lines.last().map(|l| l.is_empty()).unwrap_or(true)
+                if !new_lines.is_empty() && !new_lines.last().map(|l| l.is_empty()).unwrap_or(true)
                 {
                     new_lines.push(String::new());
                 }
@@ -615,11 +609,7 @@ mod tests {
     fn test_htpasswd_remove_user() {
         let dir = tempdir().unwrap();
         let htpasswd_file = dir.path().join(".htpasswd");
-        fs::write(
-            &htpasswd_file,
-            "admin:{SHA256}abc\nuser2:{SHA256}def\n",
-        )
-        .unwrap();
+        fs::write(&htpasswd_file, "admin:{SHA256}abc\nuser2:{SHA256}def\n").unwrap();
 
         let params = Params {
             path: htpasswd_file.to_str().unwrap().to_string(),
