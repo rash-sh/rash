@@ -1,0 +1,66 @@
+#!/usr/bin/env rash
+- name: Test iscsi check mode - present
+  iscsi:
+    portal: 192.168.1.100
+    target: iqn.2024-01.com.example:storage.target01
+    state: present
+  check_mode: true
+  register: present_result
+
+- name: Verify present check mode output
+  assert:
+    that:
+      - present_result.changed
+
+- name: Test iscsi check mode - with CHAP auth
+  iscsi:
+    portal: 192.168.1.100:3260
+    target: iqn.2024-01.com.example:storage.target01
+    state: logged_in
+    username: chapuser
+    password: chapsecret
+  check_mode: true
+  register: chap_result
+
+- name: Verify CHAP auth check mode
+  assert:
+    that:
+      - chap_result.changed
+
+- name: Test iscsi check mode - discover only
+  iscsi:
+    portal: 192.168.1.100
+    discover: true
+  check_mode: true
+  register: discover_result
+
+- name: Verify discover check mode
+  assert:
+    that:
+      - discover_result.changed
+
+- name: Test iscsi check mode - logged_out
+  iscsi:
+    portal: 192.168.1.100
+    target: iqn.2024-01.com.example:storage.target01
+    state: logged_out
+  check_mode: true
+  register: logout_result
+
+- name: Verify logout check mode
+  assert:
+    that:
+      - logout_result.changed
+
+- name: Test iscsi check mode - absent
+  iscsi:
+    portal: 192.168.1.100
+    target: iqn.2024-01.com.example:storage.target01
+    state: absent
+  check_mode: true
+  register: absent_result
+
+- name: Verify absent check mode
+  assert:
+    that:
+      - absent_result.changed
