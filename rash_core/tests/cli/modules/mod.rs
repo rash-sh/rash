@@ -14,6 +14,7 @@ mod docker_info;
 mod docker_login;
 mod docker_network;
 mod docker_prune;
+mod docker_secret;
 mod docker_volume;
 mod dpkg_selections;
 mod fail;

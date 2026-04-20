@@ -38,6 +38,7 @@ mod docker_info;
 mod docker_login;
 mod docker_network;
 mod docker_prune;
+mod docker_secret;
 mod docker_volume;
 mod dpkg_selections;
 mod dynamic;
@@ -204,6 +205,7 @@ use crate::modules::docker_info::DockerInfo;
 use crate::modules::docker_login::DockerLogin;
 use crate::modules::docker_network::DockerNetwork;
 use crate::modules::docker_prune::DockerPrune;
+use crate::modules::docker_secret::DockerSecret;
 use crate::modules::docker_volume::DockerVolume;
 use crate::modules::dpkg_selections::DpkgSelections;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
@@ -479,6 +481,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             DockerPrune.get_name(),
             Box::new(DockerPrune) as Box<dyn Module>,
+        ),
+        (
+            DockerSecret.get_name(),
+            Box::new(DockerSecret) as Box<dyn Module>,
         ),
         (
             DockerVolume.get_name(),
