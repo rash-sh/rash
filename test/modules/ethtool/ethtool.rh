@@ -1,0 +1,96 @@
+#!/usr/bin/env rash
+- name: Test ethtool check mode - set speed and duplex
+  ethtool:
+    device: eth0
+    speed: 1000
+    duplex: full
+  check_mode: true
+  register: speed_result
+
+- name: Verify speed check mode output
+  assert:
+    that:
+      - speed_result.changed
+
+- name: Test ethtool check mode - autoneg on
+  ethtool:
+    device: eth0
+    autoneg: true
+  check_mode: true
+  register: autoneg_result
+
+- name: Verify autoneg check mode
+  assert:
+    that:
+      - autoneg_result.changed
+
+- name: Test ethtool check mode - autoneg off with speed
+  ethtool:
+    device: eth0
+    autoneg: false
+    speed: 10000
+    duplex: full
+  check_mode: true
+  register: autoneg_off_result
+
+- name: Verify autoneg off check mode
+  assert:
+    that:
+      - autoneg_off_result.changed
+
+- name: Test ethtool check mode - offload settings
+  ethtool:
+    device: eth0
+    offload:
+      rx: true
+      tx: true
+      tso: false
+      gso: true
+  check_mode: true
+  register: offload_result
+
+- name: Verify offload check mode
+  assert:
+    that:
+      - offload_result.changed
+
+- name: Test ethtool check mode - state query
+  ethtool:
+    device: eth0
+    state: query
+  check_mode: true
+  register: query_result
+
+- name: Verify query check mode returns not changed
+  assert:
+    that:
+      - not query_result.changed
+
+- name: Test ethtool check mode - state absent
+  ethtool:
+    device: eth0
+    state: absent
+  check_mode: true
+  register: absent_result
+
+- name: Verify absent check mode
+  assert:
+    that:
+      - absent_result.changed
+
+- name: Test ethtool check mode - combined settings
+  ethtool:
+    device: ens33
+    speed: 100
+    duplex: half
+    autoneg: false
+    offload:
+      rx: false
+      tx: false
+  check_mode: true
+  register: combined_result
+
+- name: Verify combined settings check mode
+  assert:
+    that:
+      - combined_result.changed
