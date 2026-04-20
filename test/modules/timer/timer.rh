@@ -17,8 +17,8 @@
 - name: Verify elapsed time was captured
   assert:
     that:
-      - elapsed.elapsed_ms is defined
-      - elapsed.elapsed_ms >= 0
+      - elapsed.extra.elapsed_ms is defined
+      - elapsed.extra.elapsed_ms >= 0
 
 - name: Start another timer with microsecond precision
   timer:
@@ -28,7 +28,7 @@
 
 - name: Quick operation
   command:
-    cmd: true
+    cmd: "true"
 
 - name: Read timer without stopping
   timer:
@@ -39,7 +39,7 @@
 - name: Verify checkpoint has elapsed time
   assert:
     that:
-      - checkpoint.elapsed_us is defined
+      - checkpoint.extra.elapsed_us is defined
 
 - name: Stop the fast timer
   timer:
@@ -50,7 +50,7 @@
 - name: Verify final elapsed time
   assert:
     that:
-      - final_elapsed.elapsed_us is defined
+      - final_elapsed.extra.elapsed_us is defined
 
 - name: Start nanosecond precision timer
   timer:
@@ -67,5 +67,5 @@
 - name: Verify nanosecond precision
   assert:
     that:
-      - nano_elapsed.elapsed_ns is defined
-      - nano_elapsed.elapsed_ns >= 0
+      - nano_elapsed.extra.elapsed_ns is defined
+      - nano_elapsed.extra.elapsed_ns >= 0

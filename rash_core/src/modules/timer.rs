@@ -44,7 +44,7 @@
 ///
 /// - name: Log startup time
 ///   debug:
-///     msg: "Startup took {{ elapsed.elapsed_ms }} milliseconds"
+///     msg: "Startup took {{ elapsed.extra.elapsed_ms }} milliseconds"
 /// ```
 ///
 /// ### Read without stopping
@@ -62,7 +62,7 @@
 ///   register: checkpoint
 ///
 /// - debug:
-///     msg: "Checkpoint: {{ checkpoint.elapsed_ms }}ms elapsed"
+///     msg: "Checkpoint: {{ checkpoint.extra.elapsed_ms }}ms elapsed"
 ///
 /// - command: ./step2.sh
 ///
@@ -88,7 +88,7 @@
 ///   register: fast_elapsed
 ///
 /// - debug:
-///     msg: "Fast op took {{ fast_elapsed.elapsed_us }} microseconds"
+///     msg: "Fast op took {{ fast_elapsed.extra.elapsed_us }} microseconds"
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
