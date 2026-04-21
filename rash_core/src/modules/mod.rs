@@ -72,6 +72,7 @@ mod iso_extract;
 mod java_keystore;
 mod jenkins_job;
 mod json_file;
+mod kafka_topic;
 mod kernel_blacklist;
 mod known_hosts;
 mod kubectl;
@@ -120,6 +121,7 @@ mod podman;
 mod postgresql_db;
 mod postgresql_query;
 mod postgresql_user;
+mod prometheus;
 mod proxmox;
 mod rabbitmq_user;
 mod rclone;
@@ -150,6 +152,7 @@ mod systemd;
 mod tailscale;
 mod tempfile;
 mod template;
+mod timer;
 mod timezone;
 mod trace;
 mod ufw;
@@ -245,6 +248,7 @@ use crate::modules::iso_extract::IsoExtract;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
+use crate::modules::kafka_topic::KafkaTopic;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
 use crate::modules::kubectl::Kubectl;
@@ -293,6 +297,7 @@ use crate::modules::podman::Podman;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_query::PostgresqlQuery;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::prometheus::Prometheus;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::rclone::Rclone;
@@ -323,6 +328,7 @@ use crate::modules::systemd::Systemd;
 use crate::modules::tailscale::Tailscale;
 use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
+use crate::modules::timer::Timer;
 use crate::modules::timezone::Timezone;
 use crate::modules::trace::Trace;
 use crate::modules::ufw::Ufw;
@@ -539,6 +545,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (Iscsi.get_name(), Box::new(Iscsi) as Box<dyn Module>),
         (
+            KafkaTopic.get_name(),
+            Box::new(KafkaTopic) as Box<dyn Module>,
+        ),
+        (
             IsoExtract.get_name(),
             Box::new(IsoExtract) as Box<dyn Module>,
         ),
@@ -630,6 +640,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
         (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
+        (
+            Prometheus.get_name(),
+            Box::new(Prometheus) as Box<dyn Module>,
+        ),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
@@ -677,6 +691,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Tailscale.get_name(), Box::new(Tailscale) as Box<dyn Module>),
         (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
+        (Timer.get_name(), Box::new(Timer) as Box<dyn Module>),
         (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
