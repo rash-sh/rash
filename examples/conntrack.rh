@@ -1,0 +1,56 @@
+#!/usr/bin/env -S rash --
+#
+# conntrack module example
+#
+# This example demonstrates the basic functionality of the conntrack module:
+# - Flushing all connection tracking entries
+# - Deleting entries by source IP
+# - Deleting entries by source/destination with protocol and port
+# - Listing entries
+#
+# Note: This example requires root privileges and conntrack-tools installed.
+#
+# Usage:
+#   sudo conntrack.rh
+
+- name: Flush all connection tracking entries
+  conntrack:
+    flush: true
+  register: flush_result
+
+- name: Verify flush changed
+  assert:
+    that:
+      - flush_result.changed
+
+- name: Drop connections from specific IP
+  conntrack:
+    source: 10.0.0.1
+    state: absent
+  register: drop_result
+
+- name: Drop connections to specific IP and port
+  conntrack:
+    destination: 192.168.1.100
+    protocol: tcp
+    port: 443
+    state: absent
+  register: drop_port_result
+
+- name: Drop UDP connections from a subnet
+  conntrack:
+    source: 10.0.0.0/24
+    protocol: udp
+    state: absent
+
+- name: List connections from specific IP
+  conntrack:
+    source: 10.0.0.1
+    state: list
+  register: list_result
+
+- name: Drop connections in ESTABLISHED state from source
+  conntrack:
+    source: 10.0.0.1
+    conn_state: ESTABLISHED
+    state: absent

@@ -8,20 +8,25 @@ mod assemble;
 mod assert;
 mod async_status;
 mod at;
+mod auditd;
 mod authorized_key;
 mod aws_s3;
 mod blkdiscard;
 mod block;
 mod borgmatic;
+mod btrfs;
 mod cargo;
 mod cgroups;
 mod chroot;
 mod cloud_init;
+mod cloudflare_dns;
 mod command;
 mod composer;
+mod conntrack;
 mod consul_kv;
 mod copy;
 mod cron;
+mod cronvar;
 mod crypttab;
 mod dconf;
 mod debconf;
@@ -41,6 +46,7 @@ mod docker_prune;
 mod docker_volume;
 mod dpkg_selections;
 mod dynamic;
+mod ethtool;
 mod expect;
 mod fail;
 mod fail2ban;
@@ -56,6 +62,7 @@ mod git;
 mod gpg_key;
 mod group;
 mod grub;
+mod haproxy;
 mod helm;
 mod helm_info;
 mod hostname;
@@ -72,6 +79,7 @@ mod iso_extract;
 mod java_keystore;
 mod jenkins_job;
 mod json_file;
+mod kafka_topic;
 mod kernel_blacklist;
 mod known_hosts;
 mod kubectl;
@@ -90,12 +98,14 @@ mod make;
 mod mdadm;
 mod meta;
 mod modprobe;
+mod mongodb_collection;
 mod mongodb_db;
 mod mongodb_user;
 mod mount;
 mod mqtt;
 mod mysql_db;
 mod mysql_query;
+mod mysql_replication;
 mod mysql_user;
 mod netplan;
 mod nftables;
@@ -121,6 +131,7 @@ mod podman;
 mod postgresql_db;
 mod postgresql_query;
 mod postgresql_user;
+mod prometheus;
 mod proxmox;
 mod rabbitmq_user;
 mod rclone;
@@ -137,6 +148,7 @@ mod service;
 mod set_vars;
 mod setup;
 mod sgdisk;
+mod shell;
 mod slurp;
 mod ssh_config;
 mod sshd_config;
@@ -146,11 +158,13 @@ mod supervisor;
 mod swapfile;
 mod synchronize;
 mod sysctl;
+mod sysfs;
 mod syslog;
 mod systemd;
 mod tailscale;
 mod tempfile;
 mod template;
+mod timer;
 mod timezone;
 mod trace;
 mod ufw;
@@ -158,6 +172,7 @@ mod unarchive;
 mod uri;
 mod user;
 mod vault;
+mod vault_secret;
 mod vdo;
 mod wait_for;
 mod wakeonlan;
@@ -182,20 +197,25 @@ use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
+use crate::modules::auditd::Auditd;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::borgmatic::Borgmatic;
+use crate::modules::btrfs::Btrfs;
 use crate::modules::cargo::Cargo;
 use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
 use crate::modules::cloud_init::CloudInit;
+use crate::modules::cloudflare_dns::CloudflareDns;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
+use crate::modules::conntrack::Conntrack;
 use crate::modules::consul_kv::ConsulKv;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
+use crate::modules::cronvar::Cronvar;
 use crate::modules::crypttab::Crypttab;
 use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
@@ -215,6 +235,7 @@ use crate::modules::docker_prune::DockerPrune;
 use crate::modules::docker_volume::DockerVolume;
 use crate::modules::dpkg_selections::DpkgSelections;
 pub use crate::modules::dynamic::{DynamicModule, DynamicModuleRegistry};
+use crate::modules::ethtool::Ethtool;
 use crate::modules::expect::Expect;
 use crate::modules::fail::Fail;
 use crate::modules::fail2ban::Fail2ban;
@@ -230,6 +251,7 @@ use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
+use crate::modules::haproxy::Haproxy;
 use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
@@ -246,6 +268,7 @@ use crate::modules::iso_extract::IsoExtract;
 use crate::modules::java_keystore::JavaKeystore;
 use crate::modules::jenkins_job::JenkinsJob;
 use crate::modules::json_file::JsonFile;
+use crate::modules::kafka_topic::KafkaTopic;
 use crate::modules::kernel_blacklist::KernelBlacklist;
 use crate::modules::known_hosts::KnownHosts;
 use crate::modules::kubectl::Kubectl;
@@ -264,12 +287,14 @@ use crate::modules::make::Make;
 use crate::modules::mdadm::Mdadm;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
+use crate::modules::mongodb_collection::MongodbCollection;
 use crate::modules::mongodb_db::MongodbDb;
 use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
 use crate::modules::mqtt::Mqtt;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::mysql_query::MysqlQuery;
+use crate::modules::mysql_replication::MysqlReplication;
 use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
@@ -295,6 +320,7 @@ use crate::modules::podman::Podman;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_query::PostgresqlQuery;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::prometheus::Prometheus;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::rclone::Rclone;
@@ -311,6 +337,7 @@ use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
+use crate::modules::shell::Shell;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::sshd_config::SshdConfig;
@@ -320,11 +347,13 @@ use crate::modules::supervisor::Supervisor;
 use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
+use crate::modules::sysfs::Sysfs;
 use crate::modules::syslog::Syslog;
 use crate::modules::systemd::Systemd;
 use crate::modules::tailscale::Tailscale;
 use crate::modules::tempfile::Tempfile;
 use crate::modules::template::Template;
+use crate::modules::timer::Timer;
 use crate::modules::timezone::Timezone;
 use crate::modules::trace::Trace;
 use crate::modules::ufw::Ufw;
@@ -332,6 +361,7 @@ use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::vault::Vault;
+use crate::modules::vault_secret::VaultSecret;
 use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wakeonlan::WakeOnLan;
@@ -423,12 +453,14 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AsyncStatus.get_name(),
             Box::new(AsyncStatus) as Box<dyn Module>,
         ),
+        (Auditd.get_name(), Box::new(Auditd) as Box<dyn Module>),
         (At.get_name(), Box::new(At) as Box<dyn Module>),
         (
             AuthorizedKey.get_name(),
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
         (AwsS3.get_name(), Box::new(AwsS3) as Box<dyn Module>),
+        (Btrfs.get_name(), Box::new(Btrfs) as Box<dyn Module>),
         (
             Blkdiscard.get_name(),
             Box::new(Blkdiscard) as Box<dyn Module>,
@@ -439,11 +471,17 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
+        (
+            CloudflareDns.get_name(),
+            Box::new(CloudflareDns) as Box<dyn Module>,
+        ),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
+        (Conntrack.get_name(), Box::new(Conntrack) as Box<dyn Module>),
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
+        (Cronvar.get_name(), Box::new(Cronvar) as Box<dyn Module>),
         (Crypttab.get_name(), Box::new(Crypttab) as Box<dyn Module>),
         (Dconf.get_name(), Box::new(Dconf) as Box<dyn Module>),
         (Debconf.get_name(), Box::new(Debconf) as Box<dyn Module>),
@@ -454,6 +492,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
+        (Ethtool.get_name(), Box::new(Ethtool) as Box<dyn Module>),
         (
             DockerCompose.get_name(),
             Box::new(DockerCompose) as Box<dyn Module>,
@@ -515,6 +554,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
+        (Haproxy.get_name(), Box::new(Haproxy) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
@@ -540,6 +580,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Ipaddr.get_name(), Box::new(Ipaddr) as Box<dyn Module>),
         (Iptables.get_name(), Box::new(Iptables) as Box<dyn Module>),
         (Iscsi.get_name(), Box::new(Iscsi) as Box<dyn Module>),
+        (
+            KafkaTopic.get_name(),
+            Box::new(KafkaTopic) as Box<dyn Module>,
+        ),
         (
             IsoExtract.get_name(),
             Box::new(IsoExtract) as Box<dyn Module>,
@@ -582,6 +626,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (MongodbDb.get_name(), Box::new(MongodbDb) as Box<dyn Module>),
         (
+            MongodbCollection.get_name(),
+            Box::new(MongodbCollection) as Box<dyn Module>,
+        ),
+        (
             MongodbUser.get_name(),
             Box::new(MongodbUser) as Box<dyn Module>,
         ),
@@ -591,6 +639,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             MysqlQuery.get_name(),
             Box::new(MysqlQuery) as Box<dyn Module>,
+        ),
+        (
+            MysqlReplication.get_name(),
+            Box::new(MysqlReplication) as Box<dyn Module>,
         ),
         (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
@@ -636,6 +688,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(PostgresqlUser) as Box<dyn Module>,
         ),
         (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
+        (
+            Prometheus.get_name(),
+            Box::new(Prometheus) as Box<dyn Module>,
+        ),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
         (PamLimits.get_name(), Box::new(PamLimits) as Box<dyn Module>),
         (Package.get_name(), Box::new(Package) as Box<dyn Module>),
@@ -655,6 +711,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Route.get_name(), Box::new(Route) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
+        (Shell.get_name(), Box::new(Shell) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
         (Selinux.get_name(), Box::new(Selinux) as Box<dyn Module>),
@@ -673,6 +730,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Synchronize) as Box<dyn Module>,
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
+        (Sysfs.get_name(), Box::new(Sysfs) as Box<dyn Module>),
         (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
         (
             Supervisor.get_name(),
@@ -683,6 +741,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Tailscale.get_name(), Box::new(Tailscale) as Box<dyn Module>),
         (Swapfile.get_name(), Box::new(Swapfile) as Box<dyn Module>),
         (Template.get_name(), Box::new(Template) as Box<dyn Module>),
+        (Timer.get_name(), Box::new(Timer) as Box<dyn Module>),
         (Tempfile.get_name(), Box::new(Tempfile) as Box<dyn Module>),
         (Timezone.get_name(), Box::new(Timezone) as Box<dyn Module>),
         (Trace.get_name(), Box::new(Trace) as Box<dyn Module>),
@@ -692,6 +751,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
+        (
+            VaultSecret.get_name(),
+            Box::new(VaultSecret) as Box<dyn Module>,
+        ),
         (Wireguard.get_name(), Box::new(Wireguard) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
