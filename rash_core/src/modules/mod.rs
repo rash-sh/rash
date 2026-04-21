@@ -165,6 +165,7 @@ mod wireguard;
 mod xattr;
 mod xml;
 mod yum_repository;
+mod zabbix_host;
 mod zfs;
 mod zpool;
 mod zypper;
@@ -338,6 +339,7 @@ use crate::modules::wireguard::Wireguard;
 use crate::modules::xattr::Xattr;
 use crate::modules::xml::Xml;
 use crate::modules::yum_repository::YumRepository;
+use crate::modules::zabbix_host::ZabbixHost;
 use crate::modules::zfs::Zfs;
 use crate::modules::zpool::Zpool;
 use crate::modules::zypper::Zypper;
@@ -695,6 +697,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             YumRepository.get_name(),
             Box::new(YumRepository) as Box<dyn Module>,
+        ),
+        (
+            ZabbixHost.get_name(),
+            Box::new(ZabbixHost) as Box<dyn Module>,
         ),
         (Zfs.get_name(), Box::new(Zfs) as Box<dyn Module>),
         (Zpool.get_name(), Box::new(Zpool) as Box<dyn Module>),
