@@ -513,13 +513,11 @@ fn supervisor(params: Params, check_mode: bool) -> Result<ModuleResult> {
                             output_messages.push(output);
                         }
                     }
-                } else {
-                    if would_config_change(&params) {
-                        diff("enabled: false".to_string(), "enabled: true".to_string());
-                        output_messages
-                            .push(format!("Would write config for program '{}'", params.name));
-                        changed = true;
-                    }
+                } else if would_config_change(&params) {
+                    diff("enabled: false".to_string(), "enabled: true".to_string());
+                    output_messages
+                        .push(format!("Would write config for program '{}'", params.name));
+                    changed = true;
                 }
             } else if !is_config_enabled(&params) {
                 return Err(Error::new(
@@ -530,35 +528,32 @@ fn supervisor(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     ),
                 ));
             }
-        } else {
-            if is_config_enabled(&params) {
-                if !check_mode {
-                    let was_running = client.is_running(&params.name).unwrap_or(false);
+        } else if is_config_enabled(&params) {
+            if !check_mode {
+                let was_running = client.is_running(&params.name).unwrap_or(false);
 
-                    if was_running {
-                        let stop_result = client.stop(&params.name)?;
-                        if let Some(output) = stop_result.output {
-                            output_messages.push(output);
-                        }
-                    }
-
-                    remove_config(&params)?;
-                    diff("enabled: true".to_string(), "enabled: false".to_string());
-                    output_messages.push(format!("Config removed for program '{}'", params.name));
-                    changed = true;
-
-                    let reload_result = client.reread_and_update()?;
-                    if reload_result.changed
-                        && let Some(output) = reload_result.output
-                    {
+                if was_running {
+                    let stop_result = client.stop(&params.name)?;
+                    if let Some(output) = stop_result.output {
                         output_messages.push(output);
                     }
-                } else {
-                    diff("enabled: true".to_string(), "enabled: false".to_string());
-                    output_messages
-                        .push(format!("Would remove config for program '{}'", params.name));
-                    changed = true;
                 }
+
+                remove_config(&params)?;
+                diff("enabled: true".to_string(), "enabled: false".to_string());
+                output_messages.push(format!("Config removed for program '{}'", params.name));
+                changed = true;
+
+                let reload_result = client.reread_and_update()?;
+                if reload_result.changed
+                    && let Some(output) = reload_result.output
+                {
+                    output_messages.push(output);
+                }
+            } else {
+                diff("enabled: true".to_string(), "enabled: false".to_string());
+                output_messages.push(format!("Would remove config for program '{}'", params.name));
+                changed = true;
             }
         }
     }

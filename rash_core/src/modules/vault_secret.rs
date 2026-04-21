@@ -315,12 +315,10 @@ fn build_full_path(mount: &str, path: &str, version: u8) -> String {
         } else {
             format!("{mount}/data/{path}")
         }
+    } else if path.starts_with(&format!("{mount}/")) {
+        path.to_string()
     } else {
-        if path.starts_with(&format!("{mount}/")) {
-            path.to_string()
-        } else {
-            format!("{mount}/{path}")
-        }
+        format!("{mount}/{path}")
     }
 }
 

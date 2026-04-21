@@ -225,7 +225,7 @@ indent: true
 "#,
                     name = name,
                     weight = new_section_number.first().unwrap() * 1000
-                        + ((ch.sub_items.len() + 1) * 10) as u32,
+                        + (ch.sub_items.len() + 1) as u32,
                     parameters = parameters,
                 )
                 .to_owned();
@@ -270,7 +270,7 @@ indent: true
 "#,
                     name = lookup_name,
                     weight = new_section_number.first().unwrap() * 1000
-                        + ((ch.sub_items.len() + 1) * 100) as u32,
+                        + (ch.sub_items.len() + 1) as u32,
                 )
                 .to_owned();
 
@@ -562,6 +562,72 @@ mod prettytable_wrap_test {
             "Execute command as PID 1. Note: from this point on, your rash script execution is transferred to the command."
         ]);
         println!("{table}");
+    }
+}
+
+#[cfg(test)]
+mod weight_overflow_test {
+    use super::*;
+
+    struct Section {
+        name: &'static str,
+        base_weight: u32,
+        next_section_weight: u32,
+        item_count: usize,
+    }
+
+    fn get_sections() -> Vec<Section> {
+        let module_count = MODULES.len();
+        let lookup_count = LOOKUPS.len();
+        vec![
+            Section {
+                name: "Modules",
+                base_weight: 5000,
+                next_section_weight: 6000,
+                item_count: module_count,
+            },
+            Section {
+                name: "Lookups",
+                base_weight: 8000,
+                next_section_weight: 9000,
+                item_count: lookup_count,
+            },
+        ]
+    }
+
+    #[test]
+    fn test_module_weights_do_not_overflow_into_next_section() {
+        for section in get_sections() {
+            for i in 1..=section.item_count {
+                let weight = section.base_weight + i as u32;
+                assert!(
+                    weight < section.next_section_weight,
+                    "{} item {} has weight {} which overflows into next section (weight {})",
+                    section.name,
+                    i,
+                    weight,
+                    section.next_section_weight,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_weight_formula_matches_base_plus_index() {
+        let sections = get_sections();
+        for section in &sections {
+            let section_first = section.base_weight / 1000;
+            for i in 1..=section.item_count {
+                let calculated = section_first * 1000 + i as u32;
+                assert_eq!(
+                    calculated,
+                    section.base_weight + i as u32,
+                    "Weight formula changed for {} item {}",
+                    section.name,
+                    i,
+                );
+            }
+        }
     }
 }
 
