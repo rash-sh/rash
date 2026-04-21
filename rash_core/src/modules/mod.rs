@@ -145,6 +145,7 @@ mod supervisor;
 mod swapfile;
 mod synchronize;
 mod sysctl;
+mod sysfs;
 mod syslog;
 mod systemd;
 mod tailscale;
@@ -318,6 +319,7 @@ use crate::modules::supervisor::Supervisor;
 use crate::modules::swapfile::Swapfile;
 use crate::modules::synchronize::Synchronize;
 use crate::modules::sysctl::Sysctl;
+use crate::modules::sysfs::Sysfs;
 use crate::modules::syslog::Syslog;
 use crate::modules::systemd::Systemd;
 use crate::modules::tailscale::Tailscale;
@@ -667,6 +669,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(Synchronize) as Box<dyn Module>,
         ),
         (Sysctl.get_name(), Box::new(Sysctl) as Box<dyn Module>),
+        (Sysfs.get_name(), Box::new(Sysfs) as Box<dyn Module>),
         (Sudoers.get_name(), Box::new(Sudoers) as Box<dyn Module>),
         (
             Supervisor.get_name(),
