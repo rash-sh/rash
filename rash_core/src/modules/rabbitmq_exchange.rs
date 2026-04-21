@@ -114,6 +114,15 @@ pub enum ExchangeType {
     Headers,
 }
 
+impl Params {
+    fn resolved_exchange_type(&self) -> &str {
+        self.exchange_type
+            .as_ref()
+            .map(|t| t.as_str())
+            .unwrap_or("direct")
+    }
+}
+
 impl ExchangeType {
     fn as_str(&self) -> &'static str {
         match self {
@@ -203,11 +212,7 @@ fn create_exchange(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         ));
     }
 
-    let exchange_type = params
-        .exchange_type
-        .as_ref()
-        .map(|t| t.as_str())
-        .unwrap_or("direct");
+    let exchange_type = params.resolved_exchange_type();
 
     let mut args = build_rabbitmqadmin_base_args(params);
     args.push("declare".to_string());
@@ -236,13 +241,7 @@ fn create_exchange(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 }
 
 fn needs_update(params: &Params, current: &ExchangeInfo) -> bool {
-    let exchange_type = params
-        .exchange_type
-        .as_ref()
-        .map(|t| t.as_str())
-        .unwrap_or("direct");
-
-    current.exchange_type != exchange_type || current.durable != params.durable
+    current.exchange_type != params.resolved_exchange_type() || current.durable != params.durable
 }
 
 fn delete_exchange(params: &Params, check_mode: bool) -> Result<ModuleResult> {
@@ -295,7 +294,10 @@ fn rabbitmq_exchange_impl(params: Params, check_mode: bool) -> Result<ModuleResu
             Some(_) => Ok(ModuleResult::new(
                 false,
                 None,
-                Some(format!("Exchange '{}' already exists with correct settings", params.name)),
+                Some(format!(
+                    "Exchange '{}' already exists with correct settings",
+                    params.name
+                )),
             )),
         },
         State::Absent => match existing {
@@ -482,6 +484,44 @@ mod tests {
             exchange_type: Some(ExchangeType::Topic),
             state: State::Present,
             durable: false,
+            vhost: "/".to_string(),
+            login_user: None,
+            login_password: None,
+        };
+        let info = ExchangeInfo {
+            name: "test".to_string(),
+            exchange_type: "topic".to_string(),
+            durable: true,
+        };
+        assert!(needs_update(&params, &info));
+    }
+
+    #[test]
+    fn test_needs_update_default_type_matches() {
+        let params = Params {
+            name: "test".to_string(),
+            exchange_type: None,
+            state: State::Present,
+            durable: true,
+            vhost: "/".to_string(),
+            login_user: None,
+            login_password: None,
+        };
+        let info = ExchangeInfo {
+            name: "test".to_string(),
+            exchange_type: "direct".to_string(),
+            durable: true,
+        };
+        assert!(!needs_update(&params, &info));
+    }
+
+    #[test]
+    fn test_needs_update_default_type_differs() {
+        let params = Params {
+            name: "test".to_string(),
+            exchange_type: None,
+            state: State::Present,
+            durable: true,
             vhost: "/".to_string(),
             login_user: None,
             login_password: None,
