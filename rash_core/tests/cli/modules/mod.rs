@@ -25,6 +25,7 @@ mod gem;
 mod git;
 mod group;
 mod grub;
+mod haproxy;
 mod hostname;
 mod htpasswd;
 mod include;

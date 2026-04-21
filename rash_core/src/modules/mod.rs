@@ -60,6 +60,7 @@ mod git;
 mod gpg_key;
 mod group;
 mod grub;
+mod haproxy;
 mod helm;
 mod helm_info;
 mod hostname;
@@ -239,6 +240,7 @@ use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
+use crate::modules::haproxy::Haproxy;
 use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
 use crate::modules::hostname::Hostname;
@@ -532,6 +534,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
+        (Haproxy.get_name(), Box::new(Haproxy) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
