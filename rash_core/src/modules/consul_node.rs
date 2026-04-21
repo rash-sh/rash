@@ -33,7 +33,7 @@
 ///   consul_node:
 ///     name: edge-device-01
 ///     address: 192.168.1.100
-///     datacenter: dc2
+///     dc: dc2
 ///     state: present
 ///
 /// - name: Deregister a node from Consul catalog
@@ -96,7 +96,7 @@ pub struct Params {
     #[serde(default)]
     pub state: State,
     /// The datacenter to use.
-    pub datacenter: Option<String>,
+    pub dc: Option<String>,
     /// Node metadata key-value pairs.
     pub meta: Option<HashMap<String, String>>,
     /// The Consul host.
@@ -128,7 +128,7 @@ struct ConsulClient {
     host: String,
     port: u16,
     token: Option<String>,
-    datacenter: Option<String>,
+    dc: Option<String>,
     validate_certs: bool,
 }
 
@@ -138,7 +138,7 @@ impl ConsulClient {
             host: params.host.clone(),
             port: params.port,
             token: params.token.clone(),
-            datacenter: params.datacenter.clone(),
+            dc: params.dc.clone(),
             validate_certs: params.validate_certs,
         }
     }
@@ -148,7 +148,7 @@ impl ConsulClient {
 
         let mut query_params = Vec::new();
 
-        if let Some(ref dc) = self.datacenter {
+        if let Some(ref dc) = self.dc {
             query_params.push(format!("dc={}", dc));
         }
 
@@ -242,7 +242,7 @@ impl ConsulClient {
             "Address": address,
         });
 
-        if let Some(ref dc) = self.datacenter {
+        if let Some(ref dc) = self.dc {
             body["Datacenter"] = json!(dc);
         }
 
@@ -281,7 +281,7 @@ impl ConsulClient {
             "Node": name,
         });
 
-        if let Some(ref dc) = self.datacenter {
+        if let Some(ref dc) = self.dc {
             body["Datacenter"] = json!(dc);
         }
 
@@ -505,18 +505,18 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_params_with_datacenter() {
+    fn test_parse_params_with_dc() {
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             name: edge-device-01
             address: 192.168.1.100
-            datacenter: dc2
+            dc: dc2
             state: present
             "#,
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.datacenter, Some("dc2".to_string()));
+        assert_eq!(params.dc, Some("dc2".to_string()));
     }
 
     #[test]
@@ -581,7 +581,7 @@ mod tests {
         assert!(params.validate_certs);
         assert_eq!(params.state, State::Present);
         assert_eq!(params.meta, None);
-        assert_eq!(params.datacenter, None);
+        assert_eq!(params.dc, None);
         assert_eq!(params.token, None);
     }
 
@@ -591,7 +591,7 @@ mod tests {
             name: "test".to_string(),
             address: "1.2.3.4".to_string(),
             state: State::Present,
-            datacenter: None,
+            dc: None,
             meta: None,
             host: "localhost".to_string(),
             port: 8500,
@@ -611,7 +611,7 @@ mod tests {
             name: "test".to_string(),
             address: "1.2.3.4".to_string(),
             state: State::Present,
-            datacenter: Some("dc2".to_string()),
+            dc: Some("dc2".to_string()),
             meta: None,
             host: "localhost".to_string(),
             port: 8500,
@@ -631,7 +631,7 @@ mod tests {
             name: "test".to_string(),
             address: "1.2.3.4".to_string(),
             state: State::Present,
-            datacenter: None,
+            dc: None,
             meta: None,
             host: "consul.example.com".to_string(),
             port: 9500,
