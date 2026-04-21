@@ -280,18 +280,19 @@ fn delete_entries(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         format!("Deleted entries: {}", desc)
     };
 
-    let changed = !output.is_empty() || !output.contains("0 entries");
+    let changed = !output.is_empty() && !output.contains("0 entries");
 
     Ok(ModuleResult::new(changed, None, Some(msg)))
 }
 
 fn validate_params(params: &Params) -> Result<()> {
-    if params.flush.unwrap_or(false) && params.source.is_some()
-        || params.flush.unwrap_or(false) && params.destination.is_some()
-        || params.flush.unwrap_or(false) && params.protocol.is_some()
-        || params.flush.unwrap_or(false) && params.port.is_some()
-        || params.flush.unwrap_or(false) && params.source_port.is_some()
-        || params.flush.unwrap_or(false) && params.conn_state.is_some()
+    if params.flush.unwrap_or(false)
+        && (params.source.is_some()
+            || params.destination.is_some()
+            || params.protocol.is_some()
+            || params.port.is_some()
+            || params.source_port.is_some()
+            || params.conn_state.is_some())
     {
         return Err(Error::new(
             ErrorKind::InvalidData,
