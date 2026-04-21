@@ -14,6 +14,7 @@ mod aws_s3;
 mod blkdiscard;
 mod block;
 mod borgmatic;
+mod btrfs;
 mod cargo;
 mod cgroups;
 mod chroot;
@@ -199,6 +200,7 @@ use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::borgmatic::Borgmatic;
+use crate::modules::btrfs::Btrfs;
 use crate::modules::cargo::Cargo;
 use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
@@ -452,6 +454,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
         (AwsS3.get_name(), Box::new(AwsS3) as Box<dyn Module>),
+        (Btrfs.get_name(), Box::new(Btrfs) as Box<dyn Module>),
         (
             Blkdiscard.get_name(),
             Box::new(Blkdiscard) as Box<dyn Module>,
