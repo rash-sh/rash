@@ -8,6 +8,7 @@ mod assemble;
 mod assert;
 mod async_status;
 mod at;
+mod auditd;
 mod authorized_key;
 mod aws_s3;
 mod blkdiscard;
@@ -140,6 +141,7 @@ mod service;
 mod set_vars;
 mod setup;
 mod sgdisk;
+mod shell;
 mod slurp;
 mod ssh_config;
 mod sshd_config;
@@ -185,6 +187,7 @@ use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
 use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
+use crate::modules::auditd::Auditd;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::aws_s3::AwsS3;
 use crate::modules::blkdiscard::Blkdiscard;
@@ -317,6 +320,7 @@ use crate::modules::service::Service;
 use crate::modules::set_vars::SetVars;
 use crate::modules::setup::Setup;
 use crate::modules::sgdisk::Sgdisk;
+use crate::modules::shell::Shell;
 use crate::modules::slurp::Slurp;
 use crate::modules::ssh_config::SshConfig;
 use crate::modules::sshd_config::SshdConfig;
@@ -429,6 +433,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             AsyncStatus.get_name(),
             Box::new(AsyncStatus) as Box<dyn Module>,
         ),
+        (Auditd.get_name(), Box::new(Auditd) as Box<dyn Module>),
         (At.get_name(), Box::new(At) as Box<dyn Module>),
         (
             AuthorizedKey.get_name(),
@@ -667,6 +672,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Route.get_name(), Box::new(Route) as Box<dyn Module>),
         (Runit.get_name(), Box::new(Runit) as Box<dyn Module>),
         (Script.get_name(), Box::new(Script) as Box<dyn Module>),
+        (Shell.get_name(), Box::new(Shell) as Box<dyn Module>),
         (Sgdisk.get_name(), Box::new(Sgdisk) as Box<dyn Module>),
         (Seboolean.get_name(), Box::new(Seboolean) as Box<dyn Module>),
         (Selinux.get_name(), Box::new(Selinux) as Box<dyn Module>),
