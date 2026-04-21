@@ -15,7 +15,7 @@
 - name: Test ethtool check mode - autoneg toggle
   ethtool:
     device: eth0
-    autoneg: true
+    autoneg: false
   check_mode: true
   register: autoneg_result
 
