@@ -315,10 +315,7 @@ fn lvm_snapshot_module(params: Params, check_mode: bool) -> Result<ModuleResult>
         "snapshot_name".to_string(),
         serde_json::Value::String(params.snapshot_name.clone()),
     );
-    extra.insert(
-        "exists".to_string(),
-        serde_json::Value::Bool(final_exists),
-    );
+    extra.insert("exists".to_string(), serde_json::Value::Bool(final_exists));
 
     Ok(ModuleResult {
         changed: result.changed,
