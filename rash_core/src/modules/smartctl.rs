@@ -111,13 +111,18 @@ fn build_args(params: &Params) -> Vec<String> {
     }
 
     if let Some(ref test_type) = params.test {
-        match test_type {
-            SelfTest::Short => args.push("-t".to_string()),
-            SelfTest::Long => args.push("-t".to_string()),
-            SelfTest::Conveyance => args.push("-t".to_string()),
-        }
+        args.push("-t".to_string());
+        args.push(
+            match test_type {
+                SelfTest::Short => "short",
+                SelfTest::Long => "long",
+                SelfTest::Conveyance => "conveyance",
+            }
+            .to_string(),
+        );
     }
 
+    args.push(params.device.clone());
     args
 }
 
@@ -125,27 +130,7 @@ fn run_smartctl(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
     let args = build_args(params);
-
-    let mut cmd = Command::new(SMARTCTL_BIN);
-
-    if !args.is_empty() {
-        cmd.args(&args);
-    }
-
-    let test_arg = match &params.test {
-        Some(SelfTest::Short) => Some("short"),
-        Some(SelfTest::Long) => Some("long"),
-        Some(SelfTest::Conveyance) => Some("conveyance"),
-        None => None,
-    };
-
-    if let Some(t) = test_arg {
-        cmd.arg(t);
-    }
-
-    cmd.arg(&params.device);
-
-    let cmd_str = format!("{SMARTCTL_BIN} {}", get_cmd_args_string(params));
+    let cmd_str = format!("{SMARTCTL_BIN} {}", args.join(" "));
 
     if check_mode {
         let changed = params.test.is_some();
@@ -156,22 +141,37 @@ fn run_smartctl(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         ));
     }
 
-    let output = cmd.output().map_err(|e| {
-        Error::new(
-            ErrorKind::SubprocessFail,
-            format!("Failed to execute smartctl: {e}"),
-        )
-    })?;
+    let output = Command::new(SMARTCTL_BIN)
+        .env("LC_ALL", "C")
+        .args(&args)
+        .output()
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::SubprocessFail,
+                format!("Failed to execute smartctl: {e}"),
+            )
+        })?;
 
     trace!("smartctl output: {output:?}");
 
+    let rc = output.status.code().unwrap_or(1);
+    if rc & 0x03 != 0 {
+        return Err(Error::new(
+            ErrorKind::SubprocessFail,
+            format!(
+                "smartctl failed (exit code {rc}): {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ));
+    }
+
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-
     let changed = params.test.is_some();
 
     let extra = Some(value::to_value(json!({
-        "rc": output.status.code(),
+        "device": params.device,
+        "rc": rc,
         "stderr": stderr,
     }))?);
 
@@ -182,30 +182,6 @@ fn run_smartctl(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     };
 
     Ok(ModuleResult::new(changed, extra, module_output))
-}
-
-fn get_cmd_args_string(params: &Params) -> String {
-    let mut parts = vec![];
-
-    if params.attributes.unwrap_or(false) {
-        parts.push("-A".to_string());
-    }
-    if params.info.unwrap_or(false) {
-        parts.push("-i".to_string());
-    }
-    if params.health.unwrap_or(false) {
-        parts.push("-H".to_string());
-    }
-    if let Some(ref test_type) = params.test {
-        parts.push("-t".to_string());
-        parts.push(match test_type {
-            SelfTest::Short => "short".to_string(),
-            SelfTest::Long => "long".to_string(),
-            SelfTest::Conveyance => "conveyance".to_string(),
-        });
-    }
-    parts.push(params.device.clone());
-    parts.join(" ")
 }
 
 #[derive(Debug)]
@@ -397,7 +373,7 @@ mod tests {
             test: None,
         };
         let args = build_args(&params);
-        assert_eq!(args, vec!["-A", "-i", "-H"]);
+        assert_eq!(args, vec!["-A", "-i", "-H", "/dev/sda"]);
     }
 
     #[test]
@@ -410,7 +386,7 @@ mod tests {
             test: Some(SelfTest::Long),
         };
         let args = build_args(&params);
-        assert_eq!(args, vec!["-t"]);
+        assert_eq!(args, vec!["-t", "long", "/dev/sda"]);
     }
 
     #[test]
@@ -423,6 +399,6 @@ mod tests {
             test: None,
         };
         let args = build_args(&params);
-        assert!(args.is_empty());
+        assert_eq!(args, vec!["/dev/sda"]);
     }
 }
