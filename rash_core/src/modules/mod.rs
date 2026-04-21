@@ -17,6 +17,7 @@ mod block;
 mod borgmatic;
 mod btrfs;
 mod cargo;
+mod certbot;
 mod cgroups;
 mod chroot;
 mod cloud_init;
@@ -215,6 +216,7 @@ use crate::modules::block::Block;
 use crate::modules::borgmatic::Borgmatic;
 use crate::modules::btrfs::Btrfs;
 use crate::modules::cargo::Cargo;
+use crate::modules::certbot::Certbot;
 use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
 use crate::modules::cloud_init::CloudInit;
@@ -487,6 +489,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Borgmatic.get_name(), Box::new(Borgmatic) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
+        (Certbot.get_name(), Box::new(Certbot) as Box<dyn Module>),
         (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
