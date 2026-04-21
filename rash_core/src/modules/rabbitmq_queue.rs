@@ -166,12 +166,29 @@ fn queue_exists(name: &str, vhost: &str) -> Result<bool> {
     Ok(false)
 }
 
+fn declare_binding(exchange: &str, queue: &str, routing_key: &str, vhost: &str) -> Result<()> {
+    let vhost_arg = format!("--vhost={}", vhost);
+    let args: Vec<&str> = vec![
+        "declare",
+        "binding",
+        "source",
+        exchange,
+        "destination",
+        queue,
+        "routing_key",
+        routing_key,
+        &vhost_arg,
+    ];
+    run_rabbitmqadmin(&args)?;
+    Ok(())
+}
+
 fn binding_exists(exchange: &str, queue: &str, routing_key: &str, vhost: &str) -> Result<bool> {
+    let vhost_arg = format!("--vhost={}", vhost);
     let output = run_rabbitmqadmin(&[
         "list",
         "bindings",
-        "-p",
-        vhost,
+        &vhost_arg,
         "source",
         "destination",
         "routing_key",
@@ -222,20 +239,7 @@ fn create_queue(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     if let Some(ref exchange) = params.exchange {
         let routing_key = params.routing_key.as_deref().unwrap_or(&params.name);
-
-        let vhost_arg = format!("--vhost={}", params.vhost);
-        let bind_args: Vec<&str> = vec![
-            "declare",
-            "binding",
-            "source",
-            exchange,
-            "destination",
-            &params.name,
-            "routing_key",
-            routing_key,
-            &vhost_arg,
-        ];
-        run_rabbitmqadmin(&bind_args)?;
+        declare_binding(exchange, &params.name, routing_key, &params.vhost)?;
     }
 
     let extra = Some(value::to_value(json!({
@@ -268,19 +272,7 @@ fn ensure_queue(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
             if !has_binding {
                 if !check_mode {
-                    let vhost_arg = format!("--vhost={}", params.vhost);
-                    let bind_args: Vec<&str> = vec![
-                        "declare",
-                        "binding",
-                        "source",
-                        exchange,
-                        "destination",
-                        &params.name,
-                        "routing_key",
-                        routing_key,
-                        &vhost_arg,
-                    ];
-                    run_rabbitmqadmin(&bind_args)?;
+                    declare_binding(exchange, &params.name, routing_key, &params.vhost)?;
                 }
                 changed = true;
                 changes.push("binding");
