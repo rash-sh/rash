@@ -351,13 +351,13 @@ fn check_replicaset_present(params: &Params, check_mode: bool) -> Result<ModuleR
             ));
         }
 
-        for member in &to_remove {
-            let command = format!("rs.remove('{}')", member);
+        for member in &to_add {
+            let command = format!("rs.add('{}')", member);
             run_mongo_command(params, &command)?;
         }
 
-        for member in &to_add {
-            let command = format!("rs.add('{}')", member);
+        for member in &to_remove {
+            let command = format!("rs.remove('{}')", member);
             run_mongo_command(params, &command)?;
         }
 
