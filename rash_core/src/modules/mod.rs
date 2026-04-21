@@ -105,6 +105,7 @@ mod meta;
 mod modprobe;
 mod mongodb_collection;
 mod mongodb_db;
+mod mongodb_replicaset;
 mod mongodb_user;
 mod mount;
 mod mqtt;
@@ -301,6 +302,7 @@ use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mongodb_collection::MongodbCollection;
 use crate::modules::mongodb_db::MongodbDb;
+use crate::modules::mongodb_replicaset::MongodbReplicaset;
 use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
 use crate::modules::mqtt::Mqtt;
@@ -656,6 +658,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             MongodbCollection.get_name(),
             Box::new(MongodbCollection) as Box<dyn Module>,
+        ),
+        (
+            MongodbReplicaset.get_name(),
+            Box::new(MongodbReplicaset) as Box<dyn Module>,
         ),
         (
             MongodbUser.get_name(),
