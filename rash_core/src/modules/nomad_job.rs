@@ -158,44 +158,6 @@ impl NomadClient {
         Ok(Some(job))
     }
 
-    fn get_job_version(&self, name: &str) -> Result<Option<u64>> {
-        let url = format!("{}/v1/job/{}?version=0", self.url, name);
-        let client = self.build_client()?;
-        let request = self.add_token_header(client.get(&url));
-
-        let response = request.send().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Nomad API request failed: {e}"),
-            )
-        })?;
-
-        let status = response.status();
-        if status == reqwest::StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Nomad returned status {}: {}", status, error_text),
-            ));
-        }
-
-        let job: JsonValue = response.json().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to parse Nomad response: {e}"),
-            )
-        })?;
-
-        let version = job.get("Version").and_then(|v| v.as_u64());
-        Ok(version)
-    }
-
     fn deploy_job(&self, job_spec: &str) -> Result<JsonValue> {
         let url = format!("{}/v1/jobs", self.url);
         let client = self.build_client()?;
@@ -284,11 +246,13 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     })?;
 
     let client = NomadClient::new(params);
+    let existing_job = client.get_job(&params.name)?;
 
-    let existing_version = client.get_job_version(&params.name)?;
-
-    if let Some(current_version) = existing_version {
-        let pre_deploy_version = current_version;
+    if let Some(job_info) = existing_job {
+        let pre_modify_index = job_info
+            .get("ModifyIndex")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
 
         if check_mode {
             return Ok(ModuleResult::new(
@@ -296,7 +260,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
                 Some(serde_norway::value::to_value(json!({
                     "name": params.name,
                     "spec": params.spec,
-                    "current_version": current_version,
+                    "modify_index": pre_modify_index,
                     "changed": true
                 }))?),
                 Some(format!("Job {} would be updated (check mode)", params.name)),
@@ -305,27 +269,27 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
         let result = client.deploy_job(&job_spec)?;
 
-        let new_version = result
+        let new_modify_index = result
             .get("JobModifyIndex")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
 
-        let changed = new_version != pre_deploy_version;
+        let changed = new_modify_index != pre_modify_index;
 
         Ok(ModuleResult::new(
             changed,
             Some(serde_norway::value::to_value(json!({
                 "name": params.name,
                 "spec": params.spec,
-                "previous_version": pre_deploy_version,
-                "current_version": new_version,
+                "previous_modify_index": pre_modify_index,
+                "modify_index": new_modify_index,
                 "eval_id": result.get("EvalID").and_then(|v| v.as_str()).unwrap_or(""),
             }))?),
             Some(format!(
-                "Job {} {} (version {})",
+                "Job {} {} (modify index {})",
                 params.name,
                 if changed { "updated" } else { "unchanged" },
-                new_version
+                new_modify_index
             )),
         ))
     } else {
@@ -343,7 +307,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
         let result = client.deploy_job(&job_spec)?;
 
-        let new_version = result
+        let new_modify_index = result
             .get("JobModifyIndex")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
@@ -353,12 +317,12 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
             Some(serde_norway::value::to_value(json!({
                 "name": params.name,
                 "spec": params.spec,
-                "current_version": new_version,
+                "modify_index": new_modify_index,
                 "eval_id": result.get("EvalID").and_then(|v| v.as_str()).unwrap_or(""),
             }))?),
             Some(format!(
-                "Job {} created (version {})",
-                params.name, new_version
+                "Job {} created (modify index {})",
+                params.name, new_modify_index
             )),
         ))
     }
