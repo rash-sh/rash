@@ -279,17 +279,16 @@ fn docker_stack(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     }
 
+    let exists_after = matches!(params.state, State::Present);
+
     let mut extra = serde_json::Map::new();
     extra.insert(
         "stack".to_string(),
         serde_json::Value::String(params.name.clone()),
     );
-    extra.insert(
-        "exists".to_string(),
-        serde_json::Value::Bool(client.stack_exists(&params.name)?),
-    );
+    extra.insert("exists".to_string(), serde_json::Value::Bool(exists_after));
 
-    if !check_mode {
+    if !check_mode && exists_after {
         let services = client.get_stack_services(&params.name)?;
         if !services.is_empty() {
             extra.insert("services".to_string(), serde_json::Value::Array(services));
