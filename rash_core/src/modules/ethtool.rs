@@ -205,6 +205,42 @@ fn get_current_settings(device: &str) -> Result<String> {
     run_ethtool(&[device])
 }
 
+fn get_current_offload(device: &str) -> Result<String> {
+    run_ethtool(&["-k", device])
+}
+
+fn parse_offload_value(output: &str, key: &str) -> Option<bool> {
+    for line in output.lines() {
+        let line = line.trim();
+        if line.starts_with(key) {
+            let parts: Vec<&str> = line.splitn(2, ':').collect();
+            if parts.len() == 2 {
+                return Some(parts[1].trim().eq_ignore_ascii_case("on"));
+            }
+        }
+    }
+    None
+}
+
+fn offload_needs_change(current: &str, offload: &Offload) -> bool {
+    let checks = [
+        ("rx-checksumming", offload.rx),
+        ("tx-checksumming", offload.tx),
+        ("tcp-segmentation-offload", offload.tso),
+        ("generic-segmentation-offload", offload.gso),
+    ];
+
+    for (key, desired) in checks {
+        if let Some(want) = desired {
+            match parse_offload_value(current, key) {
+                Some(have) if have == want => {}
+                _ => return true,
+            }
+        }
+    }
+    false
+}
+
 fn parse_setting_value(output: &str, key: &str) -> Option<String> {
     for line in output.lines() {
         let line = line.trim();
@@ -340,7 +376,7 @@ fn exec_ethtool(params: Params, check_mode: bool) -> Result<ModuleResult> {
         State::Present => {}
     }
 
-    let current = get_current_settings(&params.device).unwrap_or_default();
+    let current = get_current_settings(&params.device)?;
 
     let mut changed = false;
 
@@ -360,18 +396,15 @@ fn exec_ethtool(params: Params, check_mode: bool) -> Result<ModuleResult> {
     }
 
     if let Some(ref offload) = params.offload {
-        if check_mode {
-            if offload.rx.is_some()
-                || offload.tx.is_some()
-                || offload.tso.is_some()
-                || offload.gso.is_some()
-            {
+        let offload_output = get_current_offload(&params.device)?;
+        if offload_needs_change(&offload_output, offload) {
+            if check_mode {
                 info!("Would apply offload settings to {}", params.device);
                 changed = true;
+            } else {
+                apply_offload_settings(&params.device, offload)?;
+                changed = true;
             }
-        } else {
-            apply_offload_settings(&params.device, offload)?;
-            changed = true;
         }
     }
 
@@ -660,5 +693,69 @@ mod tests {
     #[test]
     fn test_state_default() {
         assert_eq!(State::default(), State::Present);
+    }
+
+    #[test]
+    fn test_parse_offload_value() {
+        let output = "Features for eth0:\nrx-checksumming: on\ntx-checksumming: off\ntcp-segmentation-offload: on\ngeneric-segmentation-offload: on\n";
+        assert_eq!(parse_offload_value(output, "rx-checksumming"), Some(true));
+        assert_eq!(parse_offload_value(output, "tx-checksumming"), Some(false));
+        assert_eq!(
+            parse_offload_value(output, "tcp-segmentation-offload"),
+            Some(true)
+        );
+        assert_eq!(
+            parse_offload_value(output, "generic-segmentation-offload"),
+            Some(true)
+        );
+        assert_eq!(parse_offload_value(output, "some-unknown-feature"), None);
+    }
+
+    #[test]
+    fn test_offload_needs_change_match() {
+        let current = "Features for eth0:\nrx-checksumming: on\ntx-checksumming: on\ntcp-segmentation-offload: on\ngeneric-segmentation-offload: on\n";
+        let offload = Offload {
+            rx: Some(true),
+            tx: Some(true),
+            tso: Some(true),
+            gso: Some(true),
+        };
+        assert!(!offload_needs_change(current, &offload));
+    }
+
+    #[test]
+    fn test_offload_needs_change_mismatch() {
+        let current = "Features for eth0:\nrx-checksumming: on\ntx-checksumming: on\ntcp-segmentation-offload: on\ngeneric-segmentation-offload: on\n";
+        let offload = Offload {
+            rx: Some(false),
+            tx: None,
+            tso: None,
+            gso: None,
+        };
+        assert!(offload_needs_change(current, &offload));
+    }
+
+    #[test]
+    fn test_offload_needs_change_partial() {
+        let current = "Features for eth0:\nrx-checksumming: on\ntx-checksumming: off\ntcp-segmentation-offload: on\ngeneric-segmentation-offload: off\n";
+        let offload = Offload {
+            rx: Some(true),
+            tx: Some(false),
+            tso: None,
+            gso: None,
+        };
+        assert!(!offload_needs_change(current, &offload));
+    }
+
+    #[test]
+    fn test_offload_needs_change_all_none() {
+        let current = "Features for eth0:\nrx-checksumming: on\n";
+        let offload = Offload {
+            rx: None,
+            tx: None,
+            tso: None,
+            gso: None,
+        };
+        assert!(!offload_needs_change(current, &offload));
     }
 }
