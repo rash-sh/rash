@@ -485,7 +485,12 @@ fn create_indexes_internal(
     let existing: Vec<String> = if existing_result.is_empty() || existing_result == "null" {
         vec!["_id_".to_string()]
     } else {
-        serde_json::from_str(&existing_result).unwrap_or_else(|_| vec!["_id_".to_string()])
+        serde_json::from_str(&existing_result).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Failed to parse existing indexes: {}", e),
+            )
+        })?
     };
 
     let mut created_indexes = Vec::new();
@@ -608,15 +613,16 @@ fn apply_validation(params: &Params, check_mode: bool) -> Result<Option<(bool, S
 }
 
 fn apply_collation(params: &Params, check_mode: bool) -> Result<Option<(bool, String)>> {
-    if params.collation.is_none() {
-        return Ok(None);
-    }
+    let collation = match params.collation.as_ref() {
+        Some(c) => c,
+        None => return Ok(None),
+    };
 
     if check_mode {
         return Ok(Some((true, "collation would be updated".to_string())));
     }
 
-    let collation_json = hashmap_to_json_value(params.collation.as_ref().unwrap());
+    let collation_json = hashmap_to_json_value(collation);
     let collation_str = serde_json::to_string(&collation_json).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
