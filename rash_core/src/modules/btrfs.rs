@@ -178,8 +178,7 @@ impl BtrfsClient {
 
     pub fn get_mount_point(&self, device: &str) -> Result<String> {
         let output = self.exec_cmd(
-            Command::new("findmnt")
-                .args(["-n", "-o", "TARGET", "-S", device]),
+            Command::new("findmnt").args(["-n", "-o", "TARGET", "-S", device]),
             true,
         )?;
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -189,8 +188,7 @@ impl BtrfsClient {
     pub fn subvolume_exists(&self, mount_point: &str, subvolume: &str) -> Result<bool> {
         let full_path = format!("{mount_point}{subvolume}");
         let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["subvolume", "show", &full_path]),
+            Command::new("btrfs").args(["subvolume", "show", &full_path]),
             false,
         );
         Ok(output.map(|o| o.status.success()).unwrap_or(false))
@@ -200,11 +198,15 @@ impl BtrfsClient {
         self.subvolume_exists(mount_point, snapshot)
     }
 
-    fn get_property(&self, mount_point: &str, subvolume: &str, property: &str) -> Result<Option<String>> {
+    fn get_property(
+        &self,
+        mount_point: &str,
+        subvolume: &str,
+        property: &str,
+    ) -> Result<Option<String>> {
         let full_path = format!("{mount_point}{subvolume}");
         let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["property", "get", "-ts", &full_path, property]),
+            Command::new("btrfs").args(["property", "get", "-ts", &full_path, property]),
             false,
         )?;
 
@@ -234,8 +236,7 @@ impl BtrfsClient {
         }
 
         let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["subvolume", "create", &full_path]),
+            Command::new("btrfs").args(["subvolume", "create", &full_path]),
             true,
         )?;
 
@@ -262,8 +263,7 @@ impl BtrfsClient {
         }
 
         let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["subvolume", "delete", &full_path]),
+            Command::new("btrfs").args(["subvolume", "delete", &full_path]),
             true,
         )?;
 
@@ -277,11 +277,7 @@ impl BtrfsClient {
         Ok(BtrfsResult::new(true, output_str))
     }
 
-    pub fn create_snapshot(
-        &self,
-        mount_point: &str,
-        params: &Params,
-    ) -> Result<BtrfsResult> {
+    pub fn create_snapshot(&self, mount_point: &str, params: &Params) -> Result<BtrfsResult> {
         let snapshot_dest = params.snapshot.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidData,
@@ -328,11 +324,7 @@ impl BtrfsClient {
         Ok(BtrfsResult::new(true, output_str))
     }
 
-    pub fn set_properties(
-        &self,
-        mount_point: &str,
-        params: &Params,
-    ) -> Result<BtrfsResult> {
+    pub fn set_properties(&self, mount_point: &str, params: &Params) -> Result<BtrfsResult> {
         let full_path = format!("{}{}", mount_point, params.subvolume);
 
         let mut changed = false;
@@ -343,7 +335,9 @@ impl BtrfsClient {
                 .get_property(mount_point, &params.subvolume, "compression")?
                 .unwrap_or_else(|| "none".to_string());
             if current_compression != *compression {
-                changes.push(format!("compression: {current_compression} -> {compression}"));
+                changes.push(format!(
+                    "compression: {current_compression} -> {compression}"
+                ));
                 changed = true;
             }
         }
@@ -369,8 +363,13 @@ impl BtrfsClient {
 
         if let Some(compression) = &params.compression {
             self.exec_cmd(
-                Command::new("btrfs")
-                    .args(["property", "set", &full_path, "compression", compression]),
+                Command::new("btrfs").args([
+                    "property",
+                    "set",
+                    &full_path,
+                    "compression",
+                    compression,
+                ]),
                 true,
             )?;
         }
@@ -378,8 +377,7 @@ impl BtrfsClient {
         if let Some(props) = &params.properties {
             for (key, value) in props {
                 self.exec_cmd(
-                    Command::new("btrfs")
-                        .args(["property", "set", &full_path, key, value]),
+                    Command::new("btrfs").args(["property", "set", &full_path, key, value]),
                     true,
                 )?;
             }
@@ -451,10 +449,7 @@ fn btrfs_module(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 if !subvol_exists {
                     return Err(Error::new(
                         ErrorKind::InvalidData,
-                        format!(
-                            "Source subvolume {} does not exist",
-                            params.subvolume
-                        ),
+                        format!("Source subvolume {} does not exist", params.subvolume),
                     ));
                 }
                 client.create_snapshot(&mount_point, &params)?
