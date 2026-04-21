@@ -136,10 +136,10 @@ pub fn sysfs(params: Params, check_mode: bool) -> Result<ModuleResult> {
         State::Absent => {
             let current = read_sysfs_attribute(path)?;
 
-            if let Some(ref value) = params.value {
-                if current != *value {
-                    return Ok(ModuleResult::new(false, None, Some(params.path)));
-                }
+            if let Some(ref value) = params.value
+                && current != *value
+            {
+                return Ok(ModuleResult::new(false, None, Some(params.path)));
             }
 
             diff(&current, "");
