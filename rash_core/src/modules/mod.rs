@@ -17,6 +17,7 @@ mod cargo;
 mod cgroups;
 mod chroot;
 mod cloud_init;
+mod cloudflare_dns;
 mod command;
 mod composer;
 mod consul_kv;
@@ -190,6 +191,7 @@ use crate::modules::cargo::Cargo;
 use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
 use crate::modules::cloud_init::CloudInit;
+use crate::modules::cloudflare_dns::CloudflareDns;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
 use crate::modules::consul_kv::ConsulKv;
@@ -437,6 +439,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
+        (
+            CloudflareDns.get_name(),
+            Box::new(CloudflareDns) as Box<dyn Module>,
+        ),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
