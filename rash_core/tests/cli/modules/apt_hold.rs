@@ -232,3 +232,51 @@ fn test_apt_hold_executable_not_found() {
 
     assert!(stderr.contains("Failed to execute"));
 }
+
+#[test]
+fn test_apt_hold_check_mode() {
+    let mocks_dir = get_mocks_dir();
+    let apt_mark_path = format!("{}/apt-mark", mocks_dir);
+
+    let script_text = format!(
+        r#"
+#!/usr/bin/env rash
+- name: Hold curl package in check mode
+  apt_hold:
+    executable: {}
+    name: curl
+        "#,
+        apt_mark_path
+    );
+
+    let args = ["--diff", "--check"];
+    let (stdout, stderr) = run_test(&script_text, &args);
+
+    assert!(stdout.contains("curl"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("changed\n"));
+}
+
+#[test]
+fn test_apt_hold_check_mode_no_change() {
+    let mocks_dir = get_mocks_dir();
+    let apt_mark_path = format!("{}/apt-mark", mocks_dir);
+
+    let script_text = format!(
+        r#"
+#!/usr/bin/env rash
+- name: Hold already-held nginx in check mode
+  apt_hold:
+    executable: {}
+    name: nginx
+        "#,
+        apt_mark_path
+    );
+
+    let args = ["--diff", "--check"];
+    let (stdout, stderr) = run_test(&script_text, &args);
+
+    assert!(stdout.contains("nginx"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("ok\n"));
+}
