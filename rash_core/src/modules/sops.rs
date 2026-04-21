@@ -123,11 +123,7 @@ fn check_file_status(src: &str, sops_binary: &str) -> Result<bool> {
     let output = run_sops_command(&["filestatus", src], sops_binary)?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::new(
-            ErrorKind::SubprocessFail,
-            format!("sops filestatus failed: {stderr}"),
-        ));
+        return Ok(false);
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -162,7 +158,7 @@ fn build_common_args(params: &Params) -> Vec<String> {
     args
 }
 
-fn exec_decrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
+fn exec_sops(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     let src_path = Path::new(&params.src);
     if !src_path.exists() {
         return Err(Error::new(
@@ -173,15 +169,32 @@ fn exec_decrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     let is_encrypted = check_file_status(&params.src, &params.sops_binary)?;
 
-    if !is_encrypted {
+    let (flag, state_str, verb, already_status, needs_change) = match params.state {
+        State::Decrypted => (
+            "--decrypt",
+            "decrypted",
+            "decrypt",
+            "already_decrypted",
+            is_encrypted,
+        ),
+        State::Encrypted => (
+            "--encrypt",
+            "encrypted",
+            "encrypt",
+            "already_encrypted",
+            !is_encrypted,
+        ),
+    };
+
+    if !needs_change {
         return Ok(ModuleResult::new(
             false,
             Some(value::to_value(json!({
                 "src": params.src,
-                "state": "decrypted",
-                "status": "already_decrypted"
+                "state": state_str,
+                "status": already_status
             }))?),
-            Some(format!("{} is already decrypted", params.src)),
+            Some(format!("{} is already {}", params.src, state_str)),
         ));
     }
 
@@ -191,13 +204,13 @@ fn exec_decrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
             Some(value::to_value(json!({
                 "src": params.src,
                 "dst": params.dst,
-                "state": "decrypted",
+                "state": state_str,
             }))?),
-            Some(format!("Would decrypt {}", params.src)),
+            Some(format!("Would {} {}", verb, params.src)),
         ));
     }
 
-    let mut args = vec!["--decrypt".to_string()];
+    let mut args = vec![flag.to_string()];
     args.extend(build_common_args(params));
 
     if let Some(ref dst) = params.dst {
@@ -218,7 +231,7 @@ fn exec_decrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(Error::new(
             ErrorKind::SubprocessFail,
-            format!("sops decrypt failed: {stderr}"),
+            format!("sops {verb} failed: {stderr}"),
         ));
     }
 
@@ -229,92 +242,16 @@ fn exec_decrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         Some(value::to_value(json!({
             "src": params.src,
             "dst": dst_display,
-            "state": "decrypted",
+            "state": state_str,
         }))?),
-        Some(format!("{} decrypted successfully", params.src)),
-    ))
-}
-
-fn exec_encrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
-    let src_path = Path::new(&params.src);
-    if !src_path.exists() {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("Source file not found: {}", params.src),
-        ));
-    }
-
-    let is_encrypted = check_file_status(&params.src, &params.sops_binary)?;
-
-    if is_encrypted {
-        return Ok(ModuleResult::new(
-            false,
-            Some(value::to_value(json!({
-                "src": params.src,
-                "state": "encrypted",
-                "status": "already_encrypted"
-            }))?),
-            Some(format!("{} is already encrypted", params.src)),
-        ));
-    }
-
-    if check_mode {
-        return Ok(ModuleResult::new(
-            true,
-            Some(value::to_value(json!({
-                "src": params.src,
-                "dst": params.dst,
-                "state": "encrypted",
-            }))?),
-            Some(format!("Would encrypt {}", params.src)),
-        ));
-    }
-
-    let mut args = vec!["--encrypt".to_string()];
-    args.extend(build_common_args(params));
-
-    if let Some(ref dst) = params.dst {
-        args.push("--output".to_string());
-        args.push(dst.clone());
-    } else {
-        args.push("--in-place".to_string());
-    }
-
-    args.push(params.src.clone());
-
-    let output = run_sops_command(
-        &args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-        &params.sops_binary,
-    )?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::new(
-            ErrorKind::SubprocessFail,
-            format!("sops encrypt failed: {stderr}"),
-        ));
-    }
-
-    let dst_display = params.dst.as_deref().unwrap_or(&params.src);
-
-    Ok(ModuleResult::new(
-        true,
-        Some(value::to_value(json!({
-            "src": params.src,
-            "dst": dst_display,
-            "state": "encrypted",
-        }))?),
-        Some(format!("{} encrypted successfully", params.src)),
+        Some(format!("{} {} successfully", params.src, state_str)),
     ))
 }
 
 pub fn sops(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
-    match params.state {
-        State::Decrypted => exec_decrypt(&params, check_mode),
-        State::Encrypted => exec_encrypt(&params, check_mode),
-    }
+    exec_sops(&params, check_mode)
 }
 
 #[derive(Debug)]
@@ -486,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exec_decrypt_file_not_found() {
+    fn test_exec_sops_decrypt_file_not_found() {
         let params = Params {
             src: "/nonexistent/file.yaml".to_string(),
             dst: None,
@@ -495,13 +432,13 @@ mod tests {
             output_type: None,
             sops_binary: "sops".to_string(),
         };
-        let result = exec_decrypt(&params, false);
+        let result = exec_sops(&params, false);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
     }
 
     #[test]
-    fn test_exec_encrypt_file_not_found() {
+    fn test_exec_sops_encrypt_file_not_found() {
         let params = Params {
             src: "/nonexistent/file.yaml".to_string(),
             dst: None,
@@ -510,7 +447,7 @@ mod tests {
             output_type: None,
             sops_binary: "sops".to_string(),
         };
-        let result = exec_encrypt(&params, false);
+        let result = exec_sops(&params, false);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
     }
