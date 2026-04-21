@@ -140,6 +140,10 @@ pub enum Mode {
 fn build_mysql_base_args(params: &Params) -> Vec<String> {
     let mut args = Vec::new();
 
+    if let Some(ref config_file) = params.config_file {
+        args.push(format!("--defaults-file={}", config_file));
+    }
+
     args.push(format!("--host={}", params.login_host));
     args.push(format!("--port={}", params.login_port));
 
@@ -149,10 +153,6 @@ fn build_mysql_base_args(params: &Params) -> Vec<String> {
 
     if let Some(ref password) = params.login_password {
         args.push(format!("--password={}", password));
-    }
-
-    if let Some(ref config_file) = params.config_file {
-        args.push(format!("--defaults-file={}", config_file));
     }
 
     args
@@ -460,7 +460,21 @@ fn mysql_replication_impl(params: Params, check_mode: bool) -> Result<ModuleResu
                 }
             }
         },
-        State::Absent => stop_replication(&params, check_mode),
+        State::Absent => {
+            let is_replica = check_replica_status(&params)?;
+            if !is_replica {
+                Ok(ModuleResult {
+                    changed: false,
+                    output: Some("Replication is not running".to_string()),
+                    extra: Some(value::to_value(json!({
+                        "mode": "replica",
+                        "state": "absent",
+                    }))?),
+                })
+            } else {
+                stop_replication(&params, check_mode)
+            }
+        }
         State::Getprimary => get_primary_status(&params),
     }
 }
