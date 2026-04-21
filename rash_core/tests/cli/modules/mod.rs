@@ -2,6 +2,7 @@ mod apk;
 mod apt;
 mod authorized_key;
 mod cargo;
+mod conntrack;
 mod cron;
 mod crypttab;
 mod dconf;
