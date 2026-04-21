@@ -197,53 +197,28 @@ impl BtrfsClient {
     }
 
     pub fn snapshot_exists(&self, mount_point: &str, snapshot: &str) -> Result<bool> {
-        let full_path = format!("{mount_point}{snapshot}");
-        let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["subvolume", "show", &full_path]),
-            false,
-        );
-        Ok(output.map(|o| o.status.success()).unwrap_or(false))
+        self.subvolume_exists(mount_point, snapshot)
     }
 
-    #[allow(dead_code)]
-    pub fn is_readonly(&self, mount_point: &str, subvolume: &str) -> Result<bool> {
+    fn get_property(&self, mount_point: &str, subvolume: &str, property: &str) -> Result<Option<String>> {
         let full_path = format!("{mount_point}{subvolume}");
         let output = self.exec_cmd(
             Command::new("btrfs")
-                .args(["property", "get", "-ts", &full_path, "ro"]),
-            true,
-        )?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.trim().ends_with("true"))
-    }
-
-    pub fn get_properties(&self, mount_point: &str, subvolume: &str) -> Result<HashMap<String, String>> {
-        let full_path = format!("{mount_point}{subvolume}");
-        let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["subvolume", "show", &full_path]),
+                .args(["property", "get", "-ts", &full_path, property]),
             false,
         )?;
 
         if !output.status.success() {
-            return Ok(HashMap::new());
+            return Ok(None);
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut props = HashMap::new();
-
-        for line in stdout.lines() {
-            let trimmed = line.trim();
-            if let Some((key, value)) = trimmed.split_once(':') {
-                props.insert(
-                    key.trim().to_string(),
-                    value.trim().to_string(),
-                );
-            }
+        let trimmed = stdout.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
         }
 
-        Ok(props)
+        Ok(trimmed.split_once('=').map(|(_, v)| v.trim().to_string()))
     }
 
     pub fn create_subvolume(&self, mount_point: &str, params: &Params) -> Result<BtrfsResult> {
@@ -353,46 +328,6 @@ impl BtrfsClient {
         Ok(BtrfsResult::new(true, output_str))
     }
 
-    #[allow(dead_code)]
-    pub fn set_readonly(
-        &self,
-        mount_point: &str,
-        subvolume: &str,
-        readonly: bool,
-    ) -> Result<BtrfsResult> {
-        let current_ro = self.is_readonly(mount_point, subvolume)?;
-        if current_ro == readonly {
-            return Ok(BtrfsResult::no_change());
-        }
-
-        diff(
-            format!("readonly: {current_ro} ({subvolume})"),
-            format!("readonly: {readonly} ({subvolume})"),
-        );
-
-        if self.check_mode {
-            return Ok(BtrfsResult::new(true, None));
-        }
-
-        let full_path = format!("{mount_point}{subvolume}");
-        let value_str = if readonly { "true" } else { "false" };
-
-        let output = self.exec_cmd(
-            Command::new("btrfs")
-                .args(["property", "set", &full_path, "ro", value_str]),
-            true,
-        )?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let output_str = if stdout.trim().is_empty() {
-            None
-        } else {
-            Some(stdout.trim().to_string())
-        };
-
-        Ok(BtrfsResult::new(true, output_str))
-    }
-
     pub fn set_properties(
         &self,
         mount_point: &str,
@@ -404,9 +339,10 @@ impl BtrfsClient {
         let mut changes = Vec::new();
 
         if let Some(compression) = &params.compression {
-            let current_props = self.get_properties(mount_point, &params.subvolume)?;
-            let current_compression = current_props.get("Compression").map(|s| s.as_str()).unwrap_or("none");
-            if current_compression != compression {
+            let current_compression = self
+                .get_property(mount_point, &params.subvolume, "compression")?
+                .unwrap_or_else(|| "none".to_string());
+            if current_compression != *compression {
                 changes.push(format!("compression: {current_compression} -> {compression}"));
                 changed = true;
             }
