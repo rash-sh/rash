@@ -95,6 +95,7 @@ mod mount;
 mod mqtt;
 mod mysql_db;
 mod mysql_query;
+mod mysql_replication;
 mod mysql_user;
 mod netplan;
 mod nftables;
@@ -268,6 +269,7 @@ use crate::modules::mount::Mount;
 use crate::modules::mqtt::Mqtt;
 use crate::modules::mysql_db::MysqlDb;
 use crate::modules::mysql_query::MysqlQuery;
+use crate::modules::mysql_replication::MysqlReplication;
 use crate::modules::mysql_user::MysqlUser;
 use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
@@ -585,6 +587,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             MysqlQuery.get_name(),
             Box::new(MysqlQuery) as Box<dyn Module>,
+        ),
+        (
+            MysqlReplication.get_name(),
+            Box::new(MysqlReplication) as Box<dyn Module>,
         ),
         (MysqlUser.get_name(), Box::new(MysqlUser) as Box<dyn Module>),
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
