@@ -94,6 +94,7 @@ mod locale;
 mod logrotate;
 mod luks;
 mod lvg;
+mod lvm_snapshot;
 mod lvol;
 mod lxd_container;
 mod make;
@@ -285,6 +286,7 @@ use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
 use crate::modules::luks::Luks;
 use crate::modules::lvg::Lvg;
+use crate::modules::lvm_snapshot::LvmSnapshot;
 use crate::modules::lvol::Lvol;
 use crate::modules::lxd_container::LxdContainer;
 use crate::modules::make::Make;
@@ -623,6 +625,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Logrotate.get_name(), Box::new(Logrotate) as Box<dyn Module>),
         (Luks.get_name(), Box::new(Luks) as Box<dyn Module>),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
+        (
+            LvmSnapshot.get_name(),
+            Box::new(LvmSnapshot) as Box<dyn Module>,
+        ),
         (Lvol.get_name(), Box::new(Lvol) as Box<dyn Module>),
         (
             LxdContainer.get_name(),

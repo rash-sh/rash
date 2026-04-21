@@ -122,6 +122,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/kubernetes.rh' \
 		-not -path 'examples/postgresql_query.rh' \
 		-not -path 'examples/libvirt.rh' \
+		-not -path 'examples/lvm_snapshot.rh' \
 		-not -path 'examples/conntrack.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
