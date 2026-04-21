@@ -370,7 +370,15 @@ fn exec_read(params: &Params) -> Result<ModuleResult> {
             };
 
             let mut extra = serde_json::Map::new();
-            extra.insert("data".to_string(), serde_json::to_value(&data)?);
+            extra.insert(
+                "data".to_string(),
+                serde_json::to_value(&data).map_err(|e| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Failed to serialize data: {e}"),
+                    )
+                })?,
+            );
             extra.insert("raw".to_string(), response.clone());
             if let Some(meta) = metadata {
                 extra.insert("metadata".to_string(), meta);
@@ -378,7 +386,9 @@ fn exec_read(params: &Params) -> Result<ModuleResult> {
 
             Ok(ModuleResult::new(
                 false,
-                Some(value::to_value(JsonValue::Object(extra))?),
+                Some(value::to_value(JsonValue::Object(extra)).map_err(|e| {
+                    Error::new(ErrorKind::InvalidData, format!("Conversion error: {e}"))
+                })?),
                 Some("Secret read successfully".to_string()),
             ))
         }
