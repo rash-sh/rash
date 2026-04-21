@@ -54,6 +54,8 @@ mod gem;
 mod get_url;
 mod git;
 mod gpg_key;
+mod grafana;
+mod grafana_dashboard;
 mod group;
 mod grub;
 mod helm;
@@ -120,6 +122,8 @@ mod podman;
 mod postgresql_db;
 mod postgresql_query;
 mod postgresql_user;
+mod poweroff;
+mod prometheus_rule;
 mod proxmox;
 mod rabbitmq_user;
 mod rclone;
@@ -227,6 +231,8 @@ use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
 use crate::modules::gpg_key::GpgKey;
+use crate::modules::grafana::Grafana;
+use crate::modules::grafana_dashboard::GrafanaDashboard;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
 use crate::modules::helm::Helm;
@@ -293,6 +299,8 @@ use crate::modules::podman::Podman;
 use crate::modules::postgresql_db::PostgresqlDb;
 use crate::modules::postgresql_query::PostgresqlQuery;
 use crate::modules::postgresql_user::PostgresqlUser;
+use crate::modules::poweroff::Poweroff;
+use crate::modules::prometheus_rule::PrometheusRule;
 use crate::modules::proxmox::Proxmox;
 use crate::modules::rabbitmq_user::RabbitmqUser;
 use crate::modules::rclone::Rclone;
@@ -512,6 +520,11 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
+        (Grafana.get_name(), Box::new(Grafana) as Box<dyn Module>),
+        (
+            GrafanaDashboard.get_name(),
+            Box::new(GrafanaDashboard) as Box<dyn Module>,
+        ),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
@@ -617,6 +630,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Pip.get_name(), Box::new(Pip) as Box<dyn Module>),
         (Pids.get_name(), Box::new(Pids) as Box<dyn Module>),
         (Podman.get_name(), Box::new(Podman) as Box<dyn Module>),
+        (Poweroff.get_name(), Box::new(Poweroff) as Box<dyn Module>),
         (
             PostgresqlDb.get_name(),
             Box::new(PostgresqlDb) as Box<dyn Module>,
@@ -628,6 +642,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (
             PostgresqlUser.get_name(),
             Box::new(PostgresqlUser) as Box<dyn Module>,
+        ),
+        (
+            PrometheusRule.get_name(),
+            Box::new(PrometheusRule) as Box<dyn Module>,
         ),
         (Proxmox.get_name(), Box::new(Proxmox) as Box<dyn Module>),
         (Ping.get_name(), Box::new(Ping) as Box<dyn Module>),
