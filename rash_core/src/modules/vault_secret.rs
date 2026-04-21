@@ -467,10 +467,7 @@ pub fn vault_secret(params: Params, check_mode: bool) -> Result<ModuleResult> {
     trace!("params: {params:?}");
 
     if params.version != 1 && params.version != 2 {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "version must be 1 or 2",
-        ));
+        return Err(Error::new(ErrorKind::InvalidData, "version must be 1 or 2"));
     }
 
     match params.state {
@@ -495,7 +492,10 @@ impl Module for VaultSecret {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        Ok((vault_secret(parse_params(optional_params)?, check_mode)?, None))
+        Ok((
+            vault_secret(parse_params(optional_params)?, check_mode)?,
+            None,
+        ))
     }
 
     #[cfg(feature = "docs")]
@@ -651,10 +651,7 @@ mod tests {
 
     #[test]
     fn test_build_full_path_v2() {
-        assert_eq!(
-            build_full_path("secret", "myapp", 2),
-            "secret/data/myapp"
-        );
+        assert_eq!(build_full_path("secret", "myapp", 2), "secret/data/myapp");
         assert_eq!(
             build_full_path("secret", "data/myapp", 2),
             "secret/data/myapp"
