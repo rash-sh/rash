@@ -52,6 +52,7 @@ use rash_derive::DocJsonSchema;
 use std::fs;
 use std::path::Path;
 use std::process::Command as StdCommand;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -63,6 +64,19 @@ use serde_norway::value;
 const CERTBOT_BIN: &str = "certbot";
 const DEFAULT_CERT_DIR: &str = "/etc/letsencrypt/live";
 const DEFAULT_EXPIRE_DAYS: u64 = 30;
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Deserialize)]
+#[cfg_attr(feature = "docs", derive(JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum State {
+    Absent,
+    #[default]
+    Present,
+}
+
+fn default_state() -> Option<State> {
+    Some(State::default())
+}
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -83,7 +97,7 @@ pub struct Params {
     /// Whether the certificate should exist or not.
     /// **[default: `"present"`]**
     #[serde(default = "default_state")]
-    pub state: String,
+    pub state: Option<State>,
 }
 
 fn default_challenge() -> String {
@@ -92,10 +106,6 @@ fn default_challenge() -> String {
 
 fn default_expire_days() -> u64 {
     DEFAULT_EXPIRE_DAYS
-}
-
-fn default_state() -> String {
-    "present".to_string()
 }
 
 fn primary_domain(domains: &[String]) -> &str {
@@ -146,14 +156,9 @@ fn parse_expiry_days(expiry_str: &str, expire_days: u64) -> Result<bool> {
         .parse()
         .unwrap_or(0);
 
-    let now_output = StdCommand::new("date")
-        .arg("+%s")
-        .output()
-        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
-    let now_ts: i64 = String::from_utf8_lossy(&now_output.stdout)
-        .trim()
-        .parse()
+    let now_ts: i64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
 
     let remaining_days = (expiry_ts - now_ts) / 86400;
@@ -317,16 +322,16 @@ impl Module for Certbot {
     ) -> Result<(ModuleResult, Option<Value>)> {
         let params: Params = parse_params(optional_params)?;
 
-        match params.state.as_str() {
-            "present" => Ok((obtain_certificate(&params, check_mode)?, None)),
-            "absent" => Ok((remove_certificate(&params, check_mode)?, None)),
-            _ => Err(Error::new(
+        if params.domains.is_empty() {
+            return Err(Error::new(
                 ErrorKind::InvalidData,
-                format!(
-                    "Invalid state '{}'. Must be 'present' or 'absent'",
-                    params.state
-                ),
-            )),
+                "domains must not be empty",
+            ));
+        }
+
+        match params.state.unwrap_or_default() {
+            State::Present => Ok((obtain_certificate(&params, check_mode)?, None)),
+            State::Absent => Ok((remove_certificate(&params, check_mode)?, None)),
         }
     }
 
@@ -359,7 +364,7 @@ mod tests {
         assert_eq!(params.email, "admin@example.com");
         assert_eq!(params.challenge, "http");
         assert_eq!(params.expire_days, 30);
-        assert_eq!(params.state, "present");
+        assert_eq!(params.state, Some(State::Present));
     }
 
     #[test]
@@ -377,7 +382,7 @@ mod tests {
         assert_eq!(params.email, "admin@example.com");
         assert_eq!(params.challenge, "http");
         assert_eq!(params.expire_days, 30);
-        assert_eq!(params.state, "present");
+        assert_eq!(params.state, Some(State::Present));
     }
 
     #[test]
@@ -407,7 +412,7 @@ mod tests {
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(params.state, "absent");
+        assert_eq!(params.state, Some(State::Absent));
     }
 
     #[test]
@@ -466,13 +471,26 @@ mod tests {
 
     #[test]
     fn test_invalid_state() {
-        let certbot = Certbot;
         let yaml: YamlValue = serde_norway::from_str(
             r#"
             domains:
               - example.com
             email: admin@example.com
             state: invalid
+            "#,
+        )
+        .unwrap();
+        let error = parse_params::<Params>(yaml).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_empty_domains() {
+        let certbot = Certbot;
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            domains: []
+            email: admin@example.com
             "#,
         )
         .unwrap();
@@ -494,6 +512,6 @@ mod tests {
 
     #[test]
     fn test_default_state() {
-        assert_eq!(default_state(), "present");
+        assert_eq!(default_state(), Some(State::Present));
     }
 }
