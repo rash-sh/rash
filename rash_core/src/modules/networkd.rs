@@ -408,7 +408,15 @@ fn networkd(params: Params, check_mode: bool) -> Result<ModuleResult> {
                     if params.backup.unwrap_or(false) {
                         create_backup(&config_path)?;
                     }
-                    fs::remove_file(&config_path)?;
+                    fs::remove_file(&config_path).map_err(|e| {
+                        Error::new(
+                            ErrorKind::IOError,
+                            format!(
+                                "Failed to remove config file {}: {e}",
+                                config_path.display()
+                            ),
+                        )
+                    })?;
                 }
                 true
             } else {
@@ -440,6 +448,19 @@ fn networkd(params: Params, check_mode: bool) -> Result<ModuleResult> {
             let new_config = if let Some(ref config) = params.config {
                 config.clone()
             } else {
+                if params.type_ == ConfigType::Netdev && params.netdev_kind.is_none() {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "netdev_kind is required when type is netdev",
+                    ));
+                }
+                if matches!(params.netdev_kind, Some(NetdevKind::Vlan)) && params.vlan_id.is_none()
+                {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "vlan_id is required when netdev_kind is vlan",
+                    ));
+                }
                 generate_config(&params)
             };
 
@@ -471,7 +492,7 @@ fn networkd(params: Params, check_mode: bool) -> Result<ModuleResult> {
                         create_backup(&config_path)?;
                     }
 
-                    let mut file = std::fs::OpenOptions::new()
+                    let mut file = fs::OpenOptions::new()
                         .write(true)
                         .create(true)
                         .truncate(true)
@@ -1162,5 +1183,86 @@ mod tests {
 
         let result = networkd(params, false).unwrap();
         assert!(!result.changed);
+    }
+
+    #[test]
+    fn test_networkd_netdev_without_kind_errors() {
+        let dir = tempdir().unwrap();
+        let dir_path = dir.path().to_string_lossy().to_string();
+
+        let params = Params {
+            name: "br0".to_string(),
+            type_: ConfigType::Netdev,
+            state: State::Present,
+            interfaces: None,
+            addresses: None,
+            gateway: None,
+            dns: None,
+            dhcp: None,
+            vlan_id: None,
+            netdev_kind: None,
+            mtu: None,
+            backup: None,
+            directory: Some(dir_path),
+            restart: false,
+            config: None,
+        };
+
+        let error = networkd(params, false).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_networkd_vlan_without_id_errors() {
+        let dir = tempdir().unwrap();
+        let dir_path = dir.path().to_string_lossy().to_string();
+
+        let params = Params {
+            name: "vlan10".to_string(),
+            type_: ConfigType::Netdev,
+            state: State::Present,
+            interfaces: None,
+            addresses: None,
+            gateway: None,
+            dns: None,
+            dhcp: None,
+            vlan_id: None,
+            netdev_kind: Some(NetdevKind::Vlan),
+            mtu: None,
+            backup: None,
+            directory: Some(dir_path),
+            restart: false,
+            config: None,
+        };
+
+        let error = networkd(params, false).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_networkd_netdev_raw_config_without_kind_ok() {
+        let dir = tempdir().unwrap();
+        let dir_path = dir.path().to_string_lossy().to_string();
+
+        let params = Params {
+            name: "custom".to_string(),
+            type_: ConfigType::Netdev,
+            state: State::Present,
+            interfaces: None,
+            addresses: None,
+            gateway: None,
+            dns: None,
+            dhcp: None,
+            vlan_id: None,
+            netdev_kind: None,
+            mtu: None,
+            backup: None,
+            directory: Some(dir_path),
+            restart: false,
+            config: Some("[NetDev]\nName=custom\nKind=dummy\n".to_string()),
+        };
+
+        let result = networkd(params, false).unwrap();
+        assert!(result.changed);
     }
 }
