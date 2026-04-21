@@ -533,10 +533,8 @@ impl HelmClient {
                     format!("Release '{}' does not exist", params.name),
                 ));
             }
-        } else {
-            if existing_releases.contains(&params.name) {
-                return Ok(false);
-            }
+        } else if existing_releases.contains(&params.name) {
+            return Ok(false);
         }
 
         if self.check_mode {
