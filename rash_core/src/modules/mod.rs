@@ -115,6 +115,7 @@ mod mysql_db;
 mod mysql_query;
 mod mysql_replication;
 mod mysql_user;
+mod netbox_ipam;
 mod netplan;
 mod nftables;
 mod nginx;
@@ -316,6 +317,7 @@ use crate::modules::mysql_db::MysqlDb;
 use crate::modules::mysql_query::MysqlQuery;
 use crate::modules::mysql_replication::MysqlReplication;
 use crate::modules::mysql_user::MysqlUser;
+use crate::modules::netbox_ipam::NetboxIpam;
 use crate::modules::netplan::Netplan;
 use crate::modules::nftables::Nftables;
 use crate::modules::nginx::Nginx;
@@ -678,6 +680,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(MongodbUser) as Box<dyn Module>,
         ),
         (Mqtt.get_name(), Box::new(Mqtt) as Box<dyn Module>),
+        (
+            NetboxIpam.get_name(),
+            Box::new(NetboxIpam) as Box<dyn Module>,
+        ),
         (Mount.get_name(), Box::new(Mount) as Box<dyn Module>),
         (MysqlDb.get_name(), Box::new(MysqlDb) as Box<dyn Module>),
         (

@@ -116,7 +116,6 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/dpkg_selections.rh' \
 		-not -path 'examples/apt_hold.rh' \
 		-not -path 'examples/certbot.rh' \
-		-not -path 'examples/lvm_snapshot.rh' \
 		-not -path 'examples/incus.rh' \
 		-not -path 'examples/iso_extract.rh' \
 		-not -path 'examples/proxmox.rh' \
@@ -124,7 +123,9 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/kubernetes.rh' \
 		-not -path 'examples/postgresql_query.rh' \
 		-not -path 'examples/libvirt.rh' \
+		-not -path 'examples/netbox_ipam.rh' \
 		-not -path 'examples/conntrack.rh' \
+		-not -path 'examples/lvm_snapshot.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \
