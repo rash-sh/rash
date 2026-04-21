@@ -19,6 +19,7 @@ mod chroot;
 mod cloud_init;
 mod command;
 mod composer;
+mod conntrack;
 mod consul_kv;
 mod copy;
 mod cron;
@@ -192,6 +193,7 @@ use crate::modules::chroot::Chroot;
 use crate::modules::cloud_init::CloudInit;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
+use crate::modules::conntrack::Conntrack;
 use crate::modules::consul_kv::ConsulKv;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
@@ -439,6 +441,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
+        (
+            Conntrack.get_name(),
+            Box::new(Conntrack) as Box<dyn Module>,
+        ),
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
