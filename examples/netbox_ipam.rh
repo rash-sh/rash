@@ -1,0 +1,73 @@
+#!/usr/bin/env rash
+#
+# Example: netbox_ipam module usage
+#
+# Manage IP addresses and prefixes in NetBox IPAM/DCIM system.
+#
+# Requirements:
+# - A running NetBox instance
+# - A valid API token
+#
+# Usage:
+#   rash netbox_ipam.rh
+#
+
+- name: Create an IP address in NetBox
+  netbox_ipam:
+    url: "http://netbox:8000"
+    token: "{{ netbox_token }}"
+    type: ip_address
+    address: "192.168.1.100/24"
+    state: present
+    description: "Web server"
+
+- name: Query an IP address
+  netbox_ipam:
+    url: "http://netbox:8000"
+    token: "{{ netbox_token }}"
+    type: ip_address
+    address: "192.168.1.100/24"
+    state: query
+  register: ip_info
+
+- name: Show IP info
+  debug:
+    msg: "IP info: {{ ip_info }}"
+
+- name: Create a prefix
+  netbox_ipam:
+    url: "http://netbox:8000"
+    token: "{{ netbox_token }}"
+    type: prefix
+    address: "10.0.0.0/16"
+    state: present
+    description: "Office network"
+
+- name: Create a VLAN
+  netbox_ipam:
+    url: "http://netbox:8000"
+    token: "{{ netbox_token }}"
+    type: vlan
+    vlan_id: 100
+    vlan_name: "office-vlan"
+    state: present
+    description: "Office VLAN"
+    tenant: "engineering"
+
+- name: Create a VRF
+  netbox_ipam:
+    url: "http://netbox:8000"
+    token: "{{ netbox_token }}"
+    type: vrf
+    vrf_name: "customer-a"
+    rd: "65000:100"
+    state: present
+    description: "Customer A VRF"
+
+- name: Delete an IP address
+  netbox_ipam:
+    url: "http://netbox:8000"
+    token: "{{ netbox_token }}"
+    type: ip_address
+    address: "192.168.1.100/24"
+    state: absent
