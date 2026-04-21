@@ -12,10 +12,10 @@
     that:
       - speed_result.changed
 
-- name: Test ethtool check mode - autoneg off
+- name: Test ethtool check mode - autoneg on
   ethtool:
     device: eth0
-    autoneg: false
+    autoneg: true
   check_mode: true
   register: autoneg_result
 
