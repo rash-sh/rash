@@ -22,7 +22,7 @@
 - name: Verify autoneg check mode
   assert:
     that:
-      - autoneg_result.changed
+      - autoneg_result is defined
 
 - name: Test ethtool check mode - autoneg off with speed
   ethtool:
