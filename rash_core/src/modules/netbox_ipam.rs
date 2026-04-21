@@ -162,7 +162,7 @@ fn default_validate_certs() -> bool {
 }
 
 fn normalize_url(url: &str) -> String {
-    let url = url.trim().trim_end_matches('/');
+    let url = url.trim().trim_end_matches('/').trim_end_matches("/api");
     format!("{url}/api/")
 }
 
@@ -838,8 +838,8 @@ fn handle_vlan(
 
             let vlan_name = params
                 .vlan_name
-                .as_deref()
-                .unwrap_or_else(|| Box::leak(format!("vlan-{vlan_id}").into_boxed_str()));
+                .clone()
+                .unwrap_or_else(|| format!("vlan-{vlan_id}"));
 
             let mut body = json!({
                 "vid": vlan_id,
@@ -1284,7 +1284,7 @@ unknown_field: value
         );
         assert_eq!(
             normalize_url("http://netbox:8000/api/"),
-            "http://netbox:8000/api/api/"
+            "http://netbox:8000/api/"
         );
         assert_eq!(
             normalize_url(" http://netbox:8000 "),
