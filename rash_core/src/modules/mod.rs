@@ -10,6 +10,7 @@ mod async_status;
 mod at;
 mod authorized_key;
 mod aws_s3;
+mod btrfs;
 mod blkdiscard;
 mod block;
 mod borgmatic;
@@ -183,6 +184,7 @@ use crate::modules::async_status::{AsyncPoll, AsyncStatus};
 use crate::modules::at::At;
 use crate::modules::authorized_key::AuthorizedKey;
 use crate::modules::aws_s3::AwsS3;
+use crate::modules::btrfs::Btrfs;
 use crate::modules::blkdiscard::Blkdiscard;
 use crate::modules::block::Block;
 use crate::modules::borgmatic::Borgmatic;
@@ -427,6 +429,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(AuthorizedKey) as Box<dyn Module>,
         ),
         (AwsS3.get_name(), Box::new(AwsS3) as Box<dyn Module>),
+        (Btrfs.get_name(), Box::new(Btrfs) as Box<dyn Module>),
         (
             Blkdiscard.get_name(),
             Box::new(Blkdiscard) as Box<dyn Module>,

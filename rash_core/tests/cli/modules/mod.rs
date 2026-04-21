@@ -1,6 +1,7 @@
 mod apk;
 mod apt;
 mod authorized_key;
+mod btrfs;
 mod cargo;
 mod cron;
 mod crypttab;
