@@ -53,6 +53,7 @@ mod flatpak;
 mod gem;
 mod get_url;
 mod git;
+mod github_release;
 mod gpg_key;
 mod group;
 mod grub;
@@ -226,6 +227,7 @@ use crate::modules::flatpak::Flatpak;
 use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
+use crate::modules::github_release::GithubRelease;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
@@ -511,6 +513,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
+        (
+            GithubRelease.get_name(),
+            Box::new(GithubRelease) as Box<dyn Module>,
+        ),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
