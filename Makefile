@@ -114,6 +114,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/openrc.rh' \
 		-not -path 'examples/docker_compose.rh' \
 		-not -path 'examples/dpkg_selections.rh' \
+		-not -path 'examples/apt_hold.rh' \
 		-not -path 'examples/incus.rh' \
 		-not -path 'examples/iso_extract.rh' \
 		-not -path 'examples/proxmox.rh' \
@@ -122,6 +123,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/postgresql_query.rh' \
 		-not -path 'examples/libvirt.rh' \
 		-not -path 'examples/netbox_ipam.rh' \
+		-not -path 'examples/lvm_snapshot.rh' \
 		-not -path 'examples/conntrack.rh' \
 		-name '*.rh'); do \
 		echo $$example; \

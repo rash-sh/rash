@@ -2,6 +2,7 @@ mod acl;
 mod alternatives;
 mod apk;
 mod apt;
+mod apt_hold;
 mod apt_repository;
 mod archive;
 mod assemble;
@@ -32,6 +33,7 @@ mod dconf;
 mod debconf;
 mod debootstrap;
 mod debug;
+mod distro_package;
 mod dmsetup;
 mod dnf;
 mod docker_compose;
@@ -59,6 +61,7 @@ mod flatpak;
 mod gem;
 mod get_url;
 mod git;
+mod github_release;
 mod gpg_key;
 mod group;
 mod grub;
@@ -91,6 +94,7 @@ mod locale;
 mod logrotate;
 mod luks;
 mod lvg;
+mod lvm_snapshot;
 mod lvol;
 mod lxd_container;
 mod make;
@@ -191,6 +195,7 @@ use crate::modules::acl::Acl;
 use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
+use crate::modules::apt_hold::AptHold;
 use crate::modules::apt_repository::AptRepository;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
@@ -221,6 +226,7 @@ use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debootstrap::Debootstrap;
 use crate::modules::debug::Debug;
+use crate::modules::distro_package::DistroPackage;
 use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
 use crate::modules::docker_compose::DockerCompose;
@@ -248,6 +254,7 @@ use crate::modules::flatpak::Flatpak;
 use crate::modules::gem::Gem;
 use crate::modules::get_url::GetUrl;
 use crate::modules::git::Git;
+use crate::modules::github_release::GithubRelease;
 use crate::modules::gpg_key::GpgKey;
 use crate::modules::group::Group;
 use crate::modules::grub::Grub;
@@ -280,6 +287,7 @@ use crate::modules::locale::Locale;
 use crate::modules::logrotate::Logrotate;
 use crate::modules::luks::Luks;
 use crate::modules::lvg::Lvg;
+use crate::modules::lvm_snapshot::LvmSnapshot;
 use crate::modules::lvol::Lvol;
 use crate::modules::lxd_container::LxdContainer;
 use crate::modules::make::Make;
@@ -441,6 +449,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
+        (AptHold.get_name(), Box::new(AptHold) as Box<dyn Module>),
         (
             AptRepository.get_name(),
             Box::new(AptRepository) as Box<dyn Module>,
@@ -492,6 +501,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
+        (
+            DistroPackage.get_name(),
+            Box::new(DistroPackage) as Box<dyn Module>,
+        ),
         (Ethtool.get_name(), Box::new(Ethtool) as Box<dyn Module>),
         (
             DockerCompose.get_name(),
@@ -552,6 +565,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Gem.get_name(), Box::new(Gem) as Box<dyn Module>),
         (GetUrl.get_name(), Box::new(GetUrl) as Box<dyn Module>),
         (Git.get_name(), Box::new(Git) as Box<dyn Module>),
+        (
+            GithubRelease.get_name(),
+            Box::new(GithubRelease) as Box<dyn Module>,
+        ),
         (GpgKey.get_name(), Box::new(GpgKey) as Box<dyn Module>),
         (Grub.get_name(), Box::new(Grub) as Box<dyn Module>),
         (Haproxy.get_name(), Box::new(Haproxy) as Box<dyn Module>),
@@ -610,6 +627,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Logrotate.get_name(), Box::new(Logrotate) as Box<dyn Module>),
         (Luks.get_name(), Box::new(Luks) as Box<dyn Module>),
         (Lvg.get_name(), Box::new(Lvg) as Box<dyn Module>),
+        (
+            LvmSnapshot.get_name(),
+            Box::new(LvmSnapshot) as Box<dyn Module>,
+        ),
         (Lvol.get_name(), Box::new(Lvol) as Box<dyn Module>),
         (
             LxdContainer.get_name(),
