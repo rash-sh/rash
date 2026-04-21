@@ -336,15 +336,14 @@ impl VaultTokenClient {
         self.send_and_parse(request)
     }
 
-    fn renew_token(&self, token: &str, ttl: Option<&str>) -> Result<JsonValue> {
+    fn renew_token(&self, ttl: Option<&str>) -> Result<JsonValue> {
         let mut body = serde_json::Map::new();
         if let Some(ttl) = ttl {
             body.insert("increment".to_string(), JsonValue::String(ttl.to_string()));
         }
 
         let request = self.build_request("POST", "auth/token/renew")?;
-        let mut request = request.json(&JsonValue::Object(body));
-        request = request.header("X-Vault-Token", token);
+        let request = request.json(&JsonValue::Object(body));
         self.send_and_parse(request)
     }
 
@@ -431,8 +430,7 @@ fn exec_renew(params: &Params, check_mode: bool) -> Result<ModuleResult> {
     }
 
     let client = VaultTokenClient::new(params)?;
-    let token = get_vault_token(params)?;
-    let response = client.renew_token(&token, params.ttl.as_deref())?;
+    let response = client.renew_token(params.ttl.as_deref())?;
 
     let auth_data = response.get("auth").cloned();
 
