@@ -172,6 +172,7 @@ mod unarchive;
 mod uri;
 mod user;
 mod vault;
+mod vault_secret;
 mod vdo;
 mod wait_for;
 mod wakeonlan;
@@ -360,6 +361,7 @@ use crate::modules::unarchive::Unarchive;
 use crate::modules::uri::Uri;
 use crate::modules::user::User;
 use crate::modules::vault::Vault;
+use crate::modules::vault_secret::VaultSecret;
 use crate::modules::vdo::Vdo;
 use crate::modules::wait_for::WaitFor;
 use crate::modules::wakeonlan::WakeOnLan;
@@ -746,6 +748,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (User.get_name(), Box::new(User) as Box<dyn Module>),
         (Vdo.get_name(), Box::new(Vdo) as Box<dyn Module>),
         (Vault.get_name(), Box::new(Vault) as Box<dyn Module>),
+        (
+            VaultSecret.get_name(),
+            Box::new(VaultSecret) as Box<dyn Module>,
+        ),
         (Wireguard.get_name(), Box::new(Wireguard) as Box<dyn Module>),
         (WaitFor.get_name(), Box::new(WaitFor) as Box<dyn Module>),
         (WakeOnLan.get_name(), Box::new(WakeOnLan) as Box<dyn Module>),
