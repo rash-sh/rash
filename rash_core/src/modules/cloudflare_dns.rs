@@ -135,7 +135,7 @@ impl std::fmt::Display for RecordType {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
@@ -213,6 +213,8 @@ struct CloudflareClient {
     validate_certs: bool,
 }
 
+use reqwest::blocking::RequestBuilder;
+
 impl CloudflareClient {
     fn new(params: &Params) -> Result<Self> {
         Ok(Self {
@@ -233,20 +235,13 @@ impl CloudflareClient {
             })
     }
 
-    fn get_zone_id(&self, zone: &str) -> Result<String> {
-        let client = self.build_client()?;
-        let url = format!("https://api.cloudflare.com/client/v4/zones?name={zone}");
-
-        let response = client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_token))
-            .send()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Cloudflare API request failed: {e}"),
-                )
-            })?;
+    fn send_and_parse(&self, request: RequestBuilder) -> Result<JsonValue> {
+        let response = request.send().map_err(|e| {
+            Error::new(
+                ErrorKind::SubprocessFail,
+                format!("Cloudflare API request failed: {e}"),
+            )
+        })?;
 
         let status = response.status();
         if !status.is_success() {
@@ -293,6 +288,20 @@ impl CloudflareClient {
                 format!("Cloudflare API error: {errors}"),
             ));
         }
+
+        Ok(json)
+    }
+
+    fn authed_get(&self, url: &str) -> Result<RequestBuilder> {
+        let client = self.build_client()?;
+        Ok(client
+            .get(url)
+            .header("Authorization", format!("Bearer {}", self.api_token)))
+    }
+
+    fn get_zone_id(&self, zone: &str) -> Result<String> {
+        let url = format!("https://api.cloudflare.com/client/v4/zones?name={zone}");
+        let json = self.send_and_parse(self.authed_get(&url)?)?;
 
         let zones = json
             .get("result")
@@ -329,67 +338,10 @@ impl CloudflareClient {
         name: &str,
         record_type: &RecordType,
     ) -> Result<Vec<JsonValue>> {
-        let client = self.build_client()?;
         let url = format!(
             "https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={name}&type={record_type}"
         );
-
-        let response = client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_token))
-            .send()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Cloudflare API request failed: {e}"),
-                )
-            })?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare returned status {}: {}", status, error_text),
-            ));
-        }
-
-        let response_text = response.text().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to read response: {e}"),
-            )
-        })?;
-
-        let json: JsonValue = serde_json::from_str(&response_text).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to parse Cloudflare response: {e}"),
-            )
-        })?;
-
-        let success = json
-            .get("success")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        if !success {
-            let errors = json
-                .get("errors")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
-                .unwrap_or_else(|| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare API error: {errors}"),
-            ));
-        }
+        let json = self.send_and_parse(self.authed_get(&url)?)?;
 
         json.get("result")
             .and_then(|v| v.as_array())
@@ -402,16 +354,17 @@ impl CloudflareClient {
             })
     }
 
-    fn create_record(&self, zone_id: &str, params: &Params, fqdn: &str) -> Result<JsonValue> {
+    fn build_record_body(
+        &self,
+        params: &Params,
+        fqdn: &str,
+    ) -> Result<serde_json::Map<String, JsonValue>> {
         let value = params.value.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidData,
                 "value parameter is required when state=present",
             )
         })?;
-
-        let client = self.build_client()?;
-        let url = format!("https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records");
 
         let mut body = serde_json::Map::new();
         body.insert(
@@ -426,73 +379,27 @@ impl CloudflareClient {
         if let Some(priority) = params.priority {
             body.insert("priority".to_string(), JsonValue::Number(priority.into()));
         }
-
         if let Some(weight) = params.weight {
             body.insert("weight".to_string(), JsonValue::Number(weight.into()));
         }
-
         if let Some(port) = params.port {
             body.insert("port".to_string(), JsonValue::Number(port.into()));
         }
 
-        let response = client
+        Ok(body)
+    }
+
+    fn create_record(&self, zone_id: &str, params: &Params, fqdn: &str) -> Result<JsonValue> {
+        let body = self.build_record_body(params, fqdn)?;
+        let url = format!("https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records");
+
+        let client = self.build_client()?;
+        let request = client
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_token))
-            .json(&body)
-            .send()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Cloudflare API request failed: {e}"),
-                )
-            })?;
+            .json(&body);
 
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare returned status {}: {}", status, error_text),
-            ));
-        }
-
-        let response_text = response.text().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to read response: {e}"),
-            )
-        })?;
-
-        let json: JsonValue = serde_json::from_str(&response_text).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to parse Cloudflare response: {e}"),
-            )
-        })?;
-
-        let success = json
-            .get("success")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        if !success {
-            let errors = json
-                .get("errors")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
-                .unwrap_or_else(|| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare API error: {errors}"),
-            ));
-        }
-
+        let json = self.send_and_parse(request)?;
         Ok(json
             .get("result")
             .cloned()
@@ -506,97 +413,17 @@ impl CloudflareClient {
         params: &Params,
         fqdn: &str,
     ) -> Result<JsonValue> {
-        let value = params.value.as_ref().ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                "value parameter is required when state=present",
-            )
-        })?;
-
-        let client = self.build_client()?;
+        let body = self.build_record_body(params, fqdn)?;
         let url =
             format!("https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}");
 
-        let mut body = serde_json::Map::new();
-        body.insert(
-            "type".to_string(),
-            JsonValue::String(params.record_type.to_string()),
-        );
-        body.insert("name".to_string(), JsonValue::String(fqdn.to_string()));
-        body.insert("content".to_string(), JsonValue::String(value.clone()));
-        body.insert("ttl".to_string(), JsonValue::Number(params.ttl.into()));
-        body.insert("proxied".to_string(), JsonValue::Bool(params.proxied));
-
-        if let Some(priority) = params.priority {
-            body.insert("priority".to_string(), JsonValue::Number(priority.into()));
-        }
-
-        if let Some(weight) = params.weight {
-            body.insert("weight".to_string(), JsonValue::Number(weight.into()));
-        }
-
-        if let Some(port) = params.port {
-            body.insert("port".to_string(), JsonValue::Number(port.into()));
-        }
-
-        let response = client
+        let client = self.build_client()?;
+        let request = client
             .put(&url)
             .header("Authorization", format!("Bearer {}", self.api_token))
-            .json(&body)
-            .send()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Cloudflare API request failed: {e}"),
-                )
-            })?;
+            .json(&body);
 
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare returned status {}: {}", status, error_text),
-            ));
-        }
-
-        let response_text = response.text().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to read response: {e}"),
-            )
-        })?;
-
-        let json: JsonValue = serde_json::from_str(&response_text).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to parse Cloudflare response: {e}"),
-            )
-        })?;
-
-        let success = json
-            .get("success")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        if !success {
-            let errors = json
-                .get("errors")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
-                .unwrap_or_else(|| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare API error: {errors}"),
-            ));
-        }
-
+        let json = self.send_and_parse(request)?;
         Ok(json
             .get("result")
             .cloned()
@@ -604,46 +431,15 @@ impl CloudflareClient {
     }
 
     fn delete_record(&self, zone_id: &str, record_id: &str) -> Result<bool> {
-        let client = self.build_client()?;
         let url =
             format!("https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}");
 
-        let response = client
+        let client = self.build_client()?;
+        let request = client
             .delete(&url)
-            .header("Authorization", format!("Bearer {}", self.api_token))
-            .send()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Cloudflare API request failed: {e}"),
-                )
-            })?;
+            .header("Authorization", format!("Bearer {}", self.api_token));
 
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Cloudflare returned status {}: {}", status, error_text),
-            ));
-        }
-
-        let response_text = response.text().map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to read response: {e}"),
-            )
-        })?;
-
-        let json: JsonValue = serde_json::from_str(&response_text).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to parse Cloudflare response: {e}"),
-            )
-        })?;
-
+        let json = self.send_and_parse(request)?;
         Ok(json
             .get("success")
             .and_then(|v| v.as_bool())
@@ -685,7 +481,30 @@ fn record_matches(existing: &JsonValue, params: &Params) -> bool {
         None => true,
     };
 
-    content_matches && ttl_matches && proxied_matches && priority_matches
+    let weight_matches = match params.weight {
+        Some(weight) => existing
+            .get("weight")
+            .and_then(|v| v.as_u64())
+            .map(|w| w as u32 == weight)
+            .unwrap_or(true),
+        None => true,
+    };
+
+    let port_matches = match params.port {
+        Some(port) => existing
+            .get("port")
+            .and_then(|v| v.as_u64())
+            .map(|p| p as u32 == port)
+            .unwrap_or(true),
+        None => true,
+    };
+
+    content_matches
+        && ttl_matches
+        && proxied_matches
+        && priority_matches
+        && weight_matches
+        && port_matches
 }
 
 fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
@@ -1175,6 +994,48 @@ mod tests {
         };
 
         assert!(record_matches(&existing, &params));
+    }
+
+    #[test]
+    fn test_record_matches_srv_weight_port() {
+        let existing = serde_json::json!({
+            "id": "abc123",
+            "content": "sip.example.com",
+            "ttl": 300,
+            "proxied": false,
+            "priority": 10,
+            "weight": 60,
+            "port": 5060
+        });
+
+        let params = Params {
+            zone: "example.com".to_string(),
+            record: "_sip._tcp".to_string(),
+            record_type: RecordType::SRV,
+            value: Some("sip.example.com".to_string()),
+            ttl: 300,
+            proxied: false,
+            state: State::Present,
+            api_token: Some("test".to_string()),
+            priority: Some(10),
+            weight: Some(60),
+            port: Some(5060),
+            validate_certs: true,
+        };
+
+        assert!(record_matches(&existing, &params));
+
+        let params_different_weight = Params {
+            weight: Some(50),
+            ..params.clone()
+        };
+        assert!(!record_matches(&existing, &params_different_weight));
+
+        let params_different_port = Params {
+            port: Some(5061),
+            ..params.clone()
+        };
+        assert!(!record_matches(&existing, &params_different_port));
     }
 
     #[test]
