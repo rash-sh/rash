@@ -2,6 +2,7 @@ mod acl;
 mod alternatives;
 mod apk;
 mod apt;
+mod apt_hold;
 mod apt_repository;
 mod archive;
 mod assemble;
@@ -175,6 +176,7 @@ use crate::modules::acl::Acl;
 use crate::modules::alternatives::Alternatives;
 use crate::modules::apk::Apk;
 use crate::modules::apt::Apt;
+use crate::modules::apt_hold::AptHold;
 use crate::modules::apt_repository::AptRepository;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
@@ -409,6 +411,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (Apk.get_name(), Box::new(Apk) as Box<dyn Module>),
         (Apt.get_name(), Box::new(Apt) as Box<dyn Module>),
+        (
+            AptHold.get_name(),
+            Box::new(AptHold) as Box<dyn Module>,
+        ),
         (
             AptRepository.get_name(),
             Box::new(AptRepository) as Box<dyn Module>,
