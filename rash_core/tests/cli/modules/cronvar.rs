@@ -77,8 +77,7 @@ fn test_cronvar_no_change_when_exists() {
     let crontab_file = get_unique_crontab_file();
     let _ = std::fs::remove_file(&crontab_file);
 
-    std::fs::write(&crontab_file, "PATH=/usr/bin:/bin\n")
-        .expect("Failed to create test crontab");
+    std::fs::write(&crontab_file, "PATH=/usr/bin:/bin\n").expect("Failed to create test crontab");
 
     let script_text = r#"
 #!/usr/bin/env rash

@@ -105,6 +105,14 @@ impl CronVar {
     }
 }
 
+fn is_env_var_name(name: &str) -> bool {
+    let name_parts: Vec<&str> = name.split_whitespace().collect();
+    name_parts.len() == 1
+        && name_parts[0]
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c == '_')
+}
+
 fn parse_crontab_vars(content: &str) -> Vec<CronVar> {
     let mut vars = Vec::new();
 
@@ -118,10 +126,7 @@ fn parse_crontab_vars(content: &str) -> Vec<CronVar> {
             let name = trimmed[..eq_pos].trim();
             let value = trimmed[eq_pos + 1..].trim();
 
-            let name_parts: Vec<&str> = name.split_whitespace().collect();
-            if name_parts.len() == 1
-                && name_parts[0].chars().all(|c| c.is_ascii_uppercase() || c == '_')
-            {
+            if is_env_var_name(name) {
                 vars.push(CronVar {
                     name: name.to_string(),
                     value: value.to_string(),
@@ -202,22 +207,13 @@ pub fn cronvar(params: Params, check_mode: bool) -> Result<ModuleResult> {
 
             let is_var_line = trimmed
                 .find('=')
-                .map(|eq_pos| {
-                    let name = trimmed[..eq_pos].trim();
-                    let name_parts: Vec<&str> = name.split_whitespace().collect();
-                    name_parts.len() == 1
-                        && name_parts[0]
-                            .chars()
-                            .all(|c| c.is_ascii_uppercase() || c == '_')
-                })
+                .map(|eq_pos| is_env_var_name(trimmed[..eq_pos].trim()))
                 .unwrap_or(false);
 
-            if is_var_line {
-                if let Some(eq_pos) = trimmed.find('=') {
-                    let var_name = trimmed[..eq_pos].trim();
-                    if vars.iter().any(|v| v.name == var_name) {
-                        continue;
-                    }
+            if is_var_line && let Some(eq_pos) = trimmed.find('=') {
+                let var_name = trimmed[..eq_pos].trim();
+                if vars.iter().any(|v| v.name == var_name) {
+                    continue;
                 }
             }
 
@@ -232,10 +228,10 @@ pub fn cronvar(params: Params, check_mode: bool) -> Result<ModuleResult> {
         diff(&original_content, &new_content);
 
         if !check_mode {
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
-                    fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = path.parent()
+                && !parent.exists()
+            {
+                fs::create_dir_all(parent)?;
             }
             fs::write(path, &new_content)?;
         }
@@ -312,7 +308,8 @@ mod tests {
 
     #[test]
     fn test_parse_crontab_vars() {
-        let content = "PATH=/usr/local/bin:/usr/bin:/bin\nMAILTO=admin@example.com\nSHELL=/bin/bash\n";
+        let content =
+            "PATH=/usr/local/bin:/usr/bin:/bin\nMAILTO=admin@example.com\nSHELL=/bin/bash\n";
         let vars = parse_crontab_vars(content);
         assert_eq!(vars.len(), 3);
         assert_eq!(vars[0].name, "PATH");
