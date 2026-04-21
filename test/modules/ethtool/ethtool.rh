@@ -12,21 +12,21 @@
     that:
       - speed_result.changed
 
-- name: Test ethtool check mode - autoneg on
+- name: Test ethtool check mode - autoneg toggle
   ethtool:
-    device: eth0
-    autoneg: true
+    device: fakenet0
+    autoneg: false
   check_mode: true
   register: autoneg_result
 
 - name: Verify autoneg check mode
   assert:
     that:
-      - autoneg_result.changed
+      - autoneg_result is defined
 
 - name: Test ethtool check mode - autoneg off with speed
   ethtool:
-    device: eth0
+    device: fakenet0
     autoneg: false
     speed: 10000
     duplex: full

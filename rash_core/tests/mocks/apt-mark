@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# apt-mark mock for apt_hold module tests.
+# Simulates apt-mark showhold, hold, and unhold commands.
+#
+
+case "$1" in
+    showhold)
+        # Return pre-held packages
+        echo "nginx"
+        echo "docker-ce"
+        ;;
+    hold)
+        shift
+        # Simulate holding packages (just succeed)
+        for pkg in "$@"; do
+            echo "$pkg was already not held." >&2
+        done
+        ;;
+    unhold)
+        shift
+        # Simulate unholding packages (just succeed)
+        for pkg in "$@"; do
+            echo "Canceled hold on $pkg." >&2
+        done
+        ;;
+    *)
+        echo "Unknown apt-mark option: $1" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
