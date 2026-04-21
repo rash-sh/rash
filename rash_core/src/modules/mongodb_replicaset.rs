@@ -209,10 +209,7 @@ fn is_replica_set_initialized(params: &Params) -> Result<bool> {
 }
 
 fn get_current_members(params: &Params) -> Result<Vec<String>> {
-    let result = run_mongo_command(
-        params,
-        "rs.conf().members.map(m => m.host)",
-    )?;
+    let result = run_mongo_command(params, "rs.conf().members.map(m => m.host)")?;
 
     if result.is_empty() || result == "null" {
         return Ok(Vec::new());
@@ -233,7 +230,10 @@ fn initialize_replicaset(params: &Params, check_mode: bool) -> Result<ModuleResu
         return Ok(ModuleResult::new(
             false,
             None,
-            Some(format!("Replica set '{}' is already initialized", params.repl_set)),
+            Some(format!(
+                "Replica set '{}' is already initialized",
+                params.repl_set
+            )),
         ));
     }
 
@@ -271,13 +271,12 @@ fn initialize_replicaset(params: &Params, check_mode: bool) -> Result<ModuleResu
         "members": members_config
     });
 
-    let config_str =
-        serde_json::to_string(&config).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to serialize replica set config: {}", e),
-            )
-        })?;
+    let config_str = serde_json::to_string(&config).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Failed to serialize replica set config: {}", e),
+        )
+    })?;
 
     let command = format!("rs.initiate({})", config_str);
 
@@ -304,7 +303,10 @@ fn check_replicaset_present(params: &Params, check_mode: bool) -> Result<ModuleR
     if !is_replica_set_initialized(params)? {
         return Err(Error::new(
             ErrorKind::NotFound,
-            format!("Replica set '{}' is not initialized. Use state 'initialized' first.", params.repl_set),
+            format!(
+                "Replica set '{}' is not initialized. Use state 'initialized' first.",
+                params.repl_set
+            ),
         ));
     }
 
@@ -401,7 +403,10 @@ fn remove_replicaset(params: &Params, check_mode: bool) -> Result<ModuleResult> 
         return Ok(ModuleResult::new(
             false,
             None,
-            Some(format!("Replica set '{}' is not initialized", params.repl_set)),
+            Some(format!(
+                "Replica set '{}' is not initialized",
+                params.repl_set
+            )),
         ));
     }
 
@@ -409,10 +414,7 @@ fn remove_replicaset(params: &Params, check_mode: bool) -> Result<ModuleResult> 
         return Ok(ModuleResult::new(
             true,
             None,
-            Some(format!(
-                "Would remove replica set '{}'",
-                params.repl_set
-            )),
+            Some(format!("Would remove replica set '{}'", params.repl_set)),
         ));
     }
 
@@ -536,10 +538,7 @@ mod tests {
         assert_eq!(params.state, State::Present);
         assert_eq!(
             params.members,
-            Some(vec![
-                "mongo1:27017".to_string(),
-                "mongo2:27017".to_string(),
-            ])
+            Some(vec!["mongo1:27017".to_string(), "mongo2:27017".to_string(),])
         );
     }
 
@@ -626,10 +625,7 @@ mod tests {
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.repl_set, "rs0");
         assert_eq!(params.state, State::Initialized);
-        assert_eq!(
-            params.members,
-            Some(vec!["localhost:27017".to_string()])
-        );
+        assert_eq!(params.members, Some(vec!["localhost:27017".to_string()]));
     }
 
     #[test]
