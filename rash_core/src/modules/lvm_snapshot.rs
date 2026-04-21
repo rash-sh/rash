@@ -285,19 +285,19 @@ fn lvm_snapshot_module(params: Params, check_mode: bool) -> Result<ModuleResult>
 
     let snapshot_exists = client.snapshot_exists(&params.vg, &params.snapshot_name)?;
 
-    let result = match params.state {
+    let (result, final_exists) = match params.state {
         State::Present => {
             if snapshot_exists {
-                SnapshotResult::no_change()
+                (SnapshotResult::no_change(), true)
             } else {
-                client.create_snapshot(&params)?
+                (client.create_snapshot(&params)?, true)
             }
         }
         State::Absent => {
             if snapshot_exists {
-                client.remove_snapshot(&params)?
+                (client.remove_snapshot(&params)?, false)
             } else {
-                SnapshotResult::no_change()
+                (SnapshotResult::no_change(), false)
             }
         }
     };
@@ -317,7 +317,7 @@ fn lvm_snapshot_module(params: Params, check_mode: bool) -> Result<ModuleResult>
     );
     extra.insert(
         "exists".to_string(),
-        serde_json::Value::Bool(client.snapshot_exists(&params.vg, &params.snapshot_name)?),
+        serde_json::Value::Bool(final_exists),
     );
 
     Ok(ModuleResult {
