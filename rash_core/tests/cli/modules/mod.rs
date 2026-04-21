@@ -55,6 +55,7 @@ mod ssh_config;
 mod sshd_config;
 mod sudoers;
 mod swapfile;
+mod sysfs;
 mod syslog;
 mod systemd;
 mod tailscale;
