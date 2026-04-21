@@ -205,6 +205,57 @@ fn test_homebrew_no_change() {
 }
 
 #[test]
+fn test_homebrew_latest() {
+    let mocks_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+
+    let script_text = format!(
+        r#"
+#!/usr/bin/env rash
+- name: test homebrew module
+  homebrew:
+    executable: {}/brew.rh
+    name:
+      - git
+      - curl
+      - nginx
+    state: latest
+        "#,
+        mocks_dir.to_str().unwrap()
+    );
+
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test(&script_text, &args);
+
+    assert!(stdout.contains("+ nginx"));
+    assert!(stdout.contains("+ curl"));
+    assert!(!stdout.contains("+ git"));
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("changed\n"));
+}
+
+#[test]
+fn test_homebrew_upgrade_all() {
+    let mocks_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+
+    let script_text = format!(
+        r#"
+#!/usr/bin/env rash
+- name: test homebrew module
+  homebrew:
+    executable: {}/brew.rh
+    upgrade_all: true
+        "#,
+        mocks_dir.to_str().unwrap()
+    );
+
+    let args = ["--diff"];
+    let (stdout, stderr) = run_test(&script_text, &args);
+
+    assert!(stderr.is_empty());
+    assert!(stdout.ends_with("changed\n"));
+}
+
+#[test]
 fn test_homebrew_executable_not_found() {
     let script_text = r#"
 #!/usr/bin/env rash
