@@ -200,14 +200,7 @@ impl SnapClient {
         output_string
             .lines()
             .skip(1)
-            .filter_map(|line| {
-                let name = line.split_whitespace().next()?;
-                if name.is_empty() {
-                    None
-                } else {
-                    Some(name.to_string())
-                }
-            })
+            .filter_map(|line| line.split_whitespace().next().map(String::from))
             .collect()
     }
 
