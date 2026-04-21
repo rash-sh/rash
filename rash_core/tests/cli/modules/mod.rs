@@ -4,6 +4,7 @@ mod authorized_key;
 mod cargo;
 mod conntrack;
 mod cron;
+mod cronvar;
 mod crypttab;
 mod dconf;
 mod dnf;
