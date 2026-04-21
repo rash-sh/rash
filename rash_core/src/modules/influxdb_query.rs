@@ -191,12 +191,8 @@ impl InfluxdbClient {
 
     fn build_url(&self, path: &str, params: &[(&str, &str)]) -> Result<String> {
         let base = format!("{}{}", self.base_url, path);
-        let mut url = reqwest::Url::parse(&base).map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Invalid URL: {e}"),
-            )
-        })?;
+        let mut url = reqwest::Url::parse(&base)
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, format!("Invalid URL: {e}")))?;
 
         {
             let mut pairs = url.query_pairs_mut();
