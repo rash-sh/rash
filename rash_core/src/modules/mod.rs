@@ -91,6 +91,7 @@ mod make;
 mod mdadm;
 mod meta;
 mod modprobe;
+mod mongodb_collection;
 mod mongodb_db;
 mod mongodb_user;
 mod mount;
@@ -266,6 +267,7 @@ use crate::modules::make::Make;
 use crate::modules::mdadm::Mdadm;
 use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
+use crate::modules::mongodb_collection::MongodbCollection;
 use crate::modules::mongodb_db::MongodbDb;
 use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
@@ -584,6 +586,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Meta.get_name(), Box::new(Meta) as Box<dyn Module>),
         (Modprobe.get_name(), Box::new(Modprobe) as Box<dyn Module>),
         (MongodbDb.get_name(), Box::new(MongodbDb) as Box<dyn Module>),
+        (
+            MongodbCollection.get_name(),
+            Box::new(MongodbCollection) as Box<dyn Module>,
+        ),
         (
             MongodbUser.get_name(),
             Box::new(MongodbUser) as Box<dyn Module>,
