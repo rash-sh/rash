@@ -1,0 +1,14 @@
+#!/usr/bin/env rash
+---
+- name: Obtain TLS certificate for example.com
+  certbot:
+    domains:
+      - example.com
+      - www.example.com
+    email: admin@example.com
+    expire_days: 30
+  register: cert_result
+
+- name: Debug certificate result
+  debug:
+    var: cert_result

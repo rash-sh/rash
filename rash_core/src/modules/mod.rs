@@ -17,6 +17,7 @@ mod block;
 mod borgmatic;
 mod btrfs;
 mod cargo;
+mod certbot;
 mod cgroups;
 mod chroot;
 mod cloud_init;
@@ -70,6 +71,7 @@ mod grub;
 mod haproxy;
 mod helm;
 mod helm_info;
+mod homebrew;
 mod hostname;
 mod htpasswd;
 mod include;
@@ -105,6 +107,7 @@ mod meta;
 mod modprobe;
 mod mongodb_collection;
 mod mongodb_db;
+mod mongodb_replicaset;
 mod mongodb_user;
 mod mount;
 mod mqtt;
@@ -214,6 +217,7 @@ use crate::modules::block::Block;
 use crate::modules::borgmatic::Borgmatic;
 use crate::modules::btrfs::Btrfs;
 use crate::modules::cargo::Cargo;
+use crate::modules::certbot::Certbot;
 use crate::modules::cgroups::Cgroups;
 use crate::modules::chroot::Chroot;
 use crate::modules::cloud_init::CloudInit;
@@ -267,6 +271,7 @@ use crate::modules::grub::Grub;
 use crate::modules::haproxy::Haproxy;
 use crate::modules::helm::Helm;
 use crate::modules::helm_info::HelmInfo;
+use crate::modules::homebrew::Homebrew;
 use crate::modules::hostname::Hostname;
 use crate::modules::htpasswd::Htpasswd;
 use crate::modules::include::Include;
@@ -302,6 +307,7 @@ use crate::modules::meta::Meta;
 use crate::modules::modprobe::Modprobe;
 use crate::modules::mongodb_collection::MongodbCollection;
 use crate::modules::mongodb_db::MongodbDb;
+use crate::modules::mongodb_replicaset::MongodbReplicaset;
 use crate::modules::mongodb_user::MongodbUser;
 use crate::modules::mount::Mount;
 use crate::modules::mqtt::Mqtt;
@@ -485,6 +491,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Block.get_name(), Box::new(Block) as Box<dyn Module>),
         (Borgmatic.get_name(), Box::new(Borgmatic) as Box<dyn Module>),
         (Cargo.get_name(), Box::new(Cargo) as Box<dyn Module>),
+        (Certbot.get_name(), Box::new(Certbot) as Box<dyn Module>),
         (Cgroups.get_name(), Box::new(Cgroups) as Box<dyn Module>),
         (Chroot.get_name(), Box::new(Chroot) as Box<dyn Module>),
         (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
@@ -588,6 +595,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Group.get_name(), Box::new(Group) as Box<dyn Module>),
         (Helm.get_name(), Box::new(Helm) as Box<dyn Module>),
         (HelmInfo.get_name(), Box::new(HelmInfo) as Box<dyn Module>),
+        (Homebrew.get_name(), Box::new(Homebrew) as Box<dyn Module>),
         (Hostname.get_name(), Box::new(Hostname) as Box<dyn Module>),
         (Htpasswd.get_name(), Box::new(Htpasswd) as Box<dyn Module>),
         (
@@ -660,9 +668,12 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
             Box::new(MongodbCollection) as Box<dyn Module>,
         ),
         (
-            MongodbUser.get_name(),
-            Box::new(MongodbUser) as Box<dyn Module>,
+            MongodbReplicaset.get_name(),
+            Box::new(MongodbReplicaset) as Box<dyn Module>,
         ),
+        (
+            MongodbUser.get_name(),
+            Box::new(MongodbUser) as Box<dyn Module>),
         (Mqtt.get_name(), Box::new(Mqtt) as Box<dyn Module>),
         (
             NetboxIpam.get_name(),
