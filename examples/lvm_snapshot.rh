@@ -1,0 +1,59 @@
+#!/usr/bin/env -S rash --
+#
+# lvm_snapshot module example
+#
+# This example demonstrates LVM snapshot management:
+# - Creating snapshots for backup
+# - Removing snapshots after backup
+# - Using check mode to preview changes
+#
+# Note: This example requires root privileges and existing LVM setup.
+#
+# Usage:
+#   sudo lvm_snapshot.rh
+
+- name: Check if volume group exists
+  command:
+    cmd: vgs --noheadings -o vg_name vg0
+  register: vg_check
+  changed_when: false
+  ignore_errors: true
+
+- name: Fail if volume group does not exist
+  fail:
+    msg: "Volume group vg0 does not exist. Create it first with lvg module."
+  when: vg_check is failed
+
+- name: Create pre-update snapshot
+  lvm_snapshot:
+    vg: vg0
+    lv: root
+    snapshot_name: root_pre_update
+    size: 5G
+  register: snapshot_result
+
+- name: Show snapshot result
+  debug:
+    msg: "Snapshot created: {{ snapshot_result }}"
+
+- name: Preview snapshot removal (check mode)
+  lvm_snapshot:
+    vg: vg0
+    lv: root
+    snapshot_name: root_pre_update
+    state: absent
+  check_mode: true
+  register: preview_result
+
+- name: Verify check mode shows expected change
+  debug:
+    msg: "Check mode preview: {{ preview_result }}"
+
+- name: Remove snapshot after successful update
+  lvm_snapshot:
+    vg: vg0
+    lv: root
+    snapshot_name: root_pre_update
+    state: absent
+  register: remove_result
+  when: false
