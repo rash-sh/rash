@@ -22,6 +22,9 @@ fn is_transient_network_error(stderr: &str) -> bool {
         || stderr.contains("no such host")
         || stderr.contains("i/o timeout")
         || stderr.contains("dial tcp")
+        || stderr.contains("500 Internal Server Error")
+        || stderr.contains("502 Bad Gateway")
+        || stderr.contains("503 Service Unavailable")
 }
 
 macro_rules! skip_without_docker {

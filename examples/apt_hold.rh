@@ -1,0 +1,21 @@
+#!/usr/bin/env rash
+
+- name: Hold nginx package to prevent updates
+  apt_hold:
+    name: nginx
+
+- name: Hold multiple packages
+  apt_hold:
+    name:
+      - docker-ce
+      - linux-image-generic
+
+- name: Explicitly set held state
+  apt_hold:
+    name: nginx
+    state: held
+
+- name: Unhold nginx to allow updates
+  apt_hold:
+    name: nginx
+    state: unheld
