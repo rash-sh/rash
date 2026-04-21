@@ -92,13 +92,13 @@ fn default_timeout() -> u64 {
 }
 
 #[derive(Debug, Deserialize)]
-struct GithubRelease {
+struct ReleaseResponse {
     tag_name: String,
-    assets: Vec<GithubAsset>,
+    assets: Vec<AssetResponse>,
 }
 
 #[derive(Debug, Deserialize)]
-struct GithubAsset {
+struct AssetResponse {
     name: String,
     browser_download_url: String,
     size: u64,
@@ -117,7 +117,12 @@ fn build_client(timeout: u64) -> Result<Client> {
         })
 }
 
-fn fetch_release(client: &Client, repo: &str, tag: &str, api_token: Option<&str>) -> Result<GithubRelease> {
+fn fetch_release(
+    client: &Client,
+    repo: &str,
+    tag: &str,
+    api_token: Option<&str>,
+) -> Result<ReleaseResponse> {
     let url = if tag == "latest" {
         format!("https://api.github.com/repos/{repo}/releases/latest")
     } else {
@@ -145,7 +150,7 @@ fn fetch_release(client: &Client, repo: &str, tag: &str, api_token: Option<&str>
         ));
     }
 
-    response.json::<GithubRelease>().map_err(|e| {
+    response.json::<ReleaseResponse>().map_err(|e| {
         Error::new(
             ErrorKind::SubprocessFail,
             format!("Failed to parse GitHub release response: {e}"),
@@ -153,7 +158,7 @@ fn fetch_release(client: &Client, repo: &str, tag: &str, api_token: Option<&str>
     })
 }
 
-fn find_asset<'a>(release: &'a GithubRelease, pattern: &str) -> Result<&'a GithubAsset> {
+fn find_asset<'a>(release: &'a ReleaseResponse, pattern: &str) -> Result<&'a AssetResponse> {
     let regex = Regex::new(pattern).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
@@ -161,7 +166,7 @@ fn find_asset<'a>(release: &'a GithubRelease, pattern: &str) -> Result<&'a Githu
         )
     })?;
 
-    let matches: Vec<&GithubAsset> = release
+    let matches: Vec<&AssetResponse> = release
         .assets
         .iter()
         .filter(|a| regex.is_match(&a.name))
@@ -195,22 +200,21 @@ fn find_asset<'a>(release: &'a GithubRelease, pattern: &str) -> Result<&'a Githu
     }
 }
 
-fn pick_first_asset(release: &GithubRelease) -> Result<&GithubAsset> {
-    release
-        .assets
-        .first()
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Release {} has no assets",
-                    release.tag_name
-                ),
-            )
-        })
+fn pick_first_asset(release: &ReleaseResponse) -> Result<&AssetResponse> {
+    release.assets.first().ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Release {} has no assets", release.tag_name),
+        )
+    })
 }
 
-fn download_asset(client: &Client, asset: &GithubAsset, dest: &Path, api_token: Option<&str>) -> Result<()> {
+fn download_asset(
+    client: &Client,
+    asset: &AssetResponse,
+    dest: &Path,
+    api_token: Option<&str>,
+) -> Result<()> {
     let mut request = client.get(&asset.browser_download_url);
     if let Some(token) = api_token {
         request = request.bearer_auth(token);
@@ -238,15 +242,15 @@ fn download_asset(client: &Client, asset: &GithubAsset, dest: &Path, api_token: 
         )
     })?;
 
-    if let Some(parent) = dest.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).map_err(|e| {
-                Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Failed to create parent directories: {e}"),
-                )
-            })?;
-        }
+    if let Some(parent) = dest.parent()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Failed to create parent directories: {e}"),
+            )
+        })?;
     }
 
     let mut file = File::create(dest).map_err(|e| {
@@ -471,15 +475,15 @@ unknown_field: "value"
 
     #[test]
     fn test_find_asset_exact_match() {
-        let release = GithubRelease {
+        let release = ReleaseResponse {
             tag_name: "v1.0.0".to_string(),
             assets: vec![
-                GithubAsset {
+                AssetResponse {
                     name: "tool_linux_amd64".to_string(),
                     browser_download_url: "https://example.com/tool_linux_amd64".to_string(),
                     size: 100,
                 },
-                GithubAsset {
+                AssetResponse {
                     name: "tool_windows_amd64.exe".to_string(),
                     browser_download_url: "https://example.com/tool_windows_amd64.exe".to_string(),
                     size: 200,
@@ -493,15 +497,15 @@ unknown_field: "value"
 
     #[test]
     fn test_find_asset_regex_match() {
-        let release = GithubRelease {
+        let release = ReleaseResponse {
             tag_name: "v1.0.0".to_string(),
             assets: vec![
-                GithubAsset {
+                AssetResponse {
                     name: "terraform_1.7.0_linux_amd64.zip".to_string(),
                     browser_download_url: "https://example.com/terraform.zip".to_string(),
                     size: 100,
                 },
-                GithubAsset {
+                AssetResponse {
                     name: "terraform_1.7.0_windows_amd64.zip".to_string(),
                     browser_download_url: "https://example.com/terraform_win.zip".to_string(),
                     size: 200,
@@ -515,9 +519,9 @@ unknown_field: "value"
 
     #[test]
     fn test_find_asset_no_match() {
-        let release = GithubRelease {
+        let release = ReleaseResponse {
             tag_name: "v1.0.0".to_string(),
-            assets: vec![GithubAsset {
+            assets: vec![AssetResponse {
                 name: "tool_linux_amd64".to_string(),
                 browser_download_url: "https://example.com/tool".to_string(),
                 size: 100,
@@ -530,15 +534,15 @@ unknown_field: "value"
 
     #[test]
     fn test_find_asset_multiple_matches() {
-        let release = GithubRelease {
+        let release = ReleaseResponse {
             tag_name: "v1.0.0".to_string(),
             assets: vec![
-                GithubAsset {
+                AssetResponse {
                     name: "tool_linux_amd64".to_string(),
                     browser_download_url: "https://example.com/tool1".to_string(),
                     size: 100,
                 },
-                GithubAsset {
+                AssetResponse {
                     name: "tool_linux_arm64".to_string(),
                     browser_download_url: "https://example.com/tool2".to_string(),
                     size: 200,
@@ -552,15 +556,15 @@ unknown_field: "value"
 
     #[test]
     fn test_pick_first_asset() {
-        let release = GithubRelease {
+        let release = ReleaseResponse {
             tag_name: "v1.0.0".to_string(),
             assets: vec![
-                GithubAsset {
+                AssetResponse {
                     name: "first.tar.gz".to_string(),
                     browser_download_url: "https://example.com/first".to_string(),
                     size: 100,
                 },
-                GithubAsset {
+                AssetResponse {
                     name: "second.tar.gz".to_string(),
                     browser_download_url: "https://example.com/second".to_string(),
                     size: 200,
@@ -574,7 +578,7 @@ unknown_field: "value"
 
     #[test]
     fn test_pick_first_asset_empty() {
-        let release = GithubRelease {
+        let release = ReleaseResponse {
             tag_name: "v1.0.0".to_string(),
             assets: vec![],
         };
