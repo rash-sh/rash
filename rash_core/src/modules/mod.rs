@@ -20,6 +20,7 @@ mod cloud_init;
 mod command;
 mod composer;
 mod consul_kv;
+mod consul_service;
 mod copy;
 mod cron;
 mod crypttab;
@@ -193,6 +194,7 @@ use crate::modules::cloud_init::CloudInit;
 use crate::modules::command::Command;
 use crate::modules::composer::Composer;
 use crate::modules::consul_kv::ConsulKv;
+use crate::modules::consul_service::ConsulService;
 use crate::modules::copy::Copy;
 use crate::modules::cron::Cron;
 use crate::modules::crypttab::Crypttab;
@@ -440,6 +442,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
+        (
+            ConsulService.get_name(),
+            Box::new(ConsulService) as Box<dyn Module>,
+        ),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),
         (Crypttab.get_name(), Box::new(Crypttab) as Box<dyn Module>),
