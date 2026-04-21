@@ -32,6 +32,7 @@ mod dconf;
 mod debconf;
 mod debootstrap;
 mod debug;
+mod distro_package;
 mod dmsetup;
 mod dnf;
 mod docker_compose;
@@ -220,6 +221,7 @@ use crate::modules::dconf::Dconf;
 use crate::modules::debconf::Debconf;
 use crate::modules::debootstrap::Debootstrap;
 use crate::modules::debug::Debug;
+use crate::modules::distro_package::DistroPackage;
 use crate::modules::dmsetup::Dmsetup;
 use crate::modules::dnf::Dnf;
 use crate::modules::docker_compose::DockerCompose;
@@ -490,6 +492,10 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Debug.get_name(), Box::new(Debug) as Box<dyn Module>),
         (Dmsetup.get_name(), Box::new(Dmsetup) as Box<dyn Module>),
         (Dnf.get_name(), Box::new(Dnf) as Box<dyn Module>),
+        (
+            DistroPackage.get_name(),
+            Box::new(DistroPackage) as Box<dyn Module>,
+        ),
         (Ethtool.get_name(), Box::new(Ethtool) as Box<dyn Module>),
         (
             DockerCompose.get_name(),
