@@ -1,0 +1,71 @@
+#!/usr/bin/env rash
+- name: Start a timer
+  timer:
+    name: test_timer
+    state: started
+
+- name: Run a quick command
+  command:
+    cmd: echo "hello"
+
+- name: Stop timer and register result
+  timer:
+    name: test_timer
+    state: stopped
+  register: elapsed
+
+- name: Verify elapsed time was captured
+  assert:
+    that:
+      - elapsed.extra.elapsed_ms is defined
+      - elapsed.extra.elapsed_ms >= 0
+
+- name: Start another timer with microsecond precision
+  timer:
+    name: fast_timer
+    state: started
+    precision: us
+
+- name: Quick operation
+  command:
+    cmd: "true"
+
+- name: Read timer without stopping
+  timer:
+    name: fast_timer
+    state: read
+  register: checkpoint
+
+- name: Verify checkpoint has elapsed time
+  assert:
+    that:
+      - checkpoint.extra.elapsed_us is defined
+
+- name: Stop the fast timer
+  timer:
+    name: fast_timer
+    state: stopped
+  register: final_elapsed
+
+- name: Verify final elapsed time
+  assert:
+    that:
+      - final_elapsed.extra.elapsed_us is defined
+
+- name: Start nanosecond precision timer
+  timer:
+    name: nano_timer
+    state: started
+    precision: ns
+
+- name: Stop nanosecond timer
+  timer:
+    name: nano_timer
+    state: stopped
+  register: nano_elapsed
+
+- name: Verify nanosecond precision
+  assert:
+    that:
+      - nano_elapsed.extra.elapsed_ns is defined
+      - nano_elapsed.extra.elapsed_ns >= 0
