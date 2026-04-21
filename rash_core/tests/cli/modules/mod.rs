@@ -3,6 +3,7 @@ mod apt;
 mod authorized_key;
 mod cargo;
 mod cron;
+mod cronvar;
 mod crypttab;
 mod dconf;
 mod dnf;
