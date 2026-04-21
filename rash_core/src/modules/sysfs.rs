@@ -134,18 +134,15 @@ pub fn sysfs(params: Params, check_mode: bool) -> Result<ModuleResult> {
             Ok(ModuleResult::new(true, None, Some(params.path)))
         }
         State::Absent => {
-            if !path.exists() {
-                return Ok(ModuleResult::new(false, None, Some(params.path)));
-            }
+            let current = read_sysfs_attribute(path)?;
 
             if let Some(ref value) = params.value {
-                let current = read_sysfs_attribute(path)?;
                 if current != *value {
                     return Ok(ModuleResult::new(false, None, Some(params.path)));
                 }
             }
 
-            diff(&read_sysfs_attribute(path)?, "");
+            diff(&current, "");
 
             if !check_mode {
                 write_sysfs_attribute(path, "")?;
