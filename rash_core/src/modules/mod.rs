@@ -673,7 +673,8 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         ),
         (
             MongodbUser.get_name(),
-            Box::new(MongodbUser) as Box<dyn Module>),
+            Box::new(MongodbUser) as Box<dyn Module>,
+        ),
         (Mqtt.get_name(), Box::new(Mqtt) as Box<dyn Module>),
         (
             NetboxIpam.get_name(),
