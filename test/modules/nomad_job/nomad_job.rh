@@ -1,0 +1,24 @@
+# Nomad job module examples
+# Note: These tests require a running Nomad agent
+
+- name: Example - Deploy a Nomad job
+  nomad_job:
+    name: webapp
+    spec: /etc/nomad/jobs/webapp.nomad
+    state: present
+  check_mode: true
+
+- name: Example - Deploy job with custom URL and token
+  nomad_job:
+    name: webapp
+    spec: /etc/nomad/jobs/webapp.nomad
+    url: http://nomad.example.com:4646
+    token: "{{ nomad_token }}"
+    state: present
+  check_mode: true
+
+- name: Example - Remove a Nomad job
+  nomad_job:
+    name: webapp
+    state: absent
+  check_mode: true
