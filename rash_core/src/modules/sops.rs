@@ -106,15 +106,12 @@ fn default_sops_binary() -> String {
 }
 
 fn run_sops_command(args: &[&str], sops_binary: &str) -> Result<std::process::Output> {
-    let output = Command::new(sops_binary)
-        .args(args)
-        .output()
-        .map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to execute sops command: {e}. Is sops installed?"),
-            )
-        })?;
+    let output = Command::new(sops_binary).args(args).output().map_err(|e| {
+        Error::new(
+            ErrorKind::SubprocessFail,
+            format!("Failed to execute sops command: {e}. Is sops installed?"),
+        )
+    })?;
 
     trace!("sops command: {} {:?}", sops_binary, args);
     trace!("sops output: {:?}", output);
@@ -225,10 +222,7 @@ fn exec_decrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         ));
     }
 
-    let dst_display = params
-        .dst
-        .as_deref()
-        .unwrap_or(&params.src);
+    let dst_display = params.dst.as_deref().unwrap_or(&params.src);
 
     Ok(ModuleResult::new(
         true,
@@ -301,10 +295,7 @@ fn exec_encrypt(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         ));
     }
 
-    let dst_display = params
-        .dst
-        .as_deref()
-        .unwrap_or(&params.src);
+    let dst_display = params.dst.as_deref().unwrap_or(&params.src);
 
     Ok(ModuleResult::new(
         true,
@@ -491,10 +482,7 @@ mod tests {
             sops_binary: "sops".to_string(),
         };
         let args = build_common_args(&params);
-        assert_eq!(
-            args,
-            vec!["--input-type", "json", "--output-type", "yaml"]
-        );
+        assert_eq!(args, vec!["--input-type", "json", "--output-type", "yaml"]);
     }
 
     #[test]
