@@ -80,18 +80,13 @@ use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 enum State {
+    #[default]
     Present,
     Absent,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        State::Present
-    }
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
