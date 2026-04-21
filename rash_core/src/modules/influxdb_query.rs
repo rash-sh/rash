@@ -189,26 +189,31 @@ impl InfluxdbClient {
             })
     }
 
-    fn build_query_url(&self, path: &str, params: &[(&str, &str)]) -> String {
-        let mut url = format!("{}{}", self.base_url, path);
-        let mut all_params: Vec<String> =
-            params.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
+    fn build_url(&self, path: &str, params: &[(&str, &str)]) -> Result<String> {
+        let base = format!("{}{}", self.base_url, path);
+        let mut url = reqwest::Url::parse(&base).map_err(|e| {
+            Error::new(
+                ErrorKind::SubprocessFail,
+                format!("Invalid URL: {e}"),
+            )
+        })?;
 
-        if let (Some(u), Some(p)) = (&self.username, &self.password) {
-            all_params.push(format!("u={}", u));
-            all_params.push(format!("p={}", p));
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (k, v) in params {
+                pairs.append_pair(k, v);
+            }
+            if let (Some(u), Some(p)) = (&self.username, &self.password) {
+                pairs.append_pair("u", u);
+                pairs.append_pair("p", p);
+            }
         }
 
-        if !all_params.is_empty() {
-            url.push('?');
-            url.push_str(&all_params.join("&"));
-        }
-
-        url
+        Ok(url.to_string())
     }
 
-    fn query(&self, database: &str, query: &str) -> Result<reqwest::blocking::Response> {
-        let url = self.build_query_url("/query", &[("db", database), ("q", query)]);
+    fn query(&self, database: &str, query_str: &str) -> Result<reqwest::blocking::Response> {
+        let url = self.build_url("/query", &[("db", database), ("q", query_str)])?;
         let client = self.build_client()?;
         client.get(&url).send().map_err(|e| {
             Error::new(
@@ -219,7 +224,7 @@ impl InfluxdbClient {
     }
 
     fn write(&self, database: &str, line_protocol: &str) -> Result<reqwest::blocking::Response> {
-        let url = self.build_query_url("/write", &[("db", database)]);
+        let url = self.build_url("/write", &[("db", database)])?;
         let client = self.build_client()?;
         client
             .post(&url)
@@ -253,13 +258,32 @@ fn check_response(response: reqwest::blocking::Response) -> Result<String> {
     Ok(body)
 }
 
-fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
-    if check_mode {
-        let client = InfluxdbClient::new(params);
-        let response = client.query(&params.database, "SHOW DATABASES")?;
-        let body = check_response(response)?;
+fn database_exists(body: &str, database: &str) -> Result<bool> {
+    let json: serde_json::Value = serde_json::from_str(body).map_err(|e| {
+        Error::new(
+            ErrorKind::SubprocessFail,
+            format!("Failed to parse InfluxDB response: {e}"),
+        )
+    })?;
 
-        let exists = body.contains(&format!("\"{}\"", params.database));
+    let found = json["results"][0]["series"][0]["values"]
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .any(|row| row.get(0).and_then(|v| v.as_str()) == Some(database))
+        })
+        .unwrap_or(false);
+
+    Ok(found)
+}
+
+fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
+    let client = InfluxdbClient::new(params);
+    let response = client.query(&params.database, "SHOW DATABASES")?;
+    let body = check_response(response)?;
+    let exists = database_exists(&body, &params.database)?;
+
+    if check_mode {
         return Ok(ModuleResult::new(
             !exists,
             Some(value::to_value(json!({
@@ -274,7 +298,17 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
         ));
     }
 
-    let client = InfluxdbClient::new(params);
+    if exists {
+        return Ok(ModuleResult::new(
+            false,
+            Some(value::to_value(json!({
+                "database": params.database,
+                "exists": true,
+            }))?),
+            Some(format!("Database '{}' already exists", params.database)),
+        ));
+    }
+
     let create_query = format!("CREATE DATABASE \"{}\"", params.database);
     let response = client.query(&params.database, &create_query)?;
     let body = check_response(response)?;
@@ -295,7 +329,7 @@ fn exec_absent(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     let response = client.query(&params.database, "SHOW DATABASES")?;
     let body = check_response(response)?;
-    let exists = body.contains(&format!("\"{}\"", params.database));
+    let exists = database_exists(&body, &params.database)?;
 
     if check_mode {
         return Ok(ModuleResult::new(
@@ -751,7 +785,22 @@ mod tests {
     }
 
     #[test]
-    fn test_check_mode_present() {
+    fn test_database_exists() {
+        let body = r#"{"results":[{"statement_id":0,"series":[{"name":"databases","columns":["name"],"values":[["mydb"],["test_db"],["iot_metrics"]]}]}]}"#;
+        assert!(database_exists(body, "iot_metrics").unwrap());
+        assert!(database_exists(body, "mydb").unwrap());
+        assert!(!database_exists(body, "nonexistent").unwrap());
+        assert!(!database_exists(body, "test").unwrap());
+    }
+
+    #[test]
+    fn test_database_exists_empty_response() {
+        let body = r#"{"results":[{"statement_id":0}]}"#;
+        assert!(!database_exists(body, "anything").unwrap());
+    }
+
+    #[test]
+    fn test_check_mode_present_no_server() {
         let module = InfluxdbQuery;
         let yaml: YamlValue = serde_norway::from_str(
             r#"
@@ -761,7 +810,7 @@ mod tests {
         )
         .unwrap();
         let result = module.exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true);
-        assert!(result.is_ok() || result.is_err());
+        assert!(result.is_err());
     }
 
     #[test]
