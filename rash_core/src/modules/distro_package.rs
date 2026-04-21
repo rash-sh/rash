@@ -211,14 +211,8 @@ impl DistroPackageClient {
                 c
             }
             PackageManager::Zypper => {
-                let mut c = Command::new("zypper");
-                c.arg("--quiet")
-                    .arg("--non-interactive")
-                    .arg("--no-refresh")
-                    .arg("se")
-                    .arg("--installed-only")
-                    .arg("--type")
-                    .arg("package");
+                let mut c = Command::new("rpm");
+                c.arg("-qa").arg("--queryformat=%{NAME}\n");
                 c
             }
             PackageManager::Opkg => {
@@ -248,6 +242,29 @@ impl DistroPackageClient {
             .collect()
     }
 
+    fn parse_outdated(&self, stdout: Vec<u8>) -> BTreeSet<String> {
+        let output_string = String::from_utf8_lossy(&stdout);
+        output_string
+            .lines()
+            .filter_map(|line| {
+                let first = line.split_whitespace().next()?;
+                match self.manager {
+                    PackageManager::Apt => {
+                        Some(first.split('/').next().unwrap_or(first).to_string())
+                    }
+                    PackageManager::Dnf => {
+                        if let Some(pos) = first.rfind('.') {
+                            Some(first[..pos].to_string())
+                        } else {
+                            Some(first.to_string())
+                        }
+                    }
+                    _ => Some(first.to_string()),
+                }
+            })
+            .collect()
+    }
+
     fn get_outdated(&self) -> Result<BTreeSet<String>> {
         let mut cmd = match self.manager {
             PackageManager::Apk => {
@@ -256,8 +273,8 @@ impl DistroPackageClient {
                 c
             }
             PackageManager::Apt => {
-                let mut c = Command::new("apt-list");
-                c.arg("--upgradable");
+                let mut c = Command::new("apt");
+                c.arg("list").arg("--upgradable");
                 c
             }
             PackageManager::Dnf => {
@@ -289,11 +306,7 @@ impl DistroPackageClient {
 
         let output = self.exec_cmd(&mut cmd)?;
 
-        if !output.status.success() {
-            return Ok(BTreeSet::new());
-        }
-
-        Ok(self.parse_installed(output.stdout))
+        Ok(self.parse_outdated(output.stdout))
     }
 
     fn update_cache(&self) -> Result<()> {
@@ -714,6 +727,57 @@ libcurl4 - 8.4.0-1
     fn test_parse_installed_empty() {
         let client = DistroPackageClient::new(PackageManager::Apk, false);
         let parsed = client.parse_installed(Vec::new());
+        assert!(parsed.is_empty());
+    }
+
+    #[test]
+    fn test_parse_outdated_apt_format() {
+        let client = DistroPackageClient::new(PackageManager::Apt, false);
+        let stdout =
+            r#"curl/focal-updates 7.68.0-1ubuntu2.22 amd64 [upgradable from: 7.68.0-1ubuntu2.21]
+jq/stable 1.6-2.1 amd64 [upgradable from: 1.6-2]
+"#
+            .as_bytes();
+        let parsed = client.parse_outdated(stdout.to_vec());
+        assert_eq!(
+            parsed,
+            BTreeSet::from(["curl".to_owned(), "jq".to_owned(),])
+        );
+    }
+
+    #[test]
+    fn test_parse_outdated_dnf_format() {
+        let client = DistroPackageClient::new(PackageManager::Dnf, false);
+        let stdout = r#"curl.x86_64              7.68.0-1.fc37           updates
+jq.i686                  1.6-2.fc37              updates
+python3.11.x86_64        3.11.1-1.fc37           updates
+"#
+        .as_bytes();
+        let parsed = client.parse_outdated(stdout.to_vec());
+        assert_eq!(
+            parsed,
+            BTreeSet::from(["curl".to_owned(), "jq".to_owned(), "python3.11".to_owned(),])
+        );
+    }
+
+    #[test]
+    fn test_parse_outdated_apk_format() {
+        let client = DistroPackageClient::new(PackageManager::Apk, false);
+        let stdout = r#"curl
+jq
+"#
+        .as_bytes();
+        let parsed = client.parse_outdated(stdout.to_vec());
+        assert_eq!(
+            parsed,
+            BTreeSet::from(["curl".to_owned(), "jq".to_owned(),])
+        );
+    }
+
+    #[test]
+    fn test_parse_outdated_empty() {
+        let client = DistroPackageClient::new(PackageManager::Dnf, false);
+        let parsed = client.parse_outdated(Vec::new());
         assert!(parsed.is_empty());
     }
 
