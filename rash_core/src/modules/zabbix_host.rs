@@ -215,57 +215,13 @@ impl ZabbixClient {
 
     fn send(&mut self, method: &str, params: JsonValue) -> Result<JsonValue> {
         self.request_id += 1;
-        let body = json!({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-            "auth": self.auth_token,
-            "id": self.request_id,
-        });
-
-        let response = self
-            .client
-            .post(&self.server_url)
-            .header("Content-Type", "application/json-rpc")
-            .json(&body)
-            .send()
-            .map_err(|e| {
-                Error::new(
-                    ErrorKind::SubprocessFail,
-                    format!("Zabbix API request failed: {e}"),
-                )
-            })?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Zabbix API returned status {}: {}", status, error_text),
-            ));
-        }
-
-        let json: JsonValue = response.json().map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidData,
-                format!("Failed to parse Zabbix API response: {e}"),
-            )
-        })?;
-
-        if let Some(error) = json.get("error") {
-            let message = error
-                .get("data")
-                .and_then(|d| d.as_str())
-                .unwrap_or("Unknown Zabbix API error");
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Zabbix API error: {message}"),
-            ));
-        }
-
-        Ok(json)
+        Self::send_raw(
+            &self.client,
+            &self.server_url,
+            method,
+            Some(&self.auth_token),
+            params,
+        )
     }
 
     fn get_host(&mut self, host_name: &str) -> Result<Option<JsonValue>> {
