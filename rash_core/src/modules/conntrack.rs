@@ -97,15 +97,12 @@ pub enum State {
 }
 
 fn run_conntrack_cmd(args: &[&str]) -> Result<String> {
-    let output = Command::new("conntrack")
-        .args(args)
-        .output()
-        .map_err(|e| {
-            Error::new(
-                ErrorKind::SubprocessFail,
-                format!("Failed to execute conntrack: {e}"),
-            )
-        })?;
+    let output = Command::new("conntrack").args(args).output().map_err(|e| {
+        Error::new(
+            ErrorKind::SubprocessFail,
+            format!("Failed to execute conntrack: {e}"),
+        )
+    })?;
 
     if !output.status.success() {
         return Err(Error::new(
@@ -349,10 +346,7 @@ impl Module for Conntrack {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        Ok((
-            conntrack(parse_params(optional_params)?, check_mode)?,
-            None,
-        ))
+        Ok((conntrack(parse_params(optional_params)?, check_mode)?, None))
     }
 
     #[cfg(feature = "docs")]
@@ -367,8 +361,7 @@ mod tests {
 
     #[test]
     fn test_parse_params_flush() {
-        let yaml: YamlValue =
-            serde_norway::from_str(r#"flush: true"#).unwrap();
+        let yaml: YamlValue = serde_norway::from_str(r#"flush: true"#).unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params.flush, Some(true));
     }

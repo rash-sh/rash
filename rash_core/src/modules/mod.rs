@@ -441,10 +441,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (CloudInit.get_name(), Box::new(CloudInit) as Box<dyn Module>),
         (Command.get_name(), Box::new(Command) as Box<dyn Module>),
         (Composer.get_name(), Box::new(Composer) as Box<dyn Module>),
-        (
-            Conntrack.get_name(),
-            Box::new(Conntrack) as Box<dyn Module>,
-        ),
+        (Conntrack.get_name(), Box::new(Conntrack) as Box<dyn Module>),
         (ConsulKv.get_name(), Box::new(ConsulKv) as Box<dyn Module>),
         (Copy.get_name(), Box::new(Copy) as Box<dyn Module>),
         (Cron.get_name(), Box::new(Cron) as Box<dyn Module>),

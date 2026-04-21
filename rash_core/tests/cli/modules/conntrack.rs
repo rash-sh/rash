@@ -13,7 +13,9 @@ fn test_conntrack_flush() {
     let args = ["--check"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found"));
+    assert!(
+        stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found")
+    );
     assert!(stdout.contains("flush") || !stderr.is_empty());
 }
 
@@ -31,7 +33,9 @@ fn test_conntrack_drop_source() {
     let args = ["--check"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found"));
+    assert!(
+        stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found")
+    );
     assert!(stdout.contains("10.0.0.1") || !stderr.is_empty());
 }
 
@@ -51,7 +55,9 @@ fn test_conntrack_drop_with_protocol_port() {
     let args = ["--check"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found"));
+    assert!(
+        stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found")
+    );
     assert!(stdout.contains("192.168.1.100") || !stderr.is_empty());
 }
 
@@ -69,7 +75,9 @@ fn test_conntrack_list() {
     let args = ["--check"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found"));
+    assert!(
+        stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found")
+    );
     assert!(stdout.contains("10.0.0.1") || !stderr.is_empty());
 }
 
@@ -88,7 +96,9 @@ fn test_conntrack_drop_udp() {
     let args = ["--check"];
     let (stdout, stderr) = run_test(&script_text, &args);
 
-    assert!(stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found"));
+    assert!(
+        stderr.is_empty() || stderr.contains("conntrack") || stderr.contains("command not found")
+    );
     assert!(stdout.contains("10.0.0.0/24") || !stderr.is_empty());
 }
 
