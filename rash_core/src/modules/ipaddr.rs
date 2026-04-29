@@ -238,13 +238,11 @@ fn validate_address(address: &str) -> Result<()> {
                 "IPv6 CIDR must be between 0 and 128",
             ));
         }
-    } else {
-        if cidr > 32 {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "IPv4 CIDR must be between 0 and 32",
-            ));
-        }
+    } else if cidr > 32 {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "IPv4 CIDR must be between 0 and 32",
+        ));
     }
 
     Ok(())
