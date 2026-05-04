@@ -39,6 +39,15 @@
 ///       - curl
 ///       - jq
 ///     state: latest
+///
+/// - name: Upgrade all packages
+///   distro_package:
+///     upgrade: true
+///
+/// - name: Update cache and upgrade all packages
+///   distro_package:
+///     update_cache: true
+///     upgrade: true
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
@@ -147,6 +156,10 @@ pub struct Params {
     /// **[default: `false`]**
     #[serde(default = "default_false")]
     update_cache: Option<bool>,
+    /// Whether or not to upgrade all packages to the latest version available.
+    /// **[default: `false`]**
+    #[serde(default = "default_false")]
+    upgrade: Option<bool>,
 }
 
 #[cfg(test)]
@@ -156,6 +169,7 @@ impl Default for Params {
             name: Vec::new(),
             state: Some(State::Present),
             update_cache: Some(false),
+            upgrade: Some(false),
         }
     }
 }
@@ -462,6 +476,58 @@ impl DistroPackageClient {
         }
         Ok(())
     }
+
+    fn upgrade(&self) -> Result<bool> {
+        let outdated = self.get_outdated()?;
+        if outdated.is_empty() || self.check_mode {
+            return Ok(!outdated.is_empty() && !self.check_mode);
+        }
+
+        let mut cmd = match self.manager {
+            PackageManager::Apk => {
+                let mut c = Command::new("apk");
+                c.arg("upgrade").arg("--no-progress");
+                c
+            }
+            PackageManager::Apt => {
+                let mut c = Command::new("apt-get");
+                c.arg("upgrade").arg("-y");
+                c
+            }
+            PackageManager::Dnf => {
+                let mut c = Command::new("dnf");
+                c.arg("upgrade").arg("-y");
+                c
+            }
+            PackageManager::Pacman => {
+                let mut c = Command::new("pacman");
+                c.arg("-Su").arg("--noconfirm");
+                c
+            }
+            PackageManager::Zypper => {
+                let mut c = Command::new("zypper");
+                c.arg("--quiet")
+                    .arg("--non-interactive")
+                    .arg("update")
+                    .arg("--auto-agree-with-licenses");
+                c
+            }
+            PackageManager::Opkg => {
+                let mut c = Command::new("opkg");
+                c.arg("upgrade");
+                c
+            }
+        };
+
+        let output = self.exec_cmd(&mut cmd)?;
+        if !output.status.success() {
+            return Err(Error::new(
+                ErrorKind::SubprocessFail,
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            ));
+        }
+        Ok(true)
+    }
 }
 
 fn distro_package(params: Params, check_mode: bool) -> Result<ModuleResult> {
@@ -475,6 +541,20 @@ fn distro_package(params: Params, check_mode: bool) -> Result<ModuleResult> {
     } else {
         false
     };
+
+    if params.upgrade.unwrap() {
+        logger::add(&["all packages".to_string()]);
+        let upgrade_changed = client.upgrade()?;
+        return Ok(ModuleResult {
+            changed: cache_updated || upgrade_changed,
+            output: None,
+            extra: Some(value::to_value(json!({
+                "upgraded": upgrade_changed,
+                "cache_updated": cache_updated,
+                "manager": format!("{:?}", manager).to_lowercase(),
+            }))?),
+        });
+    }
 
     let (p_to_install, p_to_remove) = match params.state.unwrap() {
         State::Present => {
@@ -602,6 +682,7 @@ mod tests {
                 name: vec!["curl".to_owned(), "vim".to_owned(), "git".to_owned(),],
                 state: Some(State::Present),
                 update_cache: Some(true),
+                upgrade: Some(false),
             }
         );
     }
@@ -644,6 +725,7 @@ mod tests {
                 name: Vec::new(),
                 state: Some(State::Present),
                 update_cache: Some(false),
+                upgrade: Some(false),
             }
         );
     }
@@ -659,6 +741,40 @@ mod tests {
         .unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_parse_params_upgrade() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            upgrade: true
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(
+            params,
+            Params {
+                name: Vec::new(),
+                state: Some(State::Present),
+                update_cache: Some(false),
+                upgrade: Some(true),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_params_update_cache_and_upgrade() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            update_cache: true
+            upgrade: true
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert_eq!(params.update_cache, Some(true));
+        assert_eq!(params.upgrade, Some(true));
     }
 
     #[test]
