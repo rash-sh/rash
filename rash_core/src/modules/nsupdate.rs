@@ -316,12 +316,7 @@ fn run_nsupdate(commands: &str, params: &Params, check_mode: bool) -> Result<Str
     let mut cmd = Command::new("nsupdate");
 
     if let Some(ref key_name) = params.key_name {
-        let key_secret = params.key_secret.as_ref().ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidData,
-                "key_secret is required when key_name is specified",
-            )
-        })?;
+        let key_secret = params.key_secret.as_deref().unwrap_or("");
         cmd.arg("-y").arg(format!(
             "{}:{}:{}",
             params.key_algorithm, key_name, key_secret
@@ -420,6 +415,15 @@ fn query_existing_record(params: &Params) -> Result<Option<String>> {
 }
 
 fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
+    if params.record_type == RecordType::SRV
+        && (params.weight.is_none() || params.srv_port.is_none())
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "weight and srv_port are required for SRV records",
+        ));
+    }
+
     let value = params.value.as_ref().ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
@@ -431,18 +435,7 @@ fn exec_present(params: &Params, check_mode: bool) -> Result<ModuleResult> {
 
     let existing = query_existing_record(params).unwrap_or(None);
 
-    let expected_value = match params.record_type {
-        RecordType::MX => {
-            let priority = params.priority.unwrap_or(10);
-            Some(format!("{priority} {value}"))
-        }
-        RecordType::SRV => {
-            let weight = params.weight.unwrap_or(0);
-            let port = params.srv_port.unwrap_or(0);
-            Some(format!("{weight} {port} {value}"))
-        }
-        _ => Some(value.clone()),
-    };
+    let expected_value = format_rdata(params).ok();
 
     if let (Some(existing_val), Some(expected)) = (&existing, &expected_value) {
         let existing_lines: Vec<&str> = existing_val.lines().collect();
@@ -550,15 +543,6 @@ fn exec_nsupdate(params: Params, check_mode: bool) -> Result<ModuleResult> {
         return Err(Error::new(
             ErrorKind::InvalidData,
             format!("key_secret is required when key_name '{key_name}' is specified"),
-        ));
-    }
-
-    if params.record_type == RecordType::SRV
-        && (params.weight.is_none() || params.srv_port.is_none())
-    {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "weight and srv_port are required for SRV records",
         ));
     }
 
