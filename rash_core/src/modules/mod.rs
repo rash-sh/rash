@@ -123,6 +123,7 @@ mod nftables;
 mod nginx;
 mod nmcli;
 mod npm;
+mod nsupdate;
 mod openrc;
 mod openssl_certificate;
 mod openssl_csr;
@@ -327,6 +328,7 @@ use crate::modules::nftables::Nftables;
 use crate::modules::nginx::Nginx;
 use crate::modules::nmcli::Nmcli;
 use crate::modules::npm::Npm;
+use crate::modules::nsupdate::Nsupdate;
 use crate::modules::openrc::OpenRc;
 use crate::modules::openssl_certificate::OpensslCertificate;
 use crate::modules::openssl_csr::OpensslCsr;
@@ -706,6 +708,7 @@ pub static MODULES: LazyLock<HashMap<&'static str, Box<dyn Module>>> = LazyLock:
         (Netplan.get_name(), Box::new(Netplan) as Box<dyn Module>),
         (Networkd.get_name(), Box::new(Networkd) as Box<dyn Module>),
         (Nginx.get_name(), Box::new(Nginx) as Box<dyn Module>),
+        (Nsupdate.get_name(), Box::new(Nsupdate) as Box<dyn Module>),
         (Nftables.get_name(), Box::new(Nftables) as Box<dyn Module>),
         (Nmcli.get_name(), Box::new(Nmcli) as Box<dyn Module>),
         (Npm.get_name(), Box::new(Npm) as Box<dyn Module>),
