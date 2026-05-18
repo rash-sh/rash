@@ -77,6 +77,17 @@ git pull origin master
 git status  # Should show "nothing to commit, working tree clean"
 ```
 
+If running in a shallow clone (e.g. CI with `fetch-depth: 1`), fetch full history and tags:
+
+```bash
+if git rev-parse --is-shallow-repository 2>/dev/null | grep -q "true"; then
+    git fetch --unshallow --quiet
+fi
+if [ -z "$(git tag -l)" ]; then
+    git fetch --tags --quiet
+fi
+```
+
 Check that there are no unmerged commits:
 
 ```bash
@@ -185,10 +196,19 @@ After the PR is merged to master:
 | Update changelog | `make update-changelog` |
 | Commit | `git commit -m "release: Version <VER>"` |
 
+## Troubleshooting
+
+### "There are commits in this branch. Please merge them first."
+You're on a branch with unmerged commits. Switch to master and merge first.
+
+### "Shallow clone detected. Fetching full history and tags..."
+The release script detected a shallow clone (e.g. CI with `fetch-depth: 1`). It automatically fetches full history and tags so git-cliff can generate a correct CHANGELOG. No action needed.
+
 ## Checklist
 
 - [ ] On master branch, clean working tree
 - [ ] Pulled latest from origin/master
+- [ ] Shallow clone handled (auto-detected by `.ci/release.sh`)
 - [ ] No unmerged commits (checked with `git rev-list --count origin/master..HEAD`)
 - [ ] Determined version bump type (MAJOR/MINOR/PATCH)
 - [ ] Created release branch `release/v<VERSION>`
