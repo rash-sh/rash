@@ -193,7 +193,7 @@ jobs:
 
       - name: Get Changelog Entry
         id: changelog_reader
-        uses: mindsers/changelog-reader-action@v2.2.3
+        uses: mindsers/changelog-reader-action@v2.3.0
         with:
           version: v${{ env.PROJECT_VERSION }}
           path: ./CHANGELOG.md
