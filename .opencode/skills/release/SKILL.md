@@ -180,10 +180,35 @@ Create a pull request to merge into master.
 
 ### Step 9: After Merge
 
-After the PR is merged to master:
+After the PR is merged to master, tagging and releasing is done **automatically** by CI:
 
-1. Create and push a tag: `git tag v<VERSION> && git push origin v<VERSION>`
-2. The CI workflow automatically builds release artifacts and creates a GitHub Release
+1. `auto-tag.yml` reads the new version from `CHANGELOG.md`
+2. Creates a signed GPG tag `v<VERSION>`
+3. Pushes the tag to GitHub
+
+The tag then triggers:
+- `rust.yml`: Builds, tests, publishes to crates.io, creates GitHub Release
+- `docker_images.yml`: Builds/pushes Docker images to ghcr.io
+- `aur-publish.yml`: Publishes AUR packages
+
+Monitor with:
+```bash
+gh run list --limit 5
+```
+
+**Note:** Do not manually create tags — CI handles this automatically.
+
+## What NOT to Do
+
+| Mistake | Why it's wrong | Fix |
+|---------|---------------|-----|
+| Manually editing CHANGELOG.md | git-cliff generates it from conventional commits | Use `make update-changelog` |
+| Creating git tags manually | `auto-tag.yml` creates signed tags automatically | Just push to master |
+| Releasing from a feature branch | Changelog generation needs master commit IDs | Checkout master first |
+| Releasing with dirty working tree | Script will fail or produce incomplete release | Commit or stash changes first |
+| Skipping the unshallow check | Shallow clones produce incomplete changelogs | Always check and unshallow if needed |
+| Forgetting `make update-version` after Cargo.toml edit | Version won't propagate to workspace members | Always run `make update-version` |
+| Using `--amend` on a commit | May amend the wrong parent commit after hook failures | Just commit again normally |
 
 ## Quick Reference
 
@@ -195,6 +220,10 @@ After the PR is merged to master:
 | Update versions | `make update-version` |
 | Update changelog | `make update-changelog` |
 | Commit | `git commit -m "release: Version <VER>"` |
+| Check shallow clone | `git rev-parse --is-shallow-repository` |
+| Unshallow repo | `git fetch --unshallow origin && git fetch --tags origin` |
+| Monitor CI | `gh run list --limit 5` |
+| Run release script | `.ci/release.sh` |
 
 ## Troubleshooting
 
@@ -206,6 +235,7 @@ The release script detected a shallow clone (e.g. CI with `fetch-depth: 1`). It 
 
 ## Checklist
 
+- [ ] Repository is not a shallow clone (or has been unshallowed)
 - [ ] On master branch, clean working tree
 - [ ] Pulled latest from origin/master
 - [ ] Shallow clone handled (auto-detected by `.ci/release.sh`)
