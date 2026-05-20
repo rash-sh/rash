@@ -535,14 +535,14 @@ fn distro_package(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let client = DistroPackageClient::new(manager, check_mode);
     let packages: BTreeSet<String> = params.name.iter().cloned().collect();
 
-    let cache_updated = if params.update_cache.unwrap() {
+    let cache_updated = if params.update_cache.unwrap_or_default() {
         client.update_cache()?;
         true
     } else {
         false
     };
 
-    if params.upgrade.unwrap() {
+    if params.upgrade.unwrap_or_default() {
         logger::add(&["all packages".to_string()]);
         let upgrade_changed = client.upgrade()?;
         return Ok(ModuleResult {
@@ -556,7 +556,7 @@ fn distro_package(params: Params, check_mode: bool) -> Result<ModuleResult> {
         });
     }
 
-    let (p_to_install, p_to_remove) = match params.state.unwrap() {
+    let (p_to_install, p_to_remove) = match params.state.unwrap_or_default() {
         State::Present => {
             let installed = client.get_installed()?;
             let to_install: Vec<String> = packages.difference(&installed).cloned().collect();

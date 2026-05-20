@@ -120,7 +120,7 @@ struct AptMarkClient {
 impl AptMarkClient {
     pub fn new(params: &Params, check_mode: bool) -> Result<Self> {
         Ok(AptMarkClient {
-            executable: PathBuf::from(params.executable.as_ref().unwrap()),
+            executable: PathBuf::from(params.executable.as_deref().unwrap_or("apt-mark")),
             check_mode,
         })
     }
