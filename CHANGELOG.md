@@ -5,6 +5,78 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.21.0](https://github.com/rash-sh/rash/tree/v2.21.0) - 2026-05-20
+
+### Added
+
+- module: Add shell and auditd modules ([35e8791](https://github.com/rash-sh/rash/commit/35e8791808e3bf8ae4d32228b878d7e2095f2536))
+- module: Add kafka_topic, prometheus, and timer modules ([25878bf](https://github.com/rash-sh/rash/commit/25878bf89ef4a9c404ae72f9a4c1fcdc00136bd3))
+- module: Add grafana, grafana_dashboard, poweroff, and prometheus_rule modules ([572c16c](https://github.com/rash-sh/rash/commit/572c16c6158abc1188c25098592dd22da7fa500d))
+- module: Add homebrew module for macOS package management ([96b4119](https://github.com/rash-sh/rash/commit/96b41198c47696a1128a77861c356b762d0a0bd7))
+- modules: Add github_release module for downloading GitHub release assets ([6d14e78](https://github.com/rash-sh/rash/commit/6d14e78299a2ed152a77d073fbb07ba6d28c4051))
+- modules: Add lvm_snapshot module for LVM snapshot management ([c98be8c](https://github.com/rash-sh/rash/commit/c98be8cb179a7bb4613e61a06ffacb15ff724460))
+- Add cloudflare_dns module for DNS record management ([92c5c4d](https://github.com/rash-sh/rash/commit/92c5c4da90c8083a5b33d616deba910851c401f2))
+- Add conntrack module for connection tracking management ([b416267](https://github.com/rash-sh/rash/commit/b41626723cb738c6e6963eccf5b62e2789bf82d5))
+- Add mongodb_collection module for MongoDB collection management ([bf873d5](https://github.com/rash-sh/rash/commit/bf873d591a4455a1c9c32cf69ccaddcb8f9862e5))
+- Add ethtool module for Ethernet device settings management ([33a05fb](https://github.com/rash-sh/rash/commit/33a05fba7e04afea2a4ca30a312ae70c7b547866))
+- Add haproxy module for HAProxy backend management ([806836b](https://github.com/rash-sh/rash/commit/806836b590df6566deb9407764b366075853572c))
+- Add cronvar module for cron variable management ([259a35d](https://github.com/rash-sh/rash/commit/259a35dba199b70f1f20f6cdf7d10360f761f848))
+- Add sysfs module for sysfs attribute management ([dc3e591](https://github.com/rash-sh/rash/commit/dc3e5913037e45aa2735e823f013c9c050b8dba9))
+- Add btrfs module for Btrfs filesystem management ([a14d9ff](https://github.com/rash-sh/rash/commit/a14d9ff58d118b921392d6a133703b6023b18cbc))
+- Add mysql_replication module for MySQL replication management ([c369c54](https://github.com/rash-sh/rash/commit/c369c54fc5d426109d915d65f36cfe1efca9f318))
+- Add vault_secret module for HashiCorp Vault secret management ([86f511d](https://github.com/rash-sh/rash/commit/86f511d93ae803437dc397574cbaffd34d81ad70))
+- Add apt_hold module for Debian package hold management ([4e5cc15](https://github.com/rash-sh/rash/commit/4e5cc15ac5ebff71b9242f40340bfb1b9f958020))
+- Add distro_package module for cross-distro package management ([3245298](https://github.com/rash-sh/rash/commit/324529852113cb42dc4da764954753e57744139a))
+- Add mongodb_replicaset module for MongoDB replica set management ([8201892](https://github.com/rash-sh/rash/commit/8201892587782fa58cfcf5afb697d583769362f7))
+- Add certbot module for Let's Encrypt certificate management ([0ad5cfe](https://github.com/rash-sh/rash/commit/0ad5cfe53fe71ede8faccb6a1d08b9c793156d39))
+- Add vault_token module for HashiCorp Vault token management ([e4e9b4d](https://github.com/rash-sh/rash/commit/e4e9b4dffe68bea48d1a5cdec7a5a998811d104e))
+- Add smartctl module for SMART disk health monitoring ([0651d0c](https://github.com/rash-sh/rash/commit/0651d0cb1a51b8780ff92c3e996c3374d68e27e3))
+- Add netbox_ipam module for NetBox IP address management ([bd3be86](https://github.com/rash-sh/rash/commit/bd3be860b06f4ae13cdf5b5c220fb008a342251f))
+- Add networkd module for systemd-networkd configuration ([f2bde30](https://github.com/rash-sh/rash/commit/f2bde302b2c09bbb08825c883050ed2e08480817))
+- Add upgrade support to distro_package module ([d0b1183](https://github.com/rash-sh/rash/commit/d0b11832fd6d6bbfd9e4334468cf9741bb0afba8))
+- Add nsupdate module for dynamic DNS updates (RFC 2136) ([b553279](https://github.com/rash-sh/rash/commit/b553279cb0ef9d06b5f3bcb0b90d3c572faf10e2))
+
+### Fixed
+
+- Resolve clippy warnings in elasticsearch module ([7159783](https://github.com/rash-sh/rash/commit/7159783b21d3ed624f477e84f722a4df6ae61c31))
+- Correct docs module weight overflow causing indexes above 100 to appear under vars ([4a0ecb8](https://github.com/rash-sh/rash/commit/4a0ecb8d1f127485b0fae57075e5d49656a86c3c))
+- Handle shallow clones in release script ([9f99b19](https://github.com/rash-sh/rash/commit/9f99b19513acfd2a07416084dce5b0931abfdf62))
+
+### Build
+
+- deps: Update Rust crate aws-config to v1.8.16 ([591b0eb](https://github.com/rash-sh/rash/commit/591b0eb621ad23b0c5388df6b1a968461ebde185))
+- deps: Update Rust crate aws-sdk-s3 to v1.130.0 ([c9b36c8](https://github.com/rash-sh/rash/commit/c9b36c8e52c4878815ba3f84ab7344c1e3a81d50))
+- deps: Update Rust crate rumqttc to 0.25 ([1bb5f9b](https://github.com/rash-sh/rash/commit/1bb5f9b1936230c39944f6db37052b7975ba4d3a))
+- deps: Update clechasseur/rs-clippy-check action to v6 ([8cf9533](https://github.com/rash-sh/rash/commit/8cf953312c52ea8ecff6806bd387ae9281359290))
+- deps: Update Rust crate aws-sdk-s3 to v1.131.0 ([f0115c0](https://github.com/rash-sh/rash/commit/f0115c0aa84f2c0c0ad1d669f4d84f967631456d))
+- deps: Update Rust crate libc to v0.2.186 ([1a9ea65](https://github.com/rash-sh/rash/commit/1a9ea65795457a6053fd32553e6b650a77d23c76))
+- deps: Update clechasseur/rs-clippy-check action to v6.0.3 ([cdb0e16](https://github.com/rash-sh/rash/commit/cdb0e16c78b0188597e479ebf5f86c536f183fac))
+- deps: Update Rust crate zip to v8.6.0 ([a500b0a](https://github.com/rash-sh/rash/commit/a500b0af1f0c0fc122ce3a65bb7737a8e9c9bec7))
+- deps: Update Rust crate reqwest to v0.13.3 ([1ee1896](https://github.com/rash-sh/rash/commit/1ee18969e522719972ce6f4d12238e0a09357608))
+- deps: Update Rust crate rpassword to v7.5.0 ([9d488d4](https://github.com/rash-sh/rash/commit/9d488d42f740c4b83a836ce0178679bac4ad0ebc))
+- deps: Update Rust crate rpassword to v7.5.1 ([ac01337](https://github.com/rash-sh/rash/commit/ac01337876d473292cfece817d199283fdd8047b))
+- deps: Update pre-commit hook alessandrojcm/commitlint-pre-commit-hook to v9.25.0 ([e764556](https://github.com/rash-sh/rash/commit/e7645569b0b0e300ecdd27dd2f5e2e5f2ed9f411))
+- deps: Update Rust crate serde_with to v3.19.0 ([d0537ae](https://github.com/rash-sh/rash/commit/d0537aecc2ef2460cd53b0d916742d6ff5533f3e))
+- deps: Update Rust crate redis to v1.2.1 ([2800c69](https://github.com/rash-sh/rash/commit/2800c69169e86758019fe0ac642b50a66b35ee01))
+- deps: Update Rust crate rpassword to v7.5.2 ([2a0929f](https://github.com/rash-sh/rash/commit/2a0929f4af840cdc0f0e1d942c4e0b0fd3d6a9b3))
+- deps: Update Rust crate ipc-channel to 0.22.0 ([620cecd](https://github.com/rash-sh/rash/commit/620cecd8125c89412bf70105cd6d09d2293ca290))
+- deps: Update Rust crate quick-xml to v0.39.3 ([d251455](https://github.com/rash-sh/rash/commit/d251455bdf2992870c2a8162498725c908743357))
+- deps: Update Rust crate aws-sdk-s3 to v1.132.0 ([24004fc](https://github.com/rash-sh/rash/commit/24004fc6a8d08c61819125eff41d552aed86e573))
+- deps: Update Rust crate quick-xml to v0.39.4 ([091dc7d](https://github.com/rash-sh/rash/commit/091dc7d3b014ddd7c1c83880ee67f01c65de8321))
+- deps: Update clechasseur/rs-clippy-check action to v6.0.4 ([b0722ff](https://github.com/rash-sh/rash/commit/b0722ff5540104fd3369d556f548e72735418f80))
+- deps: Update Rust crate serde_with to v3.20.0 ([f489061](https://github.com/rash-sh/rash/commit/f489061f13a9153c053e0f525c30a93800513ed3))
+- deps: Update Rust crate nix to v0.31.3 ([7aeee1e](https://github.com/rash-sh/rash/commit/7aeee1e84f77300ef5263055e6001ae7b0660256))
+- deps: Update Rust crate rcgen to v0.14.8 ([9050160](https://github.com/rash-sh/rash/commit/9050160145389f90bb8d6a6f3751e4c88e4ac7ce))
+- deps: Update Rust crate quick-xml to 0.40 ([8efb57d](https://github.com/rash-sh/rash/commit/8efb57d181789dacd2402e5fa94b0c5fc528694c))
+- deps: Update Rust crate quick-xml to v0.40.1 ([606fae6](https://github.com/rash-sh/rash/commit/606fae6476485503e7b5125296fc962df83c8a2f))
+- deps: Update Rust crate shlex to v2 ([515038d](https://github.com/rash-sh/rash/commit/515038d41c9caa892bee6dad1402c5712ae792e5))
+- deps: Update Rust crate shlex to v2.0.1 ([215e607](https://github.com/rash-sh/rash/commit/215e60718ca6162a59d3b2deb11c0c82259d5e83))
+- deps: Update Rust crate tar to v0.4.46 ([db04fff](https://github.com/rash-sh/rash/commit/db04fff3180d90411d9571a69052771d89e1f3b1))
+- deps: Update mindsers/changelog-reader-action action to v2.3.0 ([b8b0727](https://github.com/rash-sh/rash/commit/b8b07272d27670e10f070937d62f4d86a438006a))
+- deps: Update Rust crate mdbook-core to v0.5.3 ([3ce9444](https://github.com/rash-sh/rash/commit/3ce944437ec05d49cc5648e1b3a7d448e700a17d))
+- deps: Update Rust crate mdbook-driver to v0.5.3 ([e445bc5](https://github.com/rash-sh/rash/commit/e445bc580b6ad5e2398a4c3771e3f21c9b772e6a))
+- deps: Update Rust crate minijinja to v2.20.0 ([e7154da](https://github.com/rash-sh/rash/commit/e7154da28fc8176922f41d56e94e689c3df6520c))
+
 ## [v2.20.0](https://github.com/rash-sh/rash/tree/v2.20.0) - 2026-04-20
 
 **Milestone: rash reaches 100 modules!** This release marks a major milestone with over 100 modules available for declarative infrastructure automation, container entrypoints, and IoT device management.
