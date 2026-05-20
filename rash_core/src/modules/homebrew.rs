@@ -366,21 +366,20 @@ impl HomebrewClient {
 
 fn homebrew(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let packages: BTreeSet<String> = params.name.iter().cloned().collect();
-    let is_cask = params.cask.unwrap();
+    let is_cask = params.cask.unwrap_or_default();
     let client = HomebrewClient::new(
-        Path::new(&params.executable.unwrap()),
+        Path::new(params.executable.as_deref().unwrap_or("brew")),
         params.extra_args,
         is_cask,
         check_mode,
     )?;
 
-    if params.update_homebrew.unwrap() {
+    let homebrew_updated = params.update_homebrew.unwrap_or_default();
+    if homebrew_updated {
         client.update_homebrew()?;
     };
 
-    let homebrew_updated = params.update_homebrew.unwrap();
-
-    let (p_to_install, p_to_remove, p_to_upgrade) = match params.state.unwrap() {
+    let (p_to_install, p_to_remove, p_to_upgrade) = match params.state.unwrap_or_default() {
         State::Present => {
             let p: Vec<String> = packages
                 .difference(&client.get_installed()?)
@@ -406,7 +405,7 @@ fn homebrew(params: Params, check_mode: bool) -> Result<ModuleResult> {
         }
     };
 
-    let upgrade_all_changed = params.upgrade_all.unwrap() && client.upgrade_all()?;
+    let upgrade_all_changed = params.upgrade_all.unwrap_or_default() && client.upgrade_all()?;
 
     let install_changed = if !p_to_install.is_empty() {
         logger::add(&p_to_install);

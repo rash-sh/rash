@@ -3,11 +3,13 @@ set -euo pipefail
 
 ensure_full_history() {
     if git rev-parse --is-shallow-repository 2>/dev/null | grep -q "true"; then
-        echo "Shallow clone detected. Fetching full history..."
+        echo "Shallow clone detected. Fetching full history and tags..."
         git fetch --unshallow --quiet
     fi
-    echo "Fetching tags..."
-    git fetch --tags --quiet
+    if [ -z "$(git tag -l)" ]; then
+        echo "No tags found. Fetching tags..."
+        git fetch --tags --quiet
+    fi
 }
 
 ensure_clean_state() {

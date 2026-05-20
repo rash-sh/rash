@@ -603,15 +603,15 @@ fn apply_validation(params: &Params, check_mode: bool) -> Result<Option<(bool, S
 }
 
 fn apply_collation(params: &Params, check_mode: bool) -> Result<Option<(bool, String)>> {
-    if params.collation.is_none() {
+    let Some(collation) = &params.collation else {
         return Ok(None);
-    }
+    };
 
     if check_mode {
         return Ok(Some((true, "collation would be updated".to_string())));
     }
 
-    let collation_json = hashmap_to_json_value(params.collation.as_ref().unwrap());
+    let collation_json = hashmap_to_json_value(collation);
     let collation_str = serde_json::to_string(&collation_json).map_err(|e| {
         Error::new(
             ErrorKind::InvalidData,
