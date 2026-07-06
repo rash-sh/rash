@@ -118,8 +118,8 @@ fn test_gem_result_extra() {
         stdout.lines().last().unwrap().replace(' ', ""),
         serde_json::to_string(&json!({
             "installed_gems": [],
-            "updated_gems": [],
             "removed_gems": ["bundler", "rubocop"],
+            "updated_gems": [],
         }))
         .unwrap()
     );
