@@ -169,11 +169,11 @@ fn test_homebrew_result_extra() {
     assert_eq!(
         stdout.lines().last().unwrap().replace(' ', ""),
         serde_json::to_string(&json!({
+            "homebrew_updated": false,
             "installed_packages": [],
             "removed_packages": ["curl", "git"],
-            "upgraded_packages": [],
             "upgraded_all": false,
-            "homebrew_updated": false,
+            "upgraded_packages": [],
         }))
         .unwrap()
     );

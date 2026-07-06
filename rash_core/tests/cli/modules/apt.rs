@@ -201,8 +201,8 @@ fn test_apt_result_extra() {
         serde_json::to_string(&json!({
             "installed_packages": [],
             "removed_packages": ["nginx", "vim"],
-            "upgraded_packages": [],
             "upgraded": false,
+            "upgraded_packages": [],
         }))
         .unwrap()
     );
@@ -240,8 +240,8 @@ fn test_apt_list_from_var() {
         serde_json::to_string(&json!({
             "installed_packages": ["gnupg"],
             "removed_packages": [],
-            "upgraded_packages": [],
             "upgraded": false,
+            "upgraded_packages": [],
         }))
         .unwrap()
     );

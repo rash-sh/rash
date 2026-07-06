@@ -118,8 +118,8 @@ fn test_npm_result_extra() {
         stdout.lines().last().unwrap().replace(' ', ""),
         serde_json::to_string(&json!({
             "installed_packages": [],
-            "updated_packages": [],
             "removed_packages": ["express", "react"],
+            "updated_packages": [],
         }))
         .unwrap()
     );

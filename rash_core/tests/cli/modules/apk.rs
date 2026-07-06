@@ -113,10 +113,10 @@ fn test_apk_result_extra() {
     assert_eq!(
         stdout.lines().last().unwrap().replace(' ', ""),
         serde_json::to_string(&json!({
+            "cache_updated": false,
             "installed_packages": [],
             "removed_packages": ["curl", "vim"],
             "upgraded": false,
-            "cache_updated": false,
         }))
         .unwrap()
     );
@@ -152,10 +152,10 @@ fn test_apk_list_from_var() {
     assert_eq!(
         stdout.lines().last().unwrap().replace(' ', ""),
         serde_json::to_string(&json!({
+            "cache_updated": false,
             "installed_packages": ["nginx", "postgresql-client"],
             "removed_packages": [],
             "upgraded": false,
-            "cache_updated": false,
         }))
         .unwrap()
     );
