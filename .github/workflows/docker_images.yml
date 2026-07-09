@@ -28,7 +28,7 @@ jobs:
         uses: crazy-max/ghaction-upx@v4
         with:
           install-only: true
-          version: latest
+          version: "4.2.4"
 
       - name: Run tests
         run: |
@@ -55,7 +55,7 @@ jobs:
         uses: crazy-max/ghaction-upx@v4
         with:
           install-only: true
-          version: latest
+          version: "4.2.4"
 
       - name: Build image
         run: |

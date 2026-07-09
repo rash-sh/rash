@@ -131,7 +131,7 @@ jobs:
         uses: crazy-max/ghaction-upx@v4
         with:
           install-only: true
-          version: latest
+          version: "4.2.4"
         if: contains(matrix.job.target, 'linux')
 
       - name: Make release
