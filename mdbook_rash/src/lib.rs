@@ -233,11 +233,11 @@ indent: true
                 let mut new_ch = Chapter::new(
                     name,
                     content_header,
-                    format!("module_{}.md", &name),
+                    format!("module_{}.md", name),
                     vec![ch.name.clone()],
                 );
                 new_ch.number = Some(new_section_number);
-                info!("Add {} module", &name);
+                info!("Add {} module", name);
                 ch.sub_items.push(BookItem::Chapter(new_ch));
             }
             return ch.content = RE.replace(&ch.content, &indexes_body).to_string();
@@ -277,20 +277,20 @@ indent: true
                 let mut new_ch = Chapter::new(
                     lookup_name,
                     content_header,
-                    format!("lookup_{}.md", &lookup_name),
+                    format!("lookup_{}.md", lookup_name),
                     vec![ch.name.clone()],
                 );
                 new_ch.number = Some(new_section_number);
-                info!("Add {} lookup", &lookup_name);
+                info!("Add {} lookup", lookup_name);
                 ch.sub_items.push(BookItem::Chapter(new_ch));
             }
             return ch.content = RE.replace(&ch.content, &indexes_body).to_string();
         };
-        info!("Replace in chapter {}", &ch.name);
+        info!("Replace in chapter {}", ch.name);
         let other_content = &capture
             .1
             .clone()
-            .unwrap_or_else(|| panic!("Empty include doc in {}.md", &ch.name));
+            .unwrap_or_else(|| panic!("Empty include doc in {}.md", ch.name));
         ch.content = RE.replace(&ch.content, other_content).to_string();
     }
 }
