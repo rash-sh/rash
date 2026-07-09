@@ -25,10 +25,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install UPX
-        uses: crazy-max/ghaction-upx@v4
-        with:
-          install-only: true
-          version: "4.2.4"
+        run: |
+          curl -fsSL https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-amd64_linux.tar.xz -o upx.tar.xz
+          tar -xf upx.tar.xz
+          sudo mv upx-4.2.4-amd64_linux/upx /usr/local/bin/
+          rm -rf upx.tar.xz upx-4.2.4-amd64_linux
 
       - name: Run tests
         run: |
@@ -52,10 +53,11 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
 
       - name: Install UPX
-        uses: crazy-max/ghaction-upx@v4
-        with:
-          install-only: true
-          version: "4.2.4"
+        run: |
+          curl -fsSL https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-amd64_linux.tar.xz -o upx.tar.xz
+          tar -xf upx.tar.xz
+          sudo mv upx-4.2.4-amd64_linux/upx /usr/local/bin/
+          rm -rf upx.tar.xz upx-4.2.4-amd64_linux
 
       - name: Build image
         run: |

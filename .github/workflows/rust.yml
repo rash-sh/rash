@@ -128,11 +128,18 @@ jobs:
           echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
 
       - name: Install UPX
-        uses: crazy-max/ghaction-upx@v4
-        with:
-          install-only: true
-          version: "4.2.4"
         if: contains(matrix.job.target, 'linux')
+        run: |
+          ARCH=$(echo "${{ matrix.job.target }}" | cut -d- -f1)
+          case "$ARCH" in
+            x86_64)  UPX_ARCH="amd64" ;;
+            aarch64) UPX_ARCH="arm64" ;;
+            *)       echo "Unsupported arch: $ARCH"; exit 1 ;;
+          esac
+          curl -fsSL "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-${UPX_ARCH}_linux.tar.xz" -o upx.tar.xz
+          tar -xf upx.tar.xz
+          sudo mv "upx-4.2.4-${UPX_ARCH}_linux/upx" /usr/local/bin/
+          rm -rf upx.tar.xz "upx-4.2.4-${UPX_ARCH}_linux"
 
       - name: Make release
         id: package
