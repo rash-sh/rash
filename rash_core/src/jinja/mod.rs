@@ -107,7 +107,7 @@ fn skip_omit(x: String) -> Result<String> {
 #[inline(always)]
 pub fn render_string(s: &str, vars: &Value) -> Result<String> {
     let mut env = MINIJINJA_ENV.clone();
-    trace!("rendering {:?}", &s);
+    trace!("rendering {:?}", s);
 
     env.add_template("t", s)
         .map_err(|e| handle_template_error(e, s, vars))?;

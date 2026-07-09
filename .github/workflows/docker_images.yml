@@ -25,10 +25,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install UPX
-        uses: crazy-max/ghaction-upx@v4
-        with:
-          install-only: true
-          version: latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPX_VERSION="5.2.0"
+          for i in 1 2 3 4 5; do
+            if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+              "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" \
+              -o /tmp/upx.tar.xz; then
+              break
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo mv /tmp/upx-${UPX_VERSION}-amd64_linux/upx /usr/local/bin/upx
+          upx --version
 
       - name: Run tests
         run: |
@@ -52,10 +64,22 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
 
       - name: Install UPX
-        uses: crazy-max/ghaction-upx@v4
-        with:
-          install-only: true
-          version: latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPX_VERSION="5.2.0"
+          for i in 1 2 3 4 5; do
+            if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+              "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" \
+              -o /tmp/upx.tar.xz; then
+              break
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo mv /tmp/upx-${UPX_VERSION}-amd64_linux/upx /usr/local/bin/upx
+          upx --version
 
       - name: Build image
         run: |

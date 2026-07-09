@@ -36,7 +36,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     let extended_usages = options.extend_usages(usage_set).ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Invalid usage: {}", &help_msg),
+            format!("Invalid usage: {}", help_msg),
         )
     })?;
 
@@ -342,7 +342,7 @@ fn expand_usages(usages: HashSet<String>, args_len: usize, opts: &[&str]) -> Has
                 if cap.len() == 3 {
                     queue.push_back(UsageCandidate::from_usage(candidate.usage.replacen(
                         &cap[0].to_owned(),
-                        &format!("{}{}", &cap[1], &cap[2]),
+                        &format!("{}{}", cap[1], cap[2]),
                         1,
                     )));
                 }

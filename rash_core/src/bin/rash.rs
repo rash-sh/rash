@@ -295,7 +295,7 @@ fn main() {
         .exit();
     };
     trace!("start logger");
-    trace!("{:?}", &cli);
+    trace!("{:?}", cli);
     let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());
     let script_path = Path::new(&script_path_string);
 

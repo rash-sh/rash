@@ -203,7 +203,7 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
     let line = format!(
         "{log_header}{message}{separator}",
         log_header = log_header,
-        message = &message,
+        message = message,
         separator = match (level, target) {
             (log::Level::Info, "task") => vec![
                 "*";

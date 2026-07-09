@@ -262,7 +262,7 @@ impl<'a> Task<'a> {
     fn extend_vars(&self, additional_vars: Value) -> Result<Value> {
         match self.vars.clone() {
             Some(v) => {
-                trace!("extend vars: {:?}", &v);
+                trace!("extend vars: {:?}", v);
                 let rendered_value = match render(v.clone(), &additional_vars) {
                     Ok(v) => Value::from_serialize(v),
                     Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
@@ -305,7 +305,7 @@ impl<'a> Task<'a> {
     }
 
     fn render_environment(&self, vars: &Value) -> Result<Vec<(String, String)>> {
-        trace!("environment: {:?}", &self.environment);
+        trace!("environment: {:?}", self.environment);
         match &self.environment {
             Some(env_yaml) => {
                 let extended_vars = self.extend_vars(vars.clone())?;
@@ -342,7 +342,7 @@ impl<'a> Task<'a> {
     }
 
     fn is_exec(&self, vars: &Value) -> Result<bool> {
-        trace!("when: {:?}", &self.when);
+        trace!("when: {:?}", self.when);
         match &self.when {
             Some(s) => {
                 let extended_vars = self.extend_vars(vars.clone())?;
@@ -384,7 +384,7 @@ impl<'a> Task<'a> {
     }
 
     fn is_changed(&self, result: &ModuleResult, vars: &Value) -> Result<bool> {
-        trace!("changed_when: {:?}", &self.changed_when);
+        trace!("changed_when: {:?}", self.changed_when);
         match &self.changed_when {
             Some(s) => is_render_string(s, vars),
             None => Ok(result.get_changed()),
@@ -392,7 +392,7 @@ impl<'a> Task<'a> {
     }
 
     fn is_until_satisfied(&self, vars: &Value) -> Result<bool> {
-        trace!("until: {:?}", &self.until);
+        trace!("until: {:?}", self.until);
         match &self.until {
             Some(s) => is_render_string(s, vars),
             None => Ok(true),
@@ -600,7 +600,7 @@ impl<'a> Task<'a> {
                             }
 
                             let register_vars = self.register.clone().map(|register| {
-                                trace!("register {:?} in {:?}", &result, register);
+                                trace!("register {:?} in {:?}", result, register);
                                 [(register, Value::from_serialize(&result))]
                                     .into_iter()
                                     .collect::<Value>()
@@ -854,7 +854,7 @@ impl<'a> Task<'a> {
                 }
 
                 let register_vars = self.register.clone().map(|register| {
-                    trace!("register {:?} in {:?}", &result, register);
+                    trace!("register {:?} in {:?}", result, register);
                     [(register, Value::from_serialize(&result))]
                         .into_iter()
                         .collect::<Value>()
@@ -1318,7 +1318,7 @@ impl<'a> Task<'a> {
 
         for item in self.render_iterator(vars.clone())?.into_iter() {
             let ctx = context! {item => &item, ..vars.clone()};
-            trace!("pre execute loop: {:?}", &ctx);
+            trace!("pre execute loop: {:?}", ctx);
             let exec_result = self.exec_module(ctx)?;
             if exec_result.get_changed() {
                 changed = true;
@@ -1329,7 +1329,7 @@ impl<'a> Task<'a> {
             if let Some(v) = exec_result.take_vars() {
                 all_new_vars = context! {..all_new_vars, ..v};
             }
-            trace!("post execute loop: {:?}", &all_new_vars);
+            trace!("post execute loop: {:?}", all_new_vars);
         }
 
         let final_vars = if all_new_vars == context! {} {
@@ -1352,7 +1352,7 @@ impl<'a> Task<'a> {
 
         for item in self.render_iterator(vars.clone())?.into_iter() {
             let ctx = context! {item => &item, ..vars.clone()};
-            trace!("pre execute loop with retry: {:?}", &ctx);
+            trace!("pre execute loop with retry: {:?}", ctx);
             let exec_result = self.exec_with_retry(ctx)?;
             if exec_result.get_changed() {
                 changed = true;
@@ -1363,7 +1363,7 @@ impl<'a> Task<'a> {
             if let Some(v) = exec_result.take_vars() {
                 all_new_vars = context! {..all_new_vars, ..v};
             }
-            trace!("post execute loop with retry: {:?}", &all_new_vars);
+            trace!("post execute loop with retry: {:?}", all_new_vars);
         }
 
         let final_vars = if all_new_vars == context! {} {

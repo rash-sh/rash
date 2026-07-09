@@ -250,19 +250,19 @@ fn create_filesystem(params: Params, check_mode: bool) -> Result<ModuleResult> {
             ErrorKind::InvalidData,
             format!(
                 "Device {} already has a filesystem. Use force=true to overwrite.",
-                &params.dev
+                params.dev
             ),
         ));
     }
 
     if has_fs && params.force {
         diff(
-            format!("filesystem: present on {}", &params.dev),
+            format!("filesystem: present on {}", params.dev),
             format!("filesystem: {} (will overwrite)", params.fstype.as_str()),
         );
     } else {
         diff(
-            format!("filesystem: absent on {}", &params.dev),
+            format!("filesystem: absent on {}", params.dev),
             format!("filesystem: {}", params.fstype.as_str()),
         );
     }
