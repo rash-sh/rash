@@ -577,12 +577,8 @@ fn convert_json_to_minijinja_value(
         serde_json::Value::Object(obj) => {
             let mut map = std::collections::BTreeMap::new();
             for (key, value) in obj.iter() {
-                match convert_json_to_minijinja_value(value) {
-                    Ok(v) => {
-                        map.insert(key.clone(), v);
-                    }
-                    Err(e) => return Err(e),
-                }
+                let v = convert_json_to_minijinja_value(value)?;
+                map.insert(key.clone(), v);
             }
             Ok(Value::from_serialize(&map))
         }

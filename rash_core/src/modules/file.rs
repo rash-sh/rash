@@ -84,7 +84,7 @@ fn fail_if_not_exist(params: Params) -> Result<ModuleResult> {
         }),
         Err(_) => Err(Error::new(
             ErrorKind::NotFound,
-            format!("file {} is absent, cannot continue", &params.path),
+            format!("file {} is absent, cannot continue", params.path),
         )),
     }
 }
@@ -193,10 +193,7 @@ fn define_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
                 } else {
                     return Err(Error::new(
                         ErrorKind::InvalidData,
-                        format!(
-                            "file {} is unknown type and cannot be removed",
-                            &params.path
-                        ),
+                        format!("file {} is unknown type and cannot be removed", params.path),
                     ));
                 }
                 Ok(ModuleResult {
