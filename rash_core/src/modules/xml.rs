@@ -273,13 +273,9 @@ fn find_node_idx(root: &XmlNode, path_parts: &[&str]) -> Option<Vec<usize>> {
     let mut path = Vec::new();
 
     for part in path_parts {
-        match current.children.iter().position(|c| c.name == *part) {
-            Some(idx) => {
-                path.push(idx);
-                current = &current.children[idx];
-            }
-            None => return None,
-        }
+        let idx = current.children.iter().position(|c| c.name == *part)?;
+        path.push(idx);
+        current = &current.children[idx];
     }
 
     Some(path)

@@ -391,7 +391,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let open_read_file = OpenOptions::new().read(true).clone();
     let read_file = open_read_file.open(&params.dest).or_else(|_| {
         if !check_mode {
-            trace!("file does not exists, create new one: {:?}", &params.dest);
+            trace!("file does not exists, create new one: {:?}", params.dest);
             open_read_file
                 .clone()
                 .write(true)
@@ -420,7 +420,7 @@ pub fn copy_file(params: Params, check_mode: bool) -> Result<ModuleResult> {
         diff_files(&content, &desired_content);
 
         if !check_mode {
-            trace!("changing content: {:?}", &desired_content);
+            trace!("changing content: {:?}", desired_content);
             if dest_permissions.readonly() {
                 let mut p = dest_permissions.clone();
                 // enable write

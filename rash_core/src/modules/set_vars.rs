@@ -71,7 +71,7 @@ impl Module for SetVars {
                         let key = hash_map.0.as_str().ok_or_else(|| {
                             Error::new(
                                 ErrorKind::InvalidData,
-                                format!("{:?} is not a valid string", &hash_map.0),
+                                format!("{:?} is not a valid string", hash_map.0),
                             )
                         })?;
                         let value: Value = [(
@@ -88,7 +88,7 @@ impl Module for SetVars {
             _ => {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
-                    format!("{:?} must be a dict", &params),
+                    format!("{:?} must be a dict", params),
                 ));
             }
         }

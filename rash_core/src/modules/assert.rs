@@ -51,7 +51,7 @@ fn verify_conditions(params: Params, vars: &Value) -> Result<ModuleResult> {
         } else {
             Err(Error::new(
                 ErrorKind::Other,
-                format!("{} expression is false", &expression),
+                format!("{} expression is false", expression),
             ))
         }
     })?;

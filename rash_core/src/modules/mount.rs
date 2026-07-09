@@ -239,7 +239,7 @@ impl MountClient {
             if self.check_mode {
                 diff(
                     "path: absent",
-                    format!("path: {} (will be created)", &params.path),
+                    format!("path: {} (will be created)", params.path),
                 );
             } else {
                 std::fs::create_dir_all(path)?;
@@ -247,8 +247,8 @@ impl MountClient {
         }
 
         diff(
-            format!("state: unmounted ({})", &params.path),
-            format!("state: mounted ({})", &params.path),
+            format!("state: unmounted ({})", params.path),
+            format!("state: mounted ({})", params.path),
         );
 
         if self.check_mode {

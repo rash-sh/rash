@@ -129,17 +129,28 @@ jobs:
 
       - name: Install UPX
         if: contains(matrix.job.target, 'linux')
+        shell: bash
         run: |
+          set -euo pipefail
+          UPX_VERSION="5.2.0"
           ARCH=$(echo "${{ matrix.job.target }}" | cut -d- -f1)
           case "$ARCH" in
             x86_64)  UPX_ARCH="amd64" ;;
             aarch64) UPX_ARCH="arm64" ;;
             *)       echo "Unsupported arch: $ARCH"; exit 1 ;;
           esac
-          curl -fsSL "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-${UPX_ARCH}_linux.tar.xz" -o upx.tar.xz
-          tar -xf upx.tar.xz
-          sudo mv "upx-4.2.4-${UPX_ARCH}_linux/upx" /usr/local/bin/
-          rm -rf upx.tar.xz "upx-4.2.4-${UPX_ARCH}_linux"
+          for i in 1 2 3 4 5; do
+            if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+              "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-${UPX_ARCH}_linux.tar.xz" \
+              -o /tmp/upx.tar.xz; then
+              break
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          tar -xJf /tmp/upx.tar.xz -C /tmp
+          sudo mv /tmp/upx-${UPX_VERSION}-${UPX_ARCH}_linux/upx /usr/local/bin/upx
+          upx --version
 
       - name: Make release
         id: package
