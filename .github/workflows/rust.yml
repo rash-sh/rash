@@ -133,9 +133,15 @@ jobs:
         run: |
           set -euo pipefail
           UPX_VERSION="5.2.0"
+          ARCH=$(echo "${{ matrix.job.target }}" | cut -d- -f1)
+          case "$ARCH" in
+            x86_64)  UPX_ARCH="amd64" ;;
+            aarch64) UPX_ARCH="arm64" ;;
+            *)       echo "Unsupported arch: $ARCH"; exit 1 ;;
+          esac
           for i in 1 2 3 4 5; do
             if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
-              "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz" \
+              "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-${UPX_ARCH}_linux.tar.xz" \
               -o /tmp/upx.tar.xz; then
               break
             fi
@@ -143,7 +149,7 @@ jobs:
             sleep 10
           done
           tar -xJf /tmp/upx.tar.xz -C /tmp
-          sudo mv /tmp/upx-${UPX_VERSION}-amd64_linux/upx /usr/local/bin/upx
+          sudo mv /tmp/upx-${UPX_VERSION}-${UPX_ARCH}_linux/upx /usr/local/bin/upx
           upx --version
 
       - name: Make release
