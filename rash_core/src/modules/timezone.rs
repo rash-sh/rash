@@ -87,6 +87,13 @@ fn timezone_file_exists(name: &str) -> Result<bool> {
 }
 
 fn set_timezone(name: &str, check_mode: bool) -> Result<ModuleResult> {
+    if name.is_empty() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Timezone name cannot be empty".to_string(),
+        ));
+    }
+
     if !timezone_file_exists(name)? {
         return Err(Error::new(
             ErrorKind::InvalidData,
