@@ -38,6 +38,6 @@
   lineinfile:
     path: "{{ group_file }}"
     regexp: "^{{ groupname }}:"
-    line: "{{ groupname }}:x:{{ current_parts[0] if (options.gid | string) == 'none' else options.gid }}:{{ current_parts[1] }}"
+    line: "{{ groupname }}:x:{{ current_parts[0] if (options.gid | string) == 'None' else options.gid }}:{{ current_parts[1] }}"
     state: present
   when: group_exists

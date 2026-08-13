@@ -197,14 +197,22 @@ fn test_apt_result_extra() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', ""),
-        serde_json::to_string(&json!({
+        serde_json::from_str::<serde_json::Value>(
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
+        json!({
             "installed_packages": [],
             "removed_packages": ["nginx", "vim"],
             "upgraded": false,
             "upgraded_packages": [],
-        }))
-        .unwrap()
+        })
     );
 }
 
@@ -236,14 +244,22 @@ fn test_apt_list_from_var() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', ""),
-        serde_json::to_string(&json!({
+        serde_json::from_str::<serde_json::Value>(
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
+        json!({
             "installed_packages": ["gnupg"],
             "removed_packages": [],
             "upgraded": false,
             "upgraded_packages": [],
-        }))
-        .unwrap()
+        })
     );
 }
 

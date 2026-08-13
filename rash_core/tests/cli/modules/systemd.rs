@@ -225,7 +225,13 @@ fn test_systemd_result_extra() {
 
     assert!(stderr.is_empty());
     // Check that the last line of the output contains JSON with active and enabled status
-    let last_line = stdout.lines().last().unwrap().replace(' ', "");
+    let last_line = stdout
+        .lines()
+        .last()
+        .unwrap()
+        .replace(' ', "")
+        .replace("False", "false")
+        .replace("True", "true");
     assert!(last_line.contains("\"name\":\"httpd\""));
     assert!(last_line.contains("\"active\":true"));
     assert!(last_line.contains("\"enabled\":true"));

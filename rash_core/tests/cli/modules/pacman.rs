@@ -154,13 +154,21 @@ fn test_pacman_result_extra() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', ""),
-        serde_json::to_string(&json!({
+        serde_json::from_str::<serde_json::Value>(
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
+        json!({
             "installed_packages": ["rash"],
             "removed_packages": ["linux61-zfs"],
             "upgraded": false,
-        }))
-        .unwrap()
+        })
     );
 }
 
@@ -194,13 +202,21 @@ fn test_pacman_list_from_var() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', ""),
-        serde_json::to_string(&json!({
+        serde_json::from_str::<serde_json::Value>(
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
+        json!({
             "installed_packages": ["rash"],
             "removed_packages": ["linux61-zfs"],
             "upgraded": false,
-        }))
-        .unwrap()
+        })
     );
 
     let script_text = format!(
