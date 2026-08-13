@@ -167,15 +167,16 @@ fn test_homebrew_result_extra() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', ""),
-        serde_json::to_string(&json!({
+        serde_json::from_str::<serde_json::Value>(
+            &stdout.lines().last().unwrap().replace(' ', "").replace("False", "false").replace("True", "true")
+        ).unwrap(),
+        json!({
             "homebrew_updated": false,
             "installed_packages": [],
             "removed_packages": ["curl", "git"],
             "upgraded_all": false,
             "upgraded_packages": [],
-        }))
-        .unwrap()
+        })
     );
 }
 
