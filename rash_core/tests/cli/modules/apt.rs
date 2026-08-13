@@ -198,8 +198,15 @@ fn test_apt_result_extra() {
     assert!(stderr.is_empty());
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(
-            &stdout.lines().last().unwrap().replace(' ', "").replace("False", "false").replace("True", "true")
-        ).unwrap(),
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
         json!({
             "installed_packages": [],
             "removed_packages": ["nginx", "vim"],
@@ -238,8 +245,15 @@ fn test_apt_list_from_var() {
     assert!(stderr.is_empty());
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(
-            &stdout.lines().last().unwrap().replace(' ', "").replace("False", "false").replace("True", "true")
-        ).unwrap(),
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
         json!({
             "installed_packages": ["gnupg"],
             "removed_packages": [],

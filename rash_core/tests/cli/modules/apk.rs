@@ -112,8 +112,15 @@ fn test_apk_result_extra() {
     assert!(stderr.is_empty());
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(
-            &stdout.lines().last().unwrap().replace(' ', "").replace("False", "false").replace("True", "true")
-        ).unwrap(),
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
         json!({
             "cache_updated": false,
             "installed_packages": [],
@@ -152,8 +159,15 @@ fn test_apk_list_from_var() {
     assert!(stderr.is_empty());
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(
-            &stdout.lines().last().unwrap().replace(' ', "").replace("False", "false").replace("True", "true")
-        ).unwrap(),
+            &stdout
+                .lines()
+                .last()
+                .unwrap()
+                .replace(' ', "")
+                .replace("False", "false")
+                .replace("True", "true")
+        )
+        .unwrap(),
         json!({
             "cache_updated": false,
             "installed_packages": ["nginx", "postgresql-client"],

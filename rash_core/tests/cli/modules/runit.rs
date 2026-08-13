@@ -148,7 +148,13 @@ fn test_runit_result_extra() {
     let (stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
-    let last_line = stdout.lines().last().unwrap().replace(' ', "").replace("False", "false").replace("True", "true");
+    let last_line = stdout
+        .lines()
+        .last()
+        .unwrap()
+        .replace(' ', "")
+        .replace("False", "false")
+        .replace("True", "true");
     assert!(last_line.contains("\"name\":\"nginx\""));
     assert!(last_line.contains("\"enabled\":true"));
 }
