@@ -27,6 +27,6 @@
 - name: Add group to group file
   lineinfile:
     path: "{{ group_file }}"
-    line: "{{ groupname }}:x:{{ ('999' if options.system else '1000') if (options.gid | string) == 'none' else options.gid }}:"
+    line: "{{ groupname }}:x:{{ ('999' if options.system else '1000') if (options.gid | string) == 'None' else options.gid }}:"
     state: present
   when: not group_exists

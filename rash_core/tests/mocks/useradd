@@ -35,6 +35,6 @@
 - name: Add user to passwd file
   lineinfile:
     path: "{{ passwd_file }}"
-    line: "{{ username }}:x:{{ ('999' if options.system else '1000') if (options.uid | string) == 'none' else options.uid }}:{{ ('999' if options.system else '1000') if (options.gid | string) == 'none' else options.gid }}:{{ '' if (options.comment | string) == 'none' else options.comment }}:{{ ('/var/lib/' + username if options.system else '/home/' + username) if (options.home | string) == 'none' else options.home }}:{{ '/bin/sh' if (options.shell | string) == 'none' else options.shell }}"
+    line: "{{ username }}:x:{{ ('999' if options.system else '1000') if (options.uid | string) == 'None' else options.uid }}:{{ ('999' if options.system else '1000') if (options.gid | string) == 'None' else options.gid }}:{{ '' if (options.comment | string) == 'None' else options.comment }}:{{ ('/var/lib/' + username if options.system else '/home/' + username) if (options.home | string) == 'None' else options.home }}:{{ '/bin/sh' if (options.shell | string) == 'None' else options.shell }}"
     state: present
   when: not user_exists

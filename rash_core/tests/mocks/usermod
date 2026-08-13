@@ -45,6 +45,6 @@
   lineinfile:
     path: "{{ passwd_file }}"
     regexp: "^{{ username }}:"
-    line: "{{ username }}:x:{{ current_parts[0] if (options.uid | string) == 'none' else options.uid }}:{{ current_parts[1] if (options.gid | string) == 'none' else options.gid }}:{{ current_parts[2] if (options.comment | string) == 'none' else options.comment }}:{{ current_parts[3] if (options.home | string) == 'none' else options.home }}:{{ current_parts[4] if (options.shell | string) == 'none' else options.shell }}"
+    line: "{{ username }}:x:{{ current_parts[0] if (options.uid | string) == 'None' else options.uid }}:{{ current_parts[1] if (options.gid | string) == 'None' else options.gid }}:{{ current_parts[2] if (options.comment | string) == 'None' else options.comment }}:{{ current_parts[3] if (options.home | string) == 'None' else options.home }}:{{ current_parts[4] if (options.shell | string) == 'None' else options.shell }}"
     state: present
   when: user_exists
