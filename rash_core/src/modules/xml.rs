@@ -144,7 +144,7 @@ fn parse_xml_to_tree(content: &str) -> Result<XmlNode> {
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
 
                 let parent = get_node_at_path(&mut root, &path);
                 let idx = parent.get_or_create_child(&name);
@@ -153,20 +153,20 @@ fn parse_xml_to_tree(content: &str) -> Result<XmlNode> {
                 let node = get_node_at_path(&mut root, &path);
 
                 for attr in e.attributes().flatten() {
-                    let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                    let value = String::from_utf8_lossy(&attr.value).to_string();
+                    let key = attr.key.as_ref().to_string();
+                    let value = attr.value.to_string();
                     node.attributes.insert(key, value);
                 }
 
                 text_buffer.clear();
             }
             Ok(Event::Empty(e)) => {
-                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                let name = e.name().as_ref().to_string();
                 let mut node = XmlNode::new(name);
 
                 for attr in e.attributes().flatten() {
-                    let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                    let value = String::from_utf8_lossy(&attr.value).to_string();
+                    let key = attr.key.as_ref().to_string();
+                    let value = attr.value.to_string();
                     node.attributes.insert(key, value);
                 }
 
@@ -184,10 +184,10 @@ fn parse_xml_to_tree(content: &str) -> Result<XmlNode> {
                 path.pop();
             }
             Ok(Event::Text(e)) => {
-                text_buffer.push_str(&String::from_utf8_lossy(&e));
+                text_buffer.push_str(e.as_ref());
             }
             Ok(Event::CData(e)) => {
-                text_buffer.push_str(&String::from_utf8_lossy(&e));
+                text_buffer.push_str(e.as_ref());
             }
             Ok(Event::Decl(_)) => {}
             Ok(Event::Eof) => break,
