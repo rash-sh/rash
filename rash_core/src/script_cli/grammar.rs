@@ -256,7 +256,7 @@ impl Parser {
     fn parse_alternative(&mut self) -> Result<Expr> {
         let mut branches = vec![self.parse_sequence()?];
         while self.consume_if(&Token::Pipe) {
-            branches.push(self.parse_sequence()?];
+            branches.push(self.parse_sequence()?);
         }
         Ok(if branches.len() == 1 {
             branches.pop().unwrap()
