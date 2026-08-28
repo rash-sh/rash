@@ -2,6 +2,7 @@ mod grammar;
 mod matcher;
 mod options;
 
+use regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::error::{Error, ErrorKind, Result};
@@ -167,14 +168,12 @@ fn value_enabled(value: Option<&Value>) -> bool {
 }
 
 fn parse_help(file: &str) -> String {
+    let re = Regex::new(r"#(.*)").unwrap();
     file.split('\n')
         .skip(1)
-        .map_while(|line| {
-            line.find('#')
-                .map(|position| line[position + 1..].to_owned())
-        })
-        .filter(|line| !line.starts_with('!'))
-        .map(|line| line.strip_prefix(' ').unwrap_or(&line).to_owned())
+        .map_while(|line| re.captures(line))
+        .filter(|cap| !cap[1].starts_with('!'))
+        .map(|cap| cap[1].to_owned().replacen(' ', "", 1))
         .chain([
             "Note: Options must be preceded by `--`. If not, you are passing options directly to rash."
                 .to_owned(),
@@ -185,36 +184,27 @@ fn parse_help(file: &str) -> String {
         .join("\n")
 }
 
+fn parse_usage_multiline(doc: &str) -> Option<Vec<String>> {
+    let re = Regex::new(r"(?mi)Usage:\n((.|\n)*?(^[a-z\n]|\z))").unwrap();
+    let re_rm_indentation = Regex::new(r"\s+(.*)").unwrap();
+    let cap = re.captures_iter(doc).next()?;
+    Some(
+        cap[1]
+            .split('\n')
+            .map_while(|line| re_rm_indentation.captures(line))
+            .map(|cap| cap[1].to_owned())
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn parse_usage_one_line(doc: &str) -> Option<Vec<String>> {
+    let re = Regex::new(r"(?i)Usage:\s+(.*)\n").unwrap();
+    let cap = re.captures_iter(doc).next()?;
+    Some(vec![cap[1].to_owned()])
+}
+
 fn parse_usage(doc: &str) -> Option<Vec<String>> {
-    let lines = doc.lines().collect::<Vec<_>>();
-    for (index, line) in lines.iter().enumerate() {
-        let trimmed = line.trim_start();
-        if !trimmed
-            .get(..6)
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("usage:"))
-        {
-            continue;
-        }
-
-        let first = trimmed[6..].trim();
-        if !first.is_empty() {
-            return Some(vec![first.to_owned()]);
-        }
-
-        let mut usages = Vec::new();
-        for next in lines.iter().skip(index + 1) {
-            if next.trim().is_empty() {
-                break;
-            }
-            if next.chars().next().is_some_and(char::is_whitespace) {
-                usages.push(next.trim().to_owned());
-            } else {
-                break;
-            }
-        }
-        return (!usages.is_empty()).then_some(usages);
-    }
-    None
+    parse_usage_multiline(doc).or_else(|| parse_usage_one_line(doc))
 }
 
 #[cfg(test)]
