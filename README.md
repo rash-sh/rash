@@ -9,22 +9,47 @@
 ![Rash license](https://img.shields.io/github/license/rash-sh/rash)
 [![Rash Aur package](https://img.shields.io/aur/version/rash)](https://aur.archlinux.org/packages/rash)
 
-Rash is a lightweight, container-friendly shell scripting language that uses a declarative YAML
-syntax inspired by [Ansible](https://www.ansible.com/). It brings the simplicity and readability of
-Ansible playbooks to local scripting and container entrypoints, all in a single Rust binary with no
-dependencies.
+Rash is a **declarative local automation tool** for the work that too often ends up in large shell
+scripts: validating inputs, rendering configuration, preparing a container, bootstrapping an
+environment, or keeping a workstation setup reproducible.
+
+It combines YAML tasks with [MiniJinja](https://github.com/mitsuhiko/minijinja) templating and ships
+as a single Rust binary with no runtime dependencies. Its syntax is intentionally familiar to
+[Ansible](https://www.ansible.com/) users, but Rash is designed to execute locally as a scripting
+tool rather than as an inventory-driven orchestration system.
+
+## Where Rash Fits
+
+Rash is designed for automation that runs **here**, in a container, VM, CI job, developer machine,
+or other local execution environment. Typical use cases include:
+
+- **Container entrypoints and init containers**: validate environment, render runtime configuration,
+  prepare local state, and hand off execution to the application
+- **Bootstrap and setup scripts**: make repeatable machine, development environment, or CI setup
+  easier to read and maintain than equivalent shell
+- **Workstation and dotfile automation**: express local desired state with templates, conditions,
+  loops, privilege escalation, and reusable modules
+- **Operational glue**: replace increasingly complex shell scripts with structured tasks and
+  explicit change/error handling
+
+Rash borrows syntax and concepts from Ansible because they work well for declarative tasks. That
+familiarity is an ergonomic choice, not a compatibility target: Rash does not aim to implement
+Ansible inventories, remote fleet orchestration, or module parity.
 
 ## Why Rash?
 
-- **Declarative vs Imperative**: Define what your script should accomplish, not how
-- **Container-Optimized**: Single binary with no dependencies, perfect for minimal containers
-- **Lightweight**: Runs on any Linux system, even resource-constrained IoT devices
+- **Local-First**: Designed for scripts that execute on the machine or container where they run
+- **Declarative**: Describe the state or outcome you want instead of encoding every shell step
+- **Self-Contained**: A single Rust binary with no runtime dependencies
+- **Container-Friendly**: Well suited to minimal images, entrypoints, and init containers
 - **Template-Powered**: Uses [MiniJinja](https://github.com/mitsuhiko/minijinja) for powerful
   templating capabilities
-- **Intuitive Syntax**: Familiar YAML structure for those who know Ansible
-- **Built-in Command-Line Parsing**: Elegant [docopt](http://docopt.org) implementation for clean
-  script interfaces
-- **Modular Design**: Focused modules for different tasks
+- **Script-Friendly Interfaces**: Built-in [docopt](http://docopt.org) parsing for clean command-line
+  interfaces
+- **Familiar, Not Coupled**: Ansible-inspired YAML without requiring Ansible's runtime or execution
+  model
+- **Useful Local Primitives**: Modules provide structured building blocks for common automation
+  tasks without forcing everything through shell commands
 
 ## Example: Imperative vs Declarative
 
@@ -157,8 +182,8 @@ docker run --rm -v /usr/local/bin/:/output --entrypoint /bin/cp ghcr.io/rash-sh/
 
 ### Container Entrypoints
 
-Perfect for creating maintainable container entrypoints that handle environment validation,
-configuration management, and service initialization:
+Perfect for creating maintainable container entrypoints that validate the environment, render
+runtime configuration, perform local initialization, and hand off execution to the application:
 
 ```dockerfile
 FROM alpine:3.16
