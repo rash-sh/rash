@@ -6,7 +6,6 @@ use serde_json::{Map, Value};
 
 use crate::error::{Error, ErrorKind, Result};
 
-use super::grammar::is_lower_word;
 use super::{InputToken, Token};
 
 static RE_DEFAULT_VALUE: LazyLock<Regex> =
@@ -352,18 +351,6 @@ impl OptionRegistry {
         for word in words {
             if word.starts_with("--") && word != "--" {
                 let (name, has_value) = split_option_declaration(&word);
-                let Some(identifier) = name.strip_prefix("--") else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Invalid long option in usage: {name}"),
-                    ));
-                };
-                if !is_lower_word(identifier) {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Invalid long option in usage: {name}"),
-                    ));
-                }
                 self.upsert(OptionSpec {
                     short: None,
                     long: Some(name),
@@ -383,12 +370,6 @@ impl OptionRegistry {
         for (offset, ch) in body.char_indices() {
             if ch == '=' {
                 break;
-            }
-            if !ch.is_ascii_lowercase() {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Invalid short option in usage: -{ch}"),
-                ));
             }
             let alias = format!("-{ch}");
             let next_offset = offset + ch.len_utf8();
@@ -632,14 +613,6 @@ mod tests {
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let tokens = registry.tokenize_usage(&usages[0]).unwrap();
         assert_eq!(tokens.iter().filter(|token| matches!(token, Token::Atom(_))).count(), 0);
-    }
-
-    #[test]
-    fn rejects_usage_option_identifiers_outside_legacy_grammar() {
-        for usage in ["tool [--Foo]", "tool [--foo2]", "tool [-X]"] {
-            let registry = OptionRegistry::from_doc(usage, &[usage.to_owned()]);
-            assert!(registry.is_err(), "usage={usage}");
-        }
     }
 
     #[test]
