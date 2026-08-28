@@ -80,7 +80,10 @@ fn build_vars(
     let mut root = Map::new();
 
     if !options.is_empty() {
-        root.insert("options".to_owned(), Value::Object(options.initial_options()));
+        root.insert(
+            "options".to_owned(),
+            Value::Object(options.initial_options()),
+        );
     }
 
     for (command, repeated) in &metadata.command_repeated {
@@ -97,7 +100,12 @@ fn build_vars(
     for capture in captures {
         match capture {
             Capture::Command(key) => {
-                if metadata.command_repeated.get(&key).copied().unwrap_or(false) {
+                if metadata
+                    .command_repeated
+                    .get(&key)
+                    .copied()
+                    .unwrap_or(false)
+                {
                     let count = root.get(&key).and_then(Value::as_u64).unwrap_or_default() + 1;
                     root.insert(key, Value::from(count));
                 } else {
@@ -129,7 +137,10 @@ fn build_vars(
                     .get_mut("options")
                     .and_then(Value::as_object_mut)
                     .ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, "Option capture without options context")
+                        Error::new(
+                            ErrorKind::InvalidData,
+                            "Option capture without options context",
+                        )
                     })?;
                 options.apply_capture(options_value, id, value.as_deref())?;
             }
@@ -178,7 +189,10 @@ fn parse_usage(doc: &str) -> Option<Vec<String>> {
     let lines = doc.lines().collect::<Vec<_>>();
     for (index, line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
-        if trimmed.len() < 6 || !trimmed[..6].eq_ignore_ascii_case("usage:") {
+        if !trimmed
+            .get(..6)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("usage:"))
+        {
             continue;
         }
 
@@ -192,7 +206,7 @@ fn parse_usage(doc: &str) -> Option<Vec<String>> {
             if next.trim().is_empty() {
                 break;
             }
-            if next.starts_with(char::is_whitespace) {
+            if next.chars().next().is_some_and(char::is_whitespace) {
                 usages.push(next.trim().to_owned());
             } else {
                 break;
@@ -213,7 +227,9 @@ mod tests {
         match (legacy, compiled) {
             (Ok(legacy), Ok(compiled)) => assert_eq!(compiled, legacy),
             (Err(legacy), Err(compiled)) => assert_eq!(compiled.kind(), legacy.kind()),
-            (legacy, compiled) => panic!("parser mismatch: legacy={legacy:?} compiled={compiled:?}"),
+            (legacy, compiled) => {
+                panic!("parser mismatch: legacy={legacy:?} compiled={compiled:?}")
+            }
         }
     }
 
@@ -372,7 +388,9 @@ mod tests {
 # Usage: tool <file>...
 #
 "#;
-        let owned = (0..10_000).map(|value| value.to_string()).collect::<Vec<_>>();
+        let owned = (0..10_000)
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>();
         let args = owned.iter().map(String::as_str).collect::<Vec<_>>();
         let result = parse(file, &args).unwrap();
         assert_eq!(result["file"].as_array().unwrap().len(), 10_000);
