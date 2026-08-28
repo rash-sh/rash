@@ -34,6 +34,7 @@ These invariants are release gates, not preferences.
 - **Equivalent paths are allowed.** Multiple paths producing identical bindings are not considered ambiguous.
 - **Normalized options preserve aliases.** Short and long forms must resolve to one logical option and output key.
 - **Help still participates in grammar matching.** A declared logical help option may satisfy a positional slot, matching legacy Rash behavior, but it must not globally make an otherwise impossible argv valid.
+- **The replacement does not silently widen the grammar.** Legacy-invalid command, positional, and usage-option identifiers remain invalid unless an intentional syntax change is reviewed separately.
 - **Production switchover is last.** `rash` keeps calling the legacy parser until compatibility and performance gates pass.
 
 ## Phase 0 — Contract capture and baseline
@@ -86,6 +87,7 @@ These invariants are release gates, not preferences.
 - [x] Normalize adjacent optional options into an unordered option group instead of generating permutations.
 - [x] Analyze symbol multiplicity without expanding patterns.
 - [x] Preserve normalized variable names for dashed commands/positionals.
+- [x] Preserve the legacy lexical domain for command and positional identifiers instead of accepting broader arbitrary atoms.
 
 ### Correctness checks
 
@@ -109,12 +111,12 @@ These invariants are release gates, not preferences.
 ### Work
 
 - [x] Build a single registry for short/long aliases.
-- [x] Parse option defaults and value arity from declarations/help text.
-- [x] Infer value arity from `Usage:` adjacency when no option description supplies it (`-o FILE`, `--env VALUE`, and a value-bearing option at the tail of a short cluster).
+- [x] Parse option defaults and value arity from declarations/help text and inline option syntax.
 - [x] Allow a description to define value arity even when `Usage:` omits the value placeholder, preserving legacy behavior such as `[--type]` plus `--type=TYPE` in the option description.
+- [x] Do **not** infer new value arity merely from an adjacent non-option word in `Usage:` when no declaration supplies it; legacy Rash does not do that.
 - [x] Normalize:
   - `--name=value`;
-  - `--name value`;
+  - `--name value` when the option is known to take a value;
   - short aliases;
   - short clusters;
   - a value-bearing option at the end of a short cluster.
@@ -122,12 +124,14 @@ These invariants are release gates, not preferences.
 - [x] Keep repeated simple flags available to the grammar instead of rejecting them globally.
 - [x] Scope `[options]` per usage pattern.
 - [x] Track the logical help option identity without bypassing matching.
+- [x] Reject usage option identifiers outside the legacy lowercase ASCII word grammar.
 
 ### Exit criteria
 
 - Matching consumes normalized logical option tokens, not raw spelling variants.
 - Alias spelling does not change output shape.
 - Unknown options produce the same error class as the legacy parser.
+- Registry discovery does not silently reinterpret legacy-simple options as value-bearing options.
 
 **Status:** complete, pending differential results.
 
@@ -186,8 +190,9 @@ These invariants are release gates, not preferences.
 - [x] repeated commands/count output parity;
 - [x] optional repeat forms (`[<x>...]` and `[<x>]...`);
 - [x] bounded exhaustive generated argv spaces for representative small grammars;
+- [x] malformed command/positional/usage-option identifier parity cases;
 - [ ] all legacy parser unit-test scenarios mirrored or exercised through the differential suite;
-- [ ] malformed declarations and error-path parity where compatibility matters;
+- [ ] remaining malformed declarations and error-path parity where compatibility matters;
 - [ ] broader fuzz/property-generated grammars if the bounded exhaustive suite reveals gaps worth generalizing.
 
 ### Delta policy
@@ -333,10 +338,10 @@ Updated: 2026-08-28
 | Phase | State | Notes |
 | --- | --- | --- |
 | 0. Contract/baseline | Complete | Legacy kept as oracle; differential and Criterion harnesses exist. |
-| 1. Grammar model | Complete / CI validation | AST and multiplicity analysis implemented. |
-| 2. Options/argv normalization | Complete / parity validation | Includes aliases, clusters, value arity from descriptions and usage adjacency, `[options]`, and logical help identity. |
+| 1. Grammar model | Complete / CI validation | AST, multiplicity analysis, and legacy identifier grammar are implemented. |
+| 2. Options/argv normalization | Complete / parity validation | Includes aliases, clusters, declaration-driven value arity, `[options]`, logical help identity, and legacy usage-option identifier validation. |
 | 3. Compiled matcher | In progress | Epsilon-NFA, persistent captures, ambiguity detection, and positional help semantics implemented; candidate/nullable-cycle hardening remains. |
-| 4. Differential compatibility | In progress | Legacy matrices plus bounded exhaustive argv enumeration are committed; full semantic CI is the immediate gate. |
+| 4. Differential compatibility | In progress | Legacy matrices, malformed-grammar cases, and bounded exhaustive argv enumeration are committed; full semantic CI is the immediate gate. |
 | 5. Performance | In progress | Side-by-side benchmarks added; numbers and optimizations pending. |
 | 6. Production integration | Blocked on phases 4–5 | No runtime switch yet. |
 | 7. Documentation | Not started | Starts after semantics stabilize. |
