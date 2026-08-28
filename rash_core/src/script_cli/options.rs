@@ -74,10 +74,10 @@ impl OptionRegistry {
     }
 
     pub fn is_positional_help(&self, id: usize) -> bool {
-        self.specs.get(id).is_some_and(|spec| {
-            spec.long.as_deref() == Some("--help")
-                || (spec.long.is_none() && spec.short.as_deref() == Some("-h"))
-        })
+        self.is_help(id)
+            || self.specs.get(id).is_some_and(|spec| {
+                spec.long.is_none() && spec.short.as_deref() == Some("-h")
+            })
     }
 
     pub fn set_repeatable(&mut self, ids: &HashSet<usize>) -> Result<()> {
