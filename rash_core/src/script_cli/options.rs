@@ -109,15 +109,9 @@ impl OptionRegistry {
         while i < tokens.len() {
             match &tokens[i] {
                 Token::Atom(atom) if atom.starts_with('-') => {
-                    let (option_ids, consume_next) = self.expand_usage_option(atom)?;
+                    let (option_ids, takes_separate_value) = self.expand_usage_option(atom)?;
                     out.extend(option_ids.into_iter().map(Token::Option));
-                    if consume_next {
-                        let Some(Token::Atom(_)) = tokens.get(i + 1) else {
-                            return Err(Error::new(
-                                ErrorKind::InvalidData,
-                                format!("Option {atom} requires a value placeholder in usage"),
-                            ));
-                        };
+                    if takes_separate_value && is_usage_value_placeholder(tokens.get(i + 1)) {
                         i += 1;
                     }
                 }
@@ -415,7 +409,7 @@ impl OptionRegistry {
 
         let body = atom.strip_prefix('-').unwrap_or(atom);
         let mut ids = Vec::new();
-        let mut consume_next = false;
+        let mut takes_separate_value = false;
         for (offset, ch) in body.char_indices() {
             if ch == '=' {
                 break;
@@ -427,7 +421,7 @@ impl OptionRegistry {
             ids.push(id);
             if self.specs[id].takes_value {
                 let next_offset = offset + ch.len_utf8();
-                consume_next = body[next_offset..].is_empty();
+                takes_separate_value = body[next_offset..].is_empty();
                 break;
             }
         }
@@ -437,7 +431,7 @@ impl OptionRegistry {
                 format!("Invalid option in usage: {atom}"),
             ));
         }
-        Ok((ids, consume_next))
+        Ok((ids, takes_separate_value))
     }
 
     fn upsert(&mut self, incoming: OptionSpec) -> Result<usize> {
@@ -515,6 +509,25 @@ impl OptionRegistry {
     }
 }
 
+fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
+    let Some(Token::Atom(value)) = token else {
+        return false;
+    };
+
+    if value.starts_with('<') && value.ends_with('>') {
+        return true;
+    }
+
+    let has_alpha = value.chars().any(char::is_alphabetic);
+    has_alpha
+        && value
+            .chars()
+            .all(|ch| !ch.is_alphabetic() || ch.is_uppercase())
+        && value
+            .chars()
+            .all(|ch| ch.is_alphanumeric() || matches!(ch, '_' | '-'))
+}
+
 fn split_option_declaration(value: &str) -> (String, bool) {
     match value.split_once('=') {
         Some((name, _)) => (name.to_owned(), true),
@@ -583,6 +596,23 @@ mod tests {
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let tokens = registry.tokenize_usage(&usages[0]).unwrap();
         assert!(matches!(tokens[1], Token::Option(_)));
+    }
+
+    #[test]
+    fn documented_value_option_does_not_require_usage_placeholder() {
+        let help = "Usage: tool [--type]\n\n--type=TYPE  resource type";
+        let usages = vec!["tool [--type]".to_owned()];
+        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
+        assert!(registry.tokenize_usage(&usages[0]).is_ok());
+    }
+
+    #[test]
+    fn separate_usage_value_placeholder_is_not_a_positional() {
+        let help = "Usage: tool [-o FILE]\n\n-o FILE  output";
+        let usages = vec!["tool [-o FILE]".to_owned()];
+        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
+        let tokens = registry.tokenize_usage(&usages[0]).unwrap();
+        assert_eq!(tokens.iter().filter(|token| matches!(token, Token::Atom(_))).count(), 0);
     }
 
     #[test]
