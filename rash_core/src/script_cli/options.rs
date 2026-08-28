@@ -348,28 +348,24 @@ impl OptionRegistry {
             .map(|word| word.strip_suffix("...").unwrap_or(word).to_owned())
             .collect::<Vec<_>>();
 
-        for (index, word) in words.iter().enumerate() {
-            let followed_by_value = words
-                .get(index + 1)
-                .is_some_and(|next| is_value_placeholder(next));
-
+        for word in words {
             if word.starts_with("--") && word != "--" {
-                let (name, has_inline_value) = split_option_declaration(word);
+                let (name, has_value) = split_option_declaration(&word);
                 self.upsert(OptionSpec {
                     short: None,
                     long: Some(name),
-                    takes_value: has_inline_value || followed_by_value,
+                    takes_value: has_value,
                     default_value: None,
                     repeatable: false,
                 })?;
             } else if word.starts_with('-') && word != "-" {
-                self.discover_short_cluster(word, followed_by_value)?;
+                self.discover_short_cluster(&word)?;
             }
         }
         Ok(())
     }
 
-    fn discover_short_cluster(&mut self, word: &str, followed_by_value: bool) -> Result<()> {
+    fn discover_short_cluster(&mut self, word: &str) -> Result<()> {
         let body = &word[1..];
         for (offset, ch) in body.char_indices() {
             if ch == '=' {
@@ -378,19 +374,15 @@ impl OptionRegistry {
             let alias = format!("-{ch}");
             let next_offset = offset + ch.len_utf8();
             let rest = &body[next_offset..];
-            let takes_value = rest.starts_with('=') || (rest.is_empty() && followed_by_value);
 
             if let Some(id) = self.find(&alias) {
-                if takes_value {
-                    self.specs[id].takes_value = true;
-                    break;
-                }
                 if self.specs[id].takes_value {
                     break;
                 }
                 continue;
             }
 
+            let takes_value = rest.starts_with('=');
             self.upsert(OptionSpec {
                 short: Some(alias),
                 long: None,
@@ -521,10 +513,7 @@ fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
     let Some(Token::Atom(value)) = token else {
         return false;
     };
-    is_value_placeholder(value)
-}
 
-fn is_value_placeholder(value: &str) -> bool {
     if value.starts_with('<') && value.ends_with('>') {
         return true;
     }
@@ -623,43 +612,7 @@ mod tests {
         let usages = vec!["tool [-o FILE]".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let tokens = registry.tokenize_usage(&usages[0]).unwrap();
-        assert_eq!(
-            tokens
-                .iter()
-                .filter(|token| matches!(token, Token::Atom(_)))
-                .count(),
-            0
-        );
-    }
-
-    #[test]
-    fn infers_short_value_arity_from_usage_without_description() {
-        let help = "Usage: tool [-o FILE]";
-        let usages = vec!["tool [-o FILE]".to_owned()];
-        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
-        let input = registry.normalize_args(&["-o", "out"]).unwrap();
-        assert_eq!(input.len(), 1);
-        assert!(registry.tokenize_usage(&usages[0]).is_ok());
-    }
-
-    #[test]
-    fn infers_long_value_arity_from_usage_without_description() {
-        let help = "Usage: tool [--env VALUE]";
-        let usages = vec!["tool [--env VALUE]".to_owned()];
-        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
-        let input = registry.normalize_args(&["--env", "prod"]).unwrap();
-        assert_eq!(input.len(), 1);
-        assert!(registry.tokenize_usage(&usages[0]).is_ok());
-    }
-
-    #[test]
-    fn infers_cluster_tail_value_arity_from_usage_without_description() {
-        let help = "Usage: tool [-vo FILE]";
-        let usages = vec!["tool [-vo FILE]".to_owned()];
-        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
-        let input = registry.normalize_args(&["-vo", "out"]).unwrap();
-        assert_eq!(input.len(), 2);
-        assert!(registry.tokenize_usage(&usages[0]).is_ok());
+        assert_eq!(tokens.iter().filter(|token| matches!(token, Token::Atom(_))).count(), 0);
     }
 
     #[test]
