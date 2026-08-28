@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use super::InputToken;
 use super::grammar::{self, Atom, Expr};
 use super::options::OptionRegistry;
-use super::InputToken;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(super) enum Capture {
@@ -168,10 +168,7 @@ pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, M
     outputs.into_iter().next().ok_or(MatchError::NoMatch)
 }
 
-fn epsilon_closure(
-    nfa: &Nfa,
-    seeds: impl IntoIterator<Item = Candidate>,
-) -> Vec<Candidate> {
+fn epsilon_closure(nfa: &Nfa, seeds: impl IntoIterator<Item = Candidate>) -> Vec<Candidate> {
     let mut queue = seeds.into_iter().collect::<VecDeque<_>>();
     let mut seen = HashSet::new();
     let mut out = Vec::new();
@@ -237,9 +234,10 @@ impl Builder {
     }
 
     fn consume(&mut self, from: usize, matcher: Matcher, to: usize) {
-        self.states[from]
-            .edges
-            .push(Edge::Consume { matcher, target: to });
+        self.states[from].edges.push(Edge::Consume {
+            matcher,
+            target: to,
+        });
     }
 
     fn option_loop(&mut self, mask: Vec<bool>) -> (usize, usize) {
@@ -349,7 +347,9 @@ mod tests {
     fn detects_ambiguous_bindings() {
         let patterns = vec![
             Expr::Atom(Atom::Positional { key: "left".into() }),
-            Expr::Atom(Atom::Positional { key: "right".into() }),
+            Expr::Atom(Atom::Positional {
+                key: "right".into(),
+            }),
         ];
         let nfa = compile(&patterns, &OptionRegistry::default());
         assert_eq!(
