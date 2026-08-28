@@ -68,3 +68,36 @@ fn punctuation_command_is_not_silently_added_to_the_language() {
 "#;
     assert_parity(file, &["foo.bar"]);
 }
+
+#[test]
+fn mixed_case_long_option_is_not_silently_added_to_the_language() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [--Foo]
+#
+"#;
+    assert_parity(file, &["--Foo"]);
+}
+
+#[test]
+fn numeric_long_option_suffix_is_not_silently_added_to_the_language() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [--foo2]
+#
+"#;
+    assert_parity(file, &["--foo2"]);
+}
+
+#[test]
+fn uppercase_short_option_is_not_silently_added_to_the_language() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [-X]
+#
+"#;
+    assert_parity(file, &["-X"]);
+}
