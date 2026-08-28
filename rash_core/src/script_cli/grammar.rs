@@ -357,41 +357,53 @@ impl Parser {
 fn classify_atom(value: String) -> Result<Atom> {
     if value.starts_with('<') {
         let Some(name) = value.strip_prefix('<').and_then(|v| v.strip_suffix('>')) else {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Invalid positional argument: {value}"),
-            ));
+            return Err(invalid_atom(&value));
         };
-        if name.is_empty() {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "Positional argument names cannot be empty",
-            ));
+        if !is_lower_word(name) {
+            return Err(invalid_atom(&value));
         }
         return Ok(Atom::Positional {
             key: normalize_key(name),
         });
     }
 
-    let has_alpha = value.chars().any(char::is_alphabetic);
-    let is_uppercase_positional = has_alpha
-        && value
-            .chars()
-            .all(|c| !c.is_alphabetic() || c.is_uppercase())
-        && value
-            .chars()
-            .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-'));
-
-    if is_uppercase_positional {
+    if is_upper_word(&value) {
         Ok(Atom::Positional {
             key: normalize_key(&value.to_lowercase()),
         })
-    } else {
+    } else if is_lower_word(&value) {
         Ok(Atom::Command {
             key: normalize_key(&value),
             literal: value,
         })
+    } else {
+        Err(invalid_atom(&value))
     }
+}
+
+fn invalid_atom(value: &str) -> Error {
+    Error::new(
+        ErrorKind::InvalidData,
+        format!("Invalid usage identifier: {value}"),
+    )
+}
+
+pub(super) fn is_lower_word(value: &str) -> bool {
+    is_word(value, u8::is_ascii_lowercase)
+}
+
+pub(super) fn is_upper_word(value: &str) -> bool {
+    is_word(value, u8::is_ascii_uppercase)
+}
+
+fn is_word(value: &str, predicate: fn(&u8) -> bool) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+
+    value
+        .split(['_', '-'])
+        .all(|segment| !segment.is_empty() && segment.as_bytes().iter().all(predicate))
 }
 
 fn normalize_key(value: &str) -> String {
@@ -445,5 +457,16 @@ mod tests {
             Expr::Optional(Box::new(Expr::Atom(Atom::Option(2)))),
         ]));
         assert_eq!(expr, Expr::OptionsGroup(vec![1, 2]));
+    }
+
+    #[test]
+    fn identifier_grammar_matches_legacy_ascii_words() {
+        assert!(is_lower_word("daemon-reload"));
+        assert!(is_lower_word("package_filters"));
+        assert!(is_upper_word("UNIT-NAME"));
+        assert!(!is_lower_word("run2"));
+        assert!(!is_lower_word("Run"));
+        assert!(!is_upper_word("FILE2"));
+        assert!(!is_upper_word("File"));
     }
 }
