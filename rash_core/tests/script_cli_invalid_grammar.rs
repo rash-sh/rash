@@ -70,7 +70,7 @@ fn punctuation_command_is_not_silently_added_to_the_language() {
 }
 
 #[test]
-fn mixed_case_long_option_is_not_silently_added_to_the_language() {
+fn mixed_case_long_option_preserves_legacy_permissiveness() {
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -81,7 +81,7 @@ fn mixed_case_long_option_is_not_silently_added_to_the_language() {
 }
 
 #[test]
-fn numeric_long_option_suffix_is_not_silently_added_to_the_language() {
+fn numeric_long_option_suffix_preserves_legacy_permissiveness() {
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -92,7 +92,7 @@ fn numeric_long_option_suffix_is_not_silently_added_to_the_language() {
 }
 
 #[test]
-fn uppercase_short_option_is_not_silently_added_to_the_language() {
+fn uppercase_short_option_preserves_legacy_permissiveness() {
     let file = r#"
 #!/usr/bin/env rash
 #
