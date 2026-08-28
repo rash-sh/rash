@@ -236,6 +236,17 @@ fn normalize_option_groups(expr: Expr) -> Expr {
     }
 }
 
+fn contains_nested_optional(expr: &Expr) -> bool {
+    match expr {
+        Expr::Optional(_) | Expr::OptionsShortcut => true,
+        Expr::Sequence(items) | Expr::Alternative(items) => {
+            items.iter().any(contains_nested_optional)
+        }
+        Expr::Required(inner) | Expr::Repeat(inner) => contains_nested_optional(inner),
+        Expr::Empty | Expr::Atom(_) | Expr::OptionsGroup(_) => false,
+    }
+}
+
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
@@ -245,7 +256,7 @@ impl Parser {
     fn parse_alternative(&mut self) -> Result<Expr> {
         let mut branches = vec![self.parse_sequence()?];
         while self.consume_if(&Token::Pipe) {
-            branches.push(self.parse_sequence()?);
+            branches.push(self.parse_sequence()?];
         }
         Ok(if branches.len() == 1 {
             branches.pop().unwrap()
@@ -290,12 +301,16 @@ impl Parser {
                 ) {
                     Expr::OptionsShortcut
                 } else if let Expr::Sequence(items) = inner {
-                    Expr::Sequence(
-                        items
-                            .into_iter()
-                            .map(|item| Expr::Optional(Box::new(item)))
-                            .collect(),
-                    )
+                    if items.iter().any(contains_nested_optional) {
+                        Expr::Optional(Box::new(Expr::Sequence(items)))
+                    } else {
+                        Expr::Sequence(
+                            items
+                                .into_iter()
+                                .map(|item| Expr::Optional(Box::new(item)))
+                                .collect(),
+                        )
+                    }
                 } else {
                     Expr::Optional(Box::new(inner))
                 }
@@ -388,11 +403,11 @@ fn invalid_atom(value: &str) -> Error {
     )
 }
 
-pub(super) fn is_lower_word(value: &str) -> bool {
+fn is_lower_word(value: &str) -> bool {
     is_word(value, u8::is_ascii_lowercase)
 }
 
-pub(super) fn is_upper_word(value: &str) -> bool {
+fn is_upper_word(value: &str) -> bool {
     is_word(value, u8::is_ascii_uppercase)
 }
 
@@ -457,6 +472,32 @@ mod tests {
             Expr::Optional(Box::new(Expr::Atom(Atom::Option(2)))),
         ]));
         assert_eq!(expr, Expr::OptionsGroup(vec![1, 2]));
+    }
+
+    #[test]
+    fn flat_bracket_sequence_remains_independently_optional() {
+        let parsed = parse(vec![
+            Token::LeftBracket,
+            Token::Atom("alpha".into()),
+            Token::Atom("beta".into()),
+            Token::RightBracket,
+        ])
+        .unwrap();
+        assert!(matches!(parsed, Expr::Sequence(_)));
+    }
+
+    #[test]
+    fn nested_optional_keeps_outer_dependency() {
+        let parsed = parse(vec![
+            Token::LeftBracket,
+            Token::Atom("command".into()),
+            Token::LeftBracket,
+            Token::Option(0),
+            Token::RightBracket,
+            Token::RightBracket,
+        ])
+        .unwrap();
+        assert!(matches!(parsed, Expr::Optional(inner) if matches!(*inner, Expr::Sequence(_))));
     }
 
     #[test]
