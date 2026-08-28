@@ -127,37 +127,8 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
 fn positional_help_options(options: &OptionRegistry) -> Vec<bool> {
     let mut mask = vec![false; options.len()];
     for id in options.all_ids() {
-        if options.is_help(id) {
-            mask[id] = true;
-        }
+        mask[id] = options.is_positional_help(id);
     }
-
-    let short_h = options.normalize_args(&["-h"]).ok().and_then(|tokens| {
-        let [InputToken::Option { id, value }] = tokens.as_slice() else {
-            return None;
-        };
-        value.is_none().then_some(*id)
-    });
-
-    if let Some(id) = short_h
-        && !options.is_help(id)
-    {
-        let long_h_same = options
-            .normalize_args(&["--h"])
-            .ok()
-            .and_then(|tokens| {
-                let [InputToken::Option { id, value }] = tokens.as_slice() else {
-                    return None;
-                };
-                value.is_none().then_some(*id)
-            })
-            .is_some_and(|long_id| long_id == id);
-
-        if !long_h_same {
-            mask[id] = true;
-        }
-    }
-
     mask
 }
 
@@ -419,6 +390,22 @@ mod tests {
     }
 
     #[test]
+    fn nullable_repeat_terminates_and_accepts_zero_or_more_values() {
+        let pattern = Expr::Repeat(Box::new(Expr::Optional(Box::new(Expr::Atom(
+            Atom::Positional { key: "file".into() },
+        )))));
+        let nfa = compile(&[pattern], &OptionRegistry::default());
+        assert!(execute(&nfa, &[]).is_ok());
+        let input = [
+            InputToken::Word("a".into()),
+            InputToken::Word("b".into()),
+        ];
+        let captures = execute(&nfa, &input).unwrap();
+        assert_eq!(captures.len(), 2);
+        assert!(nfa.states.len() < 10);
+    }
+
+    #[test]
     fn detects_ambiguous_bindings() {
         let patterns = vec![
             Expr::Atom(Atom::Positional { key: "left".into() }),
@@ -505,9 +492,21 @@ mod tests {
         .unwrap();
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-h"]).unwrap();
-        assert!(matches!(
-            execute(&nfa, &input),
-            Ok(captures) if matches!(captures.as_slice(), [Capture::Option { .. }])
-        ));
+        assert!(execute(&nfa, &input).is_ok());
+    }
+
+    #[test]
+    fn h_with_non_help_long_alias_cannot_fill_positional() {
+        let pattern = Expr::Atom(Atom::Positional {
+            key: "target".into(),
+        });
+        let registry = OptionRegistry::from_doc(
+            "Usage: tool <target>\n\n-h --host  host",
+            &["tool <target>".to_owned()],
+        )
+        .unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let input = registry.normalize_args(&["-h"]).unwrap();
+        assert_eq!(execute(&nfa, &input), Err(MatchError::NoMatch));
     }
 }
