@@ -41,7 +41,7 @@ pub(super) struct Nfa {
     states: Vec<State>,
     start: usize,
     accept: usize,
-    help_option: Option<usize>,
+    positional_help_options: Vec<bool>,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -100,7 +100,7 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let mut builder = Builder::default();
     let start = builder.state();
     let accept = builder.state();
-    let help_option = options.all_ids().find(|id| options.is_help(*id));
+    let positional_help_options = positional_help_options(options);
 
     for pattern in patterns {
         let explicit = grammar::explicit_options(pattern);
@@ -120,8 +120,45 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
         states: builder.states,
         start,
         accept,
-        help_option,
+        positional_help_options,
     }
+}
+
+fn positional_help_options(options: &OptionRegistry) -> Vec<bool> {
+    let mut mask = vec![false; options.len()];
+    for id in options.all_ids() {
+        if options.is_help(id) {
+            mask[id] = true;
+        }
+    }
+
+    let short_h = options.normalize_args(&["-h"]).ok().and_then(|tokens| {
+        let [InputToken::Option { id, value }] = tokens.as_slice() else {
+            return None;
+        };
+        value.is_none().then_some(*id)
+    });
+
+    if let Some(id) = short_h
+        && !options.is_help(id)
+    {
+        let long_h_same = options
+            .normalize_args(&["--h"])
+            .ok()
+            .and_then(|tokens| {
+                let [InputToken::Option { id, value }] = tokens.as_slice() else {
+                    return None;
+                };
+                value.is_none().then_some(*id)
+            })
+            .is_some_and(|long_id| long_id == id);
+
+        if !long_h_same {
+            mask[id] = true;
+        }
+    }
+
+    mask
 }
 
 pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, MatchError> {
@@ -141,7 +178,7 @@ pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, M
                 let Edge::Consume { matcher, target } = edge else {
                     continue;
                 };
-                if let Some(capture) = matches(matcher, token, nfa.help_option) {
+                if let Some(capture) = matches(matcher, token, &nfa.positional_help_options) {
                     let path = Some(arena.append(candidate.path, capture));
                     next.push(Candidate {
                         state: *target,
@@ -193,7 +230,11 @@ fn epsilon_closure(nfa: &Nfa, seeds: impl IntoIterator<Item = Candidate>) -> Vec
     out
 }
 
-fn matches(matcher: &Matcher, input: &InputToken, help_option: Option<usize>) -> Option<Capture> {
+fn matches(
+    matcher: &Matcher,
+    input: &InputToken,
+    positional_help_options: &[bool],
+) -> Option<Capture> {
     match (matcher, input) {
         (Matcher::Command { literal, key }, InputToken::Word(value)) if literal == value => {
             Some(Capture::Command(key.clone()))
@@ -203,7 +244,7 @@ fn matches(matcher: &Matcher, input: &InputToken, help_option: Option<usize>) ->
             value: value.clone(),
         }),
         (Matcher::Positional { .. }, InputToken::Option { id, value })
-            if Some(*id) == help_option && value.is_none() =>
+            if positional_help_options.get(*id).copied().unwrap_or(false) && value.is_none() =>
         {
             Some(Capture::Option {
                 id: *id,
@@ -446,6 +487,24 @@ mod tests {
         .unwrap();
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["--help"]).unwrap();
+        assert!(matches!(
+            execute(&nfa, &input),
+            Ok(captures) if matches!(captures.as_slice(), [Capture::Option { .. }])
+        ));
+    }
+
+    #[test]
+    fn short_only_h_can_be_consumed_by_positional_without_becoming_help() {
+        let pattern = Expr::Atom(Atom::Positional {
+            key: "target".into(),
+        });
+        let registry = OptionRegistry::from_doc(
+            "Usage: tool <target>\n\n-h  h flag",
+            &["tool <target>".to_owned()],
+        )
+        .unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let input = registry.normalize_args(&["-h"]).unwrap();
         assert!(matches!(
             execute(&nfa, &input),
             Ok(captures) if matches!(captures.as_slice(), [Capture::Option { .. }])
