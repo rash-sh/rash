@@ -72,6 +72,13 @@ impl OptionRegistry {
         self.specs.get(id).is_some_and(|spec| spec.key() == "help")
     }
 
+    pub fn is_positional_help(&self, id: usize) -> bool {
+        self.specs.get(id).is_some_and(|spec| {
+            spec.long.as_deref() == Some("--help")
+                || (spec.long.is_none() && spec.short.as_deref() == Some("-h"))
+        })
+    }
+
     pub fn set_repeatable(&mut self, ids: &HashSet<usize>) -> Result<()> {
         for id in ids {
             let Some(spec) = self.specs.get_mut(*id) else {
@@ -615,6 +622,21 @@ mod tests {
         let mut registry = OptionRegistry::from_doc(help, &usages).unwrap();
         registry.set_repeatable(&HashSet::from([0])).unwrap();
         assert_eq!(registry.initial_options()["tag"], Value::Null);
+    }
+
+    #[test]
+    fn positional_help_distinguishes_short_only_h_from_other_aliases() {
+        let short_only = OptionRegistry::from_doc("Usage: tool <value>\n\n-h  helpish", &["tool <value>".to_owned()]).unwrap();
+        assert!(short_only.is_positional_help(0));
+        assert!(!short_only.is_help(0));
+
+        let real_help = OptionRegistry::from_doc("Usage: tool <value>\n\n-h --help  help", &["tool <value>".to_owned()]).unwrap();
+        assert!(real_help.is_positional_help(0));
+        assert!(real_help.is_help(0));
+
+        let host = OptionRegistry::from_doc("Usage: tool <value>\n\n-h --host  host", &["tool <value>".to_owned()]).unwrap();
+        assert!(!host.is_positional_help(0));
+        assert!(!host.is_help(0));
     }
 
     #[test]
