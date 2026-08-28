@@ -80,16 +80,9 @@ impl OptionRegistry {
                     format!("Unknown option id {id}"),
                 ));
             };
-            if spec.takes_value {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!(
-                        "Repeatable options with values are not supported: {}",
-                        spec.preferred_name()
-                    ),
-                ));
+            if !spec.takes_value {
+                spec.repeatable = true;
             }
-            spec.repeatable = true;
         }
         Ok(())
     }
@@ -613,6 +606,15 @@ mod tests {
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let tokens = registry.tokenize_usage(&usages[0]).unwrap();
         assert_eq!(tokens.iter().filter(|token| matches!(token, Token::Atom(_))).count(), 0);
+    }
+
+    #[test]
+    fn repeatable_value_option_keeps_scalar_output_type() {
+        let help = "Usage: tool [--tag=<value>]...";
+        let usages = vec!["tool [--tag=<value>]...".to_owned()];
+        let mut registry = OptionRegistry::from_doc(help, &usages).unwrap();
+        registry.set_repeatable(&HashSet::from([0])).unwrap();
+        assert_eq!(registry.initial_options()["tag"], Value::Null);
     }
 
     #[test]
