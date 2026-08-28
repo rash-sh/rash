@@ -9,7 +9,7 @@ use crate::error::{Error, ErrorKind, Result};
 use super::{InputToken, Token};
 
 static RE_DEFAULT_VALUE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)\[default:\s*(.*?)\]").unwrap());
+    LazyLock::new(|| Regex::new(r"\[default: (.*)\]").unwrap());
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct OptionSpec {
@@ -66,6 +66,10 @@ impl OptionRegistry {
 
     pub fn is_empty(&self) -> bool {
         self.specs.is_empty()
+    }
+
+    pub fn is_help(&self, id: usize) -> bool {
+        self.specs.get(id).is_some_and(|spec| spec.key() == "help")
     }
 
     pub fn set_repeatable(&mut self, ids: &HashSet<usize>) -> Result<()> {
