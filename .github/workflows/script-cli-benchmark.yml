@@ -1,0 +1,38 @@
+name: Script CLI parser benchmark
+
+on:
+  push:
+    branches:
+      - refactor/compiled-script-cli-parser
+    paths:
+      - rash_core/src/docopt/**
+      - rash_core/src/script_cli/**
+      - rash_core/benches/docopt.rs
+      - .github/workflows/script-cli-benchmark.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  criterion:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: script-cli-benchmark
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Benchmark legacy and compiled parsers
+        run: |
+          set -o pipefail
+          cargo bench -p rash_core --bench docopt -- --noplot 2>&1 | tee script-cli-benchmark.txt
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: script-cli-benchmark
+          path: |
+            script-cli-benchmark.txt
+            target/criterion
+          if-no-files-found: warn
