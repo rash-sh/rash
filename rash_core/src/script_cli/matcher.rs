@@ -41,6 +41,7 @@ pub(super) struct Nfa {
     states: Vec<State>,
     start: usize,
     accept: usize,
+    help_option: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -99,6 +100,7 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let mut builder = Builder::default();
     let start = builder.state();
     let accept = builder.state();
+    let help_option = options.all_ids().find(|id| options.is_help(*id));
 
     for pattern in patterns {
         let explicit = grammar::explicit_options(pattern);
@@ -118,6 +120,7 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
         states: builder.states,
         start,
         accept,
+        help_option,
     }
 }
 
@@ -138,7 +141,7 @@ pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, M
                 let Edge::Consume { matcher, target } = edge else {
                     continue;
                 };
-                if let Some(capture) = matches(matcher, token) {
+                if let Some(capture) = matches(matcher, token, nfa.help_option) {
                     let path = Some(arena.append(candidate.path, capture));
                     next.push(Candidate {
                         state: *target,
@@ -190,7 +193,7 @@ fn epsilon_closure(nfa: &Nfa, seeds: impl IntoIterator<Item = Candidate>) -> Vec
     out
 }
 
-fn matches(matcher: &Matcher, input: &InputToken) -> Option<Capture> {
+fn matches(matcher: &Matcher, input: &InputToken, help_option: Option<usize>) -> Option<Capture> {
     match (matcher, input) {
         (Matcher::Command { literal, key }, InputToken::Word(value)) if literal == value => {
             Some(Capture::Command(key.clone()))
@@ -199,6 +202,14 @@ fn matches(matcher: &Matcher, input: &InputToken) -> Option<Capture> {
             key: key.clone(),
             value: value.clone(),
         }),
+        (Matcher::Positional { .. }, InputToken::Option { id, value })
+            if Some(*id) == help_option && value.is_none() =>
+        {
+            Some(Capture::Option {
+                id: *id,
+                value: None,
+            })
+        }
         (Matcher::Option(expected), InputToken::Option { id, value }) if expected == id => {
             Some(Capture::Option {
                 id: *id,
@@ -370,5 +381,23 @@ mod tests {
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-b", "-a"]).unwrap();
         assert!(execute(&nfa, &input).is_ok());
+    }
+
+    #[test]
+    fn help_option_can_be_consumed_by_positional_matcher() {
+        let pattern = Expr::Atom(Atom::Positional {
+            key: "target".into(),
+        });
+        let registry = OptionRegistry::from_doc(
+            "Usage: tool <target>\n\n-h --help  help",
+            &["tool <target>".to_owned()],
+        )
+        .unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let input = registry.normalize_args(&["--help"]).unwrap();
+        assert!(matches!(
+            execute(&nfa, &input),
+            Ok(captures) if matches!(captures.as_slice(), [Capture::Option { .. }])
+        ));
     }
 }
