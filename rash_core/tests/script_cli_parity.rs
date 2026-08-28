@@ -195,7 +195,10 @@ fn no_usage_returns_empty_context() {
     msg: hi
 "#;
 
-    assert_eq!(script_cli::parse(file, &[]).unwrap(), Value::Object(Default::default()));
+    assert_eq!(
+        script_cli::parse(file, &[]).unwrap(),
+        Value::Object(Default::default())
+    );
     assert_parity(file, &[]);
 }
 
