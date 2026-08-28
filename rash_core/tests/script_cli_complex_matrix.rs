@@ -85,7 +85,7 @@ fn combined_multi_usage_patterns_match_legacy() {
 }
 
 #[test]
-fn mixed_required_optional_and_alternative_groups_match_legacy() {
+fn mixed_required_optional_and_alternative_groups_match_legacy_except_malformed_option_key() {
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -100,9 +100,32 @@ fn mixed_required_optional_and_alternative_groups_match_legacy() {
 #
 "#;
 
-    assert_parity(file, &["sync", "src", "dst"]);
-    assert_parity(file, &["sync", "src", "dst", "--delete"]);
-    assert_parity(file, &["query", "foo"]);
-    assert_parity(file, &["query", "--format=json", "foo"]);
-    assert_parity(file, &["query", "--all"]);
+    // The legacy usage scanner treats the closing ')' in `--all)` as part of
+    // an option name and injects a spurious `options["all)"] = false` binding.
+    // The compiled parser intentionally fixes that malformed-key behavior.
+    for args in [
+        vec!["sync", "src", "dst"],
+        vec!["sync", "src", "dst", "--delete"],
+        vec!["query", "foo"],
+        vec!["query", "--format=json", "foo"],
+        vec!["query", "--all"],
+    ] {
+        let mut legacy = docopt::parse(file, &args).unwrap();
+        let compiled = script_cli::parse(file, &args).unwrap();
+
+        let legacy_options = legacy
+            .get_mut("options")
+            .and_then(|options| options.as_object_mut())
+            .unwrap();
+        assert!(legacy_options.remove("all)").is_some(), "args={args:?}");
+
+        assert_eq!(compiled, legacy, "args={args:?}");
+        assert!(
+            compiled
+                .get("options")
+                .and_then(|options| options.get("all)"))
+                .is_none(),
+            "compiled parser must not expose malformed option keys; args={args:?}"
+        );
+    }
 }
