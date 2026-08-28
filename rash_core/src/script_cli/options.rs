@@ -126,7 +126,6 @@ impl OptionRegistry {
 
     pub fn normalize_args(&self, args: &[&str]) -> Result<Vec<InputToken>> {
         let mut out = Vec::with_capacity(args.len());
-        let mut seen = HashMap::<usize, usize>::new();
         let mut i = 0;
 
         while i < args.len() {
@@ -175,7 +174,7 @@ impl OptionRegistry {
                     }
                     None
                 };
-                self.push_option(&mut out, &mut seen, id, value)?;
+                self.push_option(&mut out, id, value);
                 i += 1;
                 continue;
             }
@@ -188,9 +187,7 @@ impl OptionRegistry {
                     continue;
                 }
 
-                let mut chars = body.char_indices().peekable();
-                let mut consumed_external_value = false;
-                while let Some((offset, ch)) = chars.next() {
+                for (offset, ch) in body.char_indices() {
                     if ch == '=' {
                         return Err(Error::new(
                             ErrorKind::InvalidData,
@@ -210,7 +207,6 @@ impl OptionRegistry {
                             Some(rest.strip_prefix('=').unwrap_or(rest).to_owned())
                         } else {
                             i += 1;
-                            consumed_external_value = true;
                             Some(
                                 args.get(i)
                                     .ok_or_else(|| {
@@ -222,14 +218,13 @@ impl OptionRegistry {
                                     .to_string(),
                             )
                         };
-                        self.push_option(&mut out, &mut seen, id, value)?;
+                        self.push_option(&mut out, id, value);
                         break;
                     }
 
-                    self.push_option(&mut out, &mut seen, id, None)?;
+                    self.push_option(&mut out, id, None);
                 }
 
-                let _ = consumed_external_value;
                 i += 1;
                 continue;
             }
@@ -265,9 +260,10 @@ impl OptionRegistry {
         id: usize,
         value: Option<&str>,
     ) -> Result<()> {
-        let spec = self.specs.get(id).ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, format!("Unknown option id {id}"))
-        })?;
+        let spec = self
+            .specs
+            .get(id)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("Unknown option id {id}")))?;
         let key = spec.key();
         if spec.takes_value {
             options.insert(
@@ -284,7 +280,11 @@ impl OptionRegistry {
                 ),
             );
         } else if spec.repeatable {
-            let count = options.get(&key).and_then(Value::as_u64).unwrap_or_default() + 1;
+            let count = options
+                .get(&key)
+                .and_then(Value::as_u64)
+                .unwrap_or_default()
+                + 1;
             options.insert(key, Value::from(count));
         } else {
             options.insert(key, Value::Bool(true));
@@ -296,26 +296,8 @@ impl OptionRegistry {
         0..self.specs.len()
     }
 
-    fn push_option(
-        &self,
-        out: &mut Vec<InputToken>,
-        seen: &mut HashMap<usize, usize>,
-        id: usize,
-        value: Option<String>,
-    ) -> Result<()> {
-        let count = seen.entry(id).or_default();
-        *count += 1;
-        if *count > 1 && !self.specs[id].repeatable {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Option {} cannot be repeated",
-                    self.specs[id].preferred_name()
-                ),
-            ));
-        }
+    fn push_option(&self, out: &mut Vec<InputToken>, id: usize, value: Option<String>) {
         out.push(InputToken::Option { id, value });
-        Ok(())
     }
 
     fn find(&self, alias: &str) -> Option<usize> {
@@ -388,8 +370,7 @@ impl OptionRegistry {
 
     fn discover_short_cluster(&mut self, word: &str) -> Result<()> {
         let body = &word[1..];
-        let mut chars = body.char_indices().peekable();
-        while let Some((offset, ch)) = chars.next() {
+        for (offset, ch) in body.char_indices() {
             if ch == '=' {
                 break;
             }
@@ -593,7 +574,8 @@ mod tests {
 
     #[test]
     fn normalizes_short_cluster_with_value() {
-        let help = "Usage: tool [-vfo FILE]\n\n-v --verbose  verbose\n-f --force  force\n-o FILE  output";
+        let help =
+            "Usage: tool [-vfo FILE]\n\n-v --verbose  verbose\n-f --force  force\n-o FILE  output";
         let usages = vec!["tool [-vfo FILE]".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let tokens = registry.tokenize_usage(&usages[0]).unwrap();
@@ -607,5 +589,13 @@ mod tests {
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let input = registry.normalize_args(&["-v", "-oout", "file"]).unwrap();
         assert_eq!(input.len(), 3);
+    }
+
+    #[test]
+    fn repeated_simple_options_are_left_to_the_grammar() {
+        let help = "Usage: tool [options]\n\n-v --verbose  verbose";
+        let usages = vec!["tool [options]".to_owned()];
+        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
+        assert_eq!(registry.normalize_args(&["-vv"]).unwrap().len(), 2);
     }
 }
