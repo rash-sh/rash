@@ -309,9 +309,10 @@ impl OptionRegistry {
                 format!("Ambiguous option alias: {alias}"),
             ));
         }
-        self.aliases.get(alias).copied().ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, format!("Unknown option: {alias}"))
-        })
+        self.aliases
+            .get(alias)
+            .copied()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("Unknown option: {alias}")))
     }
 
     fn add_description_line(&mut self, line: &str) -> Result<()> {
@@ -497,7 +498,10 @@ impl OptionRegistry {
             {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
-                    format!("Conflicting defaults for option {}", existing_spec.preferred_name()),
+                    format!(
+                        "Conflicting defaults for option {}",
+                        existing_spec.preferred_name()
+                    ),
                 ));
             }
 
@@ -537,10 +541,17 @@ impl OptionRegistry {
         let has_unique_alias = aliases
             .iter()
             .any(|alias| !self.aliases.contains_key(alias.as_str()));
-        if !has_unique_alias && aliases.iter().any(|alias| self.ambiguous_aliases.contains(*alias)) {
+        if !has_unique_alias
+            && aliases
+                .iter()
+                .any(|alias| self.ambiguous_aliases.contains(*alias))
+        {
             return Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Option has no unambiguous alias: {}", incoming.preferred_name()),
+                format!(
+                    "Option has no unambiguous alias: {}",
+                    incoming.preferred_name()
+                ),
             ));
         }
 
@@ -659,7 +670,13 @@ mod tests {
         let usages = vec!["tool [-o FILE]".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         let tokens = registry.tokenize_usage(&usages[0]).unwrap();
-        assert_eq!(tokens.iter().filter(|token| matches!(token, Token::Atom(_))).count(), 0);
+        assert_eq!(
+            tokens
+                .iter()
+                .filter(|token| matches!(token, Token::Atom(_)))
+                .count(),
+            0
+        );
     }
 
     #[test]
@@ -700,7 +717,8 @@ mod tests {
 
     #[test]
     fn shared_short_alias_is_kept_as_deterministic_ambiguity() {
-        let help = "Usage: tool [options]\n\n-u --sysupgrade  upgrade\n-u --upgrades  list upgrades";
+        let help =
+            "Usage: tool [options]\n\n-u --sysupgrade  upgrade\n-u --upgrades  list upgrades";
         let usages = vec!["tool [options]".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
         assert!(registry.normalize_args(&["--sysupgrade"]).is_ok());
