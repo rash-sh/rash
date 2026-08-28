@@ -50,9 +50,10 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     options.set_repeatable(&metadata.repeatable_options)?;
 
     let normalized_args = options.normalize_args(args)?;
-    if normalized_args.iter().any(|token| {
-        matches!(token, InputToken::Option { id, .. } if options.is_help(*id))
-    }) {
+    if normalized_args
+        .iter()
+        .any(|token| matches!(token, InputToken::Option { id, .. } if options.is_help(*id)))
+    {
         return Err(Error::new(ErrorKind::GracefulExit, help_msg));
     }
 
