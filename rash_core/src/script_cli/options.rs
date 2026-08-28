@@ -183,8 +183,7 @@ impl OptionRegistry {
                 continue;
             }
 
-            if arg.starts_with('-') {
-                let body = &arg[1..];
+            if let Some(body) = arg.strip_prefix('-') {
                 if body.is_empty() {
                     out.push(InputToken::Word(arg.to_owned()));
                     i += 1;
@@ -495,21 +494,21 @@ impl OptionRegistry {
         }
 
         let id = self.specs.len();
-        if let Some(alias) = &incoming.short {
-            if self.aliases.insert(alias.clone(), id).is_some() {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Duplicate option alias: {alias}"),
-                ));
-            }
+        if let Some(alias) = &incoming.short
+            && self.aliases.insert(alias.clone(), id).is_some()
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Duplicate option alias: {alias}"),
+            ));
         }
-        if let Some(alias) = &incoming.long {
-            if self.aliases.insert(alias.clone(), id).is_some() {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Duplicate option alias: {alias}"),
-                ));
-            }
+        if let Some(alias) = &incoming.long
+            && self.aliases.insert(alias.clone(), id).is_some()
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Duplicate option alias: {alias}"),
+            ));
         }
         self.specs.push(incoming);
         Ok(id)
