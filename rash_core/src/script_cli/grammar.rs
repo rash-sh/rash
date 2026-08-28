@@ -226,12 +226,9 @@ fn normalize_option_groups(expr: Expr) -> Expr {
                 _ => Expr::Sequence(out),
             }
         }
-        Expr::Alternative(items) => Expr::Alternative(
-            items
-                .into_iter()
-                .map(normalize_option_groups)
-                .collect(),
-        ),
+        Expr::Alternative(items) => {
+            Expr::Alternative(items.into_iter().map(normalize_option_groups).collect())
+        }
         Expr::Optional(inner) => Expr::Optional(Box::new(normalize_option_groups(*inner))),
         Expr::Required(inner) => Expr::Required(Box::new(normalize_option_groups(*inner))),
         Expr::Repeat(inner) => Expr::Repeat(Box::new(normalize_option_groups(*inner))),
@@ -378,7 +375,9 @@ fn classify_atom(value: String) -> Result<Atom> {
 
     let has_alpha = value.chars().any(char::is_alphabetic);
     let is_uppercase_positional = has_alpha
-        && value.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
+        && value
+            .chars()
+            .all(|c| !c.is_alphabetic() || c.is_uppercase())
         && value
             .chars()
             .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-'));
