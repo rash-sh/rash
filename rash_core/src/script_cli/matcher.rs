@@ -251,12 +251,35 @@ impl Builder {
         });
     }
 
+    fn optional_option(&mut self, id: usize) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        self.epsilon(start, end);
+        self.consume(start, Matcher::Option(id), end);
+        (start, end)
+    }
+
     fn option_loop(&mut self, mask: Vec<bool>) -> (usize, usize) {
         let start = self.state();
         let end = self.state();
         self.epsilon(start, end);
         self.consume(start, Matcher::AnyOption(mask), start);
         (start, end)
+    }
+
+    fn options_shortcut(&mut self, allowed_options: &[bool]) -> (usize, usize) {
+        let mut ids = allowed_options
+            .iter()
+            .enumerate()
+            .filter_map(|(id, allowed)| allowed.then_some(id));
+        let first = ids.next();
+        let second = ids.next();
+
+        match (first, second) {
+            (None, _) => self.compile_expr(&Expr::Empty, allowed_options),
+            (Some(id), None) => self.optional_option(id),
+            (Some(_), Some(_)) => self.option_loop(allowed_options.to_vec()),
+        }
     }
 
     fn compile_expr(&mut self, expr: &Expr, allowed_options: &[bool]) -> (usize, usize) {
@@ -331,7 +354,7 @@ impl Builder {
                 }
                 self.option_loop(mask)
             }
-            Expr::OptionsShortcut => self.option_loop(allowed_options.to_vec()),
+            Expr::OptionsShortcut => self.options_shortcut(allowed_options),
         }
     }
 }
@@ -381,6 +404,34 @@ mod tests {
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-b", "-a"]).unwrap();
         assert!(execute(&nfa, &input).is_ok());
+    }
+
+    #[test]
+    fn options_shortcut_with_one_available_option_is_not_repeatable() {
+        let pattern = Expr::OptionsShortcut;
+        let registry = OptionRegistry::from_doc(
+            "Usage: tool [options]\n\n-a  a",
+            &["tool [options]".to_owned()],
+        )
+        .unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let once = registry.normalize_args(&["-a"]).unwrap();
+        let twice = registry.normalize_args(&["-a", "-a"]).unwrap();
+        assert!(execute(&nfa, &once).is_ok());
+        assert_eq!(execute(&nfa, &twice), Err(MatchError::NoMatch));
+    }
+
+    #[test]
+    fn options_shortcut_with_multiple_available_options_keeps_legacy_loop() {
+        let pattern = Expr::OptionsShortcut;
+        let registry = OptionRegistry::from_doc(
+            "Usage: tool [options]\n\n-a  a\n-b  b",
+            &["tool [options]".to_owned()],
+        )
+        .unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
+        assert!(execute(&nfa, &repeated).is_ok());
     }
 
     #[test]
