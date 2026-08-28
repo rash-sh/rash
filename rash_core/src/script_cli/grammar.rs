@@ -18,7 +18,9 @@ pub(super) enum Expr {
     Sequence(Vec<Expr>),
     Alternative(Vec<Expr>),
     Optional(Box<Expr>),
+    Required(Box<Expr>),
     Repeat(Box<Expr>),
+    OptionsGroup(Vec<usize>),
     OptionsShortcut,
 }
 
@@ -72,7 +74,7 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Expr> {
     if parser.pos != parser.tokens.len() {
         return Err(parser.invalid("unexpected trailing token"));
     }
-    Ok(expr)
+    Ok(normalize_option_groups(expr))
 }
 
 pub(super) fn analyze(patterns: &[Expr]) -> Metadata {
@@ -111,12 +113,15 @@ fn collect_explicit_options(expr: &Expr, out: &mut HashSet<usize>) {
         Expr::Atom(Atom::Option(id)) => {
             out.insert(*id);
         }
+        Expr::OptionsGroup(ids) => out.extend(ids.iter().copied()),
         Expr::Sequence(items) | Expr::Alternative(items) => {
             for item in items {
                 collect_explicit_options(item, out);
             }
         }
-        Expr::Optional(inner) | Expr::Repeat(inner) => collect_explicit_options(inner, out),
+        Expr::Optional(inner) | Expr::Required(inner) | Expr::Repeat(inner) => {
+            collect_explicit_options(inner, out)
+        }
         Expr::Empty | Expr::Atom(_) | Expr::OptionsShortcut => {}
     }
 }
@@ -132,6 +137,11 @@ fn occurrences(expr: &Expr) -> HashMap<Symbol, Count> {
             };
             HashMap::from([(symbol, Count::Finite(1))])
         }
+        Expr::OptionsGroup(ids) => ids
+            .iter()
+            .copied()
+            .map(|id| (Symbol::Option(id), Count::Finite(1)))
+            .collect(),
         Expr::Sequence(items) => {
             let mut out = HashMap::new();
             for item in items {
@@ -146,7 +156,7 @@ fn occurrences(expr: &Expr) -> HashMap<Symbol, Count> {
             }
             out
         }
-        Expr::Optional(inner) => occurrences(inner),
+        Expr::Optional(inner) | Expr::Required(inner) => occurrences(inner),
         Expr::Repeat(inner) => occurrences(inner)
             .into_iter()
             .map(|(symbol, count)| {
@@ -176,6 +186,56 @@ fn merge_max(target: &mut HashMap<Symbol, Count>, source: HashMap<Symbol, Count>
             .entry(symbol)
             .and_modify(|current| *current = current.max(count))
             .or_insert(count);
+    }
+}
+
+fn normalize_option_groups(expr: Expr) -> Expr {
+    match expr {
+        Expr::Sequence(items) => {
+            let items = items
+                .into_iter()
+                .map(normalize_option_groups)
+                .collect::<Vec<_>>();
+            let mut out = Vec::with_capacity(items.len());
+            let mut option_run = Vec::new();
+
+            let flush = |out: &mut Vec<Expr>, run: &mut Vec<usize>| {
+                match run.len() {
+                    0 => {}
+                    1 => out.push(Expr::Optional(Box::new(Expr::Atom(Atom::Option(run[0]))))),
+                    _ => out.push(Expr::OptionsGroup(std::mem::take(run))),
+                }
+                run.clear();
+            };
+
+            for item in items {
+                if let Expr::Optional(inner) = &item
+                    && let Expr::Atom(Atom::Option(id)) = inner.as_ref()
+                {
+                    option_run.push(*id);
+                    continue;
+                }
+                flush(&mut out, &mut option_run);
+                out.push(item);
+            }
+            flush(&mut out, &mut option_run);
+
+            match out.len() {
+                0 => Expr::Empty,
+                1 => out.pop().unwrap(),
+                _ => Expr::Sequence(out),
+            }
+        }
+        Expr::Alternative(items) => Expr::Alternative(
+            items
+                .into_iter()
+                .map(normalize_option_groups)
+                .collect(),
+        ),
+        Expr::Optional(inner) => Expr::Optional(Box::new(normalize_option_groups(*inner))),
+        Expr::Required(inner) => Expr::Required(Box::new(normalize_option_groups(*inner))),
+        Expr::Repeat(inner) => Expr::Repeat(Box::new(normalize_option_groups(*inner))),
+        other => other,
     }
 }
 
@@ -222,7 +282,7 @@ impl Parser {
             Token::LeftParen => {
                 let inner = self.parse_alternative()?;
                 self.expect(Token::RightParen)?;
-                inner
+                Expr::Required(Box::new(inner))
             }
             Token::LeftBracket => {
                 let inner = self.parse_alternative()?;
@@ -232,6 +292,13 @@ impl Parser {
                     Expr::Atom(Atom::Command { literal, .. }) if literal == "options"
                 ) {
                     Expr::OptionsShortcut
+                } else if let Expr::Sequence(items) = inner {
+                    Expr::Sequence(
+                        items
+                            .into_iter()
+                            .map(|item| Expr::Optional(Box::new(item)))
+                            .collect(),
+                    )
                 } else {
                     Expr::Optional(Box::new(inner))
                 }
@@ -311,9 +378,7 @@ fn classify_atom(value: String) -> Result<Atom> {
 
     let has_alpha = value.chars().any(char::is_alphabetic);
     let is_uppercase_positional = has_alpha
-        && value.chars().all(|c| {
-            !c.is_alphabetic() || c.is_uppercase()
-        })
+        && value.chars().all(|c| !c.is_alphabetic() || c.is_uppercase())
         && value
             .chars()
             .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-'));
@@ -372,5 +437,14 @@ mod tests {
         let metadata = analyze(&[expr]);
         assert_eq!(metadata.command_repeated.get("copy"), Some(&false));
         assert_eq!(metadata.positional_repeated.get("source"), Some(&true));
+    }
+
+    #[test]
+    fn adjacent_optional_options_become_unordered_group() {
+        let expr = normalize_option_groups(Expr::Sequence(vec![
+            Expr::Optional(Box::new(Expr::Atom(Atom::Option(1)))),
+            Expr::Optional(Box::new(Expr::Atom(Atom::Option(2)))),
+        ]));
+        assert_eq!(expr, Expr::OptionsGroup(vec![1, 2]));
     }
 }
