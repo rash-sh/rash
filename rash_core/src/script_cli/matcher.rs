@@ -195,21 +195,19 @@ fn epsilon_closure(
 
 fn matches(matcher: &Matcher, input: &InputToken) -> Option<Capture> {
     match (matcher, input) {
-        (
-            Matcher::Command { literal, key },
-            InputToken::Word(value),
-        ) if literal == value => Some(Capture::Command(key.clone())),
+        (Matcher::Command { literal, key }, InputToken::Word(value)) if literal == value => {
+            Some(Capture::Command(key.clone()))
+        }
         (Matcher::Positional { key }, InputToken::Word(value)) => Some(Capture::Positional {
             key: key.clone(),
             value: value.clone(),
         }),
-        (
-            Matcher::Option(expected),
-            InputToken::Option { id, value },
-        ) if expected == id => Some(Capture::Option {
-            id: *id,
-            value: value.clone(),
-        }),
+        (Matcher::Option(expected), InputToken::Option { id, value }) if expected == id => {
+            Some(Capture::Option {
+                id: *id,
+                value: value.clone(),
+            })
+        }
         (Matcher::AnyOption(allowed), InputToken::Option { id, value })
             if allowed.get(*id).copied().unwrap_or(false) =>
         {
@@ -242,6 +240,14 @@ impl Builder {
         self.states[from]
             .edges
             .push(Edge::Consume { matcher, target: to });
+    }
+
+    fn option_loop(&mut self, mask: Vec<bool>) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        self.epsilon(start, end);
+        self.consume(start, Matcher::AnyOption(mask), start);
+        (start, end)
     }
 
     fn compile_expr(&mut self, expr: &Expr, allowed_options: &[bool]) -> (usize, usize) {
@@ -297,6 +303,7 @@ impl Builder {
                 self.epsilon(inner_end, end);
                 (start, end)
             }
+            Expr::Required(inner) => self.compile_expr(inner, allowed_options),
             Expr::Repeat(inner) => {
                 let start = self.state();
                 let end = self.state();
@@ -306,13 +313,16 @@ impl Builder {
                 self.epsilon(inner_end, end);
                 (start, end)
             }
-            Expr::OptionsShortcut => {
-                let start = self.state();
-                let end = self.state();
-                self.epsilon(start, end);
-                self.consume(start, Matcher::AnyOption(allowed_options.to_vec()), start);
-                (start, end)
+            Expr::OptionsGroup(ids) => {
+                let mut mask = vec![false; allowed_options.len()];
+                for id in ids {
+                    if let Some(value) = mask.get_mut(*id) {
+                        *value = true;
+                    }
+                }
+                self.option_loop(mask)
             }
+            Expr::OptionsShortcut => self.option_loop(allowed_options.to_vec()),
         }
     }
 }
@@ -346,5 +356,19 @@ mod tests {
             execute(&nfa, &[InputToken::Word("x".into())]),
             Err(MatchError::Ambiguous)
         );
+    }
+
+    #[test]
+    fn option_group_accepts_any_declared_order() {
+        let pattern = Expr::OptionsGroup(vec![0, 1]);
+        let mut registry = OptionRegistry::from_doc(
+            "Usage: tool [-a] [-b]\n\n-a  a\n-b  b",
+            &["tool [-a] [-b]".to_owned()],
+        )
+        .unwrap();
+        registry.set_repeatable(&HashSet::new()).unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let input = registry.normalize_args(&["-b", "-a"]).unwrap();
+        assert!(execute(&nfa, &input).is_ok());
     }
 }
