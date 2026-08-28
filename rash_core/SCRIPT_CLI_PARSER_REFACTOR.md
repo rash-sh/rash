@@ -32,9 +32,11 @@ These invariants are release gates, not preferences.
 - **Repetition is represented by graph cycles.** `<arg>...` must not duplicate grammar nodes per argument.
 - **Matching is deterministic.** If two successful paths produce different bindings, parsing fails as ambiguous.
 - **Equivalent paths are allowed.** Multiple paths producing identical bindings are not considered ambiguous.
-- **Normalized options preserve aliases.** Short and long forms must resolve to one logical option and output key.
-- **Help still participates in grammar matching.** A declared logical help option may satisfy a positional slot, matching legacy Rash behavior, but it must not globally make an otherwise impossible argv valid.
-- **The replacement does not silently widen the grammar.** Legacy-invalid command, positional, and usage-option identifiers remain invalid unless an intentional syntax change is reviewed separately.
+- **Normalized options preserve aliases.** Short and long forms resolve to one logical option and output key.
+- **Help participates in grammar matching.** `--help`, an alias normalized to `--help`, and the legacy short-only `-h` positional special case are handled through matching; help must not globally make an otherwise impossible argv valid.
+- **The replacement does not silently widen command/positional syntax.** Command and positional identifiers retain the legacy ASCII word grammar.
+- **Option spelling preserves legacy permissiveness.** Option identifiers are not incorrectly constrained by the command/positional word grammar; legacy-accepted option spellings remain accepted.
+- **Nested optional structure is semantic.** Flat `[a b]` retains Rash's independently-optional behavior, while nested forms such as `[command [--option]]` retain the dependency of the nested element on the outer group.
 - **Production switchover is last.** `rash` keeps calling the legacy parser until compatibility and performance gates pass.
 
 ## Phase 0 — Contract capture and baseline
@@ -57,6 +59,7 @@ These invariants are release gates, not preferences.
   - `[options]`;
   - dashed command/argument names;
   - help behavior.
+- [x] Keep legacy comment/help and `Usage:` extraction semantics at the parser boundary so the engine rewrite does not change which declarations become active.
 - [x] Extend Criterion so old and new implementations can be measured side by side.
 
 ### Exit criteria
@@ -88,11 +91,14 @@ These invariants are release gates, not preferences.
 - [x] Analyze symbol multiplicity without expanding patterns.
 - [x] Preserve normalized variable names for dashed commands/positionals.
 - [x] Preserve the legacy lexical domain for command and positional identifiers instead of accepting broader arbitrary atoms.
+- [x] Preserve nested optional dependencies rather than flattening nested brackets into unrelated independent optionals.
 
 ### Correctness checks
 
 - [x] `[a b]` follows Rash's existing independently-optional behavior.
 - [x] `[(a b)]` remains an atomic optional group.
+- [x] `[command [--option]]` allows none, `command`, or `command --option`, but not `--option` alone.
+- [x] Nested positional optionals retain the same outer dependency.
 - [x] `(<a> <b>)...` repeats the complete group and rejects incomplete tails.
 - [x] uppercase positional notation is preserved.
 
@@ -102,7 +108,7 @@ These invariants are release gates, not preferences.
 - AST size is independent of runtime argument count.
 - No option ordering permutations are materialized.
 
-**Status:** complete, pending full CI confirmation.
+**Status:** implementation complete; full CI confirmation pending.
 
 ## Phase 2 — Option registry and argv normalization
 
@@ -122,9 +128,12 @@ These invariants are release gates, not preferences.
   - a value-bearing option at the end of a short cluster.
 - [x] Preserve values containing `=`.
 - [x] Keep repeated simple flags available to the grammar instead of rejecting them globally.
-- [x] Scope `[options]` per usage pattern.
-- [x] Track the logical help option identity without bypassing matching.
-- [x] Reject usage option identifiers outside the legacy lowercase ASCII word grammar.
+- [x] Preserve repeatable value-bearing options as scalar values with legacy last-value-wins behavior instead of converting them to counters or rejecting them.
+- [x] Scope `[options]` per usage pattern as the intended deterministic behavior, rather than reproducing the legacy cross-pattern accumulation bug.
+- [x] Preserve the legacy one-option versus multi-option `[options]` multiplicity behavior.
+- [x] Model help identity separately from the legacy short-only `-h` positional special case.
+- [x] Distinguish `-h --help`, short-only `-h`, and unrelated aliases such as `-h --host` without losing information through normalization.
+- [x] Preserve legacy-permissive option identifiers instead of applying command/positional lexical restrictions to them.
 
 ### Exit criteria
 
@@ -132,8 +141,9 @@ These invariants are release gates, not preferences.
 - Alias spelling does not change output shape.
 - Unknown options produce the same error class as the legacy parser.
 - Registry discovery does not silently reinterpret legacy-simple options as value-bearing options.
+- Repetition changes option output type only where legacy Rash does so.
 
-**Status:** complete, pending differential results.
+**Status:** implementation complete; differential/CI validation pending.
 
 ## Phase 3 — Compiled matcher
 
@@ -144,13 +154,14 @@ These invariants are release gates, not preferences.
 - [x] Compile the AST to an epsilon-NFA.
 - [x] Compile repetition to cycles.
 - [x] Compile unordered optional option groups to masked option loops.
-- [x] Compile `[options]` to a pattern-scoped option loop.
+- [x] Compile `[options]` structurally without materializing option permutations.
+- [x] Preserve the special single-option `[options]` cardinality without giving up structural matching for larger groups.
 - [x] Keep captures in a persistent arena to avoid cloning the complete binding vector per consumed token.
 - [x] Detect different successful binding sets as ambiguity.
 - [x] Deduplicate identical successful binding sets.
-- [x] Preserve legacy help semantics by allowing a logical help option to be consumed through a positional matcher when that positional path is otherwise valid.
-- [ ] Bound active candidates more aggressively by equivalent matcher state where this can be proven semantics-preserving.
-- [ ] Audit epsilon-closure behavior for nullable repeated expressions and reject/normalize grammars that could create zero-consumption cycles.
+- [x] Preserve legacy positional-help matching using alias-aware registry metadata.
+- [x] Audit nullable repetition. Epsilon closure deduplicates `(state, capture-path)` candidates, so zero-consumption cycles terminate; a direct `Repeat(Optional(Positional))` regression test covers zero and multiple consumed values.
+- [ ] Bound active candidates more aggressively by equivalent matcher state **only if** benchmarks show this is useful and capture/ambiguity semantics can be proven unchanged.
 
 ### Complexity targets
 
@@ -164,8 +175,9 @@ These invariants are release gates, not preferences.
 - Pathological repeated-input tests remain bounded.
 - No zero-consumption infinite loops are possible.
 - Ambiguity behavior is deterministic and tested.
+- Any further candidate-state merging is measurement-driven optimization, not a correctness prerequisite.
 
-**Status:** core implementation complete; hardening remains.
+**Status:** correctness hardening implemented; CI and measurement-driven optimization remain.
 
 ## Phase 4 — Differential compatibility campaign
 
@@ -177,23 +189,36 @@ These invariants are release gates, not preferences.
 - [x] repeated positionals;
 - [x] repeated groups;
 - [x] optional sequences and grouped optional sequences;
+- [x] nested optional command/option and command/positional dependencies;
+- [x] nullable optional-repeat forms (`[<x>...]` and `[<x>]...`);
 - [x] option aliases;
 - [x] short clusters;
 - [x] option values and defaults;
+- [x] repeatable value-bearing options and last-value-wins output shape;
 - [x] values containing `=`;
 - [x] unordered adjacent options;
-- [x] `[options]` combinations;
+- [x] `[options]` combinations, including the single-option/multi-option multiplicity distinction;
 - [x] mixed option/command positions;
-- [x] help command, explicit help option, positional-help substitution, and impossible-extra-help cases;
+- [x] help command, explicit help option, positional-help substitution, short-only `-h`, unrelated `-h` aliases, and impossible-extra-help cases;
 - [x] unknown options;
 - [x] overlapping usages with identical bindings;
 - [x] repeated commands/count output parity;
-- [x] optional repeat forms (`[<x>...]` and `[<x>]...`);
 - [x] bounded exhaustive generated argv spaces for representative small grammars;
-- [x] malformed command/positional/usage-option identifier parity cases;
+- [x] malformed command/positional identifier parity cases;
+- [x] permissive legacy option-name characterization cases;
+- [x] legacy one-line/multiline `Usage:` extraction and malformed-spacing boundary cases;
 - [ ] all legacy parser unit-test scenarios mirrored or exercised through the differential suite;
 - [ ] remaining malformed declarations and error-path parity where compatibility matters;
 - [ ] broader fuzz/property-generated grammars if the bounded exhaustive suite reveals gaps worth generalizing.
+
+### Intentional differences already identified
+
+These are not ordinary compatibility failures and must remain explicit:
+
+1. **Pattern-scoped `[options]`.** The legacy implementation accumulates explicit options across usage patterns while expanding `[options]`; the compiled parser scopes the shortcut to the pattern being compiled.
+2. **Deterministic ambiguity errors.** If two successful paths produce different bindings, the compiled parser rejects the declaration instead of selecting a result through iteration order.
+
+Any additional difference requires the same explicit classification before production switchover.
 
 ### Delta policy
 
@@ -208,7 +233,7 @@ Every mismatch must be placed in one of three categories:
 - Differential suite is green for all behavior intended to remain compatible.
 - Any intentional differences are explicitly listed in the PR and covered by tests.
 
-**Status:** in progress; the compatibility corpus is broad enough that the next full semantic CI run is the primary gate.
+**Status:** in progress; the compatibility corpus is broad enough that a full semantic CI run is now the primary gate.
 
 ## Phase 5 — Performance validation and optimization
 
@@ -281,6 +306,7 @@ If the production switch exposes an unresolved compatibility or performance regr
 
 - [ ] Document Rash's supported usage grammar explicitly.
 - [ ] Keep Docopt described as inspiration/history, not compatibility commitment.
+- [ ] Document flat versus nested optional semantics.
 - [ ] Document option ordering, repetition, grouping, aliases, defaults, and help semantics.
 - [ ] Document ambiguity errors.
 - [ ] Add examples for non-trivial supported grammar.
@@ -337,12 +363,12 @@ Updated: 2026-08-28
 
 | Phase | State | Notes |
 | --- | --- | --- |
-| 0. Contract/baseline | Complete | Legacy kept as oracle; differential and Criterion harnesses exist. |
-| 1. Grammar model | Complete / CI validation | AST, multiplicity analysis, and legacy identifier grammar are implemented. |
-| 2. Options/argv normalization | Complete / parity validation | Includes aliases, clusters, declaration-driven value arity, `[options]`, logical help identity, and legacy usage-option identifier validation. |
-| 3. Compiled matcher | In progress | Epsilon-NFA, persistent captures, ambiguity detection, and positional help semantics implemented; candidate/nullable-cycle hardening remains. |
-| 4. Differential compatibility | In progress | Legacy matrices, malformed-grammar cases, and bounded exhaustive argv enumeration are committed; full semantic CI is the immediate gate. |
-| 5. Performance | In progress | Side-by-side benchmarks added; numbers and optimizations pending. |
+| 0. Contract/baseline | Complete | Legacy kept as oracle; differential/benchmark harnesses exist; legacy declaration extraction is pinned. |
+| 1. Grammar model | Complete / CI validation | AST, multiplicity analysis, lexical compatibility, and nested-optional dependency lowering are implemented. |
+| 2. Options/argv normalization | Complete / parity validation | Aliases, clusters, declaration-driven arity, permissive option names, repeatable value options, `[options]` multiplicity, and alias-aware help identity are implemented. |
+| 3. Compiled matcher | Complete / CI + perf validation | Epsilon-NFA, persistent captures, ambiguity detection, option groups, positional help, and nullable-cycle safety are implemented. Further candidate merging is benchmark-driven only. |
+| 4. Differential compatibility | In progress | Broad legacy matrices, malformed/boundary cases, nested optionals, and bounded exhaustive argv enumeration are committed; full semantic CI is the immediate gate. |
+| 5. Performance | In progress | Side-by-side benchmarks added; measurements and any resulting optimizations pending. |
 | 6. Production integration | Blocked on phases 4–5 | No runtime switch yet. |
 | 7. Documentation | Not started | Starts after semantics stabilize. |
 | 8. Legacy cleanup | Deferred | Decision after production validation. |
