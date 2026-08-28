@@ -39,6 +39,7 @@ impl OptionSpec {
 pub(super) struct OptionRegistry {
     specs: Vec<OptionSpec>,
     aliases: HashMap<String, usize>,
+    ambiguous_aliases: HashSet<String>,
 }
 
 impl OptionRegistry {
@@ -142,9 +143,7 @@ impl OptionRegistry {
                     Some((name, value)) => (name, Some(value.to_owned())),
                     None => (arg, None),
                 };
-                let id = self.find(name).ok_or_else(|| {
-                    Error::new(ErrorKind::InvalidData, format!("Unknown option: {name}"))
-                })?;
+                let id = self.resolve(name)?;
                 let spec = &self.specs[id];
                 let value = if spec.takes_value {
                     match attached {
@@ -192,9 +191,7 @@ impl OptionRegistry {
                         ));
                     }
                     let alias = format!("-{ch}");
-                    let id = self.find(&alias).ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, format!("Unknown option: {alias}"))
-                    })?;
+                    let id = self.resolve(&alias)?;
                     let spec = &self.specs[id];
                     let next_offset = offset + ch.len_utf8();
                     let rest = &body[next_offset..];
@@ -298,7 +295,23 @@ impl OptionRegistry {
     }
 
     fn find(&self, alias: &str) -> Option<usize> {
-        self.aliases.get(alias).copied()
+        if self.ambiguous_aliases.contains(alias) {
+            None
+        } else {
+            self.aliases.get(alias).copied()
+        }
+    }
+
+    fn resolve(&self, alias: &str) -> Result<usize> {
+        if self.ambiguous_aliases.contains(alias) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Ambiguous option alias: {alias}"),
+            ));
+        }
+        self.aliases.get(alias).copied().ok_or_else(|| {
+            Error::new(ErrorKind::InvalidData, format!("Unknown option: {alias}"))
+        })
     }
 
     fn add_description_line(&mut self, line: &str) -> Result<()> {
@@ -372,6 +385,9 @@ impl OptionRegistry {
                 break;
             }
             let alias = format!("-{ch}");
+            if self.ambiguous_aliases.contains(&alias) {
+                break;
+            }
             let next_offset = offset + ch.len_utf8();
             let rest = &body[next_offset..];
 
@@ -400,9 +416,7 @@ impl OptionRegistry {
     fn expand_usage_option(&self, atom: &str) -> Result<(Vec<usize>, bool)> {
         if atom.starts_with("--") {
             let name = atom.split_once('=').map_or(atom, |(name, _)| name);
-            let id = self.find(name).ok_or_else(|| {
-                Error::new(ErrorKind::InvalidData, format!("Unknown option: {name}"))
-            })?;
+            let id = self.resolve(name)?;
             let spec = &self.specs[id];
             return Ok((vec![id], spec.takes_value && !atom.contains('=')));
         }
@@ -415,9 +429,7 @@ impl OptionRegistry {
                 break;
             }
             let alias = format!("-{ch}");
-            let id = self.find(&alias).ok_or_else(|| {
-                Error::new(ErrorKind::InvalidData, format!("Unknown option: {alias}"))
-            })?;
+            let id = self.resolve(&alias)?;
             ids.push(id);
             if self.specs[id].takes_value {
                 let next_offset = offset + ch.len_utf8();
@@ -435,15 +447,36 @@ impl OptionRegistry {
     }
 
     fn upsert(&mut self, incoming: OptionSpec) -> Result<usize> {
-        let existing = incoming
-            .short
-            .as_ref()
-            .and_then(|alias| self.find(alias))
-            .or_else(|| incoming.long.as_ref().and_then(|alias| self.find(alias)));
+        let short_existing = incoming.short.as_ref().and_then(|alias| self.find(alias));
+        let long_existing = incoming.long.as_ref().and_then(|alias| self.find(alias));
+        let existing = match (short_existing, long_existing) {
+            (Some(short), Some(long)) if short != long => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!(
+                        "Option aliases resolve to different options: {} {}",
+                        incoming.short.as_deref().unwrap_or(""),
+                        incoming.long.as_deref().unwrap_or("")
+                    ),
+                ));
+            }
+            (Some(id), _) | (_, Some(id)) => Some(id),
+            (None, None) => None,
+        };
 
         if let Some(id) = existing {
-            let spec = &mut self.specs[id];
-            if let (Some(a), Some(b)) = (&spec.short, &incoming.short)
+            let existing_spec = &self.specs[id];
+            let shared_short_with_distinct_longs = existing_spec.short == incoming.short
+                && existing_spec.short.is_some()
+                && matches!(
+                    (&existing_spec.long, &incoming.long),
+                    (Some(existing_long), Some(incoming_long)) if existing_long != incoming_long
+                );
+            if shared_short_with_distinct_longs {
+                return self.insert_distinct(incoming);
+            }
+
+            if let (Some(a), Some(b)) = (&existing_spec.short, &incoming.short)
                 && a != b
             {
                 return Err(Error::new(
@@ -451,7 +484,7 @@ impl OptionRegistry {
                     format!("Conflicting short option aliases: {a} and {b}"),
                 ));
             }
-            if let (Some(a), Some(b)) = (&spec.long, &incoming.long)
+            if let (Some(a), Some(b)) = (&existing_spec.long, &incoming.long)
                 && a != b
             {
                 return Err(Error::new(
@@ -459,15 +492,16 @@ impl OptionRegistry {
                     format!("Conflicting long option aliases: {a} and {b}"),
                 ));
             }
-            if let (Some(a), Some(b)) = (&spec.default_value, &incoming.default_value)
+            if let (Some(a), Some(b)) = (&existing_spec.default_value, &incoming.default_value)
                 && a != b
             {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
-                    format!("Conflicting defaults for option {}", spec.preferred_name()),
+                    format!("Conflicting defaults for option {}", existing_spec.preferred_name()),
                 ));
             }
 
+            let spec = &mut self.specs[id];
             if spec.short.is_none() {
                 spec.short = incoming.short.clone();
             }
@@ -478,31 +512,44 @@ impl OptionRegistry {
             if spec.default_value.is_none() {
                 spec.default_value = incoming.default_value.clone();
             }
-            if let Some(alias) = &spec.short {
+            if let Some(alias) = &spec.short
+                && !self.ambiguous_aliases.contains(alias)
+            {
                 self.aliases.insert(alias.clone(), id);
             }
-            if let Some(alias) = &spec.long {
+            if let Some(alias) = &spec.long
+                && !self.ambiguous_aliases.contains(alias)
+            {
                 self.aliases.insert(alias.clone(), id);
             }
             return Ok(id);
         }
 
+        self.insert_distinct(incoming)
+    }
+
+    fn insert_distinct(&mut self, incoming: OptionSpec) -> Result<usize> {
         let id = self.specs.len();
-        if let Some(alias) = &incoming.short
-            && self.aliases.insert(alias.clone(), id).is_some()
-        {
+        let aliases = [incoming.short.as_ref(), incoming.long.as_ref()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let has_unique_alias = aliases
+            .iter()
+            .any(|alias| !self.aliases.contains_key(alias.as_str()));
+        if !has_unique_alias && aliases.iter().any(|alias| self.ambiguous_aliases.contains(*alias)) {
             return Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Duplicate option alias: {alias}"),
+                format!("Option has no unambiguous alias: {}", incoming.preferred_name()),
             ));
         }
-        if let Some(alias) = &incoming.long
-            && self.aliases.insert(alias.clone(), id).is_some()
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Duplicate option alias: {alias}"),
-            ));
+
+        for alias in aliases {
+            if self.aliases.contains_key(alias.as_str()) {
+                self.ambiguous_aliases.insert(alias.clone());
+            } else {
+                self.aliases.insert(alias.clone(), id);
+            }
         }
         self.specs.push(incoming);
         Ok(id)
@@ -626,17 +673,43 @@ mod tests {
 
     #[test]
     fn positional_help_distinguishes_short_only_h_from_other_aliases() {
-        let short_only = OptionRegistry::from_doc("Usage: tool <value>\n\n-h  helpish", &["tool <value>".to_owned()]).unwrap();
+        let short_only = OptionRegistry::from_doc(
+            "Usage: tool <value>\n\n-h  helpish",
+            &["tool <value>".to_owned()],
+        )
+        .unwrap();
         assert!(short_only.is_positional_help(0));
         assert!(!short_only.is_help(0));
 
-        let real_help = OptionRegistry::from_doc("Usage: tool <value>\n\n-h --help  help", &["tool <value>".to_owned()]).unwrap();
+        let real_help = OptionRegistry::from_doc(
+            "Usage: tool <value>\n\n-h --help  help",
+            &["tool <value>".to_owned()],
+        )
+        .unwrap();
         assert!(real_help.is_positional_help(0));
         assert!(real_help.is_help(0));
 
-        let host = OptionRegistry::from_doc("Usage: tool <value>\n\n-h --host  host", &["tool <value>".to_owned()]).unwrap();
+        let host = OptionRegistry::from_doc(
+            "Usage: tool <value>\n\n-h --host  host",
+            &["tool <value>".to_owned()],
+        )
+        .unwrap();
         assert!(!host.is_positional_help(0));
         assert!(!host.is_help(0));
+    }
+
+    #[test]
+    fn shared_short_alias_is_kept_as_deterministic_ambiguity() {
+        let help = "Usage: tool [options]\n\n-u --sysupgrade  upgrade\n-u --upgrades  list upgrades";
+        let usages = vec!["tool [options]".to_owned()];
+        let registry = OptionRegistry::from_doc(help, &usages).unwrap();
+        assert!(registry.normalize_args(&["--sysupgrade"]).is_ok());
+        assert!(registry.normalize_args(&["--upgrades"]).is_ok());
+        let error = registry.normalize_args(&["-u"]).unwrap_err();
+        assert!(error.to_string().contains("Ambiguous option alias: -u"));
+        let initial = registry.initial_options();
+        assert!(initial.contains_key("sysupgrade"));
+        assert!(initial.contains_key("upgrades"));
     }
 
     #[test]
