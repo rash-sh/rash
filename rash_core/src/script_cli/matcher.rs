@@ -396,10 +396,7 @@ mod tests {
         )))));
         let nfa = compile(&[pattern], &OptionRegistry::default());
         assert!(execute(&nfa, &[]).is_ok());
-        let input = [
-            InputToken::Word("a".into()),
-            InputToken::Word("b".into()),
-        ];
+        let input = [InputToken::Word("a".into()), InputToken::Word("b".into())];
         let captures = execute(&nfa, &input).unwrap();
         assert_eq!(captures.len(), 2);
         assert!(nfa.states.len() < 10);
