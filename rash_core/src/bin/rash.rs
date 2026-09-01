@@ -85,6 +85,9 @@ fn log_inner_errors(e: &dyn StdError) {
 }
 
 fn crash_error(e: Error) -> ! {
+    if e.kind() == ErrorKind::ExplicitExit {
+        exit(e.raw_os_error().unwrap_or(0));
+    }
     error!("{e}");
     let exit_code = e.raw_os_error().unwrap_or(1);
     if let Some(inner_error) = e.into_inner()

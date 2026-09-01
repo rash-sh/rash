@@ -521,6 +521,7 @@ impl<'a> Task<'a> {
             Ok((result, result_vars)) => {
                 self.finalize_module_result(result, result_vars, &extended_vars)
             }
+            Err(error) if error.kind() == ErrorKind::ExplicitExit => Err(error),
             Err(error) => Ok(self.module_error_result(error)),
         }
     }
@@ -1090,7 +1091,15 @@ impl<'a> Task<'a> {
 
     fn exec_with_rescue_always(&self, vars: Value) -> Result<TaskExecResult> {
         let initial_vars = vars;
-        let main = self.exec_main_task(initial_vars.clone());
+        let main = match self.exec_main_task(initial_vars.clone()) {
+            Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                if let Some(always_tasks) = &self.always {
+                    self.execute_task_sequence(always_tasks, initial_vars.clone())?;
+                }
+                return Err(error);
+            }
+            result => result,
+        };
         let (main_result, main_hard_error) = match main {
             Ok(result) => (result, None),
             Err(error) => (
@@ -1157,6 +1166,7 @@ impl<'a> Task<'a> {
 
         let result = match execution {
             Ok(result) => result,
+            Err(error) if error.kind() == ErrorKind::ExplicitExit => return Err(error),
             Err(error) if self.ignore_errors.unwrap_or(false) => self.module_error_result(error),
             Err(error) => return Err(error),
         };
@@ -1457,6 +1467,30 @@ mod tests {
         let env = parsed.tasks[0].environment.as_ref().unwrap();
         assert_eq!(env["A"].as_str(), Some("one"));
         assert_eq!(env["B"].as_str(), Some("task"));
+    }
+
+    #[test]
+    fn explicit_exit_runs_always_but_not_rescue_and_ignores_ignore_errors() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            meta:
+              action: exit
+              code: 17
+            ignore_errors: true
+            rescue:
+              - fail:
+                  msg: rescue must not run
+            always:
+              - debug:
+                  msg: cleanup
+            "#,
+        )
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        let error = task.exec(context! {}).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::ExplicitExit);
+        assert_eq!(error.raw_os_error(), Some(17));
     }
 
     #[test]
