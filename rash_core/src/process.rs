@@ -13,19 +13,14 @@ use serde::Deserialize;
 #[cfg(unix)]
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 
-/// Controls how a child process stream is handled.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum OutputMode {
-    /// Capture the stream and make it available in the module result.
     #[default]
     Capture,
-    /// Connect the child stream directly to Rash's stream.
     Inherit,
-    /// Discard the stream.
     Null,
-    /// Stream output live while also retaining it in the module result.
     Tee,
 }
 
@@ -43,7 +38,6 @@ impl OutputMode {
     }
 }
 
-/// A normalized process definition shared by command-like modules and async execution.
 #[derive(Clone, Debug)]
 pub struct ProcessSpec {
     pub program: String,
@@ -52,7 +46,6 @@ pub struct ProcessSpec {
     pub stdin: Option<String>,
     pub stdout: OutputMode,
     pub stderr: OutputMode,
-    /// Start the process in a new process group so signals/timeouts can target its whole tree.
     pub process_group: bool,
 }
 
@@ -81,11 +74,11 @@ impl ProcessSpec {
         if let Some(chdir) = &self.chdir {
             command.current_dir(Path::new(chdir));
         }
-        if self.stdin.is_some() {
-            command.stdin(Stdio::piped());
+        command.stdin(if self.stdin.is_some() {
+            Stdio::piped()
         } else {
-            command.stdin(Stdio::inherit());
-        }
+            Stdio::inherit()
+        });
         command.stdout(self.stdout.stdio());
         command.stderr(self.stderr.stdio());
 
@@ -97,22 +90,15 @@ impl ProcessSpec {
         command
     }
 
-    /// Spawn without waiting. Callers can register the child in the async job registry.
-    pub fn spawn(&self) -> Result<Child> {
+    /// Spawn a process and immediately start draining all piped streams.
+    /// This is safe for verbose long-running and asynchronous commands.
+    pub fn spawn_managed(&self) -> Result<SpawnedProcess> {
         let mut command = self.command();
         trace!("spawn process: {:?} {:?}", self.program, self.args);
         let mut child = command
             .spawn()
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
         write_stdin(&mut child, self.stdin.as_deref())?;
-        Ok(child)
-    }
-
-    /// Run the process to completion, with concurrent draining of captured streams.
-    pub fn run(&self) -> Result<ProcessResult> {
-        let mut child = self.spawn()?;
-        let process_group = self.process_group.then_some(child.id() as i32);
-        let _signal_guard = process_group.map(SignalForwardGuard::new);
 
         let stdout_reader = if self.stdout.is_piped() {
             child
@@ -131,27 +117,90 @@ impl ProcessSpec {
             None
         };
 
-        let status = child
-            .wait()
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-        let stdout = join_reader(stdout_reader)?;
-        let stderr = join_reader(stderr_reader)?;
+        Ok(SpawnedProcess {
+            child,
+            stdout_reader,
+            stderr_reader,
+            process_group: self.process_group,
+        })
+    }
 
+    pub fn run(&self) -> Result<ProcessResult> {
+        let mut process = self.spawn_managed()?;
+        let _signal_guard = process
+            .process_group
+            .then_some(process.id() as i32)
+            .map(SignalForwardGuard::new);
+        let status = process.wait()?;
+        process.finish(status)
+    }
+
+    #[cfg(unix)]
+    pub fn replace(&self) -> Error {
+        let mut spec = self.clone();
+        spec.process_group = false;
+        let mut command = spec.command();
+        let error = command.exec();
+        Error::new(ErrorKind::SubprocessFail, error)
+    }
+}
+
+pub struct SpawnedProcess {
+    child: Child,
+    stdout_reader: Option<JoinHandle<std::io::Result<Vec<u8>>>>,
+    stderr_reader: Option<JoinHandle<std::io::Result<Vec<u8>>>>,
+    process_group: bool,
+}
+
+impl std::fmt::Debug for SpawnedProcess {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpawnedProcess")
+            .field("pid", &self.child.id())
+            .field("process_group", &self.process_group)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SpawnedProcess {
+    pub fn id(&self) -> u32 {
+        self.child.id()
+    }
+
+    pub fn try_wait(&mut self) -> std::io::Result<Option<ExitStatus>> {
+        self.child.try_wait()
+    }
+
+    pub fn wait(&mut self) -> Result<ExitStatus> {
+        self.child
+            .wait()
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
+    }
+
+    pub fn kill_tree(&mut self) -> std::io::Result<()> {
+        if self.process_group {
+            #[cfg(unix)]
+            {
+                let pgid = self.child.id() as i32;
+                // SAFETY: ProcessSpec created this child with process_group(0).
+                let result = unsafe { libc::kill(-pgid, libc::SIGKILL) };
+                if result == 0 {
+                    return Ok(());
+                }
+            }
+        }
+        self.child.kill()
+    }
+
+    pub fn finish(mut self, status: ExitStatus) -> Result<ProcessResult> {
+        // Close stdin in case a caller retained it. ProcessSpec normally closes it after writing.
+        drop(self.child.stdin.take());
+        let stdout = join_reader(self.stdout_reader.take())?;
+        let stderr = join_reader(self.stderr_reader.take())?;
         Ok(ProcessResult {
             status,
             stdout: bytes_to_string(stdout),
             stderr: bytes_to_string(stderr),
         })
-    }
-
-    /// Replace the Rash process with this command. This never returns on success.
-    #[cfg(unix)]
-    pub fn replace(&self) -> Error {
-        let mut command = self.command();
-        // Once Rash is replaced there is no parent left to forward signals, so keep the
-        // replacement in the current process group rather than creating a new one.
-        let error = command.exec();
-        Error::new(ErrorKind::SubprocessFail, error)
     }
 }
 
@@ -195,9 +244,7 @@ where
     })
 }
 
-fn join_reader(
-    handle: Option<JoinHandle<std::io::Result<Vec<u8>>>>,
-) -> Result<Option<Vec<u8>>> {
+fn join_reader(handle: Option<JoinHandle<std::io::Result<Vec<u8>>>>) -> Result<Option<Vec<u8>>> {
     match handle {
         Some(handle) => handle
             .join()
@@ -210,11 +257,7 @@ fn join_reader(
 
 fn bytes_to_string(bytes: Option<Vec<u8>>) -> Option<String> {
     bytes.and_then(|bytes| {
-        if bytes.is_empty() {
-            None
-        } else {
-            Some(String::from_utf8_lossy(&bytes).into_owned())
-        }
+        (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned())
     })
 }
 
@@ -249,7 +292,7 @@ static ACTIVE_PROCESS_GROUP: AtomicI32 = AtomicI32::new(0);
 extern "C" fn forward_signal(signal: libc::c_int) {
     let pgid = ACTIVE_PROCESS_GROUP.load(Ordering::Relaxed);
     if pgid > 0 {
-        // SAFETY: kill(2) is async-signal-safe. A negative pid addresses the process group.
+        // SAFETY: kill(2) is async-signal-safe; a negative pid addresses a process group.
         unsafe {
             libc::kill(-pgid, signal);
         }
@@ -268,7 +311,7 @@ impl SignalForwardGuard {
         #[cfg(unix)]
         {
             ACTIVE_PROCESS_GROUP.store(pgid, Ordering::SeqCst);
-            // SAFETY: handlers are restored by Drop and only perform async-signal-safe work.
+            // SAFETY: restored in Drop; handler only invokes async-signal-safe kill(2).
             let old_sigint = unsafe { libc::signal(libc::SIGINT, forward_signal as libc::sighandler_t) };
             let old_sigterm = unsafe { libc::signal(libc::SIGTERM, forward_signal as libc::sighandler_t) };
             return Self {
@@ -290,27 +333,13 @@ impl Drop for SignalForwardGuard {
         #[cfg(unix)]
         {
             ACTIVE_PROCESS_GROUP.store(0, Ordering::SeqCst);
-            // SAFETY: restore the exact handlers that were active before this process run.
+            // SAFETY: restore the exact previous handlers.
             unsafe {
                 libc::signal(libc::SIGINT, self.old_sigint);
                 libc::signal(libc::SIGTERM, self.old_sigterm);
             }
         }
     }
-}
-
-/// Kill the whole process group when possible, falling back to Child::kill.
-pub fn kill_process_tree(child: &mut Child) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        let pgid = child.id() as i32;
-        // SAFETY: the child was started with process_group(0), so its pid is the pgid.
-        let result = unsafe { libc::kill(-pgid, libc::SIGKILL) };
-        if result == 0 {
-            return Ok(());
-        }
-    }
-    child.kill()
 }
 
 #[cfg(test)]
@@ -335,6 +364,18 @@ mod tests {
         assert!(!result.success());
         assert_eq!(result.rc(), 7);
         assert_eq!(result.stderr.as_deref(), Some("bad\n"));
+    }
+
+    #[test]
+    fn managed_process_drains_large_output_before_exit() {
+        let mut spec = ProcessSpec::new("sh");
+        spec.args = vec![
+            "-c".into(),
+            "i=0; while [ $i -lt 20000 ]; do echo 01234567890123456789; i=$((i+1)); done".into(),
+        ];
+        let result = spec.run().unwrap();
+        assert!(result.success());
+        assert!(result.stdout.unwrap().len() > 300_000);
     }
 
     #[test]
