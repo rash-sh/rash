@@ -73,6 +73,7 @@ jobs:
 
       - name: Run examples
         run: |
+          cargo build --bin rash --locked --target=x86_64-unknown-linux-gnu
           cp target/x86_64-unknown-linux-gnu/debug/rash /usr/local/bin/rash
           make test-examples
 
