@@ -46,6 +46,7 @@ pub struct ProcessSpec {
     pub stdin: Option<String>,
     pub stdout: OutputMode,
     pub stderr: OutputMode,
+    pub env: Vec<(String, String)>,
     pub process_group: bool,
 }
 
@@ -58,6 +59,7 @@ impl ProcessSpec {
             stdin: None,
             stdout: OutputMode::Capture,
             stderr: OutputMode::Capture,
+            env: Vec::new(),
             process_group: true,
         }
     }
@@ -73,6 +75,9 @@ impl ProcessSpec {
         command.args(&self.args);
         if let Some(chdir) = &self.chdir {
             command.current_dir(Path::new(chdir));
+        }
+        for (key, value) in &self.env {
+            command.env(key, value);
         }
         command.stdin(if self.stdin.is_some() {
             Stdio::piped()
@@ -90,8 +95,6 @@ impl ProcessSpec {
         command
     }
 
-    /// Spawn a process and immediately start draining all piped streams.
-    /// This is safe for verbose long-running and asynchronous commands.
     pub fn spawn_managed(&self) -> Result<SpawnedProcess> {
         let mut command = self.command();
         trace!("spawn process: {:?} {:?}", self.program, self.args);
@@ -192,7 +195,6 @@ impl SpawnedProcess {
     }
 
     pub fn finish(mut self, status: ExitStatus) -> Result<ProcessResult> {
-        // Close stdin in case a caller retained it. ProcessSpec normally closes it after writing.
         drop(self.child.stdin.take());
         let stdout = join_reader(self.stdout_reader.take())?;
         let stderr = join_reader(self.stderr_reader.take())?;
@@ -256,9 +258,7 @@ fn join_reader(handle: Option<JoinHandle<std::io::Result<Vec<u8>>>>) -> Result<O
 }
 
 fn bytes_to_string(bytes: Option<Vec<u8>>) -> Option<String> {
-    bytes.and_then(|bytes| {
-        (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned())
-    })
+    bytes.and_then(|bytes| (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned()))
 }
 
 #[derive(Debug)]
@@ -354,6 +354,16 @@ mod tests {
         assert!(result.success());
         assert_eq!(result.rc(), 0);
         assert_eq!(result.stdout.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn carries_environment_without_mutating_parent() {
+        let mut spec = ProcessSpec::new("sh");
+        spec.args = vec!["-c".into(), "printf %s \"$RASH_PROCESS_TEST\"".into()];
+        spec.env.push(("RASH_PROCESS_TEST".into(), "child".into()));
+        let result = spec.run().unwrap();
+        assert_eq!(result.stdout.as_deref(), Some("child"));
+        assert!(std::env::var("RASH_PROCESS_TEST").is_err());
     }
 
     #[test]
