@@ -33,7 +33,7 @@
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
-use crate::error::{ErrorKind, Result};
+use crate::error::Result;
 use crate::modules::{Module, ModuleResult, parse_params};
 use crate::process::{OutputMode, ProcessSpec};
 
@@ -160,6 +160,7 @@ impl Module for Shell {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::ErrorKind;
 
     #[test]
     fn test_parse_params() {
@@ -248,10 +249,8 @@ mod tests {
     #[test]
     fn test_shell_execution_with_pipe() {
         let shell = Shell;
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"cmd: "echo 'hello world' | tr a-z A-Z""#,
-        )
-        .unwrap();
+        let yaml: YamlValue =
+            serde_norway::from_str(r#"cmd: "echo 'hello world' | tr a-z A-Z""#).unwrap();
         let (result, _) = shell
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
             .unwrap();
@@ -261,10 +260,7 @@ mod tests {
     #[test]
     fn test_shell_execution_with_stdin() {
         let shell = Shell;
-        let yaml: YamlValue = serde_norway::from_str(
-            "cmd: cat\nstdin: hello from stdin",
-        )
-        .unwrap();
+        let yaml: YamlValue = serde_norway::from_str("cmd: cat\nstdin: hello from stdin").unwrap();
         let (result, _) = shell
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
             .unwrap();
@@ -274,10 +270,7 @@ mod tests {
     #[test]
     fn test_nonzero_exit_is_structured_result() {
         let shell = Shell;
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"cmd: "echo nope >&2; exit 4""#,
-        )
-        .unwrap();
+        let yaml: YamlValue = serde_norway::from_str(r#"cmd: "echo nope >&2; exit 4""#).unwrap();
         let (result, _) = shell
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
             .unwrap();

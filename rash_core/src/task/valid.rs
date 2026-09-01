@@ -20,15 +20,16 @@ impl TaskValid {
     }
 
     fn get_possible_attrs(&self) -> Result<HashSet<String>> {
-        let mapping = self.attrs.as_mapping().ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, "task must be a YAML mapping")
-        })?;
+        let mapping = self
+            .attrs
+            .as_mapping()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "task must be a YAML mapping"))?;
         mapping
             .keys()
             .map(|key| {
-                key.as_str().map(String::from).ok_or_else(|| {
-                    Error::new(ErrorKind::InvalidData, "task keys must be strings")
-                })
+                key.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "task keys must be strings"))
             })
             .collect()
     }
@@ -102,23 +103,20 @@ impl TaskValid {
         })?;
 
         let become_method = match self.attrs["become_method"].as_str() {
-            Some(value) => value.parse::<BecomeMethod>().map_err(|error| {
-                Error::new(ErrorKind::InvalidData, error)
-            })?,
+            Some(value) => value
+                .parse::<BecomeMethod>()
+                .map_err(|error| Error::new(ErrorKind::InvalidData, error))?,
             None => global_params.become_method,
         };
 
         Ok(Task {
-            r#become: global_params.r#become
-                || self.attrs["become"].as_bool().unwrap_or(false),
-            become_user: self
-                .attrs["become_user"]
+            r#become: global_params.r#become || self.attrs["become"].as_bool().unwrap_or(false),
+            become_user: self.attrs["become_user"]
                 .as_str()
                 .unwrap_or(global_params.become_user)
                 .to_owned(),
             become_method,
-            become_exe: self
-                .attrs["become_exe"]
+            become_exe: self.attrs["become_exe"]
                 .as_str()
                 .unwrap_or(global_params.become_exe)
                 .to_owned(),
@@ -198,20 +196,15 @@ mod tests {
 
     #[test]
     fn invalid_become_method_is_rejected() {
-        let yaml: Value = serde_norway::from_str(
-            "debug: { msg: hi }\nbecome_method: nope",
-        )
-        .unwrap();
+        let yaml: Value =
+            serde_norway::from_str("debug: { msg: hi }\nbecome_method: nope").unwrap();
         let params = GlobalParams::default();
         assert!(TaskValid::new(&yaml).get_task(&params).is_err());
     }
 
     #[test]
     fn rescue_must_be_a_sequence() {
-        let yaml: Value = serde_norway::from_str(
-            "debug: { msg: hi }\nrescue: nope",
-        )
-        .unwrap();
+        let yaml: Value = serde_norway::from_str("debug: { msg: hi }\nrescue: nope").unwrap();
         let params = GlobalParams::default();
         assert!(TaskValid::new(&yaml).get_task(&params).is_err());
     }

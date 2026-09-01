@@ -279,9 +279,9 @@ impl<'a> Task<'a> {
             return Ok(Vec::new());
         };
         let extended_vars = self.extend_vars(vars.clone())?;
-        let mapping = env_yaml.as_mapping().ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, "environment must be a mapping")
-        })?;
+        let mapping = env_yaml
+            .as_mapping()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "environment must be a mapping"))?;
         mapping
             .iter()
             .map(|(key, value)| {
@@ -383,14 +383,11 @@ impl<'a> Task<'a> {
     }
 
     fn expression_vars(&self, vars: &Value, result: Value) -> Value {
-        let result_binding = [("result", result.clone())]
-            .into_iter()
-            .collect::<Value>();
-        let register_binding = self.register.as_ref().map(|register| {
-            [(register.as_str(), result)]
-                .into_iter()
-                .collect::<Value>()
-        });
+        let result_binding = [("result", result.clone())].into_iter().collect::<Value>();
+        let register_binding = self
+            .register
+            .as_ref()
+            .map(|register| [(register.as_str(), result)].into_iter().collect::<Value>());
         let additions = merge_option(result_binding, register_binding);
         context! {..vars.clone(), ..additions}
     }
@@ -424,7 +421,9 @@ impl<'a> Task<'a> {
             Some(&result),
             default_changed,
             default_failed,
-            default_failed.then(|| self.failure_message(&result)).as_deref(),
+            default_failed
+                .then(|| self.failure_message(&result))
+                .as_deref(),
         );
         let expression_vars = self.expression_vars(vars, preliminary);
 
@@ -461,7 +460,11 @@ impl<'a> Task<'a> {
                 == Some("flush_handlers".to_owned());
 
         let mut exec_result = if failed {
-            TaskExecResult::failed(changed, new_vars, error.unwrap_or_else(|| "task failed".into()))
+            TaskExecResult::failed(
+                changed,
+                new_vars,
+                error.unwrap_or_else(|| "task failed".into()),
+            )
         } else {
             TaskExecResult::new(changed, new_vars)
         };
@@ -474,11 +477,10 @@ impl<'a> Task<'a> {
     fn module_error_result(&self, error: Error) -> TaskExecResult {
         let message = error.to_string();
         let value = Self::result_value(None, false, true, Some(&message));
-        let register_vars = self.register.as_ref().map(|register| {
-            [(register.as_str(), value)]
-                .into_iter()
-                .collect::<Value>()
-        });
+        let register_vars = self
+            .register
+            .as_ref()
+            .map(|register| [(register.as_str(), value)].into_iter().collect::<Value>());
         TaskExecResult::failed(false, register_vars, message)
     }
 
@@ -726,7 +728,8 @@ impl<'a> Task<'a> {
 
                 match unsafe { fork() } {
                     Ok(ForkResult::Child) => {
-                        let result = self.exec_module_rendered_with_user(&rendered_params, &vars, user);
+                        let result =
+                            self.exec_module_rendered_with_user(&rendered_params, &vars, user);
                         tx.send(
                             result
                                 .map(|value| serde_json::to_string(&value))?
@@ -797,7 +800,11 @@ impl<'a> Task<'a> {
             "stderr": info.stderr.clone().unwrap_or_default(),
             "failed": failed,
         }))?;
-        Ok(ModuleResult::new(info.changed, Some(extra), info.output.clone()))
+        Ok(ModuleResult::new(
+            info.changed,
+            Some(extra),
+            info.output.clone(),
+        ))
     }
 
     fn poll_job(&self, job_id: u64, poll_interval: u64, vars: &Value) -> Result<TaskExecResult> {
@@ -839,7 +846,11 @@ impl<'a> Task<'a> {
                 "failed": false,
             }))?;
             return self.finalize_module_result(
-                ModuleResult::new(true, Some(extra), Some(format!("async job started: {job_id}"))),
+                ModuleResult::new(
+                    true,
+                    Some(extra),
+                    Some(format!("async job started: {job_id}")),
+                ),
                 None,
                 &extended,
             );
@@ -896,12 +907,13 @@ impl<'a> Task<'a> {
         let mut any_changed = false;
         let mut any_failed = false;
         let mut output = Vec::new();
-        for ((job_id, item), info) in jobs.iter().zip(results.into_iter()) {
+        for ((job_id, item), info) in jobs.iter().zip(results) {
             let info = info.expect("completed job has info");
             if info.status == JobStatus::Failed && info.rc.is_none() {
                 return Ok(self.module_error_result(Error::new(
                     ErrorKind::SubprocessFail,
-                    info.error.unwrap_or_else(|| format!("async job {job_id} failed")),
+                    info.error
+                        .unwrap_or_else(|| format!("async job {job_id} failed")),
                 )));
             }
             any_changed |= info.changed;
@@ -935,11 +947,8 @@ impl<'a> Task<'a> {
         for attempt in 0..=max_retries {
             let result = self.exec_module(vars.clone())?;
             let result_vars = result.get_vars().cloned().unwrap_or(context! {});
-            let check_vars = context! {
-                ..vars.clone(),
-                ..result_vars,
-                retries => attempt,
-            };
+            let merged = context! {..vars.clone(), ..result_vars};
+            let check_vars = context! {retries => attempt, ..merged};
             if self.is_until_satisfied(&check_vars)? {
                 return Ok(result);
             }
@@ -983,7 +992,11 @@ impl<'a> Task<'a> {
 
         let vars = (all_vars != context! {}).then_some(all_vars);
         let mut result = if failed {
-            TaskExecResult::failed(changed, vars, error.unwrap_or_else(|| "loop item failed".into()))
+            TaskExecResult::failed(
+                changed,
+                vars,
+                error.unwrap_or_else(|| "loop item failed".into()),
+            )
         } else {
             TaskExecResult::new(changed, vars)
         };
@@ -1015,7 +1028,11 @@ impl<'a> Task<'a> {
         }
         let vars = (all_vars != context! {}).then_some(all_vars);
         Ok(if failed {
-            TaskExecResult::failed(changed, vars, error.unwrap_or_else(|| "loop retry failed".into()))
+            TaskExecResult::failed(
+                changed,
+                vars,
+                error.unwrap_or_else(|| "loop retry failed".into()),
+            )
         } else {
             TaskExecResult::new(changed, vars)
         })
@@ -1075,7 +1092,10 @@ impl<'a> Task<'a> {
         let main = self.exec_main_task(initial_vars.clone());
         let (main_result, main_hard_error) = match main {
             Ok(result) => (result, None),
-            Err(error) => (TaskExecResult::failed(false, None, error.to_string()), Some(error)),
+            Err(error) => (
+                TaskExecResult::failed(false, None, error.to_string()),
+                Some(error),
+            ),
         };
         let main_failed = main_result.get_failed() && !self.ignore_errors.unwrap_or(false);
         let main_changed = main_result.get_changed();
@@ -1213,17 +1233,17 @@ fn apply_task_defaults(task: &YamlValue, defaults: &YamlValue) -> Result<YamlVal
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, "defaults must be a mapping"))?;
     let mut merged = defaults_map.clone();
     for (key, value) in task_map {
-        if matches!(key.as_str(), Some("vars" | "environment")) {
-            if let (Some(default_map), Some(task_map)) = (
+        if matches!(key.as_str(), Some("vars" | "environment"))
+            && let (Some(default_map), Some(task_map)) = (
                 defaults_map.get(key).and_then(YamlValue::as_mapping),
                 value.as_mapping(),
-            ) {
-                merged.insert(
-                    key.clone(),
-                    YamlValue::Mapping(merge_default_mappings(default_map, task_map)),
-                );
-                continue;
-            }
+            )
+        {
+            merged.insert(
+                key.clone(),
+                YamlValue::Mapping(merge_default_mappings(default_map, task_map)),
+            );
+            continue;
         }
         merged.insert(key.clone(), value.clone());
     }
@@ -1332,14 +1352,15 @@ mod tests {
             "#,
         )
         .unwrap();
-        let task = Task::new(&yaml, &GlobalParams::default()).unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
         let result = task.exec(context! {}).unwrap();
         assert!(!result.get_failed());
         assert!(!result.get_changed());
         let vars = result.get_vars().unwrap();
         let registered = vars.get_attr("command_result").unwrap();
         assert_eq!(registered.get_attr("rc").unwrap().as_i64(), Some(7));
-        assert_eq!(registered.get_attr("failed").unwrap().as_bool(), Some(false));
+        assert!(!registered.get_attr("failed").unwrap().is_true());
     }
 
     #[test]
@@ -1353,7 +1374,8 @@ mod tests {
             "#,
         )
         .unwrap();
-        let task = Task::new(&yaml, &GlobalParams::default()).unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
         let result = task.exec(context! {}).unwrap();
         assert!(result.get_failed());
         let registered = result
@@ -1362,8 +1384,15 @@ mod tests {
             .get_attr("command_result")
             .unwrap();
         assert_eq!(registered.get_attr("rc").unwrap().as_i64(), Some(3));
-        assert_eq!(registered.get_attr("failed").unwrap().as_bool(), Some(true));
-        assert!(registered.get_attr("stderr").unwrap().as_str().unwrap().contains("boom"));
+        assert!(registered.get_attr("failed").unwrap().is_true());
+        assert!(
+            registered
+                .get_attr("stderr")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("boom")
+        );
     }
 
     #[test]
@@ -1378,16 +1407,16 @@ mod tests {
             "#,
         )
         .unwrap();
-        let task = Task::new(&yaml, &GlobalParams::default()).unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
         let result = task.exec(context! {}).unwrap();
-        assert_eq!(
+        assert!(
             result
                 .get_vars()
                 .unwrap()
                 .get_attr("rescued")
                 .unwrap()
-                .as_bool(),
-            Some(true)
+                .is_true()
         );
     }
 
@@ -1431,10 +1460,8 @@ mod tests {
 
     #[test]
     fn invalid_task_attribute_is_rejected() {
-        let yaml: YamlValue = serde_norway::from_str(
-            "command: echo hi\ninvalid_attr: true",
-        )
-        .unwrap();
+        let yaml: YamlValue =
+            serde_norway::from_str("command: echo hi\ninvalid_attr: true").unwrap();
         assert!(Task::new(&yaml, &GlobalParams::default()).is_err());
     }
 }

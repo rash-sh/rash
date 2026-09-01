@@ -71,7 +71,8 @@ fn select_exports(scoped: Option<&Value>, export: Option<&Export>) -> Result<Opt
         Export::All(false) => Ok(None),
         Export::All(true) => Ok(Some(scoped.clone())),
         Export::Selected(names) => {
-            let mut exported = context! {};
+            use std::collections::BTreeMap;
+            let mut exported_map: BTreeMap<&str, Value> = BTreeMap::new();
             for name in names {
                 let value = scoped.get_attr(name).map_err(|_| {
                     Error::new(
@@ -79,9 +80,15 @@ fn select_exports(scoped: Option<&Value>, export: Option<&Export>) -> Result<Opt
                         format!("Included file did not define exported variable '{name}'"),
                     )
                 })?;
-                exported = context! {..exported, name => value};
+                if value.is_undefined() {
+                    return Err(Error::new(
+                        ErrorKind::NotFound,
+                        format!("Included file did not define exported variable '{name}'"),
+                    ));
+                }
+                exported_map.insert(name, value);
             }
-            Ok(Some(exported))
+            Ok(Some(Value::from_serialize(exported_map)))
         }
     }
 }
@@ -120,10 +127,12 @@ impl Module for Include {
         let include_vars = context! {rash => &include_builtins, ..vars.clone()};
 
         let result_context = match parse_file_with_handlers(&main_file, global_params) {
-            Ok(parsed) => Context::with_handlers(parsed.tasks, include_vars, None, parsed.handlers)
-                .exec()?,
-            Err(_) => Context::new(parse_file(&main_file, global_params)?, include_vars, None)
-                .exec()?,
+            Ok(parsed) => {
+                Context::with_handlers(parsed.tasks, include_vars, None, parsed.handlers).exec()?
+            }
+            Err(_) => {
+                Context::new(parse_file(&main_file, global_params)?, include_vars, None).exec()?
+            }
         };
 
         let exports = select_exports(result_context.get_scoped_vars(), params.export.as_ref())?;

@@ -42,7 +42,10 @@ use serde_norway::Value as YamlValue;
 #[derive(Debug)]
 pub struct Block;
 
-fn merge_mapping(defaults: &serde_norway::Mapping, task: &serde_norway::Mapping) -> serde_norway::Mapping {
+fn merge_mapping(
+    defaults: &serde_norway::Mapping,
+    task: &serde_norway::Mapping,
+) -> serde_norway::Mapping {
     let mut merged = defaults.clone();
     for (key, value) in task {
         merged.insert(key.clone(), value.clone());
@@ -52,26 +55,29 @@ fn merge_mapping(defaults: &serde_norway::Mapping, task: &serde_norway::Mapping)
 
 pub(crate) fn apply_task_defaults(task: &YamlValue, defaults: &YamlValue) -> Result<YamlValue> {
     let task_map = task.as_mapping().ok_or_else(|| {
-        Error::new(ErrorKind::InvalidData, "task receiving defaults must be a mapping")
+        Error::new(
+            ErrorKind::InvalidData,
+            "task receiving defaults must be a mapping",
+        )
     })?;
-    let defaults_map = defaults.as_mapping().ok_or_else(|| {
-        Error::new(ErrorKind::InvalidData, "defaults must be a mapping")
-    })?;
+    let defaults_map = defaults
+        .as_mapping()
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "defaults must be a mapping"))?;
 
     let mut merged = defaults_map.clone();
     for (key, value) in task_map {
         let key_name = key.as_str();
-        if matches!(key_name, Some("vars" | "environment")) {
-            if let (Some(default_map), Some(task_value_map)) = (
+        if matches!(key_name, Some("vars" | "environment"))
+            && let (Some(default_map), Some(task_value_map)) = (
                 defaults_map.get(key).and_then(YamlValue::as_mapping),
                 value.as_mapping(),
-            ) {
-                merged.insert(
-                    key.clone(),
-                    YamlValue::Mapping(merge_mapping(default_map, task_value_map)),
-                );
-                continue;
-            }
+            )
+        {
+            merged.insert(
+                key.clone(),
+                YamlValue::Mapping(merge_mapping(default_map, task_value_map)),
+            );
+            continue;
         }
         merged.insert(key.clone(), value.clone());
     }

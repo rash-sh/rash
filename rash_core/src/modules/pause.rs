@@ -115,9 +115,11 @@ fn pause(params: Params, check_mode: bool) -> Result<ModuleResult> {
         std::thread::sleep(Duration::from_secs(total_seconds));
     }
 
-    Ok(ModuleResult::new(false, None, input.or_else(|| {
-        (total_seconds > 0).then(|| total_seconds.to_string())
-    })))
+    Ok(ModuleResult::new(
+        false,
+        None,
+        input.or_else(|| (total_seconds > 0).then(|| total_seconds.to_string())),
+    ))
 }
 
 #[derive(Debug)]
@@ -205,7 +207,10 @@ mod tests {
         )
         .unwrap();
         assert!(!result.get_changed());
-        assert_eq!(result.get_output().as_deref(), Some("Would prompt for input"));
+        assert_eq!(
+            result.get_output().as_deref(),
+            Some("Would prompt for input")
+        );
     }
 
     #[test]

@@ -258,7 +258,8 @@ fn join_reader(handle: Option<JoinHandle<std::io::Result<Vec<u8>>>>) -> Result<O
 }
 
 fn bytes_to_string(bytes: Option<Vec<u8>>) -> Option<String> {
-    bytes.and_then(|bytes| (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned()))
+    bytes
+        .and_then(|bytes| (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned()))
 }
 
 #[derive(Debug)]
@@ -312,12 +313,22 @@ impl SignalForwardGuard {
         {
             ACTIVE_PROCESS_GROUP.store(pgid, Ordering::SeqCst);
             // SAFETY: restored in Drop; handler only invokes async-signal-safe kill(2).
-            let old_sigint = unsafe { libc::signal(libc::SIGINT, forward_signal as libc::sighandler_t) };
-            let old_sigterm = unsafe { libc::signal(libc::SIGTERM, forward_signal as libc::sighandler_t) };
-            return Self {
+            let old_sigint = unsafe {
+                libc::signal(
+                    libc::SIGINT,
+                    forward_signal as *const () as libc::sighandler_t,
+                )
+            };
+            let old_sigterm = unsafe {
+                libc::signal(
+                    libc::SIGTERM,
+                    forward_signal as *const () as libc::sighandler_t,
+                )
+            };
+            Self {
                 old_sigint,
                 old_sigterm,
-            };
+            }
         }
 
         #[cfg(not(unix))]

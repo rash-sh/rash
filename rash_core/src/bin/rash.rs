@@ -173,7 +173,8 @@ fn execute_internal_task(task_path: &Path) {
         error!("Failed to serialize internal task result: {e}");
         exit(1);
     });
-    if let Err(e) = File::create(&result_path).and_then(|mut f| f.write_all(result_json.as_bytes())) {
+    if let Err(e) = File::create(&result_path).and_then(|mut f| f.write_all(result_json.as_bytes()))
+    {
         error!("Failed to write result file: {e}");
         exit(1);
     }

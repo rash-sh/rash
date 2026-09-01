@@ -148,17 +148,20 @@ fn check_and_update_job_status(id: JobId) {
             match process.finish(status) {
                 Ok(result) => {
                     let rc = result.rc();
+                    let success = result.success();
+                    let stdout = result.stdout;
+                    let stderr = result.stderr;
                     job.rc = Some(rc);
-                    job.output = result.stdout;
-                    job.stderr = result.stderr.clone();
+                    job.output = stdout;
+                    job.stderr = stderr.clone();
                     job.changed = true;
-                    if result.success() {
+                    if success {
                         job.status = JobStatus::Finished;
                     } else {
                         job.status = JobStatus::Failed;
                         job.error = Some(format!(
                             "Process exited with code {rc}: {}",
-                            result.stderr.unwrap_or_default().trim()
+                            stderr.unwrap_or_default().trim()
                         ));
                     }
                 }
@@ -265,7 +268,10 @@ mod tests {
         let job_id = register_job(None, spawn("echo test_output"));
         let mut info = get_job_info(job_id);
         for _ in 0..20 {
-            if info.as_ref().is_some_and(|i| i.status == JobStatus::Finished) {
+            if info
+                .as_ref()
+                .is_some_and(|i| i.status == JobStatus::Finished)
+            {
                 break;
             }
             thread::sleep(Duration::from_millis(50));
@@ -284,7 +290,10 @@ mod tests {
         );
         let mut info = get_job_info(job_id);
         for _ in 0..100 {
-            if info.as_ref().is_some_and(|i| i.status != JobStatus::Running) {
+            if info
+                .as_ref()
+                .is_some_and(|i| i.status != JobStatus::Running)
+            {
                 break;
             }
             thread::sleep(Duration::from_millis(20));

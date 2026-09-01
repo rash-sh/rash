@@ -90,7 +90,10 @@ impl<'a> Context<'a> {
 
             // An ignored failure remains `failed: true` for scripting decisions, but must not
             // trigger a handler merely because the underlying module reported a change.
-            if changed && !failed && let Some(notify) = next_task.get_notify() {
+            if changed
+                && !failed
+                && let Some(notify) = next_task.get_notify()
+            {
                 context.pending_handlers.notify(notify);
             }
 

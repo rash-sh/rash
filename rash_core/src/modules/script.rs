@@ -109,7 +109,8 @@ fn process_spec(params: &Params) -> Result<ProcessSpec> {
     let user_args = if let Some(argv) = &params.argv {
         argv.clone()
     } else if let Some(args) = &params.args {
-        shlex::split(args).ok_or_else(|| Error::new(ErrorKind::InvalidData, "invalid script args"))?
+        shlex::split(args)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "invalid script args"))?
     } else {
         Vec::new()
     };
@@ -192,7 +193,11 @@ impl Module for Script {
 
         if check_mode {
             return Ok((
-                ModuleResult::new(true, None, Some(format!("Would run script: {}", params.path))),
+                ModuleResult::new(
+                    true,
+                    None,
+                    Some(format!("Would run script: {}", params.path)),
+                ),
                 None,
             ));
         }
@@ -250,11 +255,8 @@ mod tests {
         let mut file = File::create(&script_path).unwrap();
         writeln!(file, "#!/bin/sh").unwrap();
         writeln!(file, "echo 'hello world'").unwrap();
-        let yaml: YamlValue = serde_norway::from_str(&format!(
-            "path: {:?}",
-            script_path.to_str().unwrap()
-        ))
-        .unwrap();
+        let yaml: YamlValue =
+            serde_norway::from_str(&format!("path: {:?}", script_path.to_str().unwrap())).unwrap();
         let (result, _) = Script
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
             .unwrap();
@@ -268,11 +270,8 @@ mod tests {
         let mut file = File::create(&script_path).unwrap();
         writeln!(file, "#!/bin/sh").unwrap();
         writeln!(file, "exit 9").unwrap();
-        let yaml: YamlValue = serde_norway::from_str(&format!(
-            "path: {:?}",
-            script_path.to_str().unwrap()
-        ))
-        .unwrap();
+        let yaml: YamlValue =
+            serde_norway::from_str(&format!("path: {:?}", script_path.to_str().unwrap())).unwrap();
         let (result, _) = Script
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
             .unwrap();

@@ -6,9 +6,10 @@ use serde_norway::Value as YamlValue;
 fn string_field(params: &YamlValue, name: &str) -> Result<Option<String>> {
     match params.get(name) {
         Some(YamlValue::Null) | None => Ok(None),
-        Some(value) => value.as_str().map(|s| Some(s.to_owned())).ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, format!("{name} must be a string"))
-        }),
+        Some(value) => value
+            .as_str()
+            .map(|s| Some(s.to_owned()))
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{name} must be a string"))),
     }
 }
 
@@ -51,13 +52,16 @@ fn command_spec(params: &YamlValue) -> Result<ProcessSpec> {
             .iter()
             .map(|value| {
                 value.as_str().map(String::from).ok_or_else(|| {
-                    Error::new(ErrorKind::InvalidData, "command argv entries must be strings")
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "command argv entries must be strings",
+                    )
                 })
             })
             .collect::<Result<_>>()?;
-        let program = argv.first().ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, "command argv cannot be empty")
-        })?;
+        let program = argv
+            .first()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "command argv cannot be empty"))?;
         let mut spec = ProcessSpec::new(program);
         spec.args.extend(argv.iter().skip(1).cloned());
         spec
@@ -116,10 +120,8 @@ mod tests {
 
     #[test]
     fn shell_honors_executable() {
-        let yaml: YamlValue = serde_norway::from_str(
-            "cmd: echo hi\nexecutable: /bin/bash",
-        )
-        .unwrap();
+        let yaml: YamlValue =
+            serde_norway::from_str("cmd: echo hi\nexecutable: /bin/bash").unwrap();
         let spec = from_module("shell", &yaml).unwrap();
         assert_eq!(spec.program, "/bin/bash");
         assert_eq!(spec.args[0], "-c");
@@ -127,10 +129,7 @@ mod tests {
 
     #[test]
     fn async_transfer_pid_is_rejected() {
-        let yaml: YamlValue = serde_norway::from_str(
-            "cmd: echo hi\ntransfer_pid: true",
-        )
-        .unwrap();
+        let yaml: YamlValue = serde_norway::from_str("cmd: echo hi\ntransfer_pid: true").unwrap();
         assert!(from_module("command", &yaml).is_err());
     }
 }
