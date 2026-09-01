@@ -1,9 +1,6 @@
-use crate::process::kill_process_tree;
+use crate::process::SpawnedProcess;
 
 use std::collections::HashMap;
-use std::io::Read;
-use std::os::unix::process::ExitStatusExt;
-use std::process::Child;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
@@ -36,7 +33,7 @@ pub struct Job {
     pub status: JobStatus,
     pub started_at: Instant,
     pub timeout: Option<Duration>,
-    pub child: Option<Child>,
+    pub process: Option<SpawnedProcess>,
     pub output: Option<String>,
     pub stderr: Option<String>,
     pub rc: Option<i32>,
@@ -45,13 +42,13 @@ pub struct Job {
 }
 
 impl Job {
-    pub fn new(id: JobId, timeout: Option<Duration>, child: Child) -> Self {
-        Job {
+    pub fn new(id: JobId, timeout: Option<Duration>, process: SpawnedProcess) -> Self {
+        Self {
             id,
             status: JobStatus::Running,
             started_at: Instant::now(),
             timeout,
-            child: Some(child),
+            process: Some(process),
             output: None,
             stderr: None,
             rc: None,
@@ -85,10 +82,10 @@ impl JobRegistry {
         }
     }
 
-    pub fn register(&mut self, timeout: Option<Duration>, child: Child) -> JobId {
+    pub fn register(&mut self, timeout: Option<Duration>, process: SpawnedProcess) -> JobId {
         let id = self.next_id;
         self.next_id += 1;
-        self.jobs.insert(id, Job::new(id, timeout, child));
+        self.jobs.insert(id, Job::new(id, timeout, process));
         id
     }
 
@@ -116,10 +113,10 @@ impl JobRegistry {
 pub static JOBS: LazyLock<Arc<Mutex<JobRegistry>>> =
     LazyLock::new(|| Arc::new(Mutex::new(JobRegistry::new())));
 
-pub fn register_job(timeout: Option<Duration>, child: Child) -> JobId {
+pub fn register_job(timeout: Option<Duration>, process: SpawnedProcess) -> JobId {
     JOBS.lock()
         .expect("Failed to lock job registry")
-        .register(timeout, child)
+        .register(timeout, process)
 }
 
 pub fn get_job(id: JobId) -> Option<JobStatus> {
@@ -130,66 +127,62 @@ pub fn get_job(id: JobId) -> Option<JobStatus> {
         .map(|j| j.status.clone())
 }
 
-fn exit_code(status: &std::process::ExitStatus) -> i32 {
-    status
-        .code()
-        .or_else(|| status.signal().map(|signal| 128 + signal))
-        .unwrap_or(-1)
-}
-
 fn check_and_update_job_status(id: JobId) {
     let mut registry = JOBS.lock().expect("Failed to lock job registry");
-    if let Some(job) = registry.get_mut(id) {
-        if job.status != JobStatus::Running {
-            return;
-        }
+    let Some(job) = registry.get_mut(id) else {
+        return;
+    };
+    if job.status != JobStatus::Running {
+        return;
+    }
 
-        let timed_out = job.is_timed_out();
-        let timeout_val = job.timeout;
+    let timed_out = job.is_timed_out();
+    let timeout_val = job.timeout;
+    let Some(process) = job.process.as_mut() else {
+        return;
+    };
 
-        if let Some(ref mut child) = job.child {
-            match child.try_wait() {
-                Ok(Some(status)) => {
-                    let mut stdout = String::new();
-                    let mut stderr = String::new();
-                    if let Some(ref mut stdout_handle) = child.stdout {
-                        let _ = stdout_handle.read_to_string(&mut stdout);
-                    }
-                    if let Some(ref mut stderr_handle) = child.stderr {
-                        let _ = stderr_handle.read_to_string(&mut stderr);
-                    }
-
-                    let rc = exit_code(&status);
+    match process.try_wait() {
+        Ok(Some(status)) => {
+            let process = job.process.take().expect("process exists");
+            match process.finish(status) {
+                Ok(result) => {
+                    let rc = result.rc();
                     job.rc = Some(rc);
-                    job.output = (!stdout.is_empty()).then_some(stdout);
-                    job.stderr = (!stderr.is_empty()).then_some(stderr.clone());
+                    job.output = result.stdout;
+                    job.stderr = result.stderr.clone();
                     job.changed = true;
-
-                    if status.success() {
+                    if result.success() {
                         job.status = JobStatus::Finished;
                     } else {
                         job.status = JobStatus::Failed;
                         job.error = Some(format!(
                             "Process exited with code {rc}: {}",
-                            stderr.trim()
+                            result.stderr.unwrap_or_default().trim()
                         ));
                     }
-                    job.child = None;
                 }
-                Ok(None) if timed_out => {
-                    let _ = kill_process_tree(child);
-                    let _ = child.wait();
-                    job.status = JobStatus::Failed;
-                    job.error = Some(format!("Job timed out after {timeout_val:?}"));
-                    job.child = None;
-                }
-                Ok(None) => {}
                 Err(e) => {
                     job.status = JobStatus::Failed;
-                    job.error = Some(format!("Failed to check process status: {e}"));
-                    job.child = None;
+                    job.error = Some(format!("Failed to collect process output: {e}"));
                 }
             }
+        }
+        Ok(None) if timed_out => {
+            let mut process = job.process.take().expect("process exists");
+            let _ = process.kill_tree();
+            let status = process.wait();
+            if let Ok(status) = status {
+                let _ = process.finish(status);
+            }
+            job.status = JobStatus::Failed;
+            job.error = Some(format!("Job timed out after {timeout_val:?}"));
+        }
+        Ok(None) => {}
+        Err(e) => {
+            job.status = JobStatus::Failed;
+            job.error = Some(format!("Failed to check process status: {e}"));
+            job.process = None;
         }
     }
 }
@@ -223,7 +216,7 @@ pub fn update_job_status(
         job.output = output;
         job.error = error;
         job.changed = changed;
-        job.child = None;
+        job.process = None;
         true
     } else {
         false
@@ -239,8 +232,14 @@ pub fn job_exists(id: JobId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::{Command, Stdio};
+    use crate::process::ProcessSpec;
     use std::thread;
+
+    fn spawn(command: &str) -> SpawnedProcess {
+        ProcessSpec::shell(command, "/bin/sh")
+            .spawn_managed()
+            .unwrap()
+    }
 
     #[test]
     fn test_job_registry() {
@@ -249,15 +248,7 @@ mod tests {
 
     #[test]
     fn test_register_job_and_get_status() {
-        let mut command = Command::new("sleep");
-        command.arg("0.1").stdout(Stdio::piped()).stderr(Stdio::piped());
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
-        }
-        let child = command.spawn().unwrap();
-        let job_id = register_job(None, child);
+        let job_id = register_job(None, spawn("sleep 0.1"));
         let mut status = get_job(job_id);
         for _ in 0..20 {
             if status == Some(JobStatus::Finished) {
@@ -271,14 +262,7 @@ mod tests {
 
     #[test]
     fn test_get_job_info_updates_status() {
-        let mut command = Command::new("echo");
-        command.arg("test_output").stdout(Stdio::piped()).stderr(Stdio::piped());
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
-        }
-        let job_id = register_job(None, command.spawn().unwrap());
+        let job_id = register_job(None, spawn("echo test_output"));
         let mut info = get_job_info(job_id);
         for _ in 0..20 {
             if info.as_ref().is_some_and(|i| i.status == JobStatus::Finished) {
@@ -293,15 +277,27 @@ mod tests {
     }
 
     #[test]
-    fn test_job_timeout() {
-        let mut command = Command::new("sleep");
-        command.arg("10").stdout(Stdio::piped()).stderr(Stdio::piped());
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
+    fn test_job_large_output_does_not_deadlock() {
+        let job_id = register_job(
+            Some(Duration::from_secs(5)),
+            spawn("i=0; while [ $i -lt 20000 ]; do echo abcdefghijklmnop; i=$((i+1)); done"),
+        );
+        let mut info = get_job_info(job_id);
+        for _ in 0..100 {
+            if info.as_ref().is_some_and(|i| i.status != JobStatus::Running) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(20));
+            info = get_job_info(job_id);
         }
-        let job_id = register_job(Some(Duration::from_millis(100)), command.spawn().unwrap());
+        let info = info.unwrap();
+        assert_eq!(info.status, JobStatus::Finished);
+        assert!(info.output.unwrap().len() > 300_000);
+    }
+
+    #[test]
+    fn test_job_timeout() {
+        let job_id = register_job(Some(Duration::from_millis(100)), spawn("sleep 10"));
         thread::sleep(Duration::from_millis(200));
         let info = get_job_info(job_id).unwrap();
         assert_eq!(info.status, JobStatus::Failed);
@@ -310,18 +306,7 @@ mod tests {
 
     #[test]
     fn test_job_failed_on_nonzero_exit_preserves_status() {
-        let mut command = Command::new("sh");
-        command
-            .arg("-c")
-            .arg("echo bad >&2; exit 7")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.process_group(0);
-        }
-        let job_id = register_job(None, command.spawn().unwrap());
+        let job_id = register_job(None, spawn("echo bad >&2; exit 7"));
         thread::sleep(Duration::from_millis(50));
         let info = get_job_info(job_id).unwrap();
         assert_eq!(info.status, JobStatus::Failed);
