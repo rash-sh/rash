@@ -1,0 +1,288 @@
+name: Apply final runtime hardening fixes
+
+on:
+  push:
+    branches:
+      - feat/task-runtime-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/task-runtime-hardening
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.1
+          components: rustfmt,clippy
+      - name: Apply runtime fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"expected text not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          path = 'rash_core/src/task/mod.rs'
+          old = '''    fn exec_with_rescue_always(&self, vars: Value) -> Result<TaskExecResult> {
+              let initial_vars = vars;
+              let main = match self.exec_main_task(initial_vars.clone()) {
+                  Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                      if let Some(always_tasks) = &self.always {
+                          self.execute_task_sequence(always_tasks, initial_vars.clone())?;
+                      }
+                      return Err(error);
+                  }
+                  result => result,
+              };
+              let (main_result, main_hard_error) = match main {
+                  Ok(result) => (result, None),
+                  Err(error) => (
+                      TaskExecResult::failed(false, None, error.to_string()),
+                      Some(error),
+                  ),
+              };
+              let main_failed = main_result.get_failed() && !self.ignore_errors.unwrap_or(false);
+              let main_changed = main_result.get_changed();
+              let main_error = main_result.get_error().map(str::to_owned);
+              let main_vars = main_result.take_vars();
+              let post_main_vars = merge_option(initial_vars.clone(), main_vars.clone());
+
+              let (rescue, recovered) = if main_failed {
+                  if let Some(rescue_tasks) = &self.rescue {
+                      let rescue = self.execute_task_sequence(rescue_tasks, post_main_vars.clone())?;
+                      (Some(rescue), true)
+                  } else {
+                      (None, false)
+                  }
+              } else {
+                  (None, true)
+              };
+
+              let rescue_changed = rescue.as_ref().is_some_and(TaskExecResult::get_changed);
+              let rescue_vars = rescue.and_then(TaskExecResult::take_vars);
+              let post_rescue_vars = merge_option(post_main_vars, rescue_vars.clone());
+
+              let always = if let Some(always_tasks) = &self.always {
+                  Some(self.execute_task_sequence(always_tasks, post_rescue_vars)?)
+              } else {
+                  None
+              };
+              let always_changed = always.as_ref().is_some_and(TaskExecResult::get_changed);
+              let always_vars = always.and_then(TaskExecResult::take_vars);
+
+              let all_vars_value = [main_vars, rescue_vars, always_vars]
+                  .into_iter()
+                  .fold(context! {}, merge_option);
+              let all_vars = (all_vars_value != context! {}).then_some(all_vars_value);
+              let changed = main_changed || rescue_changed || always_changed;
+
+              if main_failed && !recovered {
+                  let message = main_hard_error
+                      .map(|e| e.to_string())
+                      .or(main_error)
+                      .unwrap_or_else(|| "task failed".to_owned());
+                  Ok(TaskExecResult::failed(changed, all_vars, message))
+              } else {
+                  Ok(TaskExecResult::new(changed, all_vars))
+              }
+          }'''
+          new = '''    fn exec_with_rescue_always(&self, vars: Value) -> Result<TaskExecResult> {
+              let initial_vars = vars;
+              let mut pending_exit = None;
+              let mut pending_rescue_error = None;
+
+              let (main_result, main_hard_error) = match self.exec_main_task(initial_vars.clone()) {
+                  Ok(result) => (result, None),
+                  Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                      pending_exit = Some(error);
+                      (TaskExecResult::new(false, None), None)
+                  }
+                  Err(error) => (
+                      TaskExecResult::failed(false, None, error.to_string()),
+                      Some(error),
+                  ),
+              };
+
+              let main_failed = pending_exit.is_none()
+                  && main_result.get_failed()
+                  && !self.ignore_errors.unwrap_or(false);
+              let main_changed = main_result.get_changed();
+              let main_error = main_result.get_error().map(str::to_owned);
+              let main_vars = main_result.take_vars();
+              let post_main_vars = merge_option(initial_vars.clone(), main_vars.clone());
+
+              let mut recovered = !main_failed;
+              let rescue = if main_failed {
+                  match &self.rescue {
+                      Some(rescue_tasks) => match self
+                          .execute_task_sequence(rescue_tasks, post_main_vars.clone())
+                      {
+                          Ok(result) => {
+                              recovered = true;
+                              Some(result)
+                          }
+                          Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                              pending_exit = Some(error);
+                              None
+                          }
+                          Err(error) => {
+                              pending_rescue_error = Some(error);
+                              None
+                          }
+                      },
+                      None => None,
+                  }
+              } else {
+                  None
+              };
+
+              let rescue_changed = rescue.as_ref().is_some_and(TaskExecResult::get_changed);
+              let rescue_vars = rescue.and_then(TaskExecResult::take_vars);
+              let post_rescue_vars = merge_option(post_main_vars, rescue_vars.clone());
+
+              // `always` is a true finally section: execute it after main failures, rescue
+              // failures, and explicit exits. A failure/exit in `always` itself takes precedence.
+              let always = if let Some(always_tasks) = &self.always {
+                  Some(self.execute_task_sequence(always_tasks, post_rescue_vars)?)
+              } else {
+                  None
+              };
+              let always_changed = always.as_ref().is_some_and(TaskExecResult::get_changed);
+              let always_vars = always.and_then(TaskExecResult::take_vars);
+
+              if let Some(exit) = pending_exit {
+                  return Err(exit);
+              }
+              if let Some(error) = pending_rescue_error {
+                  return Err(error);
+              }
+
+              let all_vars_value = [main_vars, rescue_vars, always_vars]
+                  .into_iter()
+                  .fold(context! {}, merge_option);
+              let all_vars = (all_vars_value != context! {}).then_some(all_vars_value);
+              let changed = main_changed || rescue_changed || always_changed;
+
+              if main_failed && !recovered {
+                  let message = main_hard_error
+                      .map(|e| e.to_string())
+                      .or(main_error)
+                      .unwrap_or_else(|| "task failed".to_owned());
+                  Ok(TaskExecResult::failed(changed, all_vars, message))
+              } else {
+                  Ok(TaskExecResult::new(changed, all_vars))
+              }
+          }'''
+          replace(path, old, new)
+
+          # Add regression coverage for exit from rescue and hard rescue failure.
+          test_path = Path('rash_core/tests/runtime_conformance.rs')
+          text = test_path.read_text()
+          marker = '''#[test]\nfn script_defaults_apply_to_multiple_tasks_and_merge_environment() {'''
+          addition = r'''#[test]
+          fn explicit_exit_from_rescue_still_runs_outer_always() {
+              let params = GlobalParams::default();
+              let task = task_from_yaml(
+                  r#"
+                  command: false
+                  rescue:
+                    - meta:
+                        action: exit
+                        code: 31
+                  always:
+                    - command:
+                        argv: [sh, -c, "printf cleanup > /tmp/rash-explicit-exit-always-test"]
+                      changed_when: false
+                  "#,
+                  &params,
+              );
+
+              let _ = std::fs::remove_file("/tmp/rash-explicit-exit-always-test");
+              let error = task.exec(context! {}).unwrap_err();
+              assert_eq!(error.kind(), rash_core::error::ErrorKind::ExplicitExit);
+              assert_eq!(error.raw_os_error(), Some(31));
+              assert_eq!(
+                  std::fs::read_to_string("/tmp/rash-explicit-exit-always-test").unwrap(),
+                  "cleanup"
+              );
+              let _ = std::fs::remove_file("/tmp/rash-explicit-exit-always-test");
+          }
+
+          #[test]
+          fn hard_rescue_failure_still_runs_outer_always() {
+              let params = GlobalParams::default();
+              let task = task_from_yaml(
+                  r#"
+                  command: false
+                  rescue:
+                    - fail:
+                        msg: rescue failed hard
+                  always:
+                    - command:
+                        argv: [sh, -c, "printf cleanup > /tmp/rash-rescue-failure-always-test"]
+                      changed_when: false
+                  "#,
+                  &params,
+              );
+
+              let _ = std::fs::remove_file("/tmp/rash-rescue-failure-always-test");
+              let error = task.exec(context! {}).unwrap_err();
+              assert!(error.to_string().contains("rescue failed hard"));
+              assert_eq!(
+                  std::fs::read_to_string("/tmp/rash-rescue-failure-always-test").unwrap(),
+                  "cleanup"
+              );
+              let _ = std::fs::remove_file("/tmp/rash-rescue-failure-always-test");
+          }
+
+          #[test]
+          fn script_defaults_apply_to_multiple_tasks_and_merge_environment() {'''
+          if marker not in text:
+              raise SystemExit('runtime conformance insertion point not found')
+          test_path.write_text(text.replace(marker, addition, 1))
+
+          # Generated Vault lookup docs advertised parameters that are TODOs in the implementation.
+          vault = Path('rash_core/src/jinja/lookup/vault.rs')
+          text = vault.read_text()
+          for line in [
+              '/// | validate_certs | no       | boolean |                                     | Validate SSL certificates. **[default: `true`]**                                  |\n',
+              '/// | timeout        | no       | integer |                                     | Request timeout in seconds                                                         |\n',
+              '/// | token_validate | no       | boolean |                                     | Validate token before use. **[default: `false`]**                                 |\n',
+          ]:
+              text = text.replace(line, '')
+          text = text.replace(
+              '    // TODO: Implement these parameters\n    // let validate_certs: Option<bool> = options.get("validate_certs")?;\n    // let timeout: Option<u64> = options.get("timeout")?;\n    // let token_validate: Option<bool> = options.get("token_validate")?;\n',
+              ''
+          )
+          vault.write_text(text)
+
+          # Fix an example typo in generated find lookup documentation.
+          find = Path('rash_core/src/jinja/lookup/find.rs')
+          find.write_text(find.read_text().replace('src: "{{ item }}""', 'src: "{{ item }}"'))
+          PY
+          cargo fmt --all
+      - name: Commit changes and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-final-runtime-hardening.yml
+          git add -A
+          git commit -m "fix(core): preserve always cleanup on control flow"
+          git push origin HEAD:feat/task-runtime-hardening
+      - name: Verify exact revision
+        run: |
+          cargo fmt --all -- --check
+          cargo check --workspace --all-targets
+          cargo test -p rash_core
+          cargo clippy -p rash_core --all-targets -- -D warnings
