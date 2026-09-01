@@ -18,11 +18,31 @@ use serde_norway::value::Value as YamlValue;
 
 const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
 
+fn result_flag(value: Value, key: &str) -> Option<bool> {
+    value.get_attr(key).ok().map(|flag| flag.is_true())
+}
+
+fn result_failed(value: Value) -> bool {
+    result_flag(value, "failed").unwrap_or(false)
+}
+
+fn result_succeeded(value: Value) -> bool {
+    result_flag(value, "failed").is_some_and(|failed| !failed)
+}
+
+fn result_changed(value: Value) -> bool {
+    result_flag(value, "changed").unwrap_or(false)
+}
+
 fn init_env() -> Environment<'static> {
     let mut env = Environment::new();
     env.set_keep_trailing_newline(true);
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_global("omit", OMIT_VALUE);
+    env.add_test("failed", result_failed);
+    env.add_test("succeeded", result_succeeded);
+    env.add_test("success", result_succeeded);
+    env.add_test("changed", result_changed);
     lookup::add_lookup_functions(&mut env);
     env
 }
@@ -224,6 +244,36 @@ mod tests {
         assert!(!r_false);
         let r_true = is_render_string("boo == 'test'", &context! {boo => "test"}).unwrap();
         assert!(r_true);
+    }
+
+    #[test]
+    fn test_result_state_tests() {
+        let failed = Value::from_serialize(serde_json::json!({"failed": true, "changed": false}));
+        let ok = Value::from_serialize(serde_json::json!({"failed": false, "changed": true}));
+        assert_eq!(
+            render_string(
+                "{% if value is failed %}failed{% endif %}",
+                &context! {value => failed}
+            )
+            .unwrap(),
+            "failed"
+        );
+        assert_eq!(
+            render_string(
+                "{% if value is succeeded %}ok{% endif %}",
+                &context! {value => ok.clone()}
+            )
+            .unwrap(),
+            "ok"
+        );
+        assert_eq!(
+            render_string(
+                "{% if value is changed %}changed{% endif %}",
+                &context! {value => ok}
+            )
+            .unwrap(),
+            "changed"
+        );
     }
 
     #[test]

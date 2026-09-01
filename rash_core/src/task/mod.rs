@@ -370,7 +370,10 @@ impl<'a> Task<'a> {
         let mut object = serde_json::Map::new();
         object.insert("changed".into(), serde_json::json!(changed));
         object.insert("failed".into(), serde_json::json!(failed));
-        object.insert("output".into(), serde_json::json!(output));
+        object.insert("output".into(), serde_json::json!(output.clone()));
+        // Compatibility alias used by older Rash/Ansible-style scripts. `output` is the
+        // canonical generic field, while `stdout` is convenient for command results.
+        object.insert("stdout".into(), serde_json::json!(output));
         object.insert("extra".into(), extra_json.clone());
         object.insert("error".into(), serde_json::json!(error));
 
@@ -1437,6 +1440,7 @@ mod tests {
         let module_result = ModuleResult::new(true, Some(extra), Some("out".into()));
         let value = Task::result_value(Some(&module_result), true, false, None);
         assert_eq!(value.get_attr("rc").unwrap().as_i64(), Some(4));
+        assert_eq!(value.get_attr("stdout").unwrap().as_str(), Some("out"));
         assert_eq!(
             value
                 .get_attr("extra")
