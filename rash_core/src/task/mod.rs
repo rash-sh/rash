@@ -605,11 +605,13 @@ impl<'a> Task<'a> {
 
         let rash_path = std::env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
         let mut command = StdCommand::new(&self.become_exe);
+        command.arg("-H").arg("-E").arg("-u").arg(&self.become_user);
+
+        if self.become_password.is_some() {
+            command.arg("-S");
+        }
+
         command
-            .arg("-H")
-            .arg("-E")
-            .arg("-u")
-            .arg(&self.become_user)
             .arg("--")
             .arg(&rash_path)
             .arg("--internal-task")
@@ -620,7 +622,6 @@ impl<'a> Task<'a> {
 
         let output = if let Some(password) = &self.become_password {
             let mut child = command
-                .arg("-S")
                 .stdin(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
