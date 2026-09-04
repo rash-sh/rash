@@ -8,7 +8,7 @@ fn task_from_yaml<'a>(yaml: &str, params: &'a GlobalParams<'a>) -> Task<'a> {
     Task::new(&value, params).unwrap()
 }
 
-fn registered<'a>(result: &'a rash_core::task::TaskExecResult, name: &str) -> Value {
+fn registered(result: &rash_core::task::TaskExecResult, name: &str) -> Value {
     result
         .get_vars()
         .unwrap_or_else(|| panic!("task did not register {name}"))
