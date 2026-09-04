@@ -38,7 +38,14 @@ fn normal_nonzero_exit_preserves_structured_result() {
     assert_eq!(probe.get_attr("output").unwrap().as_str(), Some("normal"));
     assert_eq!(probe.get_attr("stdout").unwrap().as_str(), Some("normal"));
     assert!(probe.get_attr("failed").unwrap().is_true());
-    assert!(probe.get_attr("stderr").unwrap().as_str().unwrap().contains("problem"));
+    assert!(
+        probe
+            .get_attr("stderr")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("problem")
+    );
 }
 
 #[test]
@@ -131,7 +138,70 @@ fn async_nonzero_exit_can_be_reclassified_by_failed_when() {
     assert_eq!(probe.get_attr("rc").unwrap().as_i64(), Some(9));
     assert!(!probe.get_attr("failed").unwrap().is_true());
     assert_eq!(probe.get_attr("stdout").unwrap().as_str(), Some("async"));
-    assert!(probe.get_attr("stderr").unwrap().as_str().unwrap().contains("async-error"));
+    assert!(
+        probe
+            .get_attr("stderr")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("async-error")
+    );
+}
+
+#[test]
+fn explicit_exit_from_rescue_still_runs_outer_always() {
+    let params = GlobalParams::default();
+    let task = task_from_yaml(
+        r#"
+        command: false
+        rescue:
+          - meta:
+              action: exit
+              code: 31
+        always:
+          - command:
+              argv: [sh, -c, "printf cleanup > /tmp/rash-explicit-exit-always-test"]
+            changed_when: false
+        "#,
+        &params,
+    );
+
+    let _ = std::fs::remove_file("/tmp/rash-explicit-exit-always-test");
+    let error = task.exec(context! {}).unwrap_err();
+    assert_eq!(error.kind(), rash_core::error::ErrorKind::ExplicitExit);
+    assert_eq!(error.raw_os_error(), Some(31));
+    assert_eq!(
+        std::fs::read_to_string("/tmp/rash-explicit-exit-always-test").unwrap(),
+        "cleanup"
+    );
+    let _ = std::fs::remove_file("/tmp/rash-explicit-exit-always-test");
+}
+
+#[test]
+fn hard_rescue_failure_still_runs_outer_always() {
+    let params = GlobalParams::default();
+    let task = task_from_yaml(
+        r#"
+        command: false
+        rescue:
+          - fail:
+              msg: rescue failed hard
+        always:
+          - command:
+              argv: [sh, -c, "printf cleanup > /tmp/rash-rescue-failure-always-test"]
+            changed_when: false
+        "#,
+        &params,
+    );
+
+    let _ = std::fs::remove_file("/tmp/rash-rescue-failure-always-test");
+    let error = task.exec(context! {}).unwrap_err();
+    assert!(error.to_string().contains("rescue failed hard"));
+    assert_eq!(
+        std::fs::read_to_string("/tmp/rash-rescue-failure-always-test").unwrap(),
+        "cleanup"
+    );
+    let _ = std::fs::remove_file("/tmp/rash-rescue-failure-always-test");
 }
 
 #[test]

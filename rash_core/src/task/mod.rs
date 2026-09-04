@@ -1094,43 +1094,60 @@ impl<'a> Task<'a> {
 
     fn exec_with_rescue_always(&self, vars: Value) -> Result<TaskExecResult> {
         let initial_vars = vars;
-        let main = match self.exec_main_task(initial_vars.clone()) {
-            Err(error) if error.kind() == ErrorKind::ExplicitExit => {
-                if let Some(always_tasks) = &self.always {
-                    self.execute_task_sequence(always_tasks, initial_vars.clone())?;
-                }
-                return Err(error);
-            }
-            result => result,
-        };
-        let (main_result, main_hard_error) = match main {
+        let mut pending_exit = None;
+        let mut pending_rescue_error = None;
+
+        let (main_result, main_hard_error) = match self.exec_main_task(initial_vars.clone()) {
             Ok(result) => (result, None),
+            Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                pending_exit = Some(error);
+                (TaskExecResult::new(false, None), None)
+            }
             Err(error) => (
                 TaskExecResult::failed(false, None, error.to_string()),
                 Some(error),
             ),
         };
-        let main_failed = main_result.get_failed() && !self.ignore_errors.unwrap_or(false);
+
+        let main_failed = pending_exit.is_none()
+            && main_result.get_failed()
+            && !self.ignore_errors.unwrap_or(false);
         let main_changed = main_result.get_changed();
         let main_error = main_result.get_error().map(str::to_owned);
         let main_vars = main_result.take_vars();
         let post_main_vars = merge_option(initial_vars.clone(), main_vars.clone());
 
-        let (rescue, recovered) = if main_failed {
-            if let Some(rescue_tasks) = &self.rescue {
-                let rescue = self.execute_task_sequence(rescue_tasks, post_main_vars.clone())?;
-                (Some(rescue), true)
-            } else {
-                (None, false)
+        let mut recovered = !main_failed;
+        let rescue = if main_failed {
+            match &self.rescue {
+                Some(rescue_tasks) => {
+                    match self.execute_task_sequence(rescue_tasks, post_main_vars.clone()) {
+                        Ok(result) => {
+                            recovered = true;
+                            Some(result)
+                        }
+                        Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                            pending_exit = Some(error);
+                            None
+                        }
+                        Err(error) => {
+                            pending_rescue_error = Some(error);
+                            None
+                        }
+                    }
+                }
+                None => None,
             }
         } else {
-            (None, true)
+            None
         };
 
         let rescue_changed = rescue.as_ref().is_some_and(TaskExecResult::get_changed);
         let rescue_vars = rescue.and_then(TaskExecResult::take_vars);
         let post_rescue_vars = merge_option(post_main_vars, rescue_vars.clone());
 
+        // `always` is a true finally section: execute it after main failures, rescue
+        // failures, and explicit exits. A failure/exit in `always` itself takes precedence.
         let always = if let Some(always_tasks) = &self.always {
             Some(self.execute_task_sequence(always_tasks, post_rescue_vars)?)
         } else {
@@ -1138,6 +1155,13 @@ impl<'a> Task<'a> {
         };
         let always_changed = always.as_ref().is_some_and(TaskExecResult::get_changed);
         let always_vars = always.and_then(TaskExecResult::take_vars);
+
+        if let Some(exit) = pending_exit {
+            return Err(exit);
+        }
+        if let Some(error) = pending_rescue_error {
+            return Err(error);
+        }
 
         let all_vars_value = [main_vars, rescue_vars, always_vars]
             .into_iter()
@@ -1155,7 +1179,6 @@ impl<'a> Task<'a> {
             Ok(TaskExecResult::new(changed, all_vars))
         }
     }
-
     pub fn exec(&self, vars: Value) -> Result<TaskExecResult> {
         let _no_log_guard = self.no_log.then(suppress_logs);
         debug!("Module: {}", self.module.get_name());
