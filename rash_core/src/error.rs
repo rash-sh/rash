@@ -25,6 +25,7 @@ impl fmt::Debug for Error {
 enum Repr {
     Simple(ErrorKind),
     Custom(Box<Custom>),
+    Exit(i32),
 }
 
 #[derive(Debug)]
@@ -46,6 +47,8 @@ struct Custom {
 pub enum ErrorKind {
     /// Program finish gracefully returning 0
     GracefulExit,
+    /// Program termination explicitly requested by the script.
+    ExplicitExit,
     /// An entity was not found, often a module.
     NotFound,
     /// Data is invalid.
@@ -68,6 +71,7 @@ impl ErrorKind {
     pub fn as_str(self) -> &'static str {
         match self {
             ErrorKind::GracefulExit => "program finish gracefully",
+            ErrorKind::ExplicitExit => "explicit program exit",
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
             ErrorKind::IOError => "I/O error",
@@ -186,6 +190,13 @@ impl From<JinjaError> for Error {
 }
 
 impl Error {
+    /// Request that the Rash process terminates with an explicit status code.
+    pub fn explicit_exit(code: i32) -> Error {
+        Error {
+            repr: Repr::Exit(code),
+        }
+    }
+
     /// Creates a new `rash` error from a known kind of error as well as an
     /// arbitrary error payload.
     ///
@@ -233,6 +244,7 @@ impl Error {
         match self.repr {
             Repr::Custom(ref c) => c.kind,
             Repr::Simple(kind) => kind,
+            Repr::Exit(_) => ErrorKind::ExplicitExit,
         }
     }
 
@@ -256,8 +268,8 @@ impl Error {
     /// ```
     pub fn raw_os_error(&self) -> Option<i32> {
         match self.repr {
-            Repr::Custom(..) => None,
-            Repr::Simple(..) => None,
+            Repr::Exit(code) => Some(code),
+            Repr::Custom(..) | Repr::Simple(..) => None,
         }
     }
 
@@ -283,7 +295,7 @@ impl Error {
     /// ```
     pub fn get_ref(&self) -> Option<&(dyn StdError + Send + Sync + 'static)> {
         match self.repr {
-            Repr::Simple(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) => None,
             Repr::Custom(ref c) => Some(&*c.error),
         }
     }
@@ -345,7 +357,7 @@ impl Error {
     /// ```
     pub fn get_mut(&mut self) -> Option<&mut (dyn StdError + Send + Sync + 'static)> {
         match self.repr {
-            Repr::Simple(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) => None,
             Repr::Custom(ref mut c) => Some(&mut *c.error),
         }
     }
@@ -372,7 +384,7 @@ impl Error {
     /// ```
     pub fn into_inner(self) -> Option<Box<dyn StdError + Send + Sync>> {
         match self.repr {
-            Repr::Simple(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) => None,
             Repr::Custom(c) => Some(c.error),
         }
     }
@@ -383,6 +395,7 @@ impl fmt::Debug for Repr {
         match *self {
             Repr::Custom(ref c) => fmt::Debug::fmt(&c, fmt),
             Repr::Simple(kind) => fmt.debug_tuple("Kind").field(&kind).finish(),
+            Repr::Exit(code) => fmt.debug_tuple("Exit").field(&code).finish(),
         }
     }
 }
@@ -392,6 +405,7 @@ impl fmt::Display for Error {
         match self.repr {
             Repr::Custom(ref c) => c.error.fmt(fmt),
             Repr::Simple(kind) => write!(fmt, "{}", kind.as_str()),
+            Repr::Exit(code) => write!(fmt, "exit requested with status {code}"),
         }
     }
 }
@@ -399,7 +413,7 @@ impl fmt::Display for Error {
 impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self.repr {
-            Repr::Simple(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) => None,
             Repr::Custom(ref c) => c.error.source(),
         }
     }
@@ -435,6 +449,14 @@ mod test {
             } \
          }";
         assert_eq!(format!("{err:?}"), expected);
+    }
+
+    #[test]
+    fn test_explicit_exit_preserves_status() {
+        let error = Error::explicit_exit(23);
+        assert_eq!(error.kind(), ErrorKind::ExplicitExit);
+        assert_eq!(error.raw_os_error(), Some(23));
+        assert_eq!(error.to_string(), "exit requested with status 23");
     }
 
     #[test]

@@ -1,33 +1,20 @@
 use crate::task::{Handlers, PendingHandlers, Tasks};
-/// Context
-///
-/// Preserve state between executions
 use crate::{error::Result, jinja::merge_option};
 use clap::ValueEnum;
 use minijinja::{Value, context};
 
-/// Main data structure in `rash`.
-/// It contents all [`task::Tasks`] with their [`vars::Vars`] to be executed
-///
-/// [`task::Tasks`]: ../task/type.Tasks.html
-/// [`vars::Vars`]: ../vars/type.Vars.html
 #[derive(Debug, Clone)]
 pub struct Context<'a> {
     pub tasks: Tasks<'a>,
     vars: Value,
-    /// Variables added to the context for the current scope of execution.
     scoped_vars: Option<Value>,
     handlers: Option<Handlers<'a>>,
     pending_handlers: PendingHandlers,
 }
 
 impl<'a> Context<'a> {
-    /// Create a new context from [`task::Tasks`] and [`vars::Vars`].Error
-    ///
-    /// [`task::Tasks`]: ../task/type.Tasks.html
-    /// [`vars::Vars`]: ../vars/type.Vars.html
     pub fn new(tasks: Tasks<'a>, vars: Value, scope_vars: Option<Value>) -> Self {
-        Context {
+        Self {
             tasks,
             vars,
             scoped_vars: scope_vars,
@@ -42,13 +29,21 @@ impl<'a> Context<'a> {
         scope_vars: Option<Value>,
         handlers: Option<Handlers<'a>>,
     ) -> Self {
-        Context {
+        Self {
             tasks,
             vars,
             scoped_vars: scope_vars,
             handlers,
             pending_handlers: PendingHandlers::new(),
         }
+    }
+
+    fn task_display_name(task: &crate::task::Task<'_>, vars: Value) -> String {
+        if task.get_no_log() {
+            return "<redacted>".to_owned();
+        }
+        task.get_rendered_name(vars)
+            .unwrap_or_else(|_| task.get_module().get_name().to_owned())
     }
 
     fn execute_pending_handlers(&mut self) -> Result<()> {
@@ -58,29 +53,21 @@ impl<'a> Context<'a> {
 
         let handlers = self.handlers.as_ref().unwrap();
         let pending = self.pending_handlers.take_pending();
-
         for handler_name in &pending {
             if let Some(handler) = handlers.get(handler_name) {
+                let task = handler.get_task();
                 info!(target: "task",
                     "[handler:{}] - ",
-                    handler.get_task().get_rendered_name(self.vars.clone())
-                        .unwrap_or_else(|_| handler_name.to_string()),
+                    Self::task_display_name(task, self.vars.clone()),
                 );
-                let _ = handler.get_task().exec(self.vars.clone())?;
+                let _ = task.exec(self.vars.clone())?;
             } else {
-                warn!("Handler '{}' not found", handler_name);
+                warn!("Handler '{handler_name}' not found");
             }
         }
-
         Ok(())
     }
 
-    /// Execute all Tasks in Context until empty.
-    ///
-    /// If this finishes correctly, it will return an [`error::Error`] with [`ErrorKind::EmptyTaskStack`].
-    ///
-    /// [`error::Error`]: ../error/struct.Error.html
-    /// [`ErrorKind::EmptyTaskStack`]: ../error/enum.ErrorKind.html
     pub fn exec(&self) -> Result<Self> {
         let mut context = self.clone();
 
@@ -91,31 +78,31 @@ impl<'a> Context<'a> {
             info!(target: "task",
                 "[{}:{}] - {} to go - ",
                 context.vars.get_attr("rash")?.get_attr("path")?,
-                next_task.get_rendered_name(context.vars.clone())
-                    .unwrap_or_else(|_| next_task.get_module().get_name().to_owned()),
+                Self::task_display_name(&next_task, context.vars.clone()),
                 context.tasks.len(),
             );
 
             let exec_result = next_task.exec(context.vars.clone())?;
-
             let changed = exec_result.get_changed();
+            let failed = exec_result.get_failed();
             let flush_handlers = exec_result.is_flush_handlers();
             let new_vars = exec_result.take_vars();
 
-            if changed && let Some(notify) = next_task.get_notify() {
+            // An ignored failure remains `failed: true` for scripting decisions, but must not
+            // trigger a handler merely because the underlying module reported a change.
+            if changed
+                && !failed
+                && let Some(notify) = next_task.get_notify()
+            {
                 context.pending_handlers.notify(notify);
             }
 
             let vars = merge_option(context.vars.clone(), new_vars.clone());
-
             let scoped_vars_value = [context.scoped_vars, new_vars]
                 .into_iter()
                 .fold(context! {}, merge_option);
-            let scoped_vars = if scoped_vars_value == context!() {
-                None
-            } else {
-                Some(scoped_vars_value)
-            };
+            let scoped_vars = (scoped_vars_value != context! {}).then_some(scoped_vars_value);
+
             context = Self {
                 tasks: next_tasks,
                 vars,
@@ -130,28 +117,22 @@ impl<'a> Context<'a> {
         }
 
         context.execute_pending_handlers()?;
-
         Ok(context)
     }
 
-    /// Get a reference to the variables
     pub fn get_vars(&self) -> &Value {
         &self.vars
     }
 
-    /// Get a reference to the scoped variables
     pub fn get_scoped_vars(&self) -> Option<&Value> {
         self.scoped_vars.as_ref()
     }
 }
 
-/// Privilege escalation method for become operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum BecomeMethod {
-    /// Use setuid/setgid syscalls (requires CAP_SETUID/CAP_SETGID capabilities).
     #[default]
     Syscall,
-    /// Use sudo executable for privilege escalation.
     Sudo,
 }
 
@@ -160,11 +141,10 @@ impl std::str::FromStr for BecomeMethod {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "syscall" => Ok(BecomeMethod::Syscall),
-            "sudo" => Ok(BecomeMethod::Sudo),
+            "syscall" => Ok(Self::Syscall),
+            "sudo" => Ok(Self::Sudo),
             _ => Err(format!(
-                "Invalid become_method '{}'. Valid options: syscall, sudo",
-                s
+                "Invalid become_method '{s}'. Valid options: syscall, sudo"
             )),
         }
     }
@@ -173,13 +153,12 @@ impl std::str::FromStr for BecomeMethod {
 impl std::fmt::Display for BecomeMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BecomeMethod::Syscall => write!(f, "syscall"),
-            BecomeMethod::Sudo => write!(f, "sudo"),
+            Self::Syscall => write!(f, "syscall"),
+            Self::Sudo => write!(f, "sudo"),
         }
     }
 }
 
-/// [`task::Task`] parameters that can be set globally
 #[derive(Debug)]
 pub struct GlobalParams<'a> {
     pub r#become: bool,
@@ -192,13 +171,13 @@ pub struct GlobalParams<'a> {
 
 impl Default for GlobalParams<'_> {
     fn default() -> Self {
-        GlobalParams {
-            r#become: Default::default(),
+        Self {
+            r#become: false,
             become_user: "root",
             become_method: BecomeMethod::default(),
             become_exe: "sudo",
             become_password: None,
-            check_mode: Default::default(),
+            check_mode: false,
         }
     }
 }
