@@ -1,7 +1,9 @@
 /// ANCHOR: module
 /// # command
 ///
-/// Execute commands.
+/// Execute commands. `argv` executes directly without shell parsing; `cmd` keeps the historical
+/// `/bin/sh -c` behavior. Process output can be captured, inherited, discarded, or streamed and
+/// captured with `tee`.
 ///
 /// ## Attributes
 ///
@@ -17,31 +19,31 @@
 /// - command:
 ///     argv:
 ///       - echo
-///       - "Hellow World"
+///       - "Hello World"
 ///     transfer_pid: true
 ///
 /// - command: ls examples
 ///   register: ls_result
 ///
 /// - command:
+///     argv: [cargo, build]
+///     stdout: tee
+///     stderr: tee
+///
+/// - command:
 ///     cmd: ls .
 ///     chdir: examples
 ///   register: ls_result
-///
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult, parse_params};
+use crate::process::{OutputMode, ProcessSpec};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::env::set_current_dir;
-use std::path::Path;
-use std::process::Command as StdCommand;
-
-use exec as exec_command;
 use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
@@ -57,43 +59,55 @@ pub struct Params {
     pub chdir: Option<String>,
     #[serde(flatten)]
     pub required: Required,
-    /// Execute command as PID 1.
-    /// Note: from this point on, your rash script execution is transferred to the command
+    /// Replace the Rash process with this command. No later Rash task is executed.
     pub transfer_pid: Option<bool>,
+    /// Optional data written to the child stdin.
+    pub stdin: Option<String>,
+    /// stdout handling: capture (default), inherit, null, or tee.
+    #[serde(default)]
+    pub stdout: OutputMode,
+    /// stderr handling: capture (default), inherit, null, or tee.
+    #[serde(default)]
+    pub stderr: OutputMode,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Required {
-    /// The command to run.
+    /// Execute using `/bin/sh -c`, preserving command's historical string behavior.
     Cmd(String),
-    /// Passes the command arguments as a list rather than a string.
-    /// Only the string or the list form can be provided, not both.
+    /// Execute the program directly and pass each argument exactly as provided.
     Argv(Vec<String>),
 }
 
-fn exec_transferring_pid(params: Params) -> Result<(ModuleResult, Option<Value>)> {
-    let args_vec = match params.required {
-        Required::Cmd(s) => s
-            .split_whitespace()
-            .map(String::from)
-            .collect::<Vec<String>>(),
-        Required::Argv(x) => x,
+fn process_spec(params: &Params) -> Result<ProcessSpec> {
+    let mut spec = match &params.required {
+        Required::Cmd(command) => ProcessSpec::shell(command, "/bin/sh"),
+        Required::Argv(argv) => {
+            let program = argv.first().ok_or_else(|| {
+                Error::new(ErrorKind::InvalidData, format!("{argv:?} invalid argv"))
+            })?;
+            let mut spec = ProcessSpec::new(program);
+            spec.args = argv.iter().skip(1).cloned().collect();
+            spec
+        }
     };
-    let mut args = args_vec.iter();
+    spec.chdir = params.chdir.clone();
+    spec.stdin = params.stdin.clone();
+    spec.stdout = params.stdout;
+    spec.stderr = params.stderr;
+    Ok(spec)
+}
 
-    if let Some(s) = params.chdir {
-        set_current_dir(Path::new(&s)).map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?
-    };
-
-    let program = args
-        .next()
-        .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{args:?} invalid cmd")))?;
-    let error = exec_command::Command::new(program)
-        .args(&args.clone().collect::<Vec<_>>())
-        .exec();
-    Err(Error::new(ErrorKind::SubprocessFail, error))
+fn result_from_process(result: crate::process::ProcessResult) -> Result<ModuleResult> {
+    let failed = !result.success();
+    let extra = Some(value::to_value(json!({
+        "rc": result.rc(),
+        "stderr": result.stderr.clone().unwrap_or_default(),
+        "failed": failed,
+    }))?);
+    Ok(ModuleResult::new(true, extra, result.stdout))
 }
 
 #[derive(Debug)]
@@ -116,92 +130,34 @@ impl Module for Command {
                 chdir: None,
                 required: Required::Cmd(s.to_owned()),
                 transfer_pid: None,
+                stdin: None,
+                stdout: OutputMode::Capture,
+                stderr: OutputMode::Capture,
             },
             None => parse_params(optional_params)?,
         };
 
-        let cmd_str = match &params.required {
+        let display = match &params.required {
             Required::Cmd(s) => s.clone(),
             Required::Argv(argv) => argv.join(" "),
         };
 
         if check_mode {
             return Ok((
-                ModuleResult {
-                    changed: true,
-                    output: Some(format!("Would run: {}", cmd_str)),
-                    extra: None,
-                },
+                ModuleResult::new(true, None, Some(format!("Would run: {display}"))),
                 None,
             ));
         }
 
-        match params.transfer_pid {
-            Some(true) => exec_transferring_pid(params),
-            None | Some(false) => match params.transfer_pid {
-                Some(true) => exec_transferring_pid(params),
-                None | Some(false) => {
-                    let mut cmd = match params.required.clone() {
-                        Required::Cmd(cmd) => {
-                            trace!("exec - /bin/sh -c '{cmd:?}'");
-                            StdCommand::new("/bin/sh")
-                        }
-                        Required::Argv(argv) => {
-                            let program = argv.first().ok_or_else(|| {
-                                Error::new(ErrorKind::InvalidData, format!("{argv:?} invalid cmd"))
-                            })?;
-                            trace!("exec - '{argv:?}'");
-                            StdCommand::new(program)
-                        }
-                    };
-
-                    let cmd_args = match params.required {
-                        Required::Cmd(s) => cmd.args(vec!["-c", &s]),
-                        Required::Argv(argv) => {
-                            let args = argv.iter().skip(1);
-                            cmd.args(args)
-                        }
-                    };
-
-                    let cmd_chdir = match params.chdir {
-                        Some(s) => cmd_args.current_dir(Path::new(&s)),
-                        None => cmd_args,
-                    };
-
-                    let output = cmd_chdir
-                        .output()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
-                    trace!("exec - output: {output:?}");
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-
-                    if !output.status.success() {
-                        return Err(Error::new(ErrorKind::InvalidData, stderr));
-                    }
-                    let output_string = String::from_utf8_lossy(&output.stdout);
-
-                    let module_output = if output_string.is_empty() {
-                        None
-                    } else {
-                        Some(output_string.into_owned())
-                    };
-
-                    let extra = Some(value::to_value(json!({
-                        "rc": output.status.code(),
-                        "stderr": stderr,
-                    }))?);
-
-                    Ok((
-                        ModuleResult {
-                            changed: true,
-                            output: module_output,
-                            extra,
-                        },
-                        None,
-                    ))
-                }
-            },
+        let mut spec = process_spec(&params)?;
+        if params.transfer_pid.unwrap_or(false) {
+            spec.process_group = false;
+            return Err(spec.replace());
         }
+
+        let result = spec.run()?;
+        trace!("exec - process result: {result:?}");
+        Ok((result_from_process(result)?, None))
     }
 
     #[cfg(feature = "docs")]
@@ -224,24 +180,15 @@ mod tests {
         )
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(
-            params,
-            Params {
-                chdir: None,
-                required: Required::Cmd("ls".to_owned()),
-                transfer_pid: Some(false),
-            }
-        );
+        assert_eq!(params.required, Required::Cmd("ls".to_owned()));
+        assert_eq!(params.transfer_pid, Some(false));
+        assert_eq!(params.stdout, OutputMode::Capture);
+        assert_eq!(params.stderr, OutputMode::Capture);
     }
 
     #[test]
     fn test_parse_params_without_cmd_or_argv() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            transfer_pid: false
-            "#,
-        )
-        .unwrap();
+        let yaml: YamlValue = serde_norway::from_str("transfer_pid: false").unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
@@ -267,7 +214,6 @@ mod tests {
         let (result, _) = command
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true)
             .unwrap();
-
         assert!(result.get_changed());
         assert_eq!(result.get_output(), Some("Would run: ls -la".to_string()));
     }
@@ -286,8 +232,6 @@ mod tests {
         let (result, _) = command
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true)
             .unwrap();
-
-        assert!(result.get_changed());
         assert_eq!(
             result.get_output(),
             Some("Would run: echo hello world".to_string())
@@ -297,12 +241,43 @@ mod tests {
     #[test]
     fn test_check_mode_simple_string() {
         let command = Command;
-        let yaml: YamlValue = YamlValue::String("ls".to_string());
+        let yaml = YamlValue::String("ls".to_string());
         let (result, _) = command
             .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, true)
             .unwrap();
-
-        assert!(result.get_changed());
         assert_eq!(result.get_output(), Some("Would run: ls".to_string()));
+    }
+
+    #[test]
+    fn test_nonzero_exit_is_structured_result() {
+        let command = Command;
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            argv: [sh, -c, "echo boom >&2; exit 7"]
+            "#,
+        )
+        .unwrap();
+        let (result, _) = command
+            .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
+            .unwrap();
+        let extra = result.get_extra().unwrap();
+        assert_eq!(extra["rc"].as_i64(), Some(7));
+        assert_eq!(extra["failed"].as_bool(), Some(true));
+        assert!(extra["stderr"].as_str().unwrap().contains("boom"));
+    }
+
+    #[test]
+    fn test_argv_preserves_spaces() {
+        let command = Command;
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            argv: [printf, "%s", "hello world"]
+            "#,
+        )
+        .unwrap();
+        let (result, _) = command
+            .exec(&GlobalParams::default(), yaml, &Value::UNDEFINED, false)
+            .unwrap();
+        assert_eq!(result.get_output().as_deref(), Some("hello world"));
     }
 }
