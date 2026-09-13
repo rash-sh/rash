@@ -18,6 +18,7 @@ fn is_transient_network_error(stderr: &str) -> bool {
         || stderr.contains("rate limit")
         || stderr.contains("TLS handshake timeout")
         || stderr.contains("connection refused")
+        || stderr.contains("connection reset by peer")
         || stderr.contains("network is unreachable")
         || stderr.contains("no such host")
         || stderr.contains("i/o timeout")
