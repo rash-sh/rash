@@ -19,7 +19,7 @@
 ///       recurse: false
 ///   loop: "{{ find(tmp_query) }}"
 ///   copy:
-///     src: "{{ item }}""
+///     src: "{{ item }}"
 ///     dest: "/tmp2/{{ item | basename }}"
 ///
 /// ```

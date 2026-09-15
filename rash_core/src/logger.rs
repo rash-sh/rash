@@ -3,7 +3,7 @@ use crate::utils::get_terminal_width;
 
 use std::fmt;
 use std::io;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
 use clap::ValueEnum;
 use console::{Style, style};
@@ -26,6 +26,7 @@ pub enum Output {
 }
 
 static OUTPUT_FORMAT: AtomicI32 = AtomicI32::new(0);
+static LOG_SUPPRESSION_DEPTH: AtomicUsize = AtomicUsize::new(0);
 
 fn output_to_int(output: &Output) -> i32 {
     match output {
@@ -55,6 +56,24 @@ pub fn is_json_output() -> bool {
     get_output_format() == Output::Json
 }
 
+pub fn logs_suppressed() -> bool {
+    LOG_SUPPRESSION_DEPTH.load(Ordering::SeqCst) > 0
+}
+
+/// RAII guard used by `no_log` tasks. Nested secret tasks are safe because suppression is counted.
+pub struct LogSuppressionGuard;
+
+pub fn suppress_logs() -> LogSuppressionGuard {
+    LOG_SUPPRESSION_DEPTH.fetch_add(1, Ordering::SeqCst);
+    LogSuppressionGuard
+}
+
+impl Drop for LogSuppressionGuard {
+    fn drop(&mut self) {
+        LOG_SUPPRESSION_DEPTH.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 impl fmt::Display for Line {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
@@ -64,19 +83,17 @@ impl fmt::Display for Line {
     }
 }
 
-/// Print iterator.
 fn print_diff<T>(iter: T, prefix: &str, style: &Style)
 where
     T: IntoIterator,
     T::Item: fmt::Display,
 {
-    if log_enabled!(target: "diff", log::Level::Info) {
+    if !logs_suppressed() && log_enabled!(target: "diff", log::Level::Info) {
         iter.into_iter()
             .for_each(|x| println!("{}{}", style.apply_to(prefix), style.apply_to(x)));
     };
 }
 
-/// Print add iterator.
 pub fn add<T>(iter: T)
 where
     T: IntoIterator,
@@ -85,7 +102,6 @@ where
     print_diff(iter, "+ ", &Style::new().green());
 }
 
-/// Print remove iterator.
 pub fn remove<T>(iter: T)
 where
     T: IntoIterator,
@@ -94,44 +110,44 @@ where
     print_diff(iter, "- ", &Style::new().red());
 }
 
-/// Print formatted diff for files.
 pub fn diff_files<T, U>(original: T, modified: U)
 where
     T: std::string::ToString,
     U: std::string::ToString,
 {
-    if log_enabled!(target: "diff", log::Level::Info) {
-        let o = original.to_string();
-        let m = modified.to_string();
-        let text_diff = TextDiff::from_lines(&o, &m);
+    if logs_suppressed() || !log_enabled!(target: "diff", log::Level::Info) {
+        return;
+    }
+    let o = original.to_string();
+    let m = modified.to_string();
+    let text_diff = TextDiff::from_lines(&o, &m);
 
-        for (idx, group) in text_diff.grouped_ops(3).iter().enumerate() {
-            if idx > 0 {
-                println!("{:-^1$}", "-", get_terminal_width());
-            }
-            for op in group {
-                for change in text_diff.iter_inline_changes(op) {
-                    let (sign, s) = match change.tag() {
-                        ChangeTag::Delete => ("-", Style::new().red()),
-                        ChangeTag::Insert => ("+", Style::new().green()),
-                        ChangeTag::Equal => (" ", Style::new().dim()),
-                    };
-                    print!(
-                        "{}{} |{}",
-                        style(Line(change.old_index())).dim(),
-                        style(Line(change.new_index())).dim(),
-                        s.apply_to(sign).bold(),
-                    );
-                    for (emphasized, value) in change.iter_strings_lossy() {
-                        if emphasized {
-                            print!("{}", s.apply_to(value).underlined().on_black());
-                        } else {
-                            print!("{}", s.apply_to(value));
-                        }
+    for (idx, group) in text_diff.grouped_ops(3).iter().enumerate() {
+        if idx > 0 {
+            println!("{:-^1$}", "-", get_terminal_width());
+        }
+        for op in group {
+            for change in text_diff.iter_inline_changes(op) {
+                let (sign, s) = match change.tag() {
+                    ChangeTag::Delete => ("-", Style::new().red()),
+                    ChangeTag::Insert => ("+", Style::new().green()),
+                    ChangeTag::Equal => (" ", Style::new().dim()),
+                };
+                print!(
+                    "{}{} |{}",
+                    style(Line(change.old_index())).dim(),
+                    style(Line(change.new_index())).dim(),
+                    s.apply_to(sign).bold(),
+                );
+                for (emphasized, value) in change.iter_strings_lossy() {
+                    if emphasized {
+                        print!("{}", s.apply_to(value).underlined().on_black());
+                    } else {
+                        print!("{}", s.apply_to(value));
                     }
-                    if change.missing_newline() {
-                        println!();
-                    }
+                }
+                if change.missing_newline() {
+                    println!();
                 }
             }
         }
@@ -143,32 +159,32 @@ fn format_change<T: similar::DiffableStr + ?Sized>(change: Change<&T>) -> String
         ChangeTag::Equal => format!("  {change}"),
         ChangeTag::Delete => Style::new()
             .red()
-            .apply_to(format!("- {change}",))
+            .apply_to(format!("- {change}"))
             .to_string(),
         ChangeTag::Insert => Style::new()
             .green()
-            .apply_to(format!("+ {change}",))
+            .apply_to(format!("+ {change}"))
             .to_string(),
     }
 }
 
-/// Print formatted diff.
 pub fn diff<T, U>(original: T, modified: U)
 where
     T: std::string::ToString,
     U: std::string::ToString,
 {
-    if log_enabled!(target: "diff", log::Level::Info) {
-        let o = original.to_string();
-        let m = modified.to_string();
-        let text_diff = TextDiff::from_lines(&o, &m);
-        let diff_str = text_diff
-            .iter_all_changes()
-            .map(format_change)
-            .collect::<Vec<String>>()
-            .join("");
-        print!("{diff_str}");
+    if logs_suppressed() || !log_enabled!(target: "diff", log::Level::Info) {
+        return;
     }
+    let o = original.to_string();
+    let m = modified.to_string();
+    let text_diff = TextDiff::from_lines(&o, &m);
+    let diff_str = text_diff
+        .iter_all_changes()
+        .map(format_change)
+        .collect::<Vec<String>>()
+        .join("");
+    print!("{diff_str}");
 }
 
 fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &log::Record) {
@@ -197,13 +213,11 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
         (log::Level::Info, "ignoring") => Style::new().blue(),
         (log::Level::Info, "ok" | "ok_empty") => Style::new().green(),
         (log::Level::Info, _) => Style::new().white(),
-        (log::Level::Debug, _) => Style::new().color256(COLOR_BRIGHT_BLUE), // bright blue
-        (log::Level::Trace, _) => Style::new().color256(COLOR_BRIGHT_BLACK), // bright black
+        (log::Level::Debug, _) => Style::new().color256(COLOR_BRIGHT_BLUE),
+        (log::Level::Trace, _) => Style::new().color256(COLOR_BRIGHT_BLACK),
     };
     let line = format!(
         "{log_header}{message}{separator}",
-        log_header = log_header,
-        message = message,
         separator = match (level, target) {
             (log::Level::Info, "task") => vec![
                 "*";
@@ -218,7 +232,7 @@ fn ansible_log_format(out: FormatCallback, message: &fmt::Arguments, record: &lo
                 }
             ]
             .join(""),
-            (_, _) => "".to_owned(),
+            _ => "".to_owned(),
         },
     );
     out.finish(format_args!("{}", style.apply_to(line)))
@@ -228,16 +242,14 @@ fn raw_log_format(out: FormatCallback, message: &fmt::Arguments, _record: &log::
     out.finish(format_args!("{message}"))
 }
 
-/// Setup logging according to the specified verbosity.
 pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> {
     set_output_format(output);
 
-    let mut base_config = fern::Dispatch::new();
-
+    let mut base_config = fern::Dispatch::new().filter(|_| !logs_suppressed());
     base_config = match verbosity {
         0 => base_config.level(log::LevelFilter::Info),
         1 => base_config.level(log::LevelFilter::Debug),
-        _2_or_more => base_config.level(log::LevelFilter::Trace),
+        _ => base_config.level(log::LevelFilter::Trace),
     };
 
     base_config = match diff {
@@ -246,16 +258,8 @@ pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> 
     };
 
     let is_internal = std::env::var(crate::task::RASH_INTERNAL_TASK_FLAG).is_ok();
-
-    // Suppress task headers for internal task execution or raw/json output
-    // For raw/json: suppress task headers but keep module output (ok/changed contain the output)
     base_config = match (output, is_internal) {
-        (Output::Raw | Output::Json, _) => {
-            // For raw/json: suppress only task headers, keep ok/changed for module output
-            base_config.level_for("task", log::LevelFilter::Error)
-        }
-        (_, true) => {
-            // For internal task with ansible output: suppress only task headers
+        (Output::Raw | Output::Json, _) | (_, true) => {
             base_config.level_for("task", log::LevelFilter::Error)
         }
         _ => base_config,
@@ -280,4 +284,23 @@ pub fn setup_logging(verbosity: u8, diff: &bool, output: &Output) -> Result<()> 
         )
         .apply()
         .map_err(|e| Error::new(ErrorKind::InvalidData, e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn suppression_guard_is_nested() {
+        assert!(!logs_suppressed());
+        let outer = suppress_logs();
+        assert!(logs_suppressed());
+        {
+            let _inner = suppress_logs();
+            assert!(logs_suppressed());
+        }
+        assert!(logs_suppressed());
+        drop(outer);
+        assert!(!logs_suppressed());
+    }
 }
