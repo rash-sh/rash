@@ -101,8 +101,9 @@ impl ProcessSpec {
         let mut child = command
             .spawn()
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-        write_stdin(&mut child, self.stdin.as_deref())?;
 
+        // Drain piped output before writing stdin. Otherwise a child that writes output while
+        // consuming a large stdin (for example `cat`) can deadlock once both pipe buffers fill.
         let stdout_reader = if self.stdout.is_piped() {
             child
                 .stdout
@@ -119,6 +120,8 @@ impl ProcessSpec {
         } else {
             None
         };
+
+        write_stdin(&mut child, self.stdin.as_deref())?;
 
         Ok(SpawnedProcess {
             child,
@@ -397,6 +400,16 @@ mod tests {
         let result = spec.run().unwrap();
         assert!(result.success());
         assert!(result.stdout.unwrap().len() > 300_000);
+    }
+
+    #[test]
+    fn large_stdin_and_captured_stdout_do_not_deadlock() {
+        let payload = "x".repeat(256 * 1024);
+        let mut spec = ProcessSpec::new("cat");
+        spec.stdin = Some(payload.clone());
+        let result = spec.run().unwrap();
+        assert!(result.success());
+        assert_eq!(result.stdout.as_deref(), Some(payload.as_str()));
     }
 
     #[test]
