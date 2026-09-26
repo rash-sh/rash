@@ -16,7 +16,8 @@
 /// ANCHOR: parameters
 /// | Parameter | Required | Type   | Values          | Description                    |
 /// | --------- | -------- | ------ | --------------- | ------------------------------ |
-/// | action    | true     | string | flush_handlers  | The meta action to perform     |
+/// | action    | true     | string | flush_handlers, exit | The meta action to perform  |
+/// | code      | false    | integer | 0-255 | Exit status when action is `exit` (default: 0) |
 ///
 /// ANCHOR_END: parameters
 ///
@@ -27,6 +28,11 @@
 /// - name: Flush handlers before continuing
 ///   meta:
 ///     action: flush_handlers
+///
+/// - name: Exit with an application-specific status
+///   meta:
+///     action: exit
+///     code: 2
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
@@ -46,11 +52,14 @@ pub struct Meta;
 #[serde(rename_all = "snake_case")]
 pub enum MetaAction {
     FlushHandlers,
+    Exit,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 struct Params {
     action: MetaAction,
+    #[serde(default)]
+    code: Option<u8>,
 }
 
 impl Module for Meta {
@@ -82,6 +91,7 @@ impl Module for Meta {
                 );
                 Ok((result, None))
             }
+            MetaAction::Exit => Err(Error::explicit_exit(params.code.unwrap_or(0) as i32)),
         }
     }
 
@@ -104,6 +114,18 @@ mod tests {
     fn test_meta_module_get_name() {
         let meta = Meta;
         assert_eq!(meta.get_name(), "meta");
+    }
+
+    #[test]
+    fn test_meta_exit_preserves_requested_status() {
+        let meta = Meta;
+        let global_params = create_test_global_params();
+        let params: YamlValue = serde_norway::from_str("action: exit\ncode: 42").unwrap();
+        let error = meta
+            .exec(&global_params, params, &context! {}, false)
+            .unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::ExplicitExit);
+        assert_eq!(error.raw_os_error(), Some(42));
     }
 
     #[test]

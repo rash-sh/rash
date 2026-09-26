@@ -18,10 +18,7 @@
 /// | secret_id      | no       | string  |                                     | Secret ID for approle authentication                                               |
 /// | jwt            | no       | string  |                                     | JWT token for jwt authentication                                                   |
 /// | namespace      | no       | string  |                                     | Vault namespace (Enterprise feature)                                               |
-/// | validate_certs | no       | boolean |                                     | Validate SSL certificates. **[default: `true`]**                                  |
-/// | timeout        | no       | integer |                                     | Request timeout in seconds                                                         |
 /// | return_format  | no       | string  | dict, values, raw                   | How to return multiple key/value pairs. **[default: `dict`]**                     |
-/// | token_validate | no       | boolean |                                     | Validate token before use. **[default: `false`]**                                 |
 ///
 /// ## Notes
 ///
@@ -110,10 +107,6 @@ pub fn function(secret: String, options: Kwargs) -> StdResult<Value, MinijinjaEr
     let jwt: Option<String> = options.get("jwt")?;
     let namespace: Option<String> = options.get("namespace")?;
     let return_format: Option<String> = options.get("return_format")?;
-    // TODO: Implement these parameters
-    // let validate_certs: Option<bool> = options.get("validate_certs")?;
-    // let timeout: Option<u64> = options.get("timeout")?;
-    // let token_validate: Option<bool> = options.get("token_validate")?;
 
     // Use environment variables as defaults
     let vault_url = url.or_else(|| env::var("VAULT_ADDR").ok()).ok_or_else(|| {
