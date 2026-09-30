@@ -23,6 +23,7 @@ enum Matcher {
     Positional { key: String },
     Option(usize),
     AnyOption(Vec<bool>),
+    UniqueOption(Vec<bool>),
 }
 
 #[derive(Clone, Debug)]
@@ -42,6 +43,7 @@ pub(super) struct Nfa {
     start: usize,
     accept: usize,
     positional_help_options: Vec<bool>,
+    repeatable_options: Vec<bool>,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -83,6 +85,18 @@ impl PathArena {
         id
     }
 
+    fn contains_option(&self, path: Option<usize>, expected: usize) -> bool {
+        let mut current = path;
+        while let Some(id) = current {
+            let node = &self.nodes[id];
+            if matches!(&node.capture, Capture::Option { id, .. } if *id == expected) {
+                return true;
+            }
+            current = node.prev;
+        }
+        false
+    }
+
     fn materialize(&self, path: Option<usize>) -> Vec<Capture> {
         let mut out = Vec::new();
         let mut current = path;
@@ -101,6 +115,11 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let start = builder.state();
     let accept = builder.state();
     let positional_help_options = positional_help_options(options);
+    let metadata = grammar::analyze(patterns);
+    let repeatable_options = options
+        .all_ids()
+        .map(|id| metadata.repeatable_options.contains(&id))
+        .collect();
 
     for pattern in patterns {
         let explicit = grammar::explicit_options(pattern);
@@ -121,6 +140,7 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
         start,
         accept,
         positional_help_options,
+        repeatable_options,
     }
 }
 
@@ -149,7 +169,14 @@ pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, M
                 let Edge::Consume { matcher, target } = edge else {
                     continue;
                 };
-                if let Some(capture) = matches(matcher, token, &nfa.positional_help_options) {
+                if let Some(capture) = matches(
+                    matcher,
+                    token,
+                    &nfa.positional_help_options,
+                    &nfa.repeatable_options,
+                    candidate.path,
+                    &arena,
+                ) {
                     let path = Some(arena.append(candidate.path, capture));
                     next.push(Candidate {
                         state: *target,
@@ -205,6 +232,9 @@ fn matches(
     matcher: &Matcher,
     input: &InputToken,
     positional_help_options: &[bool],
+    repeatable_options: &[bool],
+    path: Option<usize>,
+    arena: &PathArena,
 ) -> Option<Capture> {
     match (matcher, input) {
         (Matcher::Command { literal, key }, InputToken::Word(value)) if literal == value => {
@@ -230,6 +260,16 @@ fn matches(
         }
         (Matcher::AnyOption(allowed), InputToken::Option { id, value })
             if allowed.get(*id).copied().unwrap_or(false) =>
+        {
+            Some(Capture::Option {
+                id: *id,
+                value: value.clone(),
+            })
+        }
+        (Matcher::UniqueOption(allowed), InputToken::Option { id, value })
+            if allowed.get(*id).copied().unwrap_or(false)
+                && (repeatable_options.get(*id).copied().unwrap_or(false)
+                    || !arena.contains_option(path, *id)) =>
         {
             Some(Capture::Option {
                 id: *id,
@@ -271,11 +311,16 @@ impl Builder {
         (start, end)
     }
 
-    fn option_loop(&mut self, mask: Vec<bool>) -> (usize, usize) {
+    fn option_loop(&mut self, mask: Vec<bool>, unique: bool) -> (usize, usize) {
         let start = self.state();
         let end = self.state();
         self.epsilon(start, end);
-        self.consume(start, Matcher::AnyOption(mask), start);
+        let matcher = if unique {
+            Matcher::UniqueOption(mask)
+        } else {
+            Matcher::AnyOption(mask)
+        };
+        self.consume(start, matcher, start);
         (start, end)
     }
 
@@ -290,7 +335,7 @@ impl Builder {
         match (first, second) {
             (None, _) => self.compile_expr(&Expr::Empty, allowed_options),
             (Some(id), None) => self.optional_option(id),
-            (Some(_), Some(_)) => self.option_loop(allowed_options.to_vec()),
+            (Some(_), Some(_)) => self.option_loop(allowed_options.to_vec(), false),
         }
     }
 
@@ -364,7 +409,7 @@ impl Builder {
                         *value = true;
                     }
                 }
-                self.option_loop(mask)
+                self.option_loop(mask, true)
             }
             Expr::OptionsShortcut => self.options_shortcut(allowed_options),
         }
@@ -429,6 +474,8 @@ mod tests {
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-b", "-a"]).unwrap();
         assert!(execute(&nfa, &input).is_ok());
+        let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
+        assert_eq!(execute(&nfa, &repeated), Err(MatchError::NoMatch));
     }
 
     #[test]
