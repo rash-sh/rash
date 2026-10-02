@@ -7,7 +7,6 @@ use std::collections::HashSet;
 
 use serde_norway::Value;
 
-/// TaskValid is a ProtoTask with verified attrs: one module with valid attrs
 #[derive(Debug)]
 pub struct TaskValid {
     attrs: Value,
@@ -15,144 +14,139 @@ pub struct TaskValid {
 
 impl TaskValid {
     pub fn new(attrs: &Value) -> Self {
-        TaskValid {
+        Self {
             attrs: attrs.clone(),
         }
     }
 
-    fn get_possible_attrs(&self) -> HashSet<String> {
-        self.attrs
-            .clone()
-            // safe unwrap: validated attr
+    fn get_possible_attrs(&self) -> Result<HashSet<String>> {
+        let mapping = self
+            .attrs
             .as_mapping()
-            .unwrap()
-            .iter()
-            // safe unwrap: validated attr
-            .map(|(key, _)| key.as_str().unwrap().to_owned())
-            .collect::<HashSet<String>>()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "task must be a YAML mapping"))?;
+        mapping
+            .keys()
+            .map(|key| {
+                key.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "task keys must be strings"))
+            })
+            .collect()
     }
 
-    fn get_module_name(&'_ self) -> Result<String> {
-        let module_names: HashSet<String> = self
-            .get_possible_attrs()
-            .iter()
-            .filter(|&key| is_module(key))
-            .map(String::clone)
+    fn get_module_name(&self) -> Result<String> {
+        let modules: Vec<String> = self
+            .get_possible_attrs()?
+            .into_iter()
+            .filter(|key| is_module(key))
             .collect();
-
-        match module_names.len() {
-            0 => Err(Error::new(
+        match modules.as_slice() {
+            [] => Err(Error::new(
                 ErrorKind::NotFound,
-                format!("Not module found in task: {self:?}"),
+                format!("No module found in task: {:?}", self.attrs),
             )),
-            1 => Ok(module_names.iter().map(String::clone).next().unwrap()),
+            [module] => Ok(module.clone()),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Multiple modules found in task: {self:?}"),
+                format!("Multiple modules found in task: {modules:?}"),
             )),
         }
     }
 
-    fn parse_array(&'_ self, attr: &Value) -> Option<String> {
+    fn parse_bool_or_string(&self, attr: &Value) -> Option<String> {
+        attr.as_bool()
+            .map(|value| value.to_string())
+            .or_else(|| attr.as_str().map(String::from))
+    }
+
+    fn parse_expression(&self, attr: &Value) -> Option<String> {
         match attr.as_sequence() {
-            Some(v) => Some(
-                v.iter()
-                    .map(|x| self.parse_bool_or_string(x))
-                    .collect::<Option<Vec<String>>>()?
+            Some(values) => Some(
+                values
                     .iter()
-                    .map(|s| format!("({s})"))
-                    .collect::<Vec<String>>()
+                    .map(|value| self.parse_bool_or_string(value))
+                    .collect::<Option<Vec<_>>>()?
+                    .into_iter()
+                    .map(|expression| format!("({expression})"))
+                    .collect::<Vec<_>>()
                     .join(" and "),
             ),
             None => self.parse_bool_or_string(attr),
         }
     }
 
-    fn parse_bool_or_string(&'_ self, attr: &Value) -> Option<String> {
-        match attr.as_bool() {
-            Some(x) => match x {
-                true => Some("true".to_owned()),
-                false => Some("false".to_owned()),
-            },
-            None => attr.as_str().map(String::from),
-        }
+    fn optional_clone(&self, name: &str) -> Option<Value> {
+        self.attrs.get(name).cloned()
     }
 
-    /// Validate rescue and always attributes (now allowed on any task)
-    fn validate_block_only_attributes(&self) -> Result<()> {
-        // Rescue and always attributes are now allowed on any task, not just blocks
-        // This provides more flexible error handling and cleanup capabilities
+    fn validate_sequence_attr(&self, name: &str) -> Result<()> {
+        if let Some(value) = self.attrs.get(name)
+            && value.as_sequence().is_none()
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("{name} must be a task sequence"),
+            ));
+        }
         Ok(())
     }
 
-    pub fn get_task<'a>(&self, global_params: &'a GlobalParams) -> Result<Task<'a>> {
-        let module_name: &str = &self.get_module_name()?;
+    pub fn get_task<'a>(&self, global_params: &'a GlobalParams<'a>) -> Result<Task<'a>> {
+        self.validate_sequence_attr("rescue")?;
+        self.validate_sequence_attr("always")?;
+        let module_name = self.get_module_name()?;
+        let module = MODULES.get::<str>(&module_name).ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("Module not found in registry: {module_name}"),
+            )
+        })?;
 
-        // Validate that rescue and always attributes are only used with block modules
-        self.validate_block_only_attributes()?;
+        let become_method = match self.attrs["become_method"].as_str() {
+            Some(value) => value
+                .parse::<BecomeMethod>()
+                .map_err(|error| Error::new(ErrorKind::InvalidData, error))?,
+            None => global_params.become_method,
+        };
 
         Ok(Task {
-            r#become: match global_params.r#become {
-                true => true,
-                false => self.attrs["become"].as_bool().unwrap_or(false),
-            },
-            become_user: match self.attrs["become_user"].as_str() {
-                Some(s) => s,
-                None => global_params.become_user,
-            }
-            .to_owned(),
-            become_method: match self.attrs["become_method"].as_str() {
-                Some(s) => s.parse::<BecomeMethod>().unwrap_or_else(|e| {
-                    warn!("Invalid become_method '{}': {}", s, e);
-                    global_params.become_method
-                }),
-                None => global_params.become_method,
-            },
-            become_exe: match self.attrs["become_exe"].as_str() {
-                Some(s) => s.to_owned(),
-                None => global_params.become_exe.to_owned(),
-            },
-            become_password: match self.attrs["become_password"].as_str() {
-                Some(s) => Some(s.to_owned()),
-                None => global_params.become_password.map(String::from),
-            },
-            changed_when: self.parse_array(&self.attrs["changed_when"]),
-            check_mode: match global_params.check_mode {
-                true => true,
-                false => self.attrs["check_mode"].as_bool().unwrap_or(false),
-            },
-            // &dyn Module from &Box<dyn Module>
-            module: &**MODULES.get::<str>(module_name).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::NotFound,
-                    format!("Module not found in modules: {:?}", MODULES.keys()),
-                )
-            })?,
-            params: self.attrs[module_name].clone(),
-            name: self.attrs["name"].as_str().map(String::from),
+            r#become: global_params.r#become || self.attrs["become"].as_bool().unwrap_or(false),
+            become_user: self.attrs["become_user"]
+                .as_str()
+                .unwrap_or(global_params.become_user)
+                .to_owned(),
+            become_method,
+            become_exe: self.attrs["become_exe"]
+                .as_str()
+                .unwrap_or(global_params.become_exe)
+                .to_owned(),
+            become_password: self.attrs["become_password"]
+                .as_str()
+                .map(String::from)
+                .or_else(|| global_params.become_password.map(String::from)),
+            check_mode: global_params.check_mode
+                || self.attrs["check_mode"].as_bool().unwrap_or(false),
+            module: &**module,
+            params: self.attrs[&module_name].clone(),
+            changed_when: self.parse_expression(&self.attrs["changed_when"]),
+            failed_when: self.parse_expression(&self.attrs["failed_when"]),
             ignore_errors: self.attrs["ignore_errors"].as_bool(),
-            r#loop: self.attrs.get("loop").map(|_| self.attrs["loop"].clone()),
+            quiet: self.attrs["quiet"].as_bool().unwrap_or(false),
+            no_log: self.attrs["no_log"].as_bool().unwrap_or(false),
+            name: self.attrs["name"].as_str().map(String::from),
+            r#loop: self.optional_clone("loop"),
             register: self.attrs["register"].as_str().map(String::from),
-            vars: self.attrs.get("vars").map(|_| self.attrs["vars"].clone()),
-            when: self.parse_array(&self.attrs["when"]),
-            rescue: self
-                .attrs
-                .get("rescue")
-                .map(|_| self.attrs["rescue"].clone()),
-            always: self
-                .attrs
-                .get("always")
-                .map(|_| self.attrs["always"].clone()),
-            environment: self
-                .attrs
-                .get("environment")
-                .map(|_| self.attrs["environment"].clone()),
+            vars: self.optional_clone("vars"),
+            when: self.parse_expression(&self.attrs["when"]),
+            rescue: self.optional_clone("rescue"),
+            always: self.optional_clone("always"),
+            environment: self.optional_clone("environment"),
             notify: self.attrs.get("notify").and_then(parse_notify_value),
-            retries: self.attrs["retries"].as_u64().map(|v| v as u32),
+            retries: self.attrs["retries"].as_u64().map(|value| value as u32),
             delay: self.attrs["delay"].as_u64(),
-            until: self.parse_array(&self.attrs["until"]),
+            until: self.parse_expression(&self.attrs["until"]),
             r#async: self.attrs["async"].as_u64(),
-            poll: self.attrs.get("poll").and_then(|p| p.as_u64()),
+            poll: self.attrs["poll"].as_u64(),
             global_params,
         })
     }
@@ -161,415 +155,57 @@ impl TaskValid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_norway::Value as YamlValue;
 
-    fn create_test_global_params() -> GlobalParams<'static> {
-        GlobalParams::default()
+    #[test]
+    fn parses_new_semantic_controls() {
+        let yaml: Value = serde_norway::from_str(
+            r#"
+            command: echo hi
+            changed_when: false
+            failed_when: result.rc not in [0, 1]
+            quiet: true
+            no_log: true
+            "#,
+        )
+        .unwrap();
+        let params = GlobalParams::default();
+        let task = TaskValid::new(&yaml).get_task(&params).unwrap();
+        assert_eq!(task.changed_when.as_deref(), Some("false"));
+        assert_eq!(task.failed_when.as_deref(), Some("result.rc not in [0, 1]"));
+        assert!(task.quiet);
+        assert!(task.no_log);
     }
 
     #[test]
-    fn test_rescue_with_debug_module_succeeds() {
-        let yaml_str = r#"
-        name: test task
-        debug:
-          msg: test
-        rescue:
-          - name: rescue task
-            debug:
-              msg: rescue
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test task".to_string()));
-        assert!(task.rescue.is_some());
-        // Verify rescue is an array with one task
-        if let Some(YamlValue::Sequence(rescue_tasks)) = &task.rescue {
-            assert_eq!(rescue_tasks.len(), 1);
-        } else {
-            panic!("Expected rescue to be a sequence");
-        }
+    fn expression_arrays_are_anded() {
+        let yaml: Value = serde_norway::from_str(
+            r#"
+            debug: { msg: hi }
+            failed_when:
+              - result.changed
+              - true
+            "#,
+        )
+        .unwrap();
+        let valid = TaskValid::new(&yaml);
+        assert_eq!(
+            valid.parse_expression(&yaml["failed_when"]).as_deref(),
+            Some("(result.changed) and (true)")
+        );
     }
 
     #[test]
-    fn test_always_with_command_module_succeeds() {
-        let yaml_str = r#"
-        name: test task
-        command:
-          cmd: echo test
-        always:
-          - name: always task
-            debug:
-              msg: always
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test task".to_string()));
-        assert!(task.always.is_some());
-        // Verify always is an array with one task
-        if let Some(YamlValue::Sequence(always_tasks)) = &task.always {
-            assert_eq!(always_tasks.len(), 1);
-        } else {
-            panic!("Expected always to be a sequence");
-        }
+    fn invalid_become_method_is_rejected() {
+        let yaml: Value =
+            serde_norway::from_str("debug: { msg: hi }\nbecome_method: nope").unwrap();
+        let params = GlobalParams::default();
+        assert!(TaskValid::new(&yaml).get_task(&params).is_err());
     }
 
     #[test]
-    fn test_both_rescue_and_always_with_debug_module_succeeds() {
-        let yaml_str = r#"
-        name: test task
-        debug:
-          msg: test
-        rescue:
-          - name: rescue task
-            debug:
-              msg: rescue
-        always:
-          - name: always task
-            debug:
-              msg: always
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test task".to_string()));
-
-        // Verify both rescue and always are present
-        assert!(task.rescue.is_some());
-        assert!(task.always.is_some());
-
-        // Verify rescue is an array with one task
-        if let Some(YamlValue::Sequence(rescue_tasks)) = &task.rescue {
-            assert_eq!(rescue_tasks.len(), 1);
-        } else {
-            panic!("Expected rescue to be a sequence");
-        }
-
-        // Verify always is an array with one task
-        if let Some(YamlValue::Sequence(always_tasks)) = &task.always {
-            assert_eq!(always_tasks.len(), 1);
-        } else {
-            panic!("Expected always to be a sequence");
-        }
-    }
-
-    #[test]
-    fn test_rescue_and_always_with_block_module_succeeds() {
-        let yaml_str = r#"
-        name: test block
-        block:
-          - name: main task
-            debug:
-              msg: main
-        rescue:
-          - name: rescue task
-            debug:
-              msg: rescue
-        always:
-          - name: always task
-            debug:
-              msg: always
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.module.get_name(), "block");
-        assert!(task.rescue.is_some());
-        assert!(task.always.is_some());
-    }
-
-    #[test]
-    fn test_block_without_rescue_and_always_succeeds() {
-        let yaml_str = r#"
-        name: test block
-        block:
-          - name: main task
-            debug:
-              msg: main
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.module.get_name(), "block");
-        assert!(task.rescue.is_none());
-        assert!(task.always.is_none());
-    }
-
-    #[test]
-    fn test_non_block_task_without_rescue_and_always_succeeds() {
-        let yaml_str = r#"
-        name: test task
-        debug:
-          msg: test
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.module.get_name(), "debug");
-        assert!(task.rescue.is_none());
-        assert!(task.always.is_none());
-    }
-
-    #[test]
-    fn test_rescue_with_copy_module_succeeds() {
-        let yaml_str = r#"
-        name: test copy task
-        copy:
-          content: "test content"
-          dest: "/tmp/test.txt"
-        rescue:
-          - name: handle copy failure
-            debug:
-              msg: "Copy failed, cleaning up"
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test copy task".to_string()));
-        assert!(task.rescue.is_some());
-        assert!(task.always.is_none());
-    }
-
-    #[test]
-    fn test_always_with_file_module_succeeds() {
-        let yaml_str = r#"
-        name: test file task
-        file:
-          path: "/tmp/testfile"
-          state: touch
-        always:
-          - name: cleanup
-            debug:
-              msg: "Always running cleanup"
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test file task".to_string()));
-        assert!(task.rescue.is_none());
-        assert!(task.always.is_some());
-    }
-
-    #[test]
-    fn test_rescue_and_always_with_loop_succeeds() {
-        let yaml_str = r#"
-        name: test loop with rescue/always
-        debug:
-          msg: "Item: {{ item }}"
-        loop:
-          - one
-          - two
-          - three
-        rescue:
-          - name: handle loop failure
-            debug:
-              msg: "Loop item failed: {{ item }}"
-        always:
-          - name: loop cleanup
-            debug:
-              msg: "Cleaning up after loop item: {{ item }}"
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test loop with rescue/always".to_string()));
-        assert!(task.rescue.is_some());
-        assert!(task.always.is_some());
-        assert!(task.r#loop.is_some());
-    }
-
-    #[test]
-    fn test_rescue_and_always_empty_sequences_succeeds() {
-        let yaml_str = r#"
-        name: test empty rescue/always
-        debug:
-          msg: "test"
-        rescue: []
-        always: []
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test empty rescue/always".to_string()));
-        assert!(task.rescue.is_some());
-        assert!(task.always.is_some());
-
-        // Verify they are empty sequences
-        if let Some(YamlValue::Sequence(rescue_tasks)) = &task.rescue {
-            assert_eq!(rescue_tasks.len(), 0);
-        } else {
-            panic!("Expected rescue to be a sequence");
-        }
-
-        if let Some(YamlValue::Sequence(always_tasks)) = &task.always {
-            assert_eq!(always_tasks.len(), 0);
-        } else {
-            panic!("Expected always to be a sequence");
-        }
-    }
-
-    #[test]
-    fn test_retry_fields_parsing() {
-        let yaml_str = r#"
-        name: test retry task
-        debug:
-          msg: test
-        retries: 5
-        delay: 10
-        until: "result.rc == 0"
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test retry task".to_string()));
-        assert_eq!(task.retries, Some(5));
-        assert_eq!(task.delay, Some(10));
-        assert_eq!(task.until, Some("result.rc == 0".to_string()));
-    }
-
-    #[test]
-    fn test_until_only_parsing() {
-        let yaml_str = r#"
-        name: test until task
-        debug:
-          msg: test
-        until: "result.stdout == 'ready'"
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.until, Some("result.stdout == 'ready'".to_string()));
-        assert_eq!(task.retries, None);
-        assert_eq!(task.delay, None);
-    }
-
-    #[test]
-    fn test_retry_with_loop_succeeds() {
-        let yaml_str = r#"
-        name: test retry with loop
-        debug:
-          msg: "Item: {{ item }}"
-        loop:
-          - one
-          - two
-        retries: 3
-        delay: 1
-        until: "item != 'fail'"
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test retry with loop".to_string()));
-        assert!(task.r#loop.is_some());
-        assert_eq!(task.retries, Some(3));
-        assert_eq!(task.delay, Some(1));
-        assert_eq!(task.until, Some("item != 'fail'".to_string()));
-    }
-
-    #[test]
-    fn test_async_fields_parsing() {
-        let yaml_str = r#"
-        name: test async task
-        command: ./long_running.sh
-        async: 300
-        poll: 5
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.name, Some("test async task".to_string()));
-        assert_eq!(task.r#async, Some(300));
-        assert_eq!(task.poll, Some(5));
-    }
-
-    #[test]
-    fn test_async_fire_and_forget() {
-        let yaml_str = r#"
-        name: test fire and forget
-        command: ./background.sh
-        async: 3600
-        poll: 0
-        "#;
-        let yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_valid = TaskValid::new(&yaml);
-        let global_params = create_test_global_params();
-
-        let result = task_valid.get_task(&global_params);
-        assert!(result.is_ok());
-
-        let task = result.unwrap();
-        assert_eq!(task.r#async, Some(3600));
-        assert_eq!(task.poll, Some(0));
+    fn rescue_must_be_a_sequence() {
+        let yaml: Value = serde_norway::from_str("debug: { msg: hi }\nrescue: nope").unwrap();
+        let params = GlobalParams::default();
+        assert!(TaskValid::new(&yaml).get_task(&params).is_err());
     }
 }

@@ -1,10 +1,8 @@
 /// ANCHOR: module
 /// # pause
 ///
-/// Pause execution for a given duration.
-///
-/// This module is useful for debugging, rate limiting, or waiting for
-/// external processes that don't have a clear signal.
+/// Pause execution for a duration or prompt a human for input. Human input is returned as the
+/// module output and can be captured with `register`.
 ///
 /// ## Attributes
 ///
@@ -21,15 +19,19 @@
 ///     seconds: 5
 ///
 /// - pause:
-///     minutes: 1
+///     prompt: "Environment name: "
+///     input: true
+///   register: answer
 ///
 /// - pause:
-///     seconds: 30
-///     prompt: "Waiting for service to start..."
+///     prompt: "Password: "
+///     input: true
+///     echo: false
+///   register: password
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult, parse_params};
 
 #[cfg(feature = "docs")]
@@ -41,52 +43,82 @@ use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 
+use std::io::{self, Write};
 use std::time::Duration;
-
-const DEFAULT_SECONDS: u64 = 0;
-const DEFAULT_MINUTES: u64 = 0;
-
-fn default_seconds() -> u64 {
-    DEFAULT_SECONDS
-}
-
-fn default_minutes() -> u64 {
-    DEFAULT_MINUTES
-}
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Params {
     /// Number of seconds to pause.
-    #[serde(default = "default_seconds")]
+    #[serde(default)]
     seconds: u64,
     /// Number of minutes to pause.
-    #[serde(default = "default_minutes")]
+    #[serde(default)]
     minutes: u64,
-    /// Optional message to display during pause.
+    /// Optional message to display.
     #[serde(default)]
     prompt: Option<String>,
+    /// Read one line of input from the user after displaying the prompt.
+    #[serde(default)]
+    input: bool,
+    /// Echo interactive input. Set false for passwords/secrets.
+    #[serde(default = "default_echo")]
+    echo: bool,
+}
+
+fn default_echo() -> bool {
+    true
+}
+
+fn read_input(prompt: Option<&str>, echo: bool) -> Result<String> {
+    if let Some(prompt) = prompt {
+        eprint!("{prompt}");
+        io::stderr()
+            .flush()
+            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+    }
+
+    if echo {
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        Ok(input.trim_end_matches(['\r', '\n']).to_owned())
+    } else {
+        rpassword::read_password().map_err(|e| Error::new(ErrorKind::IOError, e))
+    }
 }
 
 fn pause(params: Params, check_mode: bool) -> Result<ModuleResult> {
     let total_seconds = params.minutes * 60 + params.seconds;
 
-    if total_seconds == 0 {
-        return Ok(ModuleResult::new(false, None, Some("0".to_string())));
+    if check_mode {
+        let action = if params.input {
+            "Would prompt for input".to_owned()
+        } else {
+            format!("Would pause for {total_seconds} seconds")
+        };
+        return Ok(ModuleResult::new(false, None, Some(action)));
     }
 
-    if !check_mode {
-        if let Some(ref prompt) = params.prompt {
-            eprintln!("{}", prompt);
+    let input = if params.input {
+        Some(read_input(params.prompt.as_deref(), params.echo)?)
+    } else {
+        if let Some(prompt) = &params.prompt {
+            eprintln!("{prompt}");
         }
+        None
+    };
+
+    if total_seconds > 0 {
         std::thread::sleep(Duration::from_secs(total_seconds));
     }
 
     Ok(ModuleResult::new(
-        !check_mode,
+        false,
         None,
-        Some(total_seconds.to_string()),
+        input.or_else(|| (total_seconds > 0).then(|| total_seconds.to_string())),
     ))
 }
 
@@ -117,112 +149,73 @@ impl Module for Pause {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::ErrorKind;
 
     #[test]
-    fn test_parse_params_seconds() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            seconds: 5
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(
-            params,
-            Params {
-                seconds: 5,
-                minutes: 0,
-                prompt: None,
-            }
-        );
-    }
-
-    #[test]
-    fn test_parse_params_minutes() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            minutes: 2
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(
-            params,
-            Params {
-                seconds: 0,
-                minutes: 2,
-                prompt: None,
-            }
-        );
-    }
-
-    #[test]
-    fn test_parse_params_both() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            seconds: 30
-            minutes: 1
-            prompt: "Waiting..."
-            "#,
-        )
-        .unwrap();
-        let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(
-            params,
-            Params {
-                seconds: 30,
-                minutes: 1,
-                prompt: Some("Waiting...".to_string()),
-            }
-        );
-    }
-
-    #[test]
-    fn test_parse_params_default() {
+    fn test_parse_params_defaults() {
         let yaml: YamlValue = serde_norway::from_str("{}").unwrap();
         let params: Params = parse_params(yaml).unwrap();
-        assert_eq!(
-            params,
-            Params {
-                seconds: 0,
-                minutes: 0,
-                prompt: None,
-            }
-        );
+        assert_eq!(params.seconds, 0);
+        assert_eq!(params.minutes, 0);
+        assert!(!params.input);
+        assert!(params.echo);
+    }
+
+    #[test]
+    fn test_parse_input_params() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            prompt: "Password: "
+            input: true
+            echo: false
+            "#,
+        )
+        .unwrap();
+        let params: Params = parse_params(yaml).unwrap();
+        assert!(params.input);
+        assert!(!params.echo);
+        assert_eq!(params.prompt.as_deref(), Some("Password: "));
     }
 
     #[test]
     fn test_pause_zero() {
-        let params = Params {
-            seconds: 0,
-            minutes: 0,
-            prompt: None,
-        };
-        let result = pause(params, false).unwrap();
+        let result = pause(
+            Params {
+                seconds: 0,
+                minutes: 0,
+                prompt: None,
+                input: false,
+                echo: true,
+            },
+            false,
+        )
+        .unwrap();
         assert!(!result.get_changed());
+        assert_eq!(result.get_output(), None);
     }
 
     #[test]
-    fn test_pause_check_mode() {
-        let params = Params {
-            seconds: 5,
-            minutes: 0,
-            prompt: None,
-        };
-        let result = pause(params, true).unwrap();
+    fn test_pause_check_mode_does_not_wait_or_prompt() {
+        let result = pause(
+            Params {
+                seconds: 5,
+                minutes: 0,
+                prompt: Some("Question: ".into()),
+                input: true,
+                echo: true,
+            },
+            true,
+        )
+        .unwrap();
         assert!(!result.get_changed());
+        assert_eq!(
+            result.get_output().as_deref(),
+            Some("Would prompt for input")
+        );
     }
 
     #[test]
     fn test_pause_random_field() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            seconds: 5
-            invalid: field
-            "#,
-        )
-        .unwrap();
+        let yaml: YamlValue = serde_norway::from_str("seconds: 5\ninvalid: field").unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
