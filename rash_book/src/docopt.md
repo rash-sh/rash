@@ -54,11 +54,14 @@ In this example:
 - `Usage:` (case-insensitive) declares the usage patterns, in one of two forms:
   - **One line**: `# Usage: my_script.rh <name>`. This form holds exactly **one** pattern.
   - **Block**: `# Usage:` on its own line, followed by one indented pattern per line. The block ends
-    at an empty comment line or at a non-indented line such as `Options:`.
+    at an empty comment line (`#`) or at a non-indented line such as `Options:`; comment lines
+    holding only spaces or tabs are skipped. A block without any indented pattern is an error
+    (`Usage block declares no patterns`).
 - The first word of each pattern is the program name and is ignored.
 - Every help-text line that starts with an option (after indentation) describes it, conventionally
-  under an `Options:` heading; a Markdown bullet such as `- note` does not. See
-  [Options](syntax.md#options).
+  under an `Options:` heading; a Markdown bullet such as `- note` does not. Separate the
+  description with **at least two spaces**: `-v --verbose Verbose output` declares an option that
+  takes a value. See [Options](syntax.md#options).
 - If there is no `Usage:`, the arguments are not parsed and no variables are added. They are
   still available as a list of strings in [`{{ rash.args }}`](builtins.md).
 
@@ -149,6 +152,7 @@ text to stderr and exits with status 1. These more specific errors are reported 
 | ---------------------------------------- | ---------------------------------------------------------------- |
 | `Unknown option: --nope`                 | The option is not declared (long options cannot be abbreviated). |
 | `Option --port requires a value`         | A value option is the last argument.                             |
+| `Usage block declares no patterns`       | `Usage:` is followed by no indented pattern.                     |
 | `Option --dry-run does not take a value` | A flag is given a value with `=`.                                |
 | `Ambiguous option alias: -u`             | The short alias is declared for two different options.           |
 | `Invalid usage identifier: Run`          | The declaration contains an invalid command or positional name.  |
@@ -157,10 +161,20 @@ text to stderr and exits with status 1. These more specific errors are reported 
 
 An ambiguous alias is only an error when it is used: the long aliases of both options keep working.
 
+When the value placeholder of a described option is neither `<value>` nor upper case, as with
+`-v --verbose Verbose output`, `requires a value` adds a reminder that a description must be
+separated from the option by at least two spaces.
+
 ## Compatibility notes
 
 This release replaced the argument parser. Most interfaces behave as before, but these declarations
-behave differently:
+behave differently.
+
+**Most likely to break: single-space option descriptions.** An `Options:` line whose description
+follows the option after a single space or a tab, such as `-v --verbose Verbose output`, now
+declares an option that takes a value, as in Docopt: `--verbose` alone fails with
+`Option --verbose requires a value`, and `--verbose file.txt` stores `"file.txt"`. Previously the
+option stored the truthy string `"--verbose"`. Separate descriptions with at least two spaces.
 
 **Now accepted** (previously rejected or broken):
 
@@ -184,13 +198,22 @@ behave differently:
 - A help option shows the help wherever it appears and even if other arguments are invalid:
   `tool a b --help` and `tool --unknown --help` show the help instead of an error.
 - Digits in names (`<file1>`, `FILE-2`, `step2`) and directly nested brackets (`[[<x>]]`).
+- Negative numbers as option values: `tool [--port=<p>] <x>` accepts `--port -5 a` (previously
+  `Unknown option: -5`).
+- `-` as a positional value: `tool <x>` accepts `-` (`x = "-"`).
+- An option written both explicitly and through `[options]`: `tool [options] [-v] <x>` accepts
+  `-v a`.
+- A `Usage:` line with trailing spaces starts a usage block: every indented pattern after it is
+  read (previously only the first one, as a one-line usage).
 
 **Now rejected** (previously accepted, often with a wrong result):
 
 - An option given more times than the pattern declares it: `tool [-a] [-b]` rejects `-a -a`, and
   `tool [-a] [-b] [-a]` rejects `-a -a -a`.
 - A value option without its value fails with `Option -o requires a value` instead of storing
-  `"-o"` or swallowing the next option.
+  `"-o"`.
+- A comment line holding only whitespace inside the usage block is skipped. Previously it was an
+  empty pattern, so `tool <a>` followed by such a line also accepted no arguments at all.
 - A short alias declared for two options (`-u --sysupgrade` and `-u --upgrades`) fails with
   `Ambiguous option alias: -u` when used, instead of silently picking one. The long aliases work.
 - A command or positional named `options` in a usage that declares options.
@@ -213,6 +236,9 @@ behave differently:
   single value (previously the last value as a string).
 - Short options never fill positional slots: `tool [-asoFILE] [INPUT ...]` with `-s` sets
   `options.s` (previously it sometimes gave `input = ["-s"]`).
+- A value option takes the next argument as its value even if it starts with `-`, as before and as
+  in Docopt: `tool [--port=<p>] [-v]` with `--port -v` gives `options.port = "-v"`. Previously
+  `options.v` was also set to `true`; now it stays `false`.
 - A `-h` flag without a long name shows the help (previously it set `options.h` and could stand in
   for a positional), and `--port --help` sets `options.port` to `--help` instead of showing the
   help.
@@ -231,8 +257,16 @@ These Docopt behaviours are not supported:
   arguments ends the options and is discarded; Docopt keeps it as a positional value. The
   variables of `--` and `-` are `__` and `_`.
 - **No abbreviated long options.** `--verb` does not match `--verbose`.
-- **One-line usage holds one pattern.** Continuation lines after `Usage: tool ...` are ignored; use
-  the block form for several patterns.
+- **One-line usage holds one pattern.** Continuation lines after `Usage: tool ...` are ignored, and
+  repeating the program name on that line is not supported: in `Usage: tool <x> | tool <y>` the
+  second `tool` is a command. Use the block form for several patterns.
+- **Options inside an optional command group follow the command.** `tool [cmd [-o]]` accepts
+  `cmd -o` but not `-o` alone; Docopt accepts both.
+- **Option groups use the pattern-wide limit.** In a group of two or more adjacent optional options
+  such as `[-a] [-b]`, each option may occur as many times as the whole pattern declares it, so
+  `tool [-a] [-b] cmd [-a] [-b]` accepts `-a -a cmd`. A single optional option accepts one
+  occurrence, so `tool [-a] cmd [-a]` rejects `-a -a cmd`. Docopt accepts both.
+- **`[default: value]` is case-sensitive.** `[Default: 80]` sets no default; Docopt accepts it.
 - **Bare `[options]` accepts a repeated flag** when it stands for two or more options:
   `tool [options]` accepts `-a -a` and reports `true`. Docopt rejects it.
 - **Repeated value options keep the last value.** `tool [--tag=<value>]...` with

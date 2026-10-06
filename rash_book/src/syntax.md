@@ -99,6 +99,10 @@ Options:
   --port=<port>           Port to listen on [default: 8080]
 ```
 
+A single space or a tab does not separate the description: in `-v --verbose Verbose output`, the
+word `Verbose` is the value placeholder, so `--verbose` takes a value and `--verbose` alone fails
+with `Option --verbose requires a value`. `[default: value]` must be written in lowercase.
+
 Aliases resolve to one option, stored under its long name (`options.output`, whether `-o` or
 `--output` is used). An option can also appear only in a usage pattern; it then has no description
 and no default.
