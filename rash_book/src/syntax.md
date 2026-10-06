@@ -13,14 +13,17 @@ indent: true
 - [Required groups](#required-groups)
 - [Mutually exclusive elements](#mutually-exclusive-elements)
 - [Repeatable elements](#repeatable-elements)
+- [The `[options]` shortcut](#the-options-shortcut)
 - [Argument formatting rules](#argument-formatting-rules)
 - [Advanced usage patterns](#advanced-usage-patterns)
 
 ## Usage patterns
 
-Text occurring between keyword `usage:` (case-insensitive) and a visibly empty line is interpreted as
-a list of usage patterns. The first word after `usage:` is interpreted as the program's name. Here is a
-minimal example for a program that takes no command-line arguments:
+The keyword `usage:` (case-insensitive) introduces the usage patterns. A pattern on the same line
+as `usage:` is the only pattern. To declare several patterns, put `usage:` on its own line and
+write one indented pattern per line; the list ends at an empty line or a non-indented line. The first
+word of each pattern is the program's name. Here is a minimal example for a program that takes no
+command-line arguments:
 
 ```
 Usage: my_program
@@ -42,7 +45,7 @@ sequence of characters delimited by either whitespace, one of `[]()|` characters
 ## Positional arguments
 
 Words starting with "<", ending with ">" or words in UPPER-CASE are interpreted as positional
-arguments.
+arguments. Any other word is a command, which must be given literally.
 
 ```
 Usage: my_program <host> <port>
@@ -52,8 +55,9 @@ Usage: my_program HOST PORT
 Both styles are equivalent, though the `<argument-name>` style is recommended for clarity. Positional
 arguments are required by default unless placed within optional brackets `[]`.
 
-When used in your program, these positional arguments will be available as variables with their name
-in lowercase:
+Names are made of ASCII letters (lowercase inside `<>`, uppercase for `NAME`) joined by `-` or `_`;
+digits are not allowed. When used in your program, these positional arguments will be available as
+variables with their name in lowercase and `-` replaced by `_`:
 
 ```
 # If invoked as: my_program example.com 8080
@@ -81,6 +85,27 @@ Usage: my_program --output=FILE
 Usage: my_program -i INPUT
 ```
 
+Options are described in the help text, conventionally under `Options:`. Every line that starts
+with `-` declares one option: its short and/or long aliases (separated by a space or `,`), an
+optional value placeholder, then **at least two spaces** and a description. A `[default: value]` in
+the description sets the value used when the option is not given:
+
+```
+Options:
+  -v --verbose            Enable verbose output
+  -o FILE, --output=FILE  Write output to FILE
+  --port=<port>           Port to listen on [default: 8080]
+```
+
+Aliases resolve to one option, stored under its long name (`options.output`, whether `-o` or
+`--output` is used). An option can also appear only in a usage pattern; it then has no description
+and no default.
+
+Options are matched at the position where the pattern declares them. Adjacent optional options
+(`[-v] [-q]`) and the options in [`[options]`](#the-options-shortcut) can be given in any order
+among themselves, but `my_program [--verbose] <file>` does not accept `my_program file --verbose`.
+Long options must be spelled in full.
+
 **Note**: Writing `--input ARG` (as opposed to `--input=ARG`) is ambiguous, meaning it is not
 possible to tell whether `ARG` is option's argument or a positional argument. In usage patterns
 this will be interpreted as an option with argument only if a description (covered below) for that
@@ -105,7 +130,8 @@ rash script.rh command --option value
 rash script.rh --option value
 ```
 
-**Note**: Shebang line `#!/usr/bin/env rash --` can be used to pass options to the script directly:
+**Note**: The shebang line `#!/usr/bin/env -S rash --` passes every argument to the script, so
+`./script.rh --option value` works. A `--` among the script arguments themselves is rejected.
 
 ## Optional elements
 
@@ -115,11 +141,11 @@ optional. It does not matter if elements are enclosed in the same or different p
 The following examples are equivalent:
 
 ```
-Usage: my_program [command <argument>]
+Usage: my_program [command --option]
 ```
 
 ```
-Usage: my_program [command] [<argument>]
+Usage: my_program [command] [--option]
 ```
 
 Optional elements can be nested:
@@ -129,6 +155,10 @@ Usage: my_program [command [--option]]
 ```
 
 In this example, `--option` can only be used if `command` is provided.
+
+Arguments must bind in exactly one way. With `my_program [<source>] [<dest>]`, a single argument
+could be either `<source>` or `<dest>`, so it is rejected as an ambiguous usage. Nest the brackets
+to say that `<dest>` needs `<source>`: `my_program [<source> [<dest>]]`.
 
 ## Required groups
 
@@ -167,8 +197,9 @@ Usage: my_program go [up | down | left | right]
 Note that specifying several patterns works exactly like pipe "|", that is:
 
 ```
-Usage: my_program run [fast]
-       my_program jump [high]
+Usage:
+  my_program run [fast]
+  my_program jump [high]
 ```
 
 is equivalent to:
@@ -183,17 +214,19 @@ Use ellipsis `...` to specify that the argument (or group of arguments) to the l
 repeated one or more times:
 
 ```
-Usage: my_program open <file>...
-       my_program move (<from> <to>)...
+Usage:
+  my_program open <file>...
+  my_program move (<from> <to>)...
 ```
 
 You can flexibly specify the number of arguments that are required. Here are 3 (redundant) ways
 of requiring zero or more arguments:
 
 ```
-Usage: my_program [<file>...]
-       my_program [<file>]...
-       my_program [<file> [<file> ...]]
+Usage:
+  my_program [<file>...]
+  my_program [<file>]...
+  my_program [<file> [<file> ...]]
 ```
 
 One or more arguments:
@@ -208,7 +241,7 @@ Two or more arguments (and so on):
 Usage: my_program <file> <file>...
 ```
 
-When parsed, repeatable elements will be available as arrays in your program:
+When parsed, repeatable positional arguments will be available as arrays in your program:
 
 ```
 # If invoked as: my_program open file1.txt file2.txt file3.txt
@@ -216,15 +249,47 @@ When parsed, repeatable elements will be available as arrays in your program:
 file = ["file1.txt", "file2.txt", "file3.txt"]
 ```
 
+Commands and option flags that can occur more than once are counted instead:
+
+```
+Usage:
+  my_program go (up | down)...
+  my_program [-v...]
+
+# my_program go up up down  ->  up = 2, down = 1
+# my_program -vvv           ->  options.v = 3
+```
+
+An element written more than once in a pattern counts as repeatable too: `[<x>] [<x>]` produces a
+list and `[-v] [-v]` a count. An option cannot be given more times than its pattern allows:
+`my_program [-v]` rejects `-v -v`.
+
+## The `[options]` shortcut
+
+`[options]` stands for every option described in the help text that is not written explicitly in
+the same pattern. The options can be given in any order:
+
+```
+Usage: my_program [options] <file>
+
+Options:
+  -v --verbose  Enable verbose output
+  -n --dry-run  Do not change anything
+```
+
+Here `my_program -n -v file.txt` and `my_program --verbose file.txt` are valid, but options after
+`<file>` are not.
+
 ## Argument formatting rules
 
 When writing your usage patterns, follow these formatting rules:
 
-1. Command names should be lowercase words without special characters
-2. Positional arguments should be in `<lowercase-with-hyphens>` or `UPPERCASE` format
-3. Option flags should begin with `-` or `--`
-4. Long option names should use hyphens for spaces (`--long-option`)
-5. When option flags accept values, format as `--option=VALUE` or `-o VALUE`
+1. Command names are lowercase ASCII words, joined by `-` or `_` (`my-command`)
+2. Positional arguments are written as `<lowercase-with-hyphens>` or `UPPERCASE`, without digits
+3. Option flags begin with `-` or `--`
+4. Long option names use hyphens for spaces (`--long-option`)
+5. When option flags accept values, format as `--option=VALUE` or `-o VALUE`, and describe them in
+   the options section
 
 ## Advanced usage patterns
 

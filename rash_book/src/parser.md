@@ -8,7 +8,8 @@ indent: true
 
 ## How elements are parsed
 
-Elements are parsed using usages and automatically added to your context variables. The parsed values are available as JSON objects within your script.
+Elements are parsed using usages and automatically added to your context variables. Commands and
+positional arguments become top-level variables, and options are grouped under `options`.
 
 ```yaml
 #!/usr/bin/env rash
@@ -55,6 +56,9 @@ Example: with the usage pattern `./program (start|stop|restart)`, if you call `.
 }
 ```
 
+A command that can occur more than once in a pattern, such as `./program go (up|down)...`, is a
+count instead: `./program go up up` gives `"up": 2, "down": 0`.
+
 ## Option parsing
 
 Options are grouped under the `options` key in the resulting JSON:
@@ -77,18 +81,24 @@ Options are grouped under the `options` key in the resulting JSON:
 In the example above:
 
 - Boolean options not provided are `false`
-- Options with values have their string value (like `"number": "10"`)
+- Options with values have their string value (like `"number": "10"`); if a value option is given
+  several times, the last value is kept
 - Options without default values that weren't provided will be `null`
-- Short options are available with their single-letter key (like `"q": true`)
+- Options are keyed by their long name; short options without a long alias use their
+  single-letter key (like `"q": true`)
 - Options with dashes are converted to underscores in the resulting JSON
+- Flags that can occur more than once (`[-v...]`, `[--verbose]...`) are counts, `0` when not given
 
 **Special case - help**: The `help` option is handled specially. If help is passed as an argument or option, the program
-will show all documentation and exit with a status code of 0:
+will show all documentation and exit with a status code of 0 without running any task:
 
 ```bash
-./program --help   # Shows help text and exits
+./program --help   # Shows help text and exits, if --help (or an alias like -h) is declared
 ./program help     # Same behavior if 'help' is defined as a command
 ```
+
+`--help` must be accepted by a usage pattern, either where it is declared or in place of a
+positional argument. See [Help and errors](docopt.md#help-and-errors).
 
 ### Default values for options
 
@@ -130,7 +140,8 @@ Would result in:
 
 ## Positional argument parsing
 
-Positional arguments are parsed as strings or arrays depending on whether they're repeatable:
+Positional arguments are parsed as strings or arrays depending on whether they're repeatable
+(followed by `...`, inside a repeated group, or written more than once in a pattern):
 
 ```json
 {
@@ -139,9 +150,11 @@ Positional arguments are parsed as strings or arrays depending on whether they'r
 }
 ```
 
-If a positional argument isn't provided in the command line, it will be omitted from the variables JSON.
+If a positional argument isn't provided in the command line, it will be omitted from the variables
+JSON, so use the `default` filter for optional ones: `{{ dest | default('.') }}` or
+`{{ files | default([]) }}`.
 
-**Note**: Command with dashes are converted to underscores in the resulting JSON. E.g., `./program <repeating-argument>...`:
+**Note**: Positional arguments with dashes are converted to underscores in the resulting JSON. E.g., `./program <repeating-argument>...`:
 
 ```json
 {
@@ -229,16 +242,18 @@ Examples:
 Within your rash script, you can access these values using standard variable access syntax:
 
 ```yaml
-#!/usr/bin/env rash
-
+#!/usr/bin/env -S rash --
+#
 # Usage: ./script.rh <name> [--count=<n>]
 #
 # Options:
 #   --count=<n>  Number of iterations [default: 1]
 
 - name: Print a greeting
-  shell:
-    cmd: echo "Hello, {{name}}! ({{options.count}} times)"
+  debug:
+    msg: "Hello, {{ name }}! ({{ options.count }} times)"
 ```
 
-When invoked with `./script.rh World --count=3`, it would print: `Hello, World! (3 times)`
+The comment block must start right after the shebang line. When invoked with
+`./script.rh World --count=3`, it prints `Hello, World! (3 times)`. Without `--count`, the default
+`1` is used.
