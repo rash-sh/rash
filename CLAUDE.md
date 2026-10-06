@@ -58,7 +58,7 @@ RASH_LOG_LEVEL=DEBUG    # Set log level (DEBUG, TRACE)
   - `src/bin/rash.rs`: CLI entry point
   - `src/modules/`: All built-in modules (assert, command, copy, file, etc.)
   - `src/jinja/`: MiniJinja templating integration
-  - `src/docopt/`: Docopt parser for script CLI interfaces
+  - `src/script_cli/`: Docopt-inspired parser for script CLI interfaces (usage grammar compiled to an NFA)
   - `src/context.rs`: Execution context managing tasks and variables
   - `src/task/`: Task parsing and execution
   - `src/vars/`: Variable management and builtins
@@ -70,7 +70,7 @@ RASH_LOG_LEVEL=DEBUG    # Set log level (DEBUG, TRACE)
 ### Execution Flow
 
 1. **CLI Parsing** (`src/bin/rash.rs`): Parse args via clap, read script file
-2. **Docopt Parsing** (`src/docopt/`): Extract Usage block from script, parse script_args
+2. **Script CLI Parsing** (`src/script_cli/`): Extract Usage block from script, parse script_args
 3. **Task Parsing** (`src/task/`): Parse YAML tasks from script file
 4. **Context Creation** (`src/context.rs`): Combine tasks, env vars, and builtins
 5. **Task Execution**: Loop through tasks, executing modules with Jinja2 templating
@@ -200,7 +200,7 @@ Hooks run `cargo fmt` and `cargo clippy` automatically.
 ## Performance Notes
 
 - Release profile: `LTO=fat`, `panic=abort`, `strip=symbols`, 1 codegen-unit
-- Benchmarks: `cargo bench -p rash_core docopt`
+- Benchmarks: `cargo bench -p rash_core --bench script_cli`
 - jemalloc used on 64-bit MUSL targets for better performance
 
 ## Module Examples Format

@@ -1,12 +1,12 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
 
 pub mod context;
-pub mod docopt;
 pub mod error;
 pub mod jinja;
 pub mod job;
 pub mod logger;
 pub mod modules;
+pub mod script_cli;
 pub mod task;
 pub mod utils;
 pub mod vars;

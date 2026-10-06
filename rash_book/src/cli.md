@@ -31,7 +31,7 @@ If provided, this file will be read and used as the script content.
 
 Additional arguments to be accessible to rash scripts.
 
-These arguments can be accessed from the builtin `{{ rash.args }}` as a list of strings. If a usage pattern is defined in your script using the [docopt](docopt.md) format, they will be parsed and added as variables too.
+These arguments can be accessed from the builtin `{{ rash.args }}` as a list of strings. If a usage pattern is defined in your script (see [Command-line interfaces](docopt.md)), they will be parsed and added as variables too. Arguments starting with `-` must come after `--` to reach the script.
 
 ## Options
 
