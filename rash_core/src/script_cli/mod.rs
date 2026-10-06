@@ -94,15 +94,20 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     check_reserved_names(&metadata, &options)?;
     options.set_repeatable(&metadata.repeatable_options)?;
 
-    let normalized_args = options.normalize_args(args)?;
+    // Help takes precedence over invalid arguments, as long as the help option itself is valid.
+    let normalized_args = options.normalize_args(args);
     if normalized_args
+        .tokens
         .iter()
         .any(|token| matches!(token, InputToken::Option { id, .. } if options.is_help(*id)))
     {
         return Err(Error::new(ErrorKind::GracefulExit, help_msg));
     }
+    if let Some(error) = normalized_args.error {
+        return Err(error);
+    }
     let nfa = matcher::compile(&patterns, &options);
-    let captures = matcher::execute(&nfa, &normalized_args)
+    let captures = matcher::execute(&nfa, &normalized_args.tokens)
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, help_msg.clone()))?;
 
     let vars = build_vars(&metadata, &options, captures)?;

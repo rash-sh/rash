@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::{HELP, INVALID, check, with};
+use crate::{HELP, INVALID, check, error_message, with};
 
 #[test]
 fn help_command_exits_gracefully() {
@@ -351,5 +351,42 @@ fn help_option_after_separator_is_a_word() {
                 Ok(json!({"__": true, "args": ["--help"], "options": {"help": false}})),
             ),
         ],
+    );
+}
+
+#[test]
+fn help_option_takes_precedence_over_invalid_arguments() {
+    // Help is shown even when another argument is invalid. Unlike legacy, which printed the help
+    // text as an error for `--help --name` and reported `--unknown`, and docopt 0.6.2, which
+    // reports the invalid argument.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options] <x>
+#
+# Options:
+#   -h --help    show this help
+#   --name <n>   name
+#
+"#;
+    check(
+        file,
+        &[
+            (&["--help", "--name"], Err(HELP)),
+            (&["-h", "--name"], Err(HELP)),
+            (&["--unknown", "--help"], Err(HELP)),
+            (&["-xh", "--help"], Err(HELP)),
+            (&["--name"], Err(INVALID)),
+            // The help option must be valid itself and come before `--`. As in docopt 0.6.2,
+            // `--help=yes` is an error; legacy showed help.
+            (&["--help=yes"], Err(INVALID)),
+            (&["--unknown", "--", "--help"], Err(INVALID)),
+            // An option value is not a help option.
+            (&["--name", "--help", "--unknown"], Err(INVALID)),
+        ],
+    );
+    assert_eq!(
+        error_message(file, &["--name"]),
+        "Option --name requires a value"
     );
 }

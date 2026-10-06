@@ -575,9 +575,15 @@ mod tests {
         .unwrap();
         registry.set_repeatable(&HashSet::new()).unwrap();
         let nfa = compile(&[pattern], &registry);
-        let input = registry.normalize_args(&["-b", "-a"]).unwrap();
+        let input = registry
+            .normalize_args(&["-b", "-a"])
+            .into_result()
+            .unwrap();
         assert!(execute(&nfa, &input).is_some());
-        let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
+        let repeated = registry
+            .normalize_args(&["-a", "-a"])
+            .into_result()
+            .unwrap();
         assert_eq!(execute(&nfa, &repeated), None);
     }
 
@@ -591,9 +597,15 @@ mod tests {
         .unwrap();
         registry.set_repeatable(&HashSet::from([0])).unwrap();
         let nfa = compile(&[pattern], &registry);
-        let twice = registry.normalize_args(&["-a", "-a"]).unwrap();
+        let twice = registry
+            .normalize_args(&["-a", "-a"])
+            .into_result()
+            .unwrap();
         assert!(execute(&nfa, &twice).is_some());
-        let thrice = registry.normalize_args(&["-a", "-a", "-a"]).unwrap();
+        let thrice = registry
+            .normalize_args(&["-a", "-a", "-a"])
+            .into_result()
+            .unwrap();
         assert_eq!(execute(&nfa, &thrice), None);
     }
 
@@ -606,8 +618,11 @@ mod tests {
         )
         .unwrap();
         let nfa = compile(&[pattern], &registry);
-        let once = registry.normalize_args(&["-a"]).unwrap();
-        let twice = registry.normalize_args(&["-a", "-a"]).unwrap();
+        let once = registry.normalize_args(&["-a"]).into_result().unwrap();
+        let twice = registry
+            .normalize_args(&["-a", "-a"])
+            .into_result()
+            .unwrap();
         assert!(execute(&nfa, &once).is_some());
         assert_eq!(execute(&nfa, &twice), None);
     }
@@ -621,7 +636,10 @@ mod tests {
         )
         .unwrap();
         let nfa = compile(&[pattern], &registry);
-        let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
+        let repeated = registry
+            .normalize_args(&["-a", "-a"])
+            .into_result()
+            .unwrap();
         assert!(execute(&nfa, &repeated).is_some());
     }
 }

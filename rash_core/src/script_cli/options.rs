@@ -6,6 +6,25 @@ use crate::error::{Error, ErrorKind, Result};
 
 use super::{InputToken, Token};
 
+/// Script arguments after option normalization.
+#[derive(Debug)]
+pub(super) struct NormalizedArgs {
+    /// Every argument that could be normalized.
+    pub(super) tokens: Vec<InputToken>,
+    /// First invalid argument, such as an unknown option or an option missing its value.
+    pub(super) error: Option<Error>,
+}
+
+impl NormalizedArgs {
+    #[cfg(test)]
+    pub(super) fn into_result(self) -> Result<Vec<InputToken>> {
+        match self.error {
+            Some(error) => Err(error),
+            None => Ok(self.tokens),
+        }
+    }
+}
+
 /// One logical option: its aliases and value semantics.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct OptionSpec {
@@ -135,12 +154,19 @@ impl OptionRegistry {
     /// The first `--` argument ends the options: every argument after it is a word, even if it
     /// starts with `-`. When the usage declares `--`, that `--` is a word matching the command;
     /// otherwise it is dropped.
-    pub(super) fn normalize_args(&self, args: &[&str]) -> Result<Vec<InputToken>> {
-        let mut out = Vec::with_capacity(args.len());
+    ///
+    /// An invalid argument is recorded as the error and skipped (for a short cluster, from the
+    /// invalid option on), and normalization goes on, so that a later help option is still found.
+    pub(super) fn normalize_args(&self, args: &[&str]) -> NormalizedArgs {
+        let mut normalized = NormalizedArgs {
+            tokens: Vec::with_capacity(args.len()),
+            error: None,
+        };
         let mut args = args.iter().copied();
 
         while let Some(arg) = args.next() {
-            if arg == "--" {
+            let out = &mut normalized.tokens;
+            let result = if arg == "--" {
                 let separator = self.separator.then_some(arg);
                 out.extend(
                     separator
@@ -148,16 +174,22 @@ impl OptionRegistry {
                         .chain(args.by_ref())
                         .map(|word| InputToken::Word(word.to_owned())),
                 );
+                Ok(())
             } else if arg.starts_with("--") {
-                out.push(self.normalize_long(arg, &mut args)?);
+                self.normalize_long(arg, &mut args)
+                    .map(|token| out.push(token))
             } else if let Some(cluster) = arg.strip_prefix('-').filter(|body| !body.is_empty()) {
-                self.normalize_short_cluster(arg, cluster, &mut args, &mut out)?;
+                self.normalize_short_cluster(arg, cluster, &mut args, out)
             } else {
                 out.push(InputToken::Word(arg.to_owned()));
+                Ok(())
+            };
+            if let Err(error) = result {
+                normalized.error.get_or_insert(error);
             }
         }
 
-        Ok(out)
+        normalized
     }
 
     /// `--name`, `--name=value`, or `--name value` for options taking a value.
@@ -758,9 +790,9 @@ mod tests {
             "Usage: tool [options]\n\n-u --sysupgrade  upgrade\n-u --upgrades  list upgrades";
         let usages = vec!["tool [options]".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
-        assert!(registry.normalize_args(&["--sysupgrade"]).is_ok());
-        assert!(registry.normalize_args(&["--upgrades"]).is_ok());
-        let error = registry.normalize_args(&["-u"]).unwrap_err();
+        assert!(registry.normalize_args(&["--sysupgrade"]).error.is_none());
+        assert!(registry.normalize_args(&["--upgrades"]).error.is_none());
+        let error = registry.normalize_args(&["-u"]).into_result().unwrap_err();
         assert!(error.to_string().contains("Ambiguous option alias: -u"));
         let initial = registry.initial_options();
         assert!(initial.contains_key("sysupgrade"));
@@ -772,7 +804,10 @@ mod tests {
         let help = "Usage: tool [options] <file>\n\n-v --verbose  verbose\n-o FILE  output";
         let usages = vec!["tool [options] <file>".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
-        let input = registry.normalize_args(&["-v", "-oout", "file"]).unwrap();
+        let input = registry
+            .normalize_args(&["-v", "-oout", "file"])
+            .into_result()
+            .unwrap();
         assert_eq!(input.len(), 3);
     }
 
@@ -781,6 +816,13 @@ mod tests {
         let help = "Usage: tool [options]\n\n-v --verbose  verbose";
         let usages = vec!["tool [options]".to_owned()];
         let registry = OptionRegistry::from_doc(help, &usages).unwrap();
-        assert_eq!(registry.normalize_args(&["-vv"]).unwrap().len(), 2);
+        assert_eq!(
+            registry
+                .normalize_args(&["-vv"])
+                .into_result()
+                .unwrap()
+                .len(),
+            2
+        );
     }
 }
