@@ -126,6 +126,7 @@ test-examples:	## run examples and check exit code
 		-not -path 'examples/netbox_ipam.rh' \
 		-not -path 'examples/conntrack.rh' \
 		-not -path 'examples/lvm_snapshot.rh' \
+		-not -path 'examples/podman.rh' \
 		-name '*.rh'); do \
 		echo $$example; \
 		$(CARGO) run --bin rash $(CARGO_BUILD_PARAMS) $$example || exit 1; \

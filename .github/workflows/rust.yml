@@ -40,13 +40,13 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
       - run: rustup component add clippy
 
-      - uses: clechasseur/rs-clippy-check@v6.0.7
+      - uses: clechasseur/rs-clippy-check@v6.1.0
         with:
           args: --locked --all-targets --all-features
 
   min_version:
     name: Minimum supported rust version
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout source code
         uses: actions/checkout@v7
