@@ -1,28 +1,20 @@
-//! Legacy (`docopt`) versus compiled (`script_cli`) script CLI parser.
+//! Compiled script CLI parser (`script_cli`).
 //!
 //! Every benchmark measures a full `parse` call: the public API does not expose compilation and
 //! matching separately, so `script_cli_compile_dominated` (large declaration, empty argv) and
 //! `script_cli_arguments` (tiny declaration, long argv) bracket the two costs.
 //!
-//! Suggested run: `cargo bench -p rash_core --bench docopt -- --warm-up-time 1 --measurement-time 3`.
+//! Suggested run: `cargo bench -p rash_core --bench script_cli -- --warm-up-time 1 --measurement-time 3`.
 
 use std::hint::black_box;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use criterion::{
     AxisScale, BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
     criterion_group, criterion_main, measurement::WallTime,
 };
-use serde_json::Value;
 
-use rash_core::{docopt, error::Result, script_cli};
-
-type Parser = fn(&str, &[&str]) -> Result<Value>;
-
-const PARSERS: [(&str, Parser); 2] = [("legacy", docopt::parse), ("compiled", script_cli::parse)];
-
-/// A single legacy iteration slower than this is not benchmarked.
-const LEGACY_ITERATION_CAP: Duration = Duration::from_secs(1);
+use rash_core::script_cli;
 
 const NAVAL_FATE: &str = r#"
 #!/usr/bin/env rash
@@ -46,24 +38,22 @@ const NAVAL_FATE: &str = r#"
 #
 "#;
 
-/// Benchmark `file`/`args` with both parsers, checking first that both agree on success or failure.
-fn bench_both(
+/// Benchmark `file`/`args`, checking first that parsing succeeds or fails as expected.
+fn bench_parse(
     group: &mut BenchmarkGroup<'_, WallTime>,
     name: &str,
     file: &str,
     args: &[&str],
     expect_ok: bool,
 ) {
-    for (parser_name, parser) in PARSERS {
-        assert_eq!(
-            parser(file, args).is_ok(),
-            expect_ok,
-            "{parser_name}/{name} args={args:?}"
-        );
-        group.bench_with_input(BenchmarkId::new(parser_name, name), args, |b, args| {
-            b.iter(|| parser(black_box(file), black_box(args)))
-        });
-    }
+    assert_eq!(
+        script_cli::parse(file, args).is_ok(),
+        expect_ok,
+        "{name} args={args:?}"
+    );
+    group.bench_with_input(BenchmarkId::from_parameter(name), args, |b, args| {
+        b.iter(|| script_cli::parse(black_box(file), black_box(args)))
+    });
 }
 
 fn run_small_scripts(c: &mut Criterion) {
@@ -79,7 +69,7 @@ fn run_small_scripts(c: &mut Criterion) {
         ("failure-unknown-option", &["mine", "--bogus"], false),
     ];
     for (name, args, expect_ok) in cases {
-        bench_both(&mut group, name, NAVAL_FATE, args, expect_ok);
+        bench_parse(&mut group, name, NAVAL_FATE, args, expect_ok);
     }
     group.finish();
 }
@@ -103,19 +93,21 @@ fn run_ambiguous_grammars(c: &mut Criterion) {
 "#;
     let mut group = c.benchmark_group("script_cli_ambiguous");
     // Several successful paths with identical bindings.
-    bench_both(
+    bench_parse(
         &mut group,
         "overlapping-identical",
         overlapping,
         &["a", "b", "c", "d", "/tmp"],
         true,
     );
-    // Different bindings: compiled rejects the declaration, legacy picks one.
-    for (parser_name, parser) in PARSERS {
-        group.bench_function(BenchmarkId::new(parser_name, "different-bindings"), |b| {
-            b.iter(|| parser(black_box(ambiguous), black_box(&["a", "b"])))
-        });
-    }
+    // Different bindings: the declaration is rejected as ambiguous.
+    bench_parse(
+        &mut group,
+        "different-bindings",
+        ambiguous,
+        &["a", "b"],
+        false,
+    );
     group.finish();
 }
 
@@ -144,18 +136,18 @@ fn run_repeated_options(c: &mut Criterion) {
     ];
     let mut group = c.benchmark_group("script_cli_repeated_options");
     for (name, file, args) in cases {
-        bench_both(&mut group, name, file, args, true);
+        bench_parse(&mut group, name, file, args, true);
     }
     group.finish();
 }
 
 fn run_compile_dominated(c: &mut Criterion) {
     let mut group = c.benchmark_group("script_cli_compile_dominated");
-    bench_both(&mut group, "pacman-empty-argv", PACMAN, &[], true);
+    bench_parse(&mut group, "pacman-empty-argv", PACMAN, &[], true);
     group.finish();
 }
 
-fn run_docopt_arguments(c: &mut Criterion) {
+fn run_arguments(c: &mut Criterion) {
     let file = r#"
 #Naval Fate.
 #
@@ -171,20 +163,7 @@ fn run_docopt_arguments(c: &mut Criterion) {
         let values: Vec<String> = (0..args_len).map(|i| format!("value-{i}")).collect();
         let args: Vec<&str> = values.iter().map(String::as_str).collect();
         group.throughput(Throughput::Elements(args_len as u64));
-        for (parser_name, parser) in PARSERS {
-            let start = Instant::now();
-            assert!(parser(file, &args).is_ok(), "{parser_name}/{args_len}");
-            let elapsed = start.elapsed();
-            if parser_name == "legacy" && elapsed > LEGACY_ITERATION_CAP {
-                eprintln!(
-                    "script_cli_arguments/legacy/{args_len}: skipped, one iteration took {elapsed:?}"
-                );
-                continue;
-            }
-            group.bench_with_input(BenchmarkId::new(parser_name, args_len), &args, |b, args| {
-                b.iter(|| parser(black_box(file), black_box(args)))
-            });
-        }
+        bench_parse(&mut group, &args_len.to_string(), file, &args, true);
     }
     group.finish();
 }
@@ -243,7 +222,7 @@ const PACMAN: &str = r#"
 #      --help
 "#;
 
-fn run_docopt_options(c: &mut Criterion) {
+fn run_options(c: &mut Criterion) {
     let mut group = c.benchmark_group("script_cli_options");
     let args = vec![
         "-b",
@@ -292,7 +271,7 @@ fn run_docopt_options(c: &mut Criterion) {
         "--sysroot",
     ];
 
-    bench_both(&mut group, "pacman", PACMAN, &args, true);
+    bench_parse(&mut group, "pacman", PACMAN, &args, true);
     group.finish();
 }
 
@@ -360,7 +339,7 @@ fn run_optional_option_scaling(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("script_cli_optional_option_scaling");
     for (name, file, args) in cases {
-        bench_both(&mut group, name, file, &args, true);
+        bench_parse(&mut group, name, file, &args, true);
     }
     group.finish();
 }
@@ -378,17 +357,17 @@ fn run_nested_alternatives(c: &mut Criterion) {
 "#;
     let args = vec!["start", "worker", "safe", "--force", "node"];
     let mut group = c.benchmark_group("script_cli_nested_alternatives");
-    bench_both(&mut group, "start-worker-safe", file, &args, true);
+    bench_parse(&mut group, "start-worker-safe", file, &args, true);
     group.finish();
 }
 
-criterion_group!(name = docopt;
+criterion_group!(name = script_cli_benches;
     config = Criterion::default()
     .sample_size(10)
     .warm_up_time(Duration::from_secs(1))
     .measurement_time(Duration::from_secs(3))
     .with_plots();
     targets = run_small_scripts, run_compile_dominated, run_ambiguous_grammars,
-        run_repeated_options, run_docopt_arguments, run_docopt_options,
+        run_repeated_options, run_arguments, run_options,
         run_optional_option_scaling, run_nested_alternatives);
-criterion_main!(docopt);
+criterion_main!(script_cli_benches);

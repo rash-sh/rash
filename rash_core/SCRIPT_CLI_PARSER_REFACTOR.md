@@ -307,11 +307,11 @@ Only optimize from measurements, in this order:
 
 ### Work
 
-- [ ] Change production script parsing from `docopt::parse` to `script_cli::parse`.
-- [ ] Run all existing examples using the new parser.
-- [ ] Run integration tests that exercise scripts through the actual `rash` binary.
-- [ ] Confirm error/help output remains usable at the CLI boundary.
-- [ ] Keep the legacy parser available for differential tests and benchmarks for the remainder of this PR unless retaining it creates production coupling.
+- [x] Change production script parsing from `docopt::parse` to `script_cli::parse`.
+- [x] Run all existing examples using the new parser.
+- [x] Run integration tests that exercise scripts through the actual `rash` binary.
+- [x] Confirm error/help output remains usable at the CLI boundary (before/after binary comparison: identical stdout, stderr and exit codes except intentional differences 13, 16 and 18).
+- [x] Remove the legacy parser once the explicit-value suite no longer needs it as an oracle (see phase 8).
 
 ### Rollback condition
 
@@ -322,7 +322,7 @@ If the production switch exposes an unresolved compatibility or performance regr
 - Actual Rash execution uses the compiled parser.
 - Full behavior suite remains green.
 
-**Status:** not started by design.
+**Status:** complete; production uses `script_cli::parse`.
 
 ## Phase 7 — Documentation and supported-language definition
 
@@ -357,11 +357,11 @@ If the production switch exposes an unresolved compatibility or performance regr
 
 ### Work
 
-- [ ] Make the decision after the production parser is green across CI and benchmark results are known.
-- [ ] Remove dead expansion helpers if the legacy implementation is removed.
+- [x] Decision: remove the legacy implementation in this PR. The differential cases are pinned as explicit expected values in `tests/script_cli/`, so no test depends on it.
+- [x] Remove `src/docopt/`, its benchmark cases and the `itertools` dependency it alone used; the benchmark target is now `script_cli`.
 - [ ] Rename modules/files only after behavior has stabilized; avoid mixing large naming churn with semantic debugging.
 
-**Status:** deferred.
+**Status:** legacy parser removed.
 
 ## Phase 9 — Final release gate
 
@@ -395,9 +395,9 @@ Updated: 2026-08-28
 | 3. Compiled matcher | Complete / CI + perf validation | Epsilon-NFA, persistent captures, ambiguity detection, option groups, positional help, and nullable-cycle safety are implemented. Further candidate merging is benchmark-driven only. |
 | 4. Differential compatibility | In progress | Broad legacy matrices, malformed/boundary cases, nested optionals, and bounded exhaustive argv enumeration are committed; full semantic CI is the immediate gate. |
 | 5. Performance | In progress | Side-by-side benchmarks added; measurements and any resulting optimizations pending. |
-| 6. Production integration | Blocked on phases 4–5 | No runtime switch yet. |
+| 6. Production integration | Complete | `rash` calls `script_cli::parse`. |
 | 7. Documentation | Not started | Starts after semantics stabilize. |
-| 8. Legacy cleanup | Deferred | Decision after production validation. |
+| 8. Legacy cleanup | Complete | `src/docopt/` removed. |
 | 9. Final release gate | Not started | PR remains draft. |
 
 ## Progress-update policy
