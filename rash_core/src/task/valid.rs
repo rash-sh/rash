@@ -91,7 +91,7 @@ impl TaskValid {
         Ok(())
     }
 
-    pub fn get_task<'a>(&self, global_params: &'a GlobalParams<'a>) -> Result<Task<'a>> {
+    pub fn get_task(&self, global_params: &GlobalParams) -> Result<Task> {
         self.validate_sequence_attr("rescue")?;
         self.validate_sequence_attr("always")?;
         let module_name = self.get_module_name()?;
@@ -147,7 +147,6 @@ impl TaskValid {
             until: self.parse_expression(&self.attrs["until"]),
             r#async: self.attrs["async"].as_u64(),
             poll: self.attrs["poll"].as_u64(),
-            global_params,
         })
     }
 }

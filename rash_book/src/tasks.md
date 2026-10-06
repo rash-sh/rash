@@ -167,6 +167,10 @@ If rescue completes successfully, the task is considered recovered and execution
 executed as one aggregate operation: rescue runs once if that operation fails, and always runs once
 after it completes. They are not independently invoked for every loop item.
 
+Section tasks see the task `vars` and inherit its `become` and `check_mode` settings. With
+`ignore_errors: true`, a failure is not rescued: `always` still runs and the task is reported as an
+ignored failure (it does not notify handlers).
+
 ### Explicit script exit
 
 `meta: exit` terminates a Rash script with an application-defined status code:

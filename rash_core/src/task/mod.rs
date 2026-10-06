@@ -35,7 +35,7 @@ pub const NO_LOG_MESSAGE: &str =
 
 #[derive(Debug, Clone, FieldNames)]
 // ANCHOR: task
-pub struct Task<'a> {
+pub struct Task {
     r#become: bool,
     become_user: String,
     become_method: BecomeMethod,
@@ -65,15 +65,13 @@ pub struct Task<'a> {
     until: Option<String>,
     r#async: Option<u64>,
     poll: Option<u64>,
-    #[field_names(skip)]
-    global_params: &'a GlobalParams<'a>,
 }
 // ANCHOR_END: task
 
-pub type Tasks<'a> = Vec<Task<'a>>;
+pub type Tasks = Vec<Task>;
 
-impl<'a> Task<'a> {
-    pub fn new(yaml: &YamlValue, global_params: &'a GlobalParams) -> Result<Self> {
+impl Task {
+    pub fn new(yaml: &YamlValue, global_params: &GlobalParams) -> Result<Self> {
         trace!("new task: {yaml:?}");
         TaskNew::from(yaml)
             .validate_attrs()?
@@ -337,7 +335,7 @@ impl<'a> Task<'a> {
 use crate::context::GLOBAL_PARAMS;
 
 #[cfg(test)]
-impl From<YamlValue> for Task<'_> {
+impl From<YamlValue> for Task {
     fn from(value: YamlValue) -> Self {
         TaskNew::from(&value)
             .validate_attrs()
@@ -386,11 +384,11 @@ fn apply_task_defaults(task: &YamlValue, defaults: &YamlValue) -> Result<YamlVal
     Ok(YamlValue::Mapping(merged))
 }
 
-pub(crate) fn parse_tasks_with_defaults<'a>(
+pub(crate) fn parse_tasks_with_defaults(
     tasks: &[YamlValue],
     defaults: Option<&YamlValue>,
-    global_params: &'a GlobalParams<'a>,
-) -> Result<Tasks<'a>> {
+    global_params: &GlobalParams,
+) -> Result<Tasks> {
     tasks
         .iter()
         .enumerate()
@@ -411,10 +409,7 @@ pub(crate) fn parse_tasks_with_defaults<'a>(
         .collect()
 }
 
-pub fn parse_file<'a>(
-    file_content: &str,
-    global_params: &'a GlobalParams<'a>,
-) -> Result<Tasks<'a>> {
+pub fn parse_file(file_content: &str, global_params: &GlobalParams) -> Result<Tasks> {
     let yaml: YamlValue = serde_norway::from_str(file_content)?;
     match yaml {
         YamlValue::Sequence(tasks) => parse_tasks_with_defaults(&tasks, None, global_params),
@@ -426,15 +421,15 @@ pub fn parse_file<'a>(
 }
 
 #[derive(Debug)]
-pub struct ParsedFile<'a> {
-    pub tasks: Tasks<'a>,
-    pub handlers: Option<Handlers<'a>>,
+pub struct ParsedFile {
+    pub tasks: Tasks,
+    pub handlers: Option<Handlers>,
 }
 
-pub fn parse_file_with_handlers<'a>(
+pub fn parse_file_with_handlers(
     file_content: &str,
-    global_params: &'a GlobalParams<'a>,
-) -> Result<ParsedFile<'a>> {
+    global_params: &GlobalParams,
+) -> Result<ParsedFile> {
     let yaml: YamlValue = serde_norway::from_str(file_content)?;
     let mapping = yaml.as_mapping().ok_or_else(|| {
         Error::new(

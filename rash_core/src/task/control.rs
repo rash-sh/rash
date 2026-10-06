@@ -61,7 +61,7 @@ fn merge_vars(older: Option<Value>, newer: Value) -> Value {
 struct Section {
     changed: bool,
     vars: Option<Value>,
-    /// Failure not ignored by `ignore_errors`.
+    /// Failure, ignored by `ignore_errors` or not.
     failed: bool,
     error: Option<String>,
     /// Non-termination error returned instead of a result.
@@ -71,11 +71,11 @@ struct Section {
 }
 
 impl Section {
-    fn from_execution(execution: Result<TaskExecResult>, ignore_errors: bool) -> Self {
+    fn from_execution(execution: Result<TaskExecResult>) -> Self {
         match execution {
             Ok(result) => Self {
                 changed: result.get_changed(),
-                failed: result.get_failed() && !ignore_errors,
+                failed: result.get_failed(),
                 error: result.get_error().map(str::to_owned),
                 vars: result.take_vars(),
                 ..Self::default()
@@ -85,7 +85,7 @@ impl Section {
                 ..Self::default()
             },
             Err(error) => Self {
-                failed: !ignore_errors,
+                failed: true,
                 error: Some(error.to_string()),
                 hard_error: Some(error),
                 ..Self::default()
@@ -94,7 +94,7 @@ impl Section {
     }
 }
 
-impl Task<'_> {
+impl Task {
     fn exec_with_retry(&self, vars: Value) -> Result<TaskExecResult> {
         let max_retries = self.retries.unwrap_or(3);
         let delay = self.delay.unwrap_or(0);
@@ -167,14 +167,17 @@ impl Task<'_> {
         }
     }
 
+    /// Run a `rescue` or `always` section: like the main task, its tasks see the task vars
+    /// and inherit its become and check mode settings.
     fn execute_task_sequence(&self, tasks_yaml: &YamlValue, vars: Value) -> Result<TaskExecResult> {
         let tasks = tasks_yaml.as_sequence().ok_or_else(|| {
             Error::new(ErrorKind::InvalidData, "task sequence must be a YAML array")
         })?;
-        let mut current_vars = vars;
+        let global_params = self.effective_global_params();
+        let mut current_vars = self.extend_vars(vars)?;
         let mut accumulated = Accumulated::default();
         for (index, task_yaml) in tasks.iter().enumerate() {
-            let task = Task::new(task_yaml, self.global_params).map_err(|e| {
+            let task = Task::new(task_yaml, &global_params).map_err(|e| {
                 Error::new(
                     ErrorKind::InvalidData,
                     format!("Invalid task at index {index}: {e}"),
@@ -196,7 +199,6 @@ impl Task<'_> {
         let rescue_tasks = self.rescue.as_ref()?;
         Some(Section::from_execution(
             self.execute_task_sequence(rescue_tasks, vars),
-            false,
         ))
     }
 
@@ -204,10 +206,11 @@ impl Task<'_> {
     /// explicit exits and interrupts. A failure or exit in `always` itself takes precedence.
     pub(super) fn exec_with_rescue_always(&self, vars: Value) -> Result<TaskExecResult> {
         let ignore_errors = self.ignore_errors.unwrap_or(false);
-        let main = Section::from_execution(self.exec_main_task(vars.clone()), ignore_errors);
+        let main = Section::from_execution(self.exec_main_task(vars.clone()));
         let post_main_vars = merge_option(vars, main.vars.clone());
 
-        let rescue = if main.failed && main.exit.is_none() {
+        // An ignored failure is not rescued: the caller reports it as ignored.
+        let rescue = if main.failed && !ignore_errors && main.exit.is_none() {
             self.run_rescue(post_main_vars.clone())
         } else {
             None

@@ -95,7 +95,7 @@ impl BecomeOutcome {
     }
 }
 
-impl Task<'_> {
+impl Task {
     /// Control-flow modules (block, include, meta...) never run as another user: they have no
     /// side effects of their own and must act on the Rash process (exit, scoped vars). Child
     /// tasks inherit the become settings and escalate on their own.
@@ -388,7 +388,7 @@ mod tests {
 
     use std::os::unix::fs::PermissionsExt;
 
-    fn task_with<'a>(yaml: &str, global_params: &'a GlobalParams<'a>) -> Task<'a> {
+    fn task_with(yaml: &str, global_params: &GlobalParams) -> Task {
         Task::new(&serde_norway::from_str(yaml).unwrap(), global_params).unwrap()
     }
 

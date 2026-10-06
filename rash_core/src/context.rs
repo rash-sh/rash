@@ -5,16 +5,16 @@ use clap::ValueEnum;
 use minijinja::{Value, context};
 
 #[derive(Debug, Clone)]
-pub struct Context<'a> {
-    pub tasks: Tasks<'a>,
+pub struct Context {
+    pub tasks: Tasks,
     vars: Value,
     scoped_vars: Option<Value>,
-    handlers: Option<Handlers<'a>>,
+    handlers: Option<Handlers>,
     pending_handlers: PendingHandlers,
 }
 
-impl<'a> Context<'a> {
-    pub fn new(tasks: Tasks<'a>, vars: Value, scope_vars: Option<Value>) -> Self {
+impl Context {
+    pub fn new(tasks: Tasks, vars: Value, scope_vars: Option<Value>) -> Self {
         Self {
             tasks,
             vars,
@@ -25,10 +25,10 @@ impl<'a> Context<'a> {
     }
 
     pub fn with_handlers(
-        tasks: Tasks<'a>,
+        tasks: Tasks,
         vars: Value,
         scope_vars: Option<Value>,
-        handlers: Option<Handlers<'a>>,
+        handlers: Option<Handlers>,
     ) -> Self {
         Self {
             tasks,
@@ -39,7 +39,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    fn task_display_name(task: &crate::task::Task<'_>, vars: Value) -> String {
+    fn task_display_name(task: &crate::task::Task, vars: Value) -> String {
         if task.get_no_log() {
             return "<redacted>".to_owned();
         }

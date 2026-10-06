@@ -122,7 +122,7 @@ fn log_module_result(changed: bool, failed: bool, result: &ModuleResult, hide_ou
     info!(target: &target_empty, "{}", output.unwrap_or_default());
 }
 
-impl Task<'_> {
+impl Task {
     fn module_default_failed(result: &ModuleResult) -> bool {
         result
             .get_extra()

@@ -68,7 +68,7 @@ fn extra_field(result: &ModuleResult, key: &str) -> Option<YamlValue> {
         .filter(|value| !value.is_null())
 }
 
-impl Task<'_> {
+impl Task {
     fn get_poll_interval(&self) -> u64 {
         self.poll.unwrap_or(0)
     }

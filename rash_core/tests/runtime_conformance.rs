@@ -3,7 +3,7 @@ use rash_core::context::GlobalParams;
 use rash_core::task::{Task, parse_file};
 use serde_norway::Value as YamlValue;
 
-fn task_from_yaml<'a>(yaml: &str, params: &'a GlobalParams<'a>) -> Task<'a> {
+fn task_from_yaml(yaml: &str, params: &GlobalParams) -> Task {
     let value: YamlValue = serde_norway::from_str(yaml).unwrap();
     Task::new(&value, params).unwrap()
 }

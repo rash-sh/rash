@@ -7,13 +7,13 @@ use std::collections::{HashMap, HashSet};
 use serde_norway::Value as YamlValue;
 
 #[derive(Debug, Clone)]
-pub struct Handler<'a> {
+pub struct Handler {
     name: String,
-    task: Task<'a>,
+    task: Task,
 }
 
-impl<'a> Handler<'a> {
-    pub fn new(name: String, task: Task<'a>) -> Self {
+impl Handler {
+    pub fn new(name: String, task: Task) -> Self {
         Handler { name, task }
     }
 
@@ -21,24 +21,24 @@ impl<'a> Handler<'a> {
         &self.name
     }
 
-    pub fn get_task(&self) -> &Task<'a> {
+    pub fn get_task(&self) -> &Task {
         &self.task
     }
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Handlers<'a> {
-    handlers: HashMap<String, Handler<'a>>,
+pub struct Handlers {
+    handlers: HashMap<String, Handler>,
 }
 
-impl<'a> Handlers<'a> {
+impl Handlers {
     pub fn new() -> Self {
         Handlers {
             handlers: HashMap::new(),
         }
     }
 
-    pub fn from_yaml(yaml: &[YamlValue], global_params: &'a GlobalParams) -> Result<Self> {
+    pub fn from_yaml(yaml: &[YamlValue], global_params: &GlobalParams) -> Result<Self> {
         let mut handlers = HashMap::new();
 
         for handler_yaml in yaml {
@@ -61,7 +61,7 @@ impl<'a> Handlers<'a> {
         Ok(Handlers { handlers })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Handler<'a>> {
+    pub fn get(&self, name: &str) -> Option<&Handler> {
         self.handlers.get(name)
     }
 

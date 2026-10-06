@@ -78,6 +78,10 @@ input) are described in [Tasks](tasks.md) and the module pages.
   modules (`block`, `include`, `meta`, `set_vars`, `debug`, `assert`, `fail`, `pause`,
   `async_status`, `async_poll`) always run in the Rash process. A child cannot disable an
   inherited `become` or `check_mode`.
+- **`rescue` and `always` run as part of their task.** Their tasks see the task `vars` and inherit
+  its `become` and `check_mode` (before, they ran for real under `check_mode: true`). With
+  `ignore_errors: true` a failure is no longer rescued: `always` runs and the task is reported as an
+  ignored failure instead of a success that notified handlers.
 - **`become_method: sudo` to a non-root user other than the current one** is refused unless Rash
   runs as root: task data is exchanged through private files that user could not read.
 - **Async tasks with `become`** run the job as the become user (it was ignored before);
