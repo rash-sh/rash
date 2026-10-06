@@ -2,8 +2,10 @@
 /// # command
 ///
 /// Execute commands. `argv` executes directly without shell parsing; `cmd` keeps the historical
-/// `/bin/sh -c` behavior. Process output can be captured, inherited, discarded, or streamed and
-/// captured with `tee`.
+/// `/bin/sh -c` behavior. With `transfer_pid`, `cmd` is split with shell-like quoting rules and
+/// the program replaces Rash directly (no intermediate shell), so it keeps Rash's PID and receives
+/// signals itself, as required for container entrypoints. Process output can be captured,
+/// inherited, discarded, or streamed and captured with `tee`.
 ///
 /// ## Attributes
 ///
@@ -59,7 +61,9 @@ pub struct Params {
     pub chdir: Option<String>,
     #[serde(flatten)]
     pub required: Required,
-    /// Replace the Rash process with this command. No later Rash task is executed.
+    /// Replace the Rash process with this command, keeping its PID (e.g. PID 1 in containers).
+    /// `cmd` is split with shell-like quoting and executed directly, without `/bin/sh`.
+    /// No later Rash task is executed.
     pub transfer_pid: Option<bool>,
     /// Optional data written to the child stdin.
     pub stdin: Option<String>,
@@ -76,22 +80,38 @@ pub struct Params {
 #[serde(rename_all = "lowercase")]
 pub enum Required {
     /// Execute using `/bin/sh -c`, preserving command's historical string behavior.
+    /// With `transfer_pid`, it is split into arguments and executed directly instead.
     Cmd(String),
     /// Execute the program directly and pass each argument exactly as provided.
     Argv(Vec<String>),
 }
 
+fn argv_spec(argv: &[String]) -> Result<ProcessSpec> {
+    let program = argv
+        .first()
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("{argv:?} invalid argv")))?;
+    let mut spec = ProcessSpec::new(program);
+    spec.args = argv.iter().skip(1).cloned().collect();
+    Ok(spec)
+}
+
+/// Split `cmd` for direct execution: replacing Rash with `/bin/sh -c` would leave the shell,
+/// not the program, as the PID that receives signals and reaps zombies.
+fn split_cmd(command: &str) -> Result<Vec<String>> {
+    shlex::split(command).ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("cmd {command:?} has invalid quoting"),
+        )
+    })
+}
+
 fn process_spec(params: &Params) -> Result<ProcessSpec> {
+    let transfer_pid = params.transfer_pid.unwrap_or(false);
     let mut spec = match &params.required {
+        Required::Cmd(command) if transfer_pid => argv_spec(&split_cmd(command)?)?,
         Required::Cmd(command) => ProcessSpec::shell(command, "/bin/sh"),
-        Required::Argv(argv) => {
-            let program = argv.first().ok_or_else(|| {
-                Error::new(ErrorKind::InvalidData, format!("{argv:?} invalid argv"))
-            })?;
-            let mut spec = ProcessSpec::new(program);
-            spec.args = argv.iter().skip(1).cloned().collect();
-            spec
-        }
+        Required::Argv(argv) => argv_spec(argv)?,
     };
     spec.chdir = params.chdir.clone();
     spec.stdin = params.stdin.clone();
@@ -264,6 +284,37 @@ mod tests {
         assert_eq!(extra["rc"].as_i64(), Some(7));
         assert_eq!(extra["failed"].as_bool(), Some(true));
         assert!(extra["stderr"].as_str().unwrap().contains("boom"));
+    }
+
+    fn spec_for(yaml: &str) -> ProcessSpec {
+        process_spec(&parse_params(serde_norway::from_str(yaml).unwrap()).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn test_cmd_without_transfer_pid_uses_shell() {
+        let spec = spec_for("cmd: echo $HOME");
+        assert_eq!(spec.program, "/bin/sh");
+        assert_eq!(spec.args, vec!["-c", "echo $HOME"]);
+    }
+
+    #[test]
+    fn test_cmd_with_transfer_pid_is_split_and_direct() {
+        let spec = spec_for("cmd: sh -c 'echo $$' \"two words\"\ntransfer_pid: true");
+        assert_eq!(spec.program, "sh");
+        assert_eq!(spec.args, vec!["-c", "echo $$", "two words"]);
+    }
+
+    #[test]
+    fn test_cmd_with_transfer_pid_rejects_bad_quoting_or_empty() {
+        for cmd in ["cmd: \"'unterminated\"", "cmd: \"\""] {
+            let yaml: YamlValue =
+                serde_norway::from_str(&format!("{cmd}\ntransfer_pid: true")).unwrap();
+            let params: Params = parse_params(yaml).unwrap();
+            assert_eq!(
+                process_spec(&params).unwrap_err().kind(),
+                ErrorKind::InvalidData
+            );
+        }
     }
 
     #[test]
