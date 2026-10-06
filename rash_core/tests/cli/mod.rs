@@ -31,6 +31,19 @@ fn test_path() -> OsString {
     env::join_paths(paths).unwrap()
 }
 
+/// Whether the test runs as root, as tests switching users need. Tests that need it are
+/// named `test_as_root_*` so CI can run just them as root; otherwise they skip themselves,
+/// saying so on stderr (written directly so the test harness does not capture it).
+pub fn running_as_root(test: &str) -> bool {
+    use std::io::Write;
+
+    let root = nix::unistd::Uid::effective().is_root();
+    if !root {
+        let _ = writeln!(std::io::stderr(), "{test}: skipped: requires root");
+    }
+    root
+}
+
 pub fn execute_rash(args: &[&str]) -> (String, String) {
     execute_rash_with_env(args, &[])
 }

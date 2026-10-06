@@ -1,4 +1,4 @@
-use crate::cli::{execute_rash, execute_rash_with_env};
+use crate::cli::{execute_rash, execute_rash_with_env, running_as_root};
 
 #[test]
 fn test_become_method_sudo_command() {
@@ -340,10 +340,10 @@ fn test_failed_become_child_never_continues_script() {
 
 /// Switching to another user needs root: skipped otherwise.
 #[test]
-fn test_syscall_become_runs_modules_as_user_with_its_own_groups() {
+fn test_as_root_syscall_become_runs_modules_as_user_with_its_own_groups() {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
-    if !nix::unistd::Uid::effective().is_root() {
+    if !running_as_root("test_as_root_syscall_become_runs_modules_as_user_with_its_own_groups") {
         return;
     }
     let nobody = nix::unistd::User::from_name("nobody").unwrap().unwrap();

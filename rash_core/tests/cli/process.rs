@@ -1,5 +1,6 @@
 //! Process execution semantics: stdio modes, signals and terminal handling.
 use crate::cli::modules::run_test;
+use crate::cli::running_as_root;
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Read, Write};
@@ -407,8 +408,9 @@ fn test_sigterm_during_sudo_become_task_runs_always_and_cleans_up() {
 
 /// Switching to another user needs root: skipped otherwise.
 #[test]
-fn test_sigterm_during_syscall_become_task_runs_always_and_cleans_up() {
-    if !nix::unistd::Uid::effective().is_root() {
+fn test_as_root_sigterm_during_syscall_become_task_runs_always_and_cleans_up() {
+    if !running_as_root("test_as_root_sigterm_during_syscall_become_task_runs_always_and_cleans_up")
+    {
         return;
     }
     let mut fixture = Fixture::new(BECOME_CHILD_WAITING_FOR_SIGNAL);
