@@ -371,3 +371,8 @@ that are removed afterwards, also when the script is interrupted. The syscall ch
 before switching user; with the sudo method, becoming a non-root user other than the current one
 requires running Rash as root. Signals sent to Rash while a become task runs are forwarded to the
 child, like for any other process (see [Signals](#signals-and-interactive-commands)).
+
+The temporary directory may be writable by other users (e.g. a `TMPDIR` kept by `sudo -E`), so the
+child only gets the user to switch to from Rash's command line, never from those files, and refuses
+a task or result file that is not a regular, single-link, owner-only file of the expected owner;
+Rash reads the result through the file it created instead of reopening its path.

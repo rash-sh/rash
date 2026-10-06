@@ -93,6 +93,12 @@ struct Cli {
     /// Internal task file for become execution (hidden, not for direct use)
     #[arg(long, hide = true)]
     internal_task: Option<PathBuf>,
+    /// Owner uid of the internal task and result files (hidden, not for direct use)
+    #[arg(long, hide = true, requires = "internal_task")]
+    internal_task_owner: Option<u32>,
+    /// How the internal task runs as the become user (hidden, not for direct use)
+    #[arg(long, hide = true, requires = "internal_task")]
+    internal_become: Option<String>,
 }
 
 fn log_inner_errors(e: &dyn StdError) {
@@ -147,9 +153,14 @@ fn setup_module_search_paths(script_path: &Path) {
     }
 }
 
-fn execute_internal_task(task_path: &Path) {
+fn execute_internal_task(cli: &Cli, task_path: &Path) {
     trace!("Internal task execution from: {task_path:?}");
-    if let Err(e) = rash_core::task::execute_internal_task(task_path) {
+    let result = rash_core::task::execute_internal_task(
+        task_path,
+        cli.internal_task_owner,
+        cli.internal_become.as_deref(),
+    );
+    if let Err(e) = result {
         error!("{e}");
         exit(1);
     }
@@ -202,7 +213,7 @@ fn main() {
     }
 
     if let Some(internal_task_path) = &cli.internal_task {
-        execute_internal_task(internal_task_path);
+        execute_internal_task(&cli, internal_task_path);
         return;
     }
 

@@ -7,15 +7,21 @@
 //! any foreground process, so signals are forwarded to it and `always` sections still run.
 //! The child is a fresh process image: unlike a bare `fork`, it cannot inherit locks held
 //! by other threads of the parent.
+//!
+//! The temporary directory may be writable by other users (e.g. a user's `TMPDIR` kept by
+//! `sudo -E`), so the files are only trusted through what the parent controls: the child
+//! gets the user to switch to and the owner of the files on its command line, refuses any
+//! file that is not a private regular file of that owner, and the parent reads the outcome
+//! through the descriptor it created instead of reopening the path.
 use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::process::{OutputMode, ProcessResult, ProcessSpec};
 use crate::task::{Task, TaskExecResult};
 
 use std::env;
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
-use std::os::unix::fs::OpenOptionsExt;
+use std::fs::{File, Metadata, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 
@@ -30,9 +36,6 @@ use tempfile::NamedTempFile;
 pub struct InternalTaskData {
     pub vars: Value,
     pub task: YamlValue,
-    /// User the child switches to before running the task (`syscall` method).
-    #[serde(default)]
-    pub user: Option<BecomeUser>,
 }
 
 /// A become user, resolved by the parent Rash process.
@@ -54,6 +57,23 @@ impl From<&User> for BecomeUser {
 }
 
 impl BecomeUser {
+    /// `uid:gid:name`, the form a become child gets on its command line.
+    fn to_arg(&self) -> String {
+        format!("{}:{}:{}", self.uid, self.gid, self.name)
+    }
+
+    fn from_arg(arg: &str) -> Option<Self> {
+        let mut parts = arg.splitn(3, ':');
+        let uid = parts.next()?.parse().ok()?;
+        let gid = parts.next()?.parse().ok()?;
+        let name = parts.next().filter(|name| !name.is_empty())?;
+        Some(Self {
+            name: name.to_owned(),
+            uid,
+            gid,
+        })
+    }
+
     /// Switch the current process to this user, with the user's supplementary groups
     /// instead of the caller's ones (like a login).
     pub fn switch(&self) -> Result<()> {
@@ -92,6 +112,106 @@ fn set_supplementary_groups(_name: &str, gid: Gid) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+/// How a become child runs as the become user. Given on its command line by the parent and
+/// never read from the task file, which lives in a possibly shared directory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChildBecome {
+    /// Started as the become user by sudo: nothing to switch.
+    Sudo,
+    /// Started as Rash's user: switch to this user before running the task.
+    Switch(BecomeUser),
+}
+
+impl ChildBecome {
+    const SUDO_ARG: &str = "sudo";
+
+    fn to_arg(&self) -> String {
+        match self {
+            Self::Sudo => Self::SUDO_ARG.to_owned(),
+            Self::Switch(user) => user.to_arg(),
+        }
+    }
+
+    fn from_arg(arg: &str) -> Result<Self> {
+        if arg == Self::SUDO_ARG {
+            return Ok(Self::Sudo);
+        }
+        BecomeUser::from_arg(arg).map(Self::Switch).ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("invalid become user {arg:?}: expected `sudo` or `uid:gid:name`"),
+            )
+        })
+    }
+}
+
+/// Upper bound of a task or result file, far above any real task or registered output.
+const MAX_EXCHANGE_FILE_SIZE: u64 = 256 * 1024 * 1024;
+
+/// Open a task or result file created by the parent Rash, refusing anything else: it lives
+/// in a temporary directory other users may write to, where the path could be replaced by
+/// a symlink, a hard link, a FIFO or a file of another user.
+fn open_exchange_file(path: &Path, owner: u32, options: &mut OpenOptions) -> Result<File> {
+    let file = options
+        // Never follow a symlink nor block on a FIFO.
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::IOError,
+                format!("cannot open {}: {e}", path.display()),
+            )
+        })?;
+    let metadata = file
+        .metadata()
+        .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+    check_exchange_file(&metadata, owner).map_err(|problem| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("refusing {}: {problem}", path.display()),
+        )
+    })?;
+    Ok(file)
+}
+
+/// Why `metadata` is not a private regular file of `owner` with a single link, if it is not.
+fn check_exchange_file(metadata: &Metadata, owner: u32) -> std::result::Result<(), String> {
+    if !metadata.file_type().is_file() {
+        return Err("not a regular file".to_owned());
+    }
+    if metadata.uid() != owner {
+        return Err(format!(
+            "owned by uid {} instead of {owner}",
+            metadata.uid()
+        ));
+    }
+    if metadata.mode() & 0o077 != 0 {
+        return Err(format!(
+            "accessible by other users (mode {:o})",
+            metadata.mode() & 0o7777
+        ));
+    }
+    if metadata.nlink() != 1 {
+        return Err(format!("{} hard links instead of 1", metadata.nlink()));
+    }
+    Ok(())
+}
+
+/// Read a whole task or result file, up to [`MAX_EXCHANGE_FILE_SIZE`].
+fn read_exchange_file(file: &mut File, what: &str) -> Result<String> {
+    let mut content = String::new();
+    file.take(MAX_EXCHANGE_FILE_SIZE + 1)
+        .read_to_string(&mut content)
+        .map_err(|e| Error::new(ErrorKind::IOError, format!("Failed to read {what}: {e}")))?;
+    if content.len() as u64 > MAX_EXCHANGE_FILE_SIZE {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("{what} exceeds {MAX_EXCHANGE_FILE_SIZE} bytes"),
+        ));
+    }
+    Ok(content)
 }
 
 pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
@@ -167,22 +287,28 @@ impl BecomeOutcome {
 /// Body of `rash --internal-task`: run the task of a become child and write its outcome
 /// to the result file. Errors, explicit exits and interrupts of the task are part of the
 /// outcome; an error is returned only when no outcome can be reported.
-pub fn execute_internal_task(task_path: &Path) -> Result<()> {
-    let content = fs::read_to_string(task_path).map_err(|e| {
-        Error::new(
-            ErrorKind::IOError,
-            format!("Failed to read internal task file: {e}"),
-        )
-    })?;
-    let data: InternalTaskData = serde_yaml::from_str(&content).map_err(|e| {
+///
+/// `file_owner` is the owner of the task and result files and `child_become` how the child
+/// runs as the become user, both given by the parent: without them the child refuses to
+/// run rather than guess, which could run the task as root.
+pub fn execute_internal_task(
+    task_path: &Path,
+    file_owner: Option<u32>,
+    child_become: Option<&str>,
+) -> Result<()> {
+    let missing = |flag: &str| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("Failed to parse internal task data: {e}"),
+            format!("internal task requires {flag}"),
         )
-    })?;
+    };
+    let owner = file_owner.ok_or_else(|| missing("--internal-task-owner"))?;
+    let child_become =
+        ChildBecome::from_arg(child_become.ok_or_else(|| missing("--internal-become"))?)?;
+    let data = read_internal_task(task_path, owner)?;
     // Opened before switching user: the parent created it private to its own user.
-    let mut result_file = open_result_file()?;
-    let outcome = BecomeOutcome::from(run_internal_task(data));
+    let mut result_file = open_result_file(owner)?;
+    let outcome = BecomeOutcome::from(run_internal_task(data, &child_become));
     let json = serde_json::to_string(&outcome).map_err(|e| Error::new(ErrorKind::Other, e))?;
     result_file.write_all(json.as_bytes()).map_err(|e| {
         Error::new(
@@ -192,25 +318,32 @@ pub fn execute_internal_task(task_path: &Path) -> Result<()> {
     })
 }
 
-fn open_result_file() -> Result<File> {
-    let path = get_internal_result_path()
-        .ok_or_else(|| Error::new(ErrorKind::NotFound, "No result file path specified"))?;
-    // Never create a result file or follow a symlink.
-    OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(&path)
-        .map_err(|e| {
-            Error::new(
-                ErrorKind::IOError,
-                format!("Failed to open result file: {e}"),
-            )
-        })
+fn read_internal_task(task_path: &Path, owner: u32) -> Result<InternalTaskData> {
+    let mut file = open_exchange_file(task_path, owner, OpenOptions::new().read(true))?;
+    let content = read_exchange_file(&mut file, "internal task file")?;
+    serde_yaml::from_str(&content).map_err(|e| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Failed to parse internal task data: {e}"),
+        )
+    })
 }
 
-fn run_internal_task(data: InternalTaskData) -> Result<TaskExecResult> {
-    if let Some(user) = &data.user {
+fn open_result_file(owner: u32) -> Result<File> {
+    let path = get_internal_result_path()
+        .ok_or_else(|| Error::new(ErrorKind::NotFound, "No result file path specified"))?;
+    // Never create a result file.
+    let mut options = OpenOptions::new();
+    options.write(true);
+    let file = open_exchange_file(&path, owner, &mut options)?;
+    // Truncated once validated: never a file that failed validation.
+    file.set_len(0)
+        .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+    Ok(file)
+}
+
+fn run_internal_task(data: InternalTaskData, child_become: &ChildBecome) -> Result<TaskExecResult> {
+    if let ChildBecome::Switch(user) = child_become {
         user.switch()?;
     }
     let global_params = GlobalParams::default();
@@ -265,6 +398,15 @@ impl Task {
             }
         }
         self.exec_module_in_become_child(rendered_params, vars)
+    }
+
+    fn child_become(&self) -> Result<ChildBecome> {
+        Ok(match self.become_method {
+            BecomeMethod::Syscall => {
+                ChildBecome::Switch(BecomeUser::from(&self.resolve_become_user()?))
+            }
+            BecomeMethod::Sudo => ChildBecome::Sudo,
+        })
     }
 
     fn transfers_pid(&self, rendered_params: &YamlValue) -> bool {
@@ -325,15 +467,9 @@ impl Task {
         rendered_params: &YamlValue,
         vars: &Value,
     ) -> Result<InternalTaskData> {
-        let user = match self.become_method {
-            BecomeMethod::Syscall => Some(BecomeUser::from(&self.resolve_become_user()?)),
-            // sudo already starts the child as the become user.
-            BecomeMethod::Sudo => None,
-        };
         Ok(InternalTaskData {
             vars: self.extend_vars(vars.clone())?,
             task: self.internal_task(rendered_params),
-            user,
         })
     }
 
@@ -386,10 +522,22 @@ impl Task {
         spec
     }
 
-    fn become_child_spec(&self, task_file: &Path, result_file: &Path) -> Result<ProcessSpec> {
+    fn become_child_spec(
+        &self,
+        task_file: &Path,
+        result_file: &Path,
+        file_owner: u32,
+    ) -> Result<ProcessSpec> {
         let rash = env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
         let rash = path_arg(&rash)?;
-        let mut internal_args = vec!["--internal-task".to_owned(), path_arg(task_file)?];
+        let mut internal_args = vec![
+            "--internal-task".to_owned(),
+            path_arg(task_file)?,
+            "--internal-task-owner".to_owned(),
+            file_owner.to_string(),
+            "--internal-become".to_owned(),
+            self.child_become()?.to_arg(),
+        ];
         internal_args.extend(log_flags());
         let mut spec = match self.become_method {
             BecomeMethod::Sudo => self.sudo_spec(rash, internal_args),
@@ -446,15 +594,20 @@ impl Task {
     ) -> Result<TaskExecResult> {
         // Both files are removed when dropped, also on errors and interrupts.
         let mut task_file = self.private_file("rash_task_")?;
-        let result_file = self.private_file("rash_result_")?;
+        let mut result_file = self.private_file("rash_result_")?;
         let task_content = serde_yaml::to_string(&self.internal_task_data(rendered_params, vars)?)
             .map_err(|e| Error::new(ErrorKind::Other, e))?;
         task_file
             .write_all(task_content.as_bytes())
             .and_then(|()| task_file.flush())
             .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        let file_owner = task_file
+            .as_file()
+            .metadata()
+            .map_err(|e| Error::new(ErrorKind::IOError, e))?
+            .uid();
 
-        let spec = self.become_child_spec(task_file.path(), result_file.path())?;
+        let spec = self.become_child_spec(task_file.path(), result_file.path(), file_owner)?;
         // Supervised as a foreground child: a signal is forwarded to it and, once it is
         // reaped, becomes an interrupt error.
         let output = spec.run().map_err(|e| {
@@ -469,13 +622,12 @@ impl Task {
         if !output.success() {
             return Err(self.become_child_error(&output));
         }
-        let result_content = fs::read_to_string(result_file.path()).map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
-                format!("Failed to read become result file: {e}"),
-            )
-        })?;
-        BecomeOutcome::from_json(&result_content)
+        // Through the descriptor created above: the path may have been replaced.
+        let result_file = result_file.as_file_mut();
+        result_file
+            .seek(SeekFrom::Start(0))
+            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        BecomeOutcome::from_json(&read_exchange_file(result_file, "become result file")?)
     }
 }
 
@@ -558,6 +710,102 @@ mod tests {
             file.as_file().metadata().unwrap().uid(),
             Uid::effective().as_raw()
         );
+    }
+
+    /// A private file of the current user in a fresh directory, and the directory.
+    fn exchange_file() -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("task");
+        std::fs::write(&path, "content").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        (dir, path)
+    }
+
+    fn open_for_read(path: &Path, owner: u32) -> Result<File> {
+        open_exchange_file(path, owner, OpenOptions::new().read(true))
+    }
+
+    #[test]
+    fn exchange_file_accepts_private_file_of_owner() {
+        let (_dir, path) = exchange_file();
+        let mut file = open_for_read(&path, Uid::effective().as_raw()).unwrap();
+        assert_eq!(read_exchange_file(&mut file, "task").unwrap(), "content");
+    }
+
+    #[test]
+    fn exchange_file_rejects_other_owner() {
+        let (_dir, path) = exchange_file();
+        let other = Uid::effective().as_raw().wrapping_add(1);
+        let error = open_for_read(&path, other).unwrap_err();
+        assert!(error.to_string().contains("owned by uid"), "{error}");
+    }
+
+    #[test]
+    fn exchange_file_rejects_group_or_world_access() {
+        let (_dir, path) = exchange_file();
+        for mode in [0o640, 0o604, 0o660] {
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+            let error = open_for_read(&path, Uid::effective().as_raw()).unwrap_err();
+            assert!(
+                error.to_string().contains("accessible by other users"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn exchange_file_rejects_symlink() {
+        let (dir, path) = exchange_file();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        let error = open_for_read(&link, Uid::effective().as_raw()).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::IOError, "{error}");
+    }
+
+    #[test]
+    fn exchange_file_rejects_hard_link() {
+        let (dir, path) = exchange_file();
+        std::fs::hard_link(&path, dir.path().join("link")).unwrap();
+        let error = open_for_read(&path, Uid::effective().as_raw()).unwrap_err();
+        assert!(error.to_string().contains("hard links"), "{error}");
+    }
+
+    #[test]
+    fn exchange_file_rejects_fifo_without_blocking() {
+        let dir = tempfile::tempdir().unwrap();
+        let fifo = dir.path().join("fifo");
+        nix::unistd::mkfifo(&fifo, nix::sys::stat::Mode::from_bits_truncate(0o600)).unwrap();
+        let error = open_for_read(&fifo, Uid::effective().as_raw()).unwrap_err();
+        assert!(error.to_string().contains("not a regular file"), "{error}");
+    }
+
+    #[test]
+    fn child_become_round_trips_through_its_argument() {
+        let user = BecomeUser {
+            name: "nobody".to_owned(),
+            uid: 65534,
+            gid: 4294967294,
+        };
+        for child_become in [ChildBecome::Sudo, ChildBecome::Switch(user)] {
+            let parsed = ChildBecome::from_arg(&child_become.to_arg()).unwrap();
+            assert_eq!(parsed, child_become);
+        }
+        for invalid in ["", "root", "0:0", "0:0:", "x:0:root", "0:-1:root"] {
+            assert!(ChildBecome::from_arg(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn internal_task_refuses_to_run_without_owner_or_become_user() {
+        let (_dir, path) = exchange_file();
+        let owner = Some(Uid::effective().as_raw());
+        for (owner, child_become) in [(owner, None), (None, Some("sudo"))] {
+            let error = execute_internal_task(&path, owner, child_become).unwrap_err();
+            assert!(
+                error.to_string().contains("internal task requires"),
+                "{error}"
+            );
+        }
     }
 
     #[test]
