@@ -10,7 +10,7 @@ Behaviour changes that can affect existing scripts, with how to migrate them. Ne
 (`failed_when`, `quiet`, `no_log`, `meta: exit`, include `export`, `defaults`, stdio modes, `pause`
 input) are described in [Tasks](tasks.md) and the module pages.
 
-## Task runtime hardening (after 2.21)
+## Changes since 2.21.0
 
 ### Results and failures
 
@@ -76,8 +76,8 @@ input) are described in [Tasks](tasks.md) and the module pages.
   escalates on its own. Before, `check_mode: true` on a block or include was ignored and its
   children ran for real, and `become` ran the whole block as the become user. Control-flow
   modules (`block`, `include`, `meta`, `set_vars`, `debug`, `assert`, `fail`, `pause`,
-  `async_status`, `async_poll`) always run in the Rash process. A child cannot disable an
-  inherited `become` or `check_mode`.
+  `async_status`, `async_poll` and custom modules) always run in the Rash process. A child cannot
+  disable an inherited `become` or `check_mode`.
 - **`rescue` and `always` run as part of their task.** Their tasks see the task `vars` and inherit
   its `become` and `check_mode` (before, they ran for real under `check_mode: true`). With
   `ignore_errors: true` a failure is no longer rescued: `always` runs and the task is reported as an

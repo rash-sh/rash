@@ -32,13 +32,13 @@ The generated reference below contains the exact parameters and examples for eac
 ```yaml
 - set_vars:
     kernel_release: "{{ pipe('uname -r') }}"
-    first_disk: "{{ pipe("find /dev -name 'sd*' | head -n1") }}"
+    first_disk: "{{ pipe('find /dev -name \"sd*\" | head -n1') }}"
 ```
 
 `pipe()`:
 
 - executes through `/bin/sh -c`, so shell pipelines/redirections work;
-- returns stdout as a string with trailing newlines removed;
+- returns stdout as a string with trailing whitespace (newlines, spaces, tabs) removed;
 - fails rendering if the command cannot be started or exits non-zero;
 - does not participate in task `failed_when`, `register`, `become`, or async semantics.
 
@@ -60,7 +60,7 @@ returned collection feeds a loop:
 ```yaml
 - copy:
     src: "{{ item }}"
-    dest: "/tmp/archive/{{ item }}"
+    dest: "/tmp/archive/{{ item | split('/') | last }}"
   loop: "{{ find({'paths': '/tmp/input', 'recurse': true}) }}"
 ```
 

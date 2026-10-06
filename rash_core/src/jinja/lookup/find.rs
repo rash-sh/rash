@@ -20,7 +20,7 @@
 ///   loop: "{{ find(tmp_query) }}"
 ///   copy:
 ///     src: "{{ item }}"
-///     dest: "/tmp2/{{ item | basename }}"
+///     dest: "/tmp2/{{ item | split('/') | last }}"
 ///
 /// ```
 /// ANCHOR_END: examples

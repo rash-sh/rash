@@ -93,7 +93,7 @@ The generic `extra` field remains available even when its keys are flattened:
 Rash also provides result tests for conditions:
 
 ```yaml
-- command: false
+- command: "false"
   register: probe
   ignore_errors: true
 
