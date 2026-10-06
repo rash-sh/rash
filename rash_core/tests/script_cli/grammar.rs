@@ -776,7 +776,8 @@ fn bracket_contents_are_independently_optional() {
         "foo [ boo fuu ] [ -a -b -c ] [ zuu -d ]",
     ] {
         let file = format!(
-            "\n#!/usr/bin/env rash\n#\n# Usage: {usage}\n#\n# Options:\n#   -a  a\n#   -b  b\n#   -c  c\n#   -d  d\n#\n"
+            "\n#!/usr/bin/env rash\n#\n# Usage: {usage}\n#\n\
+             # Options:\n#   -a  a\n#   -b  b\n#   -c  c\n#   -d  d\n#\n"
         );
         check(&file, cases);
     }

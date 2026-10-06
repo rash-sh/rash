@@ -329,7 +329,8 @@ doe: "a deer, a female deer"
         assert_eq!(
             parse_help(file),
             format!(
-                "\ndots easy manage of your dotfiles.\n\nUsage:\n  ./dots (install|update|help) <package_filters>...\n\n{NOTE}"
+                "\ndots easy manage of your dotfiles.\n\nUsage:\n  \
+                 ./dots (install|update|help) <package_filters>...\n\n{NOTE}"
             )
         );
     }

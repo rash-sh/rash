@@ -420,8 +420,8 @@ impl Parser {
 }
 
 /// `<name>` and `NAME` are positionals and `name` is a command; names are ASCII words joined by
-/// `-` or `_`, starting with a letter and possibly containing digits. `-` (stdin/stdout by convention) and `--` (end of options) are commands too, with
-/// the keys `_` and `__`.
+/// `-` or `_`, starting with a letter and possibly containing digits. `-` (stdin/stdout by
+/// convention) and `--` (end of options) are commands too, with the keys `_` and `__`.
 fn classify_atom(value: String) -> Result<Atom> {
     if matches!(value.as_str(), "-" | "--") {
         return Ok(Atom::Command {
