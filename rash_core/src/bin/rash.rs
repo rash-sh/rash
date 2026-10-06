@@ -4,7 +4,7 @@ use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
 use rash_core::modules::add_module_search_path;
 use rash_core::signal;
-use rash_core::task::{parse_file, parse_file_with_handlers};
+use rash_core::task::parse_script;
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
@@ -118,10 +118,6 @@ fn crash_error(e: Error) -> ! {
         log_inner_errors(source_error)
     }
     exit(exit_code)
-}
-
-fn is_task_sequence(script: &str) -> bool {
-    serde_norway::from_str::<serde_norway::Value>(script).is_ok_and(|yaml| yaml.is_sequence())
 }
 
 fn setup_module_search_paths(script_path: &Path) {
@@ -262,14 +258,9 @@ fn main() {
         check_mode: cli.check,
     };
 
-    let (tasks, handlers) = match parse_file_with_handlers(&main_file, &global_params) {
+    let (tasks, handlers) = match parse_script(&main_file, &global_params) {
         Ok(parsed) => (parsed.tasks, parsed.handlers),
-        Err(mapping_error) => match parse_file(&main_file, &global_params) {
-            Ok(tasks) => (tasks, None),
-            // Report the error of the form the script is written in.
-            Err(sequence_error) if is_task_sequence(&main_file) => crash_error(sequence_error),
-            Err(_) => crash_error(mapping_error),
-        },
+        Err(e) => crash_error(e),
     };
 
     let env_vars = env::load(cli.environment);

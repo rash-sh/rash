@@ -485,6 +485,23 @@ pub fn parse_file_with_handlers(
     Ok(ParsedFile { tasks, handlers })
 }
 
+/// Whether a script is written in the task sequence form (instead of the mapping form).
+pub fn is_task_sequence(script: &str) -> bool {
+    serde_norway::from_str::<YamlValue>(script).is_ok_and(|yaml| yaml.is_sequence())
+}
+
+/// Parse a script in either form: a sequence of tasks or a mapping with `tasks` (and
+/// optional `handlers` and `defaults`). Errors are those of the form the script uses.
+pub fn parse_script(script: &str, global_params: &GlobalParams) -> Result<ParsedFile> {
+    if is_task_sequence(script) {
+        return Ok(ParsedFile {
+            tasks: parse_file(script, global_params)?,
+            handlers: None,
+        });
+    }
+    parse_file_with_handlers(script, global_params)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

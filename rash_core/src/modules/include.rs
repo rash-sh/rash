@@ -41,9 +41,10 @@
 use crate::context::{Context, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult, parse_params};
-use crate::task::{parse_file, parse_file_with_handlers};
+use crate::task::parse_script;
 use crate::vars::builtin::Builtins;
 
+use std::collections::BTreeMap;
 use std::fs::read_to_string;
 use std::path::Path;
 
@@ -72,29 +73,22 @@ fn select_exports(scoped: Option<&Value>, export: Option<&Export>) -> Result<Opt
     let Some(export) = export else {
         return Ok(None);
     };
-    let Some(scoped) = scoped else {
-        return Ok(None);
-    };
-
     match export {
         Export::All(false) => Ok(None),
-        Export::All(true) => Ok(Some(scoped.clone())),
+        Export::All(true) => Ok(scoped.cloned()),
         Export::Selected(names) => {
-            use std::collections::BTreeMap;
             let mut exported_map: BTreeMap<&str, Value> = BTreeMap::new();
             for name in names {
-                let value = scoped.get_attr(name).map_err(|_| {
-                    Error::new(
-                        ErrorKind::NotFound,
-                        format!("Included file did not define exported variable '{name}'"),
-                    )
-                })?;
-                if value.is_undefined() {
-                    return Err(Error::new(
-                        ErrorKind::NotFound,
-                        format!("Included file did not define exported variable '{name}'"),
-                    ));
-                }
+                // A file that set no variables has no scope: nothing is defined.
+                let value = scoped
+                    .and_then(|scoped| scoped.get_attr(name).ok())
+                    .filter(|value| !value.is_undefined())
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::NotFound,
+                            format!("Included file did not define exported variable '{name}'"),
+                        )
+                    })?;
                 exported_map.insert(name, value);
             }
             Ok(Some(Value::from_serialize(exported_map)))
@@ -132,21 +126,19 @@ impl Module for Include {
         let script_path = Path::new(&params.file);
         trace!("reading tasks from: {script_path:?}");
         let main_file = read_to_string(script_path).map_err(|e| {
-            Error::new(ErrorKind::InvalidData, format!("Error reading file: {e:?}"))
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Error reading file {}: {e}", params.file),
+            )
         })?;
 
         let builtins = Builtins::deserialize(vars.get_attr("rash")?)?;
         let include_builtins = builtins.update(script_path)?;
         let include_vars = context! {rash => &include_builtins, ..vars.clone()};
 
-        let result_context = match parse_file_with_handlers(&main_file, global_params) {
-            Ok(parsed) => {
-                Context::with_handlers(parsed.tasks, include_vars, None, parsed.handlers).exec()?
-            }
-            Err(_) => {
-                Context::new(parse_file(&main_file, global_params)?, include_vars, None).exec()?
-            }
-        };
+        let parsed = parse_script(&main_file, global_params)?;
+        let result_context =
+            Context::with_handlers(parsed.tasks, include_vars, None, parsed.handlers).exec()?;
 
         let exports = select_exports(result_context.get_scoped_vars(), params.export.as_ref())?;
         Ok((ModuleResult::new(false, None, None), exports))
@@ -194,6 +186,21 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(exported.get_attr("foo").unwrap().as_i64(), Some(1));
+    }
+
+    #[test]
+    fn select_named_exports_rejects_missing_scope() {
+        let error = select_exports(None, Some(&Export::Selected(vec!["foo".into()]))).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("did not define exported variable 'foo'")
+        );
+        assert!(
+            select_exports(None, Some(&Export::All(true)))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
