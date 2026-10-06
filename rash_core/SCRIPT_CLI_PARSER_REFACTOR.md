@@ -217,6 +217,18 @@ These are not ordinary compatibility failures and must remain explicit:
 
 1. **Pattern-scoped `[options]`.** The legacy implementation accumulates explicit options across usage patterns while expanding `[options]`; the compiled parser scopes the shortcut to the pattern being compiled.
 2. **Deterministic ambiguity errors.** If two successful paths produce different bindings, the compiled parser rejects the declaration instead of selecting a result through iteration order.
+3. **Repeated commands are always counters.** A command that can occur more than once in a pattern (e.g. `tool [(a | b)] [(a | b)]`, `tool a [a]`) is reported as an integer count even when matched once (`a` → `{"a": 1, "b": 0}`), as in reference Docopt 0.6.2. Legacy reports `true` for a single match and only switches to a count for two or more.
+4. **Explicit options are bounded by their declarations.** An option matched more often than the pattern declares it is rejected, as in reference Docopt 0.6.2: `tool [-a] [-b] [-c]` rejects `-a -a` (and `-a -b -a`, `--alpha -a`), and `tool [options] [-a]` rejects `-a -a`. Legacy silently accepts the extra occurrence. Conversely, options declared several times are counters (`tool [-a] [-a]`: `-a` → `1`, `-a -a` → `2`; legacy reports `true`), and `tool [-a...]` accepts `-a -a` as `2` where legacy rejects it.
+5. **Repeated positionals are always lists.** A positional declared more than once (`tool [<x>] [<x>]`) collects every value into a list (`p q` → `["p", "q"]`, `p` → `["p"]`), as in reference Docopt 0.6.2. Legacy keeps only the last value as a string.
+6. **Optional options around a required command.** `tool [--verbose] (start|stop) [--force]` accepts a bare `start`, as reference Docopt 0.6.2 does; legacy rejects it.
+7. **Repeated reference to a documented value option.** `tool [--tag]...` with `--tag=VALUE` documented under `Options:` is accepted with the same scalar last-value semantics as `tool [--tag=<value>]...` (`--tag=one --tag=two` → `"two"`). Legacy fails with "Not mergeable options".
+
+Known remaining divergences from reference Docopt 0.6.2, shared by legacy and kept for compatibility pending an explicit decision:
+
+- A bare `[options]` shortcut with two or more available options accepts a repeated flag (`tool [options]` with `-a -a`); reference Docopt rejects it.
+- Options are matched at their declared position: `tool [--verbose] (start|stop) [--force]` rejects `--force start` and `start --verbose`; reference Docopt matches options anywhere.
+- Repeated value options keep the last value as a scalar (`[--tag=<value>]...` → `"two"`); reference Docopt collects a list (`["one", "two"]`).
+- A usage reference to a value option without its argument (`tool [--tag]` with `--tag=VALUE` documented) is accepted; reference Docopt rejects the declaration.
 
 Any additional difference requires the same explicit classification before production switchover.
 
