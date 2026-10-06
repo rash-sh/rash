@@ -108,18 +108,29 @@ fn sent_by_process(code: libc::c_int) -> bool {
     code <= 0
 }
 
-/// See the Linux variant: here process origins are `SI_USER`, `SI_QUEUE` and `SI_LWP`
-/// (`thr_kill(2)`), defined in `<sys/signal.h>` but not by the libc crate.
+/// `SI_USER`, `SI_QUEUE` and `SI_LWP` (`thr_kill(2)`) from the BSD `<sys/signal.h>`,
+/// not defined by the libc crate.
 #[cfg(any(
     target_vendor = "apple",
     target_os = "freebsd",
     target_os = "dragonfly"
 ))]
+const BSD_PROCESS_ORIGINS: [libc::c_int; 3] = [0x10001, 0x10002, 0x10007];
+
+/// See the Linux variant: here process origins are `SI_USER`, `SI_QUEUE` and `SI_LWP`,
+/// while kernel origins such as `SI_NOINFO` (0) and `SI_KERNEL` are not.
+#[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
 fn sent_by_process(code: libc::c_int) -> bool {
-    const SI_USER: libc::c_int = 0x10001;
-    const SI_QUEUE: libc::c_int = 0x10002;
-    const SI_LWP: libc::c_int = 0x10007;
-    matches!(code, SI_USER | SI_QUEUE | SI_LWP)
+    BSD_PROCESS_ORIGINS.contains(&code)
+}
+
+/// See the Linux variant. XNU leaves `si_code` at 0 for `kill(2)` instead of the
+/// `SI_USER` its headers define, and for terminal-generated signals too, so 0 is
+/// ambiguous: treat it as sent by a process, since forwarding a terminal signal twice is
+/// safer than never forwarding a `kill`.
+#[cfg(target_vendor = "apple")]
+fn sent_by_process(code: libc::c_int) -> bool {
+    code == 0 || BSD_PROCESS_ORIGINS.contains(&code)
 }
 
 /// Without a known `si_code` layout, treat every signal as sent by a process: forwarding
@@ -313,9 +324,10 @@ mod tests {
         assert!(sent_by_process(0x10001));
         assert!(sent_by_process(0x10002));
         assert!(sent_by_process(0x10007));
-        // Kernel origins: SI_NOINFO and SI_KERNEL (FreeBSD).
-        assert!(!sent_by_process(0));
+        // Kernel origin SI_KERNEL (FreeBSD).
         assert!(!sent_by_process(0x10006));
+        // SI_NOINFO is a kernel origin on FreeBSD; XNU also reports it for kill(2).
+        assert_eq!(sent_by_process(0), cfg!(target_vendor = "apple"));
     }
 
     /// The real origin of kill(2), whatever the platform encoding.
@@ -345,7 +357,8 @@ mod tests {
             assert!(start.elapsed() < std::time::Duration::from_secs(30));
             std::thread::yield_now();
         }
-        assert!(sent_by_process(CODE.load(Ordering::SeqCst)));
+        let code = CODE.load(Ordering::SeqCst);
+        assert!(sent_by_process(code), "si_code of kill(2): {code:#x}");
     }
 
     #[test]
