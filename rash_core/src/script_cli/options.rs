@@ -310,7 +310,8 @@ impl OptionRegistry {
     }
 
     /// Register an option description such as `-o, --output=FILE  text [default: out]`. Any
-    /// non-option word in the declaration part means the option takes a value.
+    /// non-option word in the declaration part means the option takes a value. A line with an
+    /// option word without a name, such as the Markdown bullet `- note`, is not an option.
     fn add_description_line(&mut self, line: &str) -> Result<()> {
         let (declaration, description) = line.split_once("  ").unwrap_or((line, ""));
         let declaration = declaration.replace(',', " ");
@@ -319,6 +320,9 @@ impl OptionRegistry {
         let mut takes_value = false;
 
         for word in declaration.split_whitespace() {
+            if word.starts_with('-') && !has_option_name(word) {
+                return Ok(());
+            }
             if word.starts_with("--") {
                 let (name, has_value) = split_option_declaration(word);
                 long = Some(name);
@@ -616,6 +620,15 @@ fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
         && value
             .chars()
             .all(|ch| ch.is_alphanumeric() || matches!(ch, '_' | '-'))
+}
+
+/// Whether an option word such as `-o`, `--out` or `--out=FILE` names an option, unlike `-`,
+/// `--` or `--=FILE`.
+fn has_option_name(word: &str) -> bool {
+    !split_option_declaration(word)
+        .0
+        .trim_start_matches('-')
+        .is_empty()
 }
 
 fn split_option_declaration(value: &str) -> (String, bool) {

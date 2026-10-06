@@ -1954,3 +1954,24 @@ fn double_dash_without_separator_in_usage_is_unknown() {
 "#;
     assert_eq!(error_message(file, &["--", "a"]), "Unknown option: --");
 }
+
+#[test]
+fn bullet_lines_in_help_are_not_options() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options] <x>
+#
+# Notes:
+#   - first note
+#   -- second note
+#
+# Options:
+#   -v  verbose
+#
+"#;
+    check(
+        file,
+        &[(&["x"], Ok(json!({"options": {"v": false}, "x": "x"})))],
+    );
+}
