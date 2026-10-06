@@ -404,8 +404,16 @@ impl Parser {
 }
 
 /// `<name>` and `NAME` are positionals and `name` is a command; names are ASCII words joined by
-/// `-` or `_`.
+/// `-` or `_`. `-` (stdin/stdout by convention) and `--` (end of options) are commands too, with
+/// the keys `_` and `__`.
 fn classify_atom(value: String) -> Result<Atom> {
+    if matches!(value.as_str(), "-" | "--") {
+        return Ok(Atom::Command {
+            key: normalize_key(&value),
+            literal: value,
+        });
+    }
+
     if value.starts_with('<') {
         let Some(name) = value.strip_prefix('<').and_then(|v| v.strip_suffix('>')) else {
             return Err(invalid_atom(&value));

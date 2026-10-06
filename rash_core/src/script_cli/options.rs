@@ -42,6 +42,8 @@ pub(super) struct OptionRegistry {
     specs: Vec<OptionSpec>,
     aliases: HashMap<String, usize>,
     ambiguous_aliases: HashSet<String>,
+    /// Whether a usage pattern declares the `--` separator command.
+    separator: bool,
 }
 
 impl OptionRegistry {
@@ -114,7 +116,7 @@ impl OptionRegistry {
         let mut i = 0;
         while i < tokens.len() {
             match &tokens[i] {
-                Token::Atom(atom) if atom.starts_with('-') => {
+                Token::Atom(atom) if atom.starts_with('-') && !is_dash_command(atom) => {
                     let (option_ids, takes_separate_value) = self.expand_usage_option(atom)?;
                     out.extend(option_ids.into_iter().map(Token::Option));
                     if takes_separate_value && is_usage_value_placeholder(tokens.get(i + 1)) {
@@ -129,12 +131,21 @@ impl OptionRegistry {
     }
 
     /// Normalize argv: resolve option aliases, split short clusters and attach option values.
+    ///
+    /// When the usage declares `--`, a `--` argument is a word matching that command, and every
+    /// argument after it is a word too, even if it starts with `-`.
     pub(super) fn normalize_args(&self, args: &[&str]) -> Result<Vec<InputToken>> {
         let mut out = Vec::with_capacity(args.len());
         let mut args = args.iter().copied();
 
         while let Some(arg) = args.next() {
-            if arg.starts_with("--") {
+            if arg == "--" && self.separator {
+                out.extend(
+                    std::iter::once(arg)
+                        .chain(args.by_ref())
+                        .map(|word| InputToken::Word(word.to_owned())),
+                );
+            } else if arg.starts_with("--") {
                 out.push(self.normalize_long(arg, &mut args)?);
             } else if let Some(cluster) = arg.strip_prefix('-').filter(|body| !body.is_empty()) {
                 self.normalize_short_cluster(arg, cluster, &mut args, &mut out)?;
@@ -346,17 +357,21 @@ impl OptionRegistry {
             .collect::<Vec<_>>();
 
         for word in words {
-            if word.starts_with("--") && word != "--" {
-                let (name, has_value) = split_option_declaration(&word);
-                self.upsert(OptionSpec {
-                    short: None,
-                    long: Some(name),
-                    takes_value: has_value,
-                    default_value: None,
-                    repeatable: false,
-                })?;
-            } else if word.starts_with('-') && word != "-" {
-                self.discover_short_cluster(&word)?;
+            match word.as_str() {
+                "--" => self.separator = true,
+                "-" => {}
+                long if long.starts_with("--") => {
+                    let (name, has_value) = split_option_declaration(long);
+                    self.upsert(OptionSpec {
+                        short: None,
+                        long: Some(name),
+                        takes_value: has_value,
+                        default_value: None,
+                        repeatable: false,
+                    })?;
+                }
+                short if short.starts_with('-') => self.discover_short_cluster(short)?,
+                _ => {}
             }
         }
         Ok(())
@@ -576,6 +591,11 @@ fn next_value<'a>(name: &str, rest: &mut impl Iterator<Item = &'a str>) -> Resul
 fn default_value(description: &str) -> Option<&str> {
     let (_, rest) = description.split_once("[default: ")?;
     rest.rfind(']').map(|end| &rest[..end])
+}
+
+/// `-` (stdin/stdout by convention) and `--` (end of options) are commands, not options.
+fn is_dash_command(word: &str) -> bool {
+    matches!(word, "-" | "--")
 }
 
 /// Whether a usage token is a value placeholder: `<value>` or an uppercase word like `FILE`.

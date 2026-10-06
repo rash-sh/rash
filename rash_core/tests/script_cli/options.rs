@@ -1907,3 +1907,50 @@ fn option_cannot_exceed_its_declared_occurrences_across_positions() {
         ],
     );
 }
+
+#[test]
+fn double_dash_separator() {
+    // Docopt 0.6.2 semantics: `--` is a command, and every argument after it is a word even if
+    // it looks like an option. Legacy exposed it as a malformed `options[""]` flag and kept
+    // parsing options after it.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [-v] [--] <args>...
+#
+"#;
+    check(
+        file,
+        &[
+            (
+                &["-v", "--", "-v", "a"],
+                Ok(json!({"__": true, "args": ["-v", "a"], "options": {"v": true}})),
+            ),
+            (
+                &["--", "--unknown", "--"],
+                Ok(json!({"__": true, "args": ["--unknown", "--"], "options": {"v": false}})),
+            ),
+            (
+                &["a"],
+                Ok(json!({"__": false, "args": ["a"], "options": {"v": false}})),
+            ),
+            // Docopt 0.6.2 does not backtrack out of `[--]` and rejects it; the compiled parser
+            // finds the only binding.
+            (
+                &["--"],
+                Ok(json!({"__": false, "args": ["--"], "options": {"v": false}})),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn double_dash_without_separator_in_usage_is_unknown() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool <args>...
+#
+"#;
+    assert_eq!(error_message(file, &["--", "a"]), "Unknown option: --");
+}

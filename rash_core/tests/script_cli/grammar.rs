@@ -772,3 +772,24 @@ fn repeated_command_alternatives_without_parentheses_are_counters() {
         ],
     );
 }
+
+#[test]
+fn dash_and_double_dash_are_commands() {
+    // As in docopt 0.6.2, `-` (stdin/stdout by convention) and `--` are commands; their keys
+    // follow the `-` to `_` rule of every command key. Legacy rejected `[-]` as an invalid usage.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [-] <file>
+#
+"#;
+    check(
+        file,
+        &[
+            (&["-", "x"], Ok(json!({"_": true, "file": "x"}))),
+            (&["x"], Ok(json!({"_": false, "file": "x"}))),
+            // A positional also accepts `-`.
+            (&["-"], Ok(json!({"_": false, "file": "-"}))),
+        ],
+    );
+}
