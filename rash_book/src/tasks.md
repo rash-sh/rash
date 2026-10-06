@@ -317,8 +317,9 @@ the process inherits Rash's stdin (async jobs get an empty one).
 
 ### Syscall method (default)
 
-The syscall method starts a child Rash process that switches to the become user (its groups, GID
-and UID) before running the task, and requires `CAP_SETUID` and `CAP_SETGID` (or root):
+The syscall method starts a child Rash process that switches to the become user (its supplementary
+groups from `initgroups(3)`, on Linux and macOS alike, its GID and UID) before running the task, and
+requires `CAP_SETUID` and `CAP_SETGID` (or root):
 
 ```bash
 sudo setcap cap_setgid,cap_setuid+ep $(which rash)

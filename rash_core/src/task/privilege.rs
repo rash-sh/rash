@@ -100,8 +100,24 @@ fn set_supplementary_groups(name: &str, gid: Gid) -> Result<()> {
     Ok(())
 }
 
-/// No `initgroups(3)` binding here: keep only the primary group, never the caller's groups.
-#[cfg(any(target_vendor = "apple", target_os = "redox", target_os = "haiku"))]
+/// nix has no `initgroups(3)` binding on Apple targets, whose group argument is an `int`.
+#[cfg(target_vendor = "apple")]
+fn set_supplementary_groups(name: &str, gid: Gid) -> Result<()> {
+    let name = std::ffi::CString::new(name).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    // Wrapping is intended: gids above i32::MAX, like nobody's (-2), are negative ints.
+    let gid = gid.as_raw() as libc::c_int;
+    // SAFETY: `name` is a NUL-terminated string that outlives the call.
+    if unsafe { libc::initgroups(name.as_ptr(), gid) } != 0 {
+        return Err(Error::new(
+            ErrorKind::Other,
+            std::io::Error::last_os_error(),
+        ));
+    }
+    Ok(())
+}
+
+/// No `initgroups(3)` here: keep only the primary group, never the caller's groups.
+#[cfg(any(target_os = "redox", target_os = "haiku"))]
 fn set_supplementary_groups(_name: &str, gid: Gid) -> Result<()> {
     let groups = [gid.as_raw()];
     // SAFETY: setgroups(2) reads exactly one gid from a live array.

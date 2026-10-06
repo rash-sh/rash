@@ -84,8 +84,8 @@ input) are described in [Tasks](tasks.md) and the module pages.
   ignored failure instead of a success that notified handlers.
 - **`become_method: syscall` runs the task in a new child Rash process** started as Rash's user,
   which switches to the become user before running the task, taking that user's supplementary
-  groups. Before, Rash forked itself and the child kept Rash's supplementary groups (all of root's
-  groups when running as root).
+  groups, on Linux and macOS alike. Before, Rash forked itself and the child kept Rash's
+  supplementary groups (all of root's groups when running as root).
 - **`become_method: sudo` to a non-root user other than the current one** is refused unless Rash
   runs as root: task data is exchanged through private files that user could not read.
 - **Async tasks with `become`** run the job as the become user (it was ignored before);
