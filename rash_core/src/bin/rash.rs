@@ -49,31 +49,51 @@ where
     author = crate_authors!("\n"),
 )]
 struct Cli {
+    /// run operations with become (does not imply password prompting)
     #[arg(short, long)]
     r#become: bool,
+    /// run operations as this user (just works with become enabled)
     #[arg(short='u', long, default_value=GlobalParams::default().become_user)]
     become_user: String,
+    /// Privilege escalation method to use (syscall or sudo)
     #[arg(long, value_enum, default_value_t=BecomeMethod::default())]
     become_method: BecomeMethod,
+    /// Path to sudo executable (used when become_method is sudo)
     #[arg(long, default_value=GlobalParams::default().become_exe)]
     become_exe: String,
+    /// Ask for privilege escalation password
     #[arg(short = 'K', long)]
     ask_become_pass: bool,
+    /// Execute in dry-run mode without modifications
     #[arg(short, long)]
     check: bool,
+    /// Show the differences
     #[arg(short, long)]
     diff: bool,
+    /// Set environment variables (Example: KEY=VALUE)
+    /// It can be accessed from builtin `{{ env }}`. E.g.: `{{ env.USER }}`
     #[arg(short, long, action = ArgAction::Append, value_parser = parse_key_val::<String, String>, num_args = 1)]
     environment: Vec<(String, String)>,
+    /// Output format.
     #[arg(value_enum, short, long, default_value_t=logger::Output::Ansible)]
     output: logger::Output,
+    /// Verbose mode (-vv for more)
     #[arg(short, long, action = ArgAction::Count)]
     verbose: u8,
+    /// Inline script to be executed.
+    /// If provided, <SCRIPT_FILE> will be used as filename in `rash.path` builtin.
     #[arg(short, long)]
     script: Option<String>,
+    /// Path to the script file to be executed.
+    /// If provided, this file will be read and used as the script content.
     script_file: Option<String>,
+    /// Additional args to be accessible rash scripts.
+    ///
+    /// It can be accessed from builtin `{{ rash.args }}` as list of strings or if usage is defined
+    /// they will be parsed and added as variables too. For more information check rash_book.
     #[arg(action = ArgAction::Append, num_args = 1)]
     script_args: Vec<String>,
+    /// Internal task file for sudo become execution (hidden, not for direct use)
     #[arg(long, hide = true)]
     internal_task: Option<PathBuf>,
 }
