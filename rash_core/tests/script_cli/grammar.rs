@@ -356,6 +356,55 @@ fn groups_inside_brackets_are_independently_optional() {
 }
 
 #[test]
+fn option_opening_a_group_is_recognized() {
+    // Intentional difference 18: an option right after `(` or `[` is an option; legacy reported it
+    // as unknown and rejected every argv for these declarations.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: my_program (--either-this <and-that> | <or-this>)
+#
+"#;
+    check(
+        file,
+        &[
+            (
+                &["--either-this", "x"],
+                Ok(json!({"and_that": "x", "options": {"either_this": true}})),
+            ),
+            (
+                &["y"],
+                Ok(json!({"options": {"either_this": false}, "or_this": "y"})),
+            ),
+            (&[], Err(INVALID)),
+            (&["--either-this"], Err(INVALID)),
+            (&["x", "y"], Err(INVALID)),
+        ],
+    );
+
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: my_program [--either-this <and-that> | <or-this>]
+#
+"#;
+    check(
+        file,
+        &[
+            (&[], Ok(json!({"options": {"either_this": false}}))),
+            (
+                &["--either-this", "x"],
+                Ok(json!({"and_that": "x", "options": {"either_this": true}})),
+            ),
+            (
+                &["y"],
+                Ok(json!({"options": {"either_this": false}, "or_this": "y"})),
+            ),
+        ],
+    );
+}
+
+#[test]
 fn nested_option_requires_outer_command() {
     let file = r#"
 #!/usr/bin/env rash

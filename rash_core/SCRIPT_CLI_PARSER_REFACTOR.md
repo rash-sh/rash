@@ -235,6 +235,7 @@ These are not ordinary compatibility failures and must remain explicit:
 15. **Shared short alias is an error.** `-u` declared for both `--sysupgrade` and `--upgrades` fails with "Ambiguous option alias: -u" (reference Docopt also rejects it); legacy silently picks one. The long aliases remain usable.
 16. **Specific error messages.** Invalid declarations and bad option values report the cause ("Invalid usage identifier: Run", "Option --known does not take a value", "Option -n requires a value") instead of legacy's "Invalid usage: <help>" or an empty message.
 17. **Independent repeatable flags before a positional.** `tool [--verbose]... [--quiet]... <file>` (with `-v --verbose` and `-q --quiet` documented) counts both flags, as in reference Docopt 0.6.2: `-vvvv -qq file` → `verbose: 4`, `quiet: 2`. Legacy rejects every argv for this declaration.
+18. **Options opening a group are options.** An option right after `(` or `[` followed by more elements, such as the book's `(--either-this <and-that> | <or-this>)` or `[--either-this <and-that> | <or-this>]`, is registered and matched as in reference Docopt 0.6.2 (`--either-this x` → `either_this: true`, `and_that: "x"`; `y` → `or_this: "y"`). Legacy reports "Unknown option: --either-this" and rejects every argv for these declarations.
 
 Known remaining divergences from reference Docopt 0.6.2, shared by legacy and kept for compatibility pending an explicit decision:
 
