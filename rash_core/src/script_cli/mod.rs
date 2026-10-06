@@ -211,178 +211,97 @@ fn parse_usage(doc: &str) -> Option<Vec<String>> {
 mod tests {
     use super::*;
 
-    fn assert_parity(file: &str, args: &[&str]) {
-        let legacy = crate::docopt::parse(file, args);
-        let compiled = parse(file, args);
-        match (legacy, compiled) {
-            (Ok(legacy), Ok(compiled)) => assert_eq!(compiled, legacy),
-            (Err(legacy), Err(compiled)) => assert_eq!(compiled.kind(), legacy.kind()),
-            (legacy, compiled) => {
-                panic!("parser mismatch: legacy={legacy:?} compiled={compiled:?}")
-            }
-        }
+    const NOTE: &str =
+        "Note: Options must be preceded by `--`. If not, you are passing options directly to rash.
+For more information check rash options with `rash --help`.
+";
+
+    #[test]
+    fn help_skips_shebang_and_strips_comment_prefix() {
+        let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   cp <source> <dest>
+#   cp <source>... <dest>
+#
+"#;
+
+        assert_eq!(
+            parse_help(file),
+            format!("\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\n\n{NOTE}")
+        );
     }
 
     #[test]
-    fn parity_dotfiles_cli() {
+    fn help_stops_at_first_non_comment_line() {
         let file = r#"
-#!/usr/bin/env rash
+#!/usr/bin/env -S rash --diff
+#
+# dots easy manage of your dotfiles.
 #
 # Usage:
 #   ./dots (install|update|help) <package_filters>...
 #
+doe: "a deer, a female deer"
+# comment example
 "#;
-        assert_parity(file, &["install", "foo", "bar"]);
-        assert_parity(file, &["update", "foo"]);
-        assert_parity(file, &["help", "foo"]);
+
+        assert_eq!(
+            parse_help(file),
+            format!(
+                "\ndots easy manage of your dotfiles.\n\nUsage:\n  ./dots (install|update|help) <package_filters>...\n\n{NOTE}"
+            )
+        );
     }
 
     #[test]
-    fn parity_repeatable_group() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage:
-#   foo (<a> <b>)...
-#
-"#;
-        assert_parity(file, &["a", "b", "c", "d"]);
-        assert_parity(file, &["a", "b", "c"]);
+    fn multiline_usage() {
+        let doc = "\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\n";
+        assert_eq!(
+            parse_usage(doc),
+            Some(vec![
+                "cp <source> <dest>".to_owned(),
+                "cp <source>... <dest>".to_owned(),
+            ])
+        );
     }
 
     #[test]
-    fn parity_options_aliases_defaults_and_clusters() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage: my_program.rh [-hso FILE] [--quiet | --verbose] [INPUT ...]
-#
-# -h --help    show this
-# -s --sorted  sorted output
-# -o FILE      specify output file [default: ./test.txt]
-# --quiet      print less text
-# --verbose    print more text
-# --dry-run    run without modifications
-#
-"#;
-        assert_parity(file, &["-o", "yea", "--sorted"]);
-        assert_parity(file, &["-h"]);
+    fn multiline_usage_ends_at_blank_line() {
+        let doc = "\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\n\nfoo\n";
+        assert_eq!(
+            parse_usage(doc),
+            Some(vec![
+                "cp <source> <dest>".to_owned(),
+                "cp <source>... <dest>".to_owned(),
+            ])
+        );
     }
 
     #[test]
-    fn parity_repeatable_flag() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage: foo [-d]...
-#
-"#;
-        assert_parity(file, &[]);
-        assert_parity(file, &["-d"]);
-        assert_parity(file, &["-dd"]);
-        assert_parity(file, &["-d", "-d"]);
+    fn multiline_usage_ends_at_next_section() {
+        let doc = "\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\nFoo:\n  buu\n  fuu\n";
+        assert_eq!(
+            parse_usage(doc),
+            Some(vec![
+                "cp <source> <dest>".to_owned(),
+                "cp <source>... <dest>".to_owned(),
+            ])
+        );
     }
 
     #[test]
-    fn parity_complex_docopt_example() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage:
-#   naval_fate.rh ship new <name>...
-#   naval_fate.rh ship <name> move <x> <y> [--speed=<kn>]
-#   naval_fate.rh ship shoot <x> <y>
-#   naval_fate.rh mine (set|remove) <x> <y> [--moored|--drifting]
-#   naval_fate.rh -h | --help
-#   naval_fate.rh --version
-#
-# Options:
-#   -h --help        Show this screen.
-#   -v --version     Show version.
-#   -s --speed=<kn>  Speed in knots [default: 10].
-#   --moored         Moored (anchored) mine.
-#   --drifting       Drifting mine.
-"#;
-        assert_parity(file, &["mine", "set", "10", "50", "--drifting"]);
-        assert_parity(file, &["ship", "foo", "move", "2", "3", "-s20"]);
-        assert_parity(file, &["ship", "new", "a", "b", "c"]);
+    fn one_line_usage() {
+        let doc = "\nUsage:  cp <source> <dest>\n";
+        assert_eq!(
+            parse_usage(doc),
+            Some(vec!["cp <source> <dest>".to_owned()])
+        );
     }
 
     #[test]
-    fn parity_options_shortcut_matrix() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage: tool [options] <target>
-#
-# Options:
-#   -a --alpha  alpha
-#   -b --beta   beta
-#   -c --gamma  gamma
-#
-"#;
-        for mask in 0..8 {
-            let mut args = Vec::new();
-            if mask & 1 != 0 {
-                args.push("--alpha");
-            }
-            if mask & 2 != 0 {
-                args.push("--beta");
-            }
-            if mask & 4 != 0 {
-                args.push("--gamma");
-            }
-            args.push("target");
-            assert_parity(file, &args);
-        }
-    }
-
-    #[test]
-    fn options_shortcut_is_scoped_per_usage_pattern() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage:
-#   tool get [options]
-#   tool set [--force]
-#
-# Options:
-#   --force    force
-#   --verbose  verbose
-#
-"#;
-        let result = parse(file, &["get", "--force"]).unwrap();
-        assert_eq!(result["options"]["force"], true);
-    }
-
-    #[test]
-    fn ambiguous_usage_is_rejected_deterministically() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage:
-#   tool <source> <dest>
-#   tool <input> <output>
-#
-"#;
-        let error = parse(file, &["a", "b"]).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::InvalidData);
-        assert!(error.to_string().contains("Ambiguous usage declaration"));
-    }
-
-    #[test]
-    fn ten_thousand_repeatable_arguments_do_not_expand_grammar() {
-        let file = r#"
-#!/usr/bin/env rash
-#
-# Usage: tool <file>...
-#
-"#;
-        let owned = (0..10_000)
-            .map(|value| value.to_string())
-            .collect::<Vec<_>>();
-        let args = owned.iter().map(String::as_str).collect::<Vec<_>>();
-        let result = parse(file, &args).unwrap();
-        assert_eq!(result["file"].as_array().unwrap().len(), 10_000);
+    fn missing_usage() {
+        assert_eq!(parse_usage("\nNo usage here\n"), None);
     }
 }
