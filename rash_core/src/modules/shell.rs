@@ -35,7 +35,7 @@
 use crate::context::GlobalParams;
 use crate::error::Result;
 use crate::modules::{Module, ModuleResult, parse_params};
-use crate::process::{OutputMode, ProcessSpec};
+use crate::process::{OutputMode, ProcessPlan, ProcessSpec};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -47,7 +47,6 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
-use serde_norway::value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -81,14 +80,43 @@ fn check_removes(removes: &str) -> bool {
     !Path::new(removes).exists()
 }
 
-fn result_from_process(result: crate::process::ProcessResult) -> Result<ModuleResult> {
-    let failed = !result.success();
-    let extra = Some(value::to_value(json!({
-        "rc": result.rc(),
-        "stderr": result.stderr.clone().unwrap_or_default(),
-        "failed": failed,
-    }))?);
-    Ok(ModuleResult::new(true, extra, result.stdout))
+fn parse(optional_params: YamlValue) -> Result<Params> {
+    match optional_params.as_str() {
+        Some(s) => Ok(Params {
+            cmd: s.to_owned(),
+            executable: None,
+            chdir: None,
+            creates: None,
+            removes: None,
+            stdin: None,
+            stdout: OutputMode::Capture,
+            stderr: OutputMode::Capture,
+        }),
+        None => parse_params(optional_params),
+    }
+}
+
+fn plan(params: Params, check_mode: bool) -> ProcessPlan {
+    let creates_met = params.creates.as_deref().is_some_and(check_creates);
+    let removes_met = params.removes.as_deref().is_some_and(check_removes);
+    if creates_met || removes_met {
+        return ProcessPlan::Done(ModuleResult::new(false, None, None));
+    }
+    if check_mode {
+        return ProcessPlan::Done(ModuleResult::new(
+            true,
+            None,
+            Some(format!("Would run: {}", params.cmd)),
+        ));
+    }
+    let executable = params.executable.as_deref().unwrap_or("/bin/sh");
+    trace!("exec - {} -c {:?}", executable, params.cmd);
+    let mut spec = ProcessSpec::shell(&params.cmd, executable);
+    spec.chdir = params.chdir;
+    spec.stdin = params.stdin;
+    spec.stdout = params.stdout;
+    spec.stderr = params.stderr;
+    ProcessPlan::Run(spec)
 }
 
 #[derive(Debug)]
@@ -106,49 +134,14 @@ impl Module for Shell {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        let params: Params = match optional_params.as_str() {
-            Some(s) => Params {
-                cmd: s.to_owned(),
-                executable: None,
-                chdir: None,
-                creates: None,
-                removes: None,
-                stdin: None,
-                stdout: OutputMode::Capture,
-                stderr: OutputMode::Capture,
-            },
-            None => parse_params(optional_params)?,
-        };
+        Ok((
+            self.plan_process(optional_params, check_mode)?.execute()?,
+            None,
+        ))
+    }
 
-        if let Some(creates) = &params.creates
-            && check_creates(creates)
-        {
-            return Ok((ModuleResult::new(false, None, None), None));
-        }
-
-        if let Some(removes) = &params.removes
-            && check_removes(removes)
-        {
-            return Ok((ModuleResult::new(false, None, None), None));
-        }
-
-        if check_mode {
-            return Ok((
-                ModuleResult::new(true, None, Some(format!("Would run: {}", params.cmd))),
-                None,
-            ));
-        }
-
-        let executable = params.executable.as_deref().unwrap_or("/bin/sh");
-        let mut spec = ProcessSpec::shell(&params.cmd, executable);
-        spec.chdir = params.chdir.clone();
-        spec.stdin = params.stdin.clone();
-        spec.stdout = params.stdout;
-        spec.stderr = params.stderr;
-
-        trace!("exec - {} -c {:?}", executable, params.cmd);
-        let result = spec.run()?;
-        Ok((result_from_process(result)?, None))
+    fn plan_process(&self, params: YamlValue, check_mode: bool) -> Result<ProcessPlan> {
+        Ok(plan(parse(params)?, check_mode))
     }
 
     #[cfg(feature = "docs")]
@@ -204,6 +197,17 @@ mod tests {
         let yaml: YamlValue = serde_norway::from_str("cmd: ls\nyea: boo").unwrap();
         let error = parse_params::<Params>(yaml).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_plan_honors_executable() {
+        let yaml: YamlValue =
+            serde_norway::from_str("cmd: echo hi\nexecutable: /bin/bash").unwrap();
+        let ProcessPlan::Run(spec) = Shell.plan_process(yaml, false).unwrap() else {
+            panic!("expected a process to run");
+        };
+        assert_eq!(spec.program, "/bin/bash");
+        assert_eq!(spec.args, vec!["-c", "echo hi"]);
     }
 
     #[test]

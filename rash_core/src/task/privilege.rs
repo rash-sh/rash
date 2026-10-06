@@ -130,7 +130,7 @@ impl Task<'_> {
                 .unwrap_or(false)
     }
 
-    fn resolve_become_user(&self) -> Result<User> {
+    pub(super) fn resolve_become_user(&self) -> Result<User> {
         let not_found = || {
             Error::new(
                 ErrorKind::Other,

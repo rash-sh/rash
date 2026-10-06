@@ -41,7 +41,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult, parse_params};
-use crate::process::{OutputMode, ProcessSpec};
+use crate::process::{OutputMode, ProcessPlan, ProcessSpec};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -51,7 +51,6 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
-use serde_norway::value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -120,14 +119,38 @@ fn process_spec(params: &Params) -> Result<ProcessSpec> {
     Ok(spec)
 }
 
-fn result_from_process(result: crate::process::ProcessResult) -> Result<ModuleResult> {
-    let failed = !result.success();
-    let extra = Some(value::to_value(json!({
-        "rc": result.rc(),
-        "stderr": result.stderr.clone().unwrap_or_default(),
-        "failed": failed,
-    }))?);
-    Ok(ModuleResult::new(true, extra, result.stdout))
+fn parse(optional_params: YamlValue) -> Result<Params> {
+    match optional_params.as_str() {
+        Some(s) => Ok(Params {
+            chdir: None,
+            required: Required::Cmd(s.to_owned()),
+            transfer_pid: None,
+            stdin: None,
+            stdout: OutputMode::Capture,
+            stderr: OutputMode::Capture,
+        }),
+        None => parse_params(optional_params),
+    }
+}
+
+fn plan(params: &Params, check_mode: bool) -> Result<ProcessPlan> {
+    if check_mode {
+        let display = match &params.required {
+            Required::Cmd(s) => s.clone(),
+            Required::Argv(argv) => argv.join(" "),
+        };
+        return Ok(ProcessPlan::Done(ModuleResult::new(
+            true,
+            None,
+            Some(format!("Would run: {display}")),
+        )));
+    }
+    let spec = process_spec(params)?;
+    Ok(if params.transfer_pid.unwrap_or(false) {
+        ProcessPlan::Replace(spec)
+    } else {
+        ProcessPlan::Run(spec)
+    })
 }
 
 #[derive(Debug)]
@@ -145,39 +168,14 @@ impl Module for Command {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        let params: Params = match optional_params.as_str() {
-            Some(s) => Params {
-                chdir: None,
-                required: Required::Cmd(s.to_owned()),
-                transfer_pid: None,
-                stdin: None,
-                stdout: OutputMode::Capture,
-                stderr: OutputMode::Capture,
-            },
-            None => parse_params(optional_params)?,
-        };
+        Ok((
+            self.plan_process(optional_params, check_mode)?.execute()?,
+            None,
+        ))
+    }
 
-        let display = match &params.required {
-            Required::Cmd(s) => s.clone(),
-            Required::Argv(argv) => argv.join(" "),
-        };
-
-        if check_mode {
-            return Ok((
-                ModuleResult::new(true, None, Some(format!("Would run: {display}"))),
-                None,
-            ));
-        }
-
-        let mut spec = process_spec(&params)?;
-        if params.transfer_pid.unwrap_or(false) {
-            spec.process_group = false;
-            return Err(spec.replace());
-        }
-
-        let result = spec.run()?;
-        trace!("exec - process result: {result:?}");
-        Ok((result_from_process(result)?, None))
+    fn plan_process(&self, params: YamlValue, check_mode: bool) -> Result<ProcessPlan> {
+        plan(&parse(params)?, check_mode)
     }
 
     #[cfg(feature = "docs")]
@@ -315,6 +313,34 @@ mod tests {
                 ErrorKind::InvalidData
             );
         }
+    }
+
+    #[test]
+    fn test_plan_rejects_unknown_fields() {
+        let yaml: YamlValue = serde_norway::from_str("cmd: ls\nbogus: 1").unwrap();
+        let error = Command.plan_process(yaml, false).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_plan_argv_with_tee_and_transfer_pid() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            argv: [printf, "%s", "hello world"]
+            stdout: tee
+            "#,
+        )
+        .unwrap();
+        let ProcessPlan::Run(spec) = Command.plan_process(yaml, false).unwrap() else {
+            panic!("expected a process to run");
+        };
+        assert_eq!(spec.program, "printf");
+        assert_eq!(spec.args, vec!["%s", "hello world"]);
+        assert_eq!(spec.stdout, OutputMode::Tee);
+
+        let yaml: YamlValue = serde_norway::from_str("cmd: ls\ntransfer_pid: true").unwrap();
+        let plan = Command.plan_process(yaml, false).unwrap();
+        assert!(matches!(plan, ProcessPlan::Replace(_)));
     }
 
     #[test]

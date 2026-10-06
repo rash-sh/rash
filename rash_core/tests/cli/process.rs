@@ -275,3 +275,35 @@ fn test_sync_child_can_use_controlling_terminal() {
     assert!(status.success(), "{output}");
     assert_eq!(fixture.wait_for("marker"), "got:hello\n");
 }
+
+#[test]
+fn test_async_tasks_honor_check_mode() {
+    let dir = tempdir().unwrap();
+    let marker = dir.path().join("async-marker");
+    let script_text = format!(
+        r#"
+#!/usr/bin/env rash
+- command:
+    argv: [touch, {marker}]
+  async: 10
+  poll: 1
+  register: polled
+- shell:
+    cmd: touch {marker}
+  loop: [a, b]
+  async: 10
+  poll: 0
+- assert:
+    that:
+      - polled.changed
+- debug:
+    msg: async-check-ok
+"#,
+        marker = marker.display()
+    );
+
+    let (stdout, stderr) = run_test(&script_text, &["--check"]);
+
+    assert!(stdout.contains("async-check-ok"), "stderr: {stderr}");
+    assert!(!marker.exists(), "async job ran in check mode");
+}

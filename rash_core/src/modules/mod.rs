@@ -405,6 +405,7 @@ use crate::modules::yum_repository::YumRepository;
 use crate::modules::zfs::Zfs;
 use crate::modules::zpool::Zpool;
 use crate::modules::zypper::Zypper;
+use crate::process::ProcessPlan;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -465,6 +466,15 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     /// (so they can use vars registered by previous children or loop `item`s).
     fn defer_params_rendering(&self) -> bool {
         false
+    }
+
+    /// Plan the single process this module runs for `params` without running it, so it can
+    /// also be started as an async job.
+    fn plan_process(&self, _params: YamlValue, _check_mode: bool) -> Result<ProcessPlan> {
+        Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("module {} does not run a single process", self.get_name()),
+        ))
     }
 
     /// Whether the module only drives Rash itself (flow control, vars, messages, child tasks)

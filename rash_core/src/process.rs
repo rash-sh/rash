@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
+use crate::modules::ModuleResult;
 use crate::signal::{self, ForegroundGuard};
 
 use std::io::{self, Read, Write};
@@ -53,6 +54,8 @@ pub struct ProcessSpec {
     pub stdout: OutputMode,
     pub stderr: OutputMode,
     pub env: Vec<(String, String)>,
+    /// Run the child as this `(uid, gid)` instead of Rash's user.
+    pub user: Option<(u32, u32)>,
     /// Run the child in its own process group so its whole tree can be killed. Only async
     /// jobs need it: synchronous children stay in Rash's process group, so they behave as
     /// a foreground job on the controlling terminal (they can read it and receive Ctrl-C).
@@ -69,6 +72,7 @@ impl ProcessSpec {
             stdout: OutputMode::Capture,
             stderr: OutputMode::Capture,
             env: Vec::new(),
+            user: None,
             process_group: false,
         }
     }
@@ -97,6 +101,9 @@ impl ProcessSpec {
         command.stderr(self.stderr.stdio());
         if self.process_group {
             command.process_group(0);
+        }
+        if let Some((uid, gid)) = self.user {
+            command.uid(uid).gid(gid);
         }
         command
     }
@@ -177,6 +184,33 @@ impl ProcessSpec {
         };
         let error = spec.command().exec();
         Error::new(ErrorKind::SubprocessFail, error)
+    }
+}
+
+/// What a module running a single process does with its params, decided without running
+/// anything, so sync and async executions share the same semantics.
+#[derive(Debug)]
+pub enum ProcessPlan {
+    /// Nothing to run: check mode, or a `creates`/`removes` condition already met.
+    Done(ModuleResult),
+    /// Run the process to completion.
+    Run(ProcessSpec),
+    /// Replace the Rash process with it (`transfer_pid`).
+    Replace(ProcessSpec),
+}
+
+impl ProcessPlan {
+    /// Execute the plan synchronously, as the module itself does.
+    pub fn execute(self) -> Result<ModuleResult> {
+        match self {
+            Self::Done(result) => Ok(result),
+            Self::Run(spec) => {
+                let result = spec.run()?;
+                trace!("exec - process result: {result:?}");
+                result.into_module_result()
+            }
+            Self::Replace(spec) => Err(spec.replace()),
+        }
     }
 }
 
@@ -441,6 +475,17 @@ pub struct ProcessResult {
 impl ProcessResult {
     pub fn success(&self) -> bool {
         self.status.success()
+    }
+
+    /// Module result of a finished process: always changed, failed on a non-zero status.
+    pub fn into_module_result(self) -> Result<ModuleResult> {
+        let failed = !self.success();
+        let extra = serde_norway::value::to_value(json!({
+            "rc": self.rc(),
+            "stderr": self.stderr.unwrap_or_default(),
+            "failed": failed,
+        }))?;
+        Ok(ModuleResult::new(true, Some(extra), self.stdout))
     }
 
     pub fn rc(&self) -> i32 {

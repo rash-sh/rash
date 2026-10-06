@@ -217,6 +217,11 @@ With `poll: 0`, Rash returns immediately and the registered result contains `ras
 the final structured process result. `transfer_pid` and async execution are intentionally
 incompatible.
 
+Async tasks accept exactly the same module parameters as synchronous ones (unknown fields are
+rejected, `shell` honors `creates`/`removes`). In check mode no job is started and the task reports
+the change it would make. With `become`, the job runs directly as the become user
+(`become_method: syscall`); `become_method: sudo` is rejected for async tasks.
+
 ## Signals and interactive commands
 
 Synchronous `command`, `shell` and `script` processes run in Rash's own process group, like the

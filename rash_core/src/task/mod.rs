@@ -1,7 +1,7 @@
+mod asynchronous;
 mod handler;
 mod new;
 mod privilege;
-mod process;
 mod valid;
 
 pub use handler::{Handlers, PendingHandlers, parse_notify_value};
@@ -16,7 +16,6 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::{
     is_render_string, merge_option, render, render_force_string, render_map, render_string,
 };
-use crate::job::{JobInfo, JobStatus, get_job_info, register_job};
 use crate::logger::{is_json_output, suppress_logs};
 use crate::modules::{Module, ModuleResult};
 use crate::task::new::TaskNew;
@@ -535,185 +534,6 @@ impl<'a> Task<'a> {
             return self.exec_module_with_become(&rendered_params, &vars);
         }
         self.execute_module_with_environment(&rendered_params, &vars)
-    }
-
-    fn get_async_timeout(&self) -> Option<Duration> {
-        self.r#async.map(Duration::from_secs)
-    }
-
-    fn get_poll_interval(&self) -> u64 {
-        self.poll.unwrap_or(0)
-    }
-
-    fn spawn_async_command(&self, rendered_params: &YamlValue, vars: &Value) -> Result<u64> {
-        let extended = self.extend_vars(vars.clone())?;
-        let mut spec = process::from_module(self.module.get_name(), rendered_params)?;
-        spec.env = self.render_environment(&extended)?;
-        // Async jobs get their own process group: timeouts and interrupts kill the tree.
-        spec.process_group = true;
-        let process = spec.spawn_managed()?;
-        let job_id = register_job(self.get_async_timeout(), process);
-        info!(target: "async", "Started async job {job_id}");
-        Ok(job_id)
-    }
-
-    fn job_module_result(&self, info: &JobInfo) -> Result<ModuleResult> {
-        let failed = info.status == JobStatus::Failed;
-        let extra = serde_norway::value::to_value(json!({
-            "rc": info.rc,
-            "stderr": info.stderr.clone().unwrap_or_default(),
-            "failed": failed,
-        }))?;
-        Ok(ModuleResult::new(
-            info.changed,
-            Some(extra),
-            info.output.clone(),
-        ))
-    }
-
-    fn poll_job(&self, job_id: u64, poll_interval: u64, vars: &Value) -> Result<TaskExecResult> {
-        let sleep_duration = Duration::from_secs(poll_interval.max(1));
-        loop {
-            let info = get_job_info(job_id).ok_or_else(|| {
-                Error::new(ErrorKind::NotFound, format!("Job {job_id} not found"))
-            })?;
-            match info.status {
-                JobStatus::Finished => {
-                    return self.finalize_module_result(
-                        self.job_module_result(&info)?,
-                        None,
-                        vars,
-                        false,
-                    );
-                }
-                JobStatus::Failed if info.rc.is_some() => {
-                    return self.finalize_module_result(
-                        self.job_module_result(&info)?,
-                        None,
-                        vars,
-                        false,
-                    );
-                }
-                JobStatus::Failed => {
-                    return Ok(self.module_error_result(Error::new(
-                        ErrorKind::SubprocessFail,
-                        info.error.unwrap_or_else(|| "async job failed".into()),
-                    )));
-                }
-                JobStatus::Running | JobStatus::Pending => thread::sleep(sleep_duration),
-            }
-        }
-    }
-
-    fn exec_async_single(&self, vars: Value) -> Result<TaskExecResult> {
-        if !self.is_exec(&vars)? {
-            return Ok(TaskExecResult::new(false, None));
-        }
-        let rendered_params = self.render_params(vars.clone())?;
-        let extended = self.extend_vars(vars.clone())?;
-        let job_id = self.spawn_async_command(&rendered_params, &vars)?;
-        let poll_interval = self.get_poll_interval();
-
-        if poll_interval == 0 {
-            let extra = serde_norway::value::to_value(json!({
-                "rash_job_id": job_id,
-                "failed": false,
-            }))?;
-            return self.finalize_module_result(
-                ModuleResult::new(
-                    true,
-                    Some(extra),
-                    Some(format!("async job started: {job_id}")),
-                ),
-                None,
-                &extended,
-                false,
-            );
-        }
-        self.poll_job(job_id, poll_interval, &extended)
-    }
-
-    fn exec_parallel_loop(&self, vars: Value) -> Result<TaskExecResult> {
-        let items = self.render_iterator(vars.clone())?;
-        let mut jobs = Vec::new();
-        for item in items {
-            let item_vars = context! {item => &item, ..vars.clone()};
-            if !self.is_exec(&item_vars)? {
-                continue;
-            }
-            let rendered = self.render_params(item_vars.clone())?;
-            let job_id = self.spawn_async_command(&rendered, &item_vars)?;
-            jobs.push((job_id, item));
-        }
-
-        let poll_interval = self.get_poll_interval();
-        let extended = self.extend_vars(vars.clone())?;
-        let job_ids: Vec<u64> = jobs.iter().map(|(id, _)| *id).collect();
-        if poll_interval == 0 {
-            let extra = serde_norway::value::to_value(json!({
-                "rash_job_ids": job_ids,
-                "failed": false,
-            }))?;
-            return self.finalize_module_result(
-                ModuleResult::new(true, Some(extra), None),
-                None,
-                &extended,
-                false,
-            );
-        }
-
-        let sleep_duration = Duration::from_secs(poll_interval.max(1));
-        let mut results: Vec<Option<JobInfo>> = vec![None; jobs.len()];
-        while results.iter().any(Option::is_none) {
-            for (index, (job_id, _)) in jobs.iter().enumerate() {
-                if results[index].is_some() {
-                    continue;
-                }
-                if let Some(info) = get_job_info(*job_id)
-                    && !matches!(info.status, JobStatus::Running | JobStatus::Pending)
-                {
-                    results[index] = Some(info);
-                }
-            }
-            if results.iter().any(Option::is_none) {
-                thread::sleep(sleep_duration);
-            }
-        }
-
-        let mut any_changed = false;
-        let mut any_failed = false;
-        let mut output = Vec::new();
-        for ((job_id, item), info) in jobs.iter().zip(results) {
-            let info = info.expect("completed job has info");
-            if info.status == JobStatus::Failed && info.rc.is_none() {
-                return Ok(self.module_error_result(Error::new(
-                    ErrorKind::SubprocessFail,
-                    info.error
-                        .unwrap_or_else(|| format!("async job {job_id} failed")),
-                )));
-            }
-            any_changed |= info.changed;
-            any_failed |= info.status == JobStatus::Failed;
-            output.push(json!({
-                "job_id": job_id,
-                "item": item,
-                "rc": info.rc,
-                "output": info.output,
-                "stderr": info.stderr,
-                "failed": info.status == JobStatus::Failed,
-            }));
-        }
-        let extra = serde_norway::value::to_value(json!({
-            "rash_job_ids": job_ids,
-            "results": output,
-            "failed": any_failed,
-        }))?;
-        self.finalize_module_result(
-            ModuleResult::new(any_changed, Some(extra), None),
-            None,
-            &extended,
-            false,
-        )
     }
 
     fn exec_with_retry(&self, vars: Value) -> Result<TaskExecResult> {
