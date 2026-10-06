@@ -1834,6 +1834,8 @@ fn options_shortcut_before_command_alternative() {
 
 #[test]
 fn short_and_long_alternative_without_descriptions() {
+    // Undescribed `-h` and `--help` are two options. Unlike legacy (as in docopt 0.6.2): both are
+    // help options; legacy bound `options.h` for `-h`.
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -1843,7 +1845,7 @@ fn short_and_long_alternative_without_descriptions() {
     check(
         file,
         &[
-            (&["-h"], Ok(json!({"options": {"h": true, "help": false}}))),
+            (&["-h"], Err(HELP)),
             (&["--help"], Err(HELP)),
             (&[], Err(INVALID)),
         ],
@@ -1852,19 +1854,14 @@ fn short_and_long_alternative_without_descriptions() {
 
 #[test]
 fn short_and_long_alternative_without_spaces() {
+    // Unlike legacy (as in docopt 0.6.2): `-h` is a help option; legacy bound `options.h`.
     let file = r#"
 #!/usr/bin/env rash
 #
 # Usage: foo -h|--help
 #
 "#;
-    check(
-        file,
-        &[
-            (&["-h"], Ok(json!({"options": {"h": true, "help": false}}))),
-            (&["--help"], Err(HELP)),
-        ],
-    );
+    check(file, &[(&["-h"], Err(HELP)), (&["--help"], Err(HELP))]);
 }
 
 #[test]

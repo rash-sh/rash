@@ -64,8 +64,6 @@ pub(super) struct Nfa {
     nodes: Vec<Node>,
     start: usize,
     accept: usize,
-    /// Options that may also fill a positional slot (help, or the legacy short-only `-h`).
-    positional_help_options: Vec<bool>,
 }
 
 /// Compile all usage patterns into one NFA. Its size depends only on the declaration.
@@ -96,10 +94,6 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
         nodes: builder.nodes,
         start,
         accept,
-        positional_help_options: options
-            .all_ids()
-            .map(|id| options.is_positional_help(id))
-            .collect(),
     }
 }
 
@@ -180,7 +174,7 @@ pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Option<Vec<Capture>> {
             let Node::Consume { matcher, target } = &nfa.nodes[thread.state] else {
                 continue;
             };
-            if accepts(matcher, token, seen_before[index], nfa) {
+            if accepts(matcher, token, seen_before[index]) {
                 arena.push(PathNode {
                     prev: thread.path,
                     state: thread.state,
@@ -219,13 +213,10 @@ fn occurrences_before(input: &[InputToken]) -> Vec<usize> {
 }
 
 /// Whether `matcher` consumes `token`, which follows `seen_before` occurrences of the same option.
-fn accepts(matcher: &Matcher, token: &InputToken, seen_before: usize, nfa: &Nfa) -> bool {
+fn accepts(matcher: &Matcher, token: &InputToken, seen_before: usize) -> bool {
     match (matcher, token) {
         (Matcher::Command { literal, .. }, InputToken::Word(value)) => literal == value,
         (Matcher::Positional { .. }, InputToken::Word(_)) => true,
-        (Matcher::Positional { .. }, InputToken::Option { id, value }) => {
-            value.is_none() && flag(&nfa.positional_help_options, *id)
-        }
         (
             Matcher::Option {
                 id: expected,
@@ -632,53 +623,5 @@ mod tests {
         let nfa = compile(&[pattern], &registry);
         let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
         assert!(execute(&nfa, &repeated).is_some());
-    }
-
-    #[test]
-    fn help_option_can_be_consumed_by_positional_matcher() {
-        let pattern = Expr::Atom(Atom::Positional {
-            key: "target".into(),
-        });
-        let registry = OptionRegistry::from_doc(
-            "Usage: tool <target>\n\n-h --help  help",
-            &["tool <target>".to_owned()],
-        )
-        .unwrap();
-        let nfa = compile(&[pattern], &registry);
-        let input = registry.normalize_args(&["--help"]).unwrap();
-        assert!(matches!(
-            execute(&nfa, &input).as_deref(),
-            Some([Capture::Option { .. }])
-        ));
-    }
-
-    #[test]
-    fn short_only_h_can_be_consumed_by_positional_without_becoming_help() {
-        let pattern = Expr::Atom(Atom::Positional {
-            key: "target".into(),
-        });
-        let registry = OptionRegistry::from_doc(
-            "Usage: tool <target>\n\n-h  h flag",
-            &["tool <target>".to_owned()],
-        )
-        .unwrap();
-        let nfa = compile(&[pattern], &registry);
-        let input = registry.normalize_args(&["-h"]).unwrap();
-        assert!(execute(&nfa, &input).is_some());
-    }
-
-    #[test]
-    fn h_with_non_help_long_alias_cannot_fill_positional() {
-        let pattern = Expr::Atom(Atom::Positional {
-            key: "target".into(),
-        });
-        let registry = OptionRegistry::from_doc(
-            "Usage: tool <target>\n\n-h --host  host",
-            &["tool <target>".to_owned()],
-        )
-        .unwrap();
-        let nfa = compile(&[pattern], &registry);
-        let input = registry.normalize_args(&["-h"]).unwrap();
-        assert_eq!(execute(&nfa, &input), None);
     }
 }

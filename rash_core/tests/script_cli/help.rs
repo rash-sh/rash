@@ -165,31 +165,88 @@ fn help_option_exits_even_where_no_pattern_accepts_it() {
 }
 
 #[test]
-fn short_only_h_fills_positional_without_exit() {
+fn short_only_h_flag_is_a_help_option() {
+    // Unlike legacy (as in docopt 0.6.2): a short-only `-h` flag requests help. Legacy let it fill
+    // the `<x>` slot and bound `options.h`.
     let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options] <x>
+#
+# Options:
+#   -h  short h only
+#   -v  verbose
+#
+"#;
+    check(
+        file,
+        &[
+            (&["-h"], Err(HELP)),
+            (&["x", "-h"], Err(HELP)),
+            (&["-vh", "x"], Err(HELP)),
+            (
+                &["-v", "x"],
+                Ok(json!({"options": {"h": false, "v": true}, "x": "x"})),
+            ),
+        ],
+    );
+
+    let required = r#"
 #!/usr/bin/env rash
 #
 # Usage: tool <required>
 #
 # Options:
-#   -h  ordinary h flag
+#   -h  short h only
 #
 "#;
-    check(file, &[(&["-h"], Ok(json!({"options": {"h": true}})))]);
+    check(required, &[(&["-h"], Err(HELP))]);
 }
 
 #[test]
-fn h_with_non_help_long_alias_does_not_fill_positional() {
+fn h_value_option_is_not_a_help_option() {
     let file = r#"
 #!/usr/bin/env rash
 #
-# Usage: tool <required>
+# Usage: tool [options] <x>
 #
 # Options:
-#   -h --host  host flag
+#   -h <host>  host
 #
 "#;
-    check(file, &[(&["-h"], Err(INVALID))]);
+    check(
+        file,
+        &[
+            (
+                &["-h", "example.com", "x"],
+                Ok(json!({"options": {"h": "example.com"}, "x": "x"})),
+            ),
+            (&["-h", "x"], Err(INVALID)),
+        ],
+    );
+}
+
+#[test]
+fn h_with_non_help_long_alias_is_not_a_help_option() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options] <x>
+#
+# Options:
+#   -h --human  human readable
+#
+"#;
+    check(
+        file,
+        &[
+            (
+                &["-h", "x"],
+                Ok(json!({"options": {"human": true}, "x": "x"})),
+            ),
+            (&["-h"], Err(INVALID)),
+        ],
+    );
 }
 
 #[test]

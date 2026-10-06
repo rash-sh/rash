@@ -71,17 +71,17 @@ impl OptionRegistry {
         self.specs.is_empty()
     }
 
+    /// Whether option `id` requests help: a flag (taking no value) whose aliases are `--help`
+    /// and/or `-h`, as in docopt. `-h` is not a help option when it is an alias of another long
+    /// option, such as `-h, --human`.
     pub(super) fn is_help(&self, id: usize) -> bool {
-        self.specs.get(id).is_some_and(|spec| spec.key() == "help")
-    }
-
-    /// Whether the option may fill a positional slot: a help option, or a short-only `-h`.
-    pub(super) fn is_positional_help(&self, id: usize) -> bool {
-        self.is_help(id)
-            || self
-                .specs
-                .get(id)
-                .is_some_and(|spec| spec.long.is_none() && spec.short.as_deref() == Some("-h"))
+        self.specs.get(id).is_some_and(|spec| {
+            !spec.takes_value
+                && match spec.long.as_deref() {
+                    Some(long) => long == "--help",
+                    None => spec.short.as_deref() == Some("-h"),
+                }
+        })
     }
 
     /// Mark flags that can occur more than once as counters. Value options keep scalar values.
@@ -736,30 +736,20 @@ mod tests {
     }
 
     #[test]
-    fn positional_help_distinguishes_short_only_h_from_other_aliases() {
-        let short_only = OptionRegistry::from_doc(
-            "Usage: tool <value>\n\n-h  helpish",
-            &["tool <value>".to_owned()],
-        )
-        .unwrap();
-        assert!(short_only.is_positional_help(0));
-        assert!(!short_only.is_help(0));
-
-        let real_help = OptionRegistry::from_doc(
-            "Usage: tool <value>\n\n-h --help  help",
-            &["tool <value>".to_owned()],
-        )
-        .unwrap();
-        assert!(real_help.is_positional_help(0));
-        assert!(real_help.is_help(0));
-
-        let host = OptionRegistry::from_doc(
-            "Usage: tool <value>\n\n-h --host  host",
-            &["tool <value>".to_owned()],
-        )
-        .unwrap();
-        assert!(!host.is_positional_help(0));
-        assert!(!host.is_help(0));
+    fn help_option_is_a_help_or_h_flag() {
+        let is_help = |declaration: &str| {
+            let help = format!("Usage: tool [options]\n\n{declaration}  description");
+            OptionRegistry::from_doc(&help, &["tool [options]".to_owned()])
+                .unwrap()
+                .is_help(0)
+        };
+        assert!(is_help("-h --help"));
+        assert!(is_help("--help"));
+        assert!(is_help("-h"));
+        assert!(!is_help("-h --human"));
+        assert!(!is_help("-h <host>"));
+        assert!(!is_help("--help=<topic>"));
+        assert!(!is_help("-x"));
     }
 
     #[test]

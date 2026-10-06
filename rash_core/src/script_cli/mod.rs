@@ -74,7 +74,8 @@ enum InputToken {
 /// # Errors
 ///
 /// - [`ErrorKind::GracefulExit`] with the help text when help is requested: a `help` command
-///   matches, or a help option (`--help` or an alias of it) occurs before any `--` separator.
+///   matches, or a help option occurs before any `--` separator. A help option is a flag named
+///   `--help` or `-h` (alone or together); `-h` aliasing another long option is not one.
 /// - [`ErrorKind::InvalidData`] with the help text when `args` match no usage pattern, and with a
 ///   specific message when the declaration is invalid or an argument is not a declared option.
 pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
@@ -215,9 +216,9 @@ fn is_repeated(repeated: &BTreeMap<String, bool>, key: &str) -> bool {
     repeated.get(key).copied().unwrap_or(false)
 }
 
+/// Whether the match selected a `help` command. Help options are handled before matching.
 fn help_requested(vars: &Value) -> bool {
     value_enabled(vars.get("help"))
-        || value_enabled(vars.get("options").and_then(|options| options.get("help")))
 }
 
 fn value_enabled(value: Option<&Value>) -> bool {
