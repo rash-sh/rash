@@ -1,8 +1,8 @@
 use rash_core::context::{BecomeMethod, Context, GlobalParams};
-use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
 use rash_core::modules::add_module_search_path;
+use rash_core::script_cli;
 use rash_core::signal;
 use rash_core::task::parse_script;
 use rash_core::vars::builtin::Builtins;
@@ -243,7 +243,7 @@ fn main() {
     };
 
     let script_args: Vec<&str> = cli.script_args.iter().map(|s| &**s).collect();
-    let mut new_vars = match docopt::parse(&main_file, &script_args) {
+    let mut new_vars = match script_cli::parse(&main_file, &script_args) {
         Ok(v) => Value::from_serialize(v),
         Err(e) => match e.kind() {
             ErrorKind::GracefulExit => {

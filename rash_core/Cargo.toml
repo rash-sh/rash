@@ -39,6 +39,7 @@ clap = { workspace = true, features = ["std", "color", "derive", "cargo"] }
 fern = { version = "0.7.0", features = ["colored"] }
 ignore = "0.4"
 itertools = "0.15"
+ipc-channel = "0.23.0"
 libc = "0.2"
 md-5 = "0.11"
 nix = { version = "0.31", features = ["process", "user", "term", "poll", "fs"] }
@@ -84,5 +85,5 @@ version = "0.5.0"
 criterion = "0.8.0"
 
 [[bench]]
-name = "docopt"
+name = "script_cli"
 harness = false

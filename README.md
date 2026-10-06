@@ -44,8 +44,8 @@ Ansible inventories, remote fleet orchestration, or module parity.
 - **Container-Friendly**: Well suited to minimal images, entrypoints, and init containers
 - **Template-Powered**: Uses [MiniJinja](https://github.com/mitsuhiko/minijinja) for powerful
   templating capabilities
-- **Script-Friendly Interfaces**: Built-in [docopt](http://docopt.org) parsing for clean command-line
-  interfaces
+- **Script-Friendly Interfaces**: Built-in [docopt](http://docopt.org)-inspired parsing for clean
+  command-line interfaces
 - **Familiar, Not Coupled**: Ansible-inspired YAML without requiring Ansible's runtime or execution
   model
 - **Useful Local Primitives**: Modules provide structured building blocks for common automation

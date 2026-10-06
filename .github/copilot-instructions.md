@@ -13,7 +13,7 @@ cargo except for ad‑hoc exploration.
 ENTRYPOINT=rash_core/src/bin/rash.rs
 MODULES=rash_core/src/modules
 JINJA=rash_core/src/jinja
-DOCOPT=rash_core/src/docopt
+SCRIPT_CLI=rash_core/src/script_cli
 ERROR=rash_core/src/error
 LOGGER=rash_core/src/logger.rs
 TEST_SCRIPTS=test/**/*.rh
@@ -87,7 +87,7 @@ Allocator     : jemallocator only on 64-bit musl
 
 ```
 Release profile : LTO=fat; panic=abort; strip symbols; 1 codegen-unit
-Benchmarks      : cargo bench -p rash_core docopt
+Benchmarks      : cargo bench -p rash_core --bench script_cli
 ```
 
 ## Security / Safety
@@ -118,7 +118,7 @@ mdbook_rash : installed via make book; update docs on behavior change
 ## Search Shortcuts
 
 ```
-ENTRYPOINT MODULES JINJA DOCOPT ERROR LOGGER TEST_SCRIPTS EXAMPLES DOCS_SRC DOCS_OUT
+ENTRYPOINT MODULES JINJA SCRIPT_CLI ERROR LOGGER TEST_SCRIPTS EXAMPLES DOCS_SRC DOCS_OUT
 ```
 
 Prefer these anchors before broad tree search.
