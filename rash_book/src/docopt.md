@@ -74,21 +74,24 @@ rash copy.rh -- --mode 0600 a.txt /tmp/dest
 A script using the shebang `#!/usr/bin/env -S rash --` receives every argument directly, so it can
 be called as `./copy.rh --mode 0600 a.txt /tmp/dest`.
 
+`rash` consumes the first `--`. A second one reaches the script, where it ends the script options:
+`rash tool.rh -- -v -- -x` passes `-x` as a positional value (see [`[--]`](#language-summary)).
+
 ## Language summary
 
-| Syntax                  | Meaning                                                 | Variable                                                       |
-| ----------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
-| `name`                  | Command: the literal word `name`                        | `name`: `true`/`false`, or a count if it can repeat            |
-| `<name>`, `NAME`        | Positional argument                                     | `name`: string, or list if it can repeat; omitted if not given |
-| `-v`, `--verbose`       | Option flag                                             | `options.verbose`: `true`/`false`, or a count if it can repeat |
-| `--port=<n>`, `-o FILE` | Option with a value                                     | `options.port`: string, its `[default: ...]`, or `null`        |
-| `[ ... ]`               | Optional elements                                       |                                                                |
-| `( ... )`               | Required group                                          |                                                                |
-| `a \| b`                | Mutually exclusive alternatives                         |                                                                |
-| `elem...`               | One or more repetitions of `elem`                       |                                                                |
-| `[options]`             | Any described option that no usage pattern names        |                                                                |
-| `[--]`                  | Accept `--`; every later argument is a positional value | `__`: `true`/`false`                                           |
-| `-`                     | Command: a lone `-` (by convention, standard input)     | `_`: `true`/`false`                                            |
+| Syntax                  | Meaning                                             | Variable                                                       |
+| ----------------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `name`                  | Command: the literal word `name`                    | `name`: `true`/`false`, or a count if it can repeat            |
+| `<name>`, `NAME`        | Positional argument                                 | `name`: string, or list if it can repeat; omitted if not given |
+| `-v`, `--verbose`       | Option flag                                         | `options.verbose`: `true`/`false`, or a count if it can repeat |
+| `--port=<n>`, `-o FILE` | Option with a value                                 | `options.port`: string, its `[default: ...]`, or `null`        |
+| `[ ... ]`               | Optional elements                                   |                                                                |
+| `( ... )`               | Required group                                      |                                                                |
+| `a \| b`                | Mutually exclusive alternatives                     |                                                                |
+| `elem...`               | One or more repetitions of `elem`                   |                                                                |
+| `[options]`             | Any described option that no usage pattern names    |                                                                |
+| `[--]`                  | Match the `--` that ends the options                | `__`: `true`/`false`                                           |
+| `-`                     | Command: a lone `-` (by convention, standard input) | `_`: `true`/`false`                                            |
 
 Command and positional names are ASCII words: a letter, then letters or digits, with words joined
 by `-` or `_` (lowercase for `name` and `<name>`, uppercase for `NAME`). `<file1>`, `FILE-2` and
@@ -96,6 +99,10 @@ by `-` or `_` (lowercase for `name` and `<name>`, uppercase for `NAME`). `<file1
 `NAME`. Options are stored under `options`, keyed by their long name if they have one, so a usage
 that declares options cannot also name a command or positional `options`. Groups can be nested up
 to 64 levels deep.
+
+A `--` in the arguments always ends the options: every later argument is a positional value, even
+if it starts with `-`. If no usage pattern declares `[--]`, the `--` itself is dropped; if one
+does, `--` is kept as a word that fills the `[--]` slot (or a positional where `[--]` cannot be).
 
 A variable has the same type in every pattern: if `<source>` can repeat in one pattern, it is a
 list in all of them.
@@ -127,12 +134,12 @@ deterministically:
 **Help.** `rash` prints the help text, followed by a note about `--`, and exits with status 0
 without running any task when:
 
-- The arguments contain a **help option**: the option whose long name is `--help`, or one of its
-  aliases (`-h` in `-h --help`). It can appear anywhere, even if the other arguments match no
-  pattern, but it must be declared and the other options must be valid (`Unknown option: --nope`
-  is reported instead). It is not a help request after a declared `--` separator, or when it is
-  the value of another option (`--port --help`). A `-h` without a `--help` alias is an ordinary
-  option.
+- The arguments contain a **help option** before any `--`: a declared flag whose long name is
+  `--help` (with any short alias, such as `-h --help`), or a `-h` flag without a long name. It
+  wins even if the other arguments are invalid or match no pattern (`--unknown --help` shows the
+  help). It must itself be written correctly (`--help=yes` is an error), and it is not a help
+  request when it is the value of another option (`--port --help`). `-h` is not a help option
+  when it takes a value (`-h <host>`) or has another long name (`-h, --human`).
 - The arguments match a pattern through a `help` command, such as `tool (help | run <target>)`.
 
 **Usage errors.** When the arguments match no usage pattern, `rash` prints `[ERROR]` and the help
@@ -141,7 +148,6 @@ text to stderr and exits with status 1. These more specific errors are reported 
 | Error                                    | Cause                                                            |
 | ---------------------------------------- | ---------------------------------------------------------------- |
 | `Unknown option: --nope`                 | The option is not declared (long options cannot be abbreviated). |
-| `Unknown option: --`                     | `--` is given but no usage pattern declares `[--]`.              |
 | `Option --port requires a value`         | A value option is the last argument.                             |
 | `Option --dry-run does not take a value` | A flag is given a value with `=`.                                |
 | `Ambiguous option alias: -u`             | The short alias is declared for two different options.           |
@@ -172,10 +178,11 @@ behave differently:
   last value wins).
 - `[-o FILE] [--sorted | --quiet]` accepts an empty call, and declarations that combine a short
   option cluster such as `[-hsoFILE]` with repeatable options no longer reject every call.
-- The `--` separator: `tool [options] [--] <file>...` accepts `-v -- -x` (`file = ["-x"]`).
-  `-` and `--` are commands with the variables `_` and `__`.
-- A help option shows the help wherever it appears: with `tool <name>` and `-h --help` described,
-  `tool a b --help` shows the help instead of a usage error.
+- The `--` separator ends the options: `tool <file>...` accepts `a -- -b` (`file = ["a", "-b"]`),
+  and `tool [options] [--] <file>...` accepts `-v -- -x`. `-` and `--` are commands with the
+  variables `_` and `__`.
+- A help option shows the help wherever it appears and even if other arguments are invalid:
+  `tool a b --help` and `tool --unknown --help` show the help instead of an error.
 - Digits in names (`<file1>`, `FILE-2`, `step2`) and directly nested brackets (`[[<x>]]`).
 
 **Now rejected** (previously accepted, often with a wrong result):
@@ -187,6 +194,7 @@ behave differently:
 - A short alias declared for two options (`-u --sysupgrade` and `-u --upgrades`) fails with
   `Ambiguous option alias: -u` when used, instead of silently picking one. The long aliases work.
 - A command or positional named `options` in a usage that declares options.
+- `--help=yes` fails with `Option --help does not take a value` instead of showing the help.
 - Invalid declarations and option values report the cause (`Invalid usage identifier: Run`,
   `Option --known does not take a value`) instead of the whole help text or an empty message.
 
@@ -203,8 +211,11 @@ behave differently:
   (`[--quiet | --verbose]...`) is a count (previously `true`, or a mix of boolean and count).
 - A positional written more than once in a pattern (`[<x>] [<x>]`) is always a list, even with a
   single value (previously the last value as a string).
-- Short options never fill positional slots: `tool [-hsoFILE] [INPUT ...]` with `-hs` sets
-  `options.s` (previously `input = ["-s"]`).
+- Short options never fill positional slots: `tool [-asoFILE] [INPUT ...]` with `-s` sets
+  `options.s` (previously it sometimes gave `input = ["-s"]`).
+- A `-h` flag without a long name shows the help (previously it set `options.h` and could stand in
+  for a positional), and `--port --help` sets `options.port` to `--help` instead of showing the
+  help.
 - Help lines starting with `-` that declare no option, such as Markdown bullets (`- note`), no
   longer add an empty `options[""]` key.
 
@@ -216,12 +227,10 @@ These Docopt behaviours are not supported:
   `tool [--verbose] (start|stop) [--force]`, `start --force` works but `--force start` and
   `start --verbose` are rejected. Adjacent optional options, and the options in `[options]`, can be
   given in any order among themselves.
-- **`--` needs `[--]`.** Without `--` in a usage pattern, `--` in the arguments fails with
-  `Unknown option: --`; Docopt reads it as a positional value. The variables of `--` and `-` are
-  `__` and `_`.
+- **`--` is dropped without `[--]`.** When no usage pattern declares `[--]`, `--` in the
+  arguments ends the options and is discarded; Docopt keeps it as a positional value. The
+  variables of `--` and `-` are `__` and `_`.
 - **No abbreviated long options.** `--verb` does not match `--verbose`.
-- **Only `--help` and its aliases request help.** Docopt also treats a `-h` without a `--help`
-  alias as a help request.
 - **One-line usage holds one pattern.** Continuation lines after `Usage: tool ...` are ignored; use
   the block form for several patterns.
 - **Bare `[options]` accepts a repeated flag** when it stands for two or more options:

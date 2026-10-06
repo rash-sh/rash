@@ -100,8 +100,9 @@ will show all documentation and exit with a status code of 0 without running any
 ./program help     # Same behavior if 'help' is defined as a command
 ```
 
-`--help` (or its alias) shows the help wherever it appears, even if the other arguments match no
-usage pattern. See [Help and errors](docopt.md#help-and-errors).
+A help option (`--help`, its alias, or a `-h` flag without a long name) shows the help wherever
+it appears before `--`, even if the other arguments are invalid. See
+[Help and errors](docopt.md#help-and-errors).
 
 ### Default values for options
 

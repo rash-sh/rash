@@ -137,9 +137,9 @@ rash script.rh --option value
 
 ### The `--` separator and `-`
 
-A lone `-` and `--` in a usage pattern are commands, stored as `_` and `__`. When a pattern
-declares `--`, usually as `[--]`, a `--` in the arguments ends the options: every later argument is
-a positional value, even if it starts with `-`:
+A `--` in the arguments ends the options: every later argument is a positional value, even if it
+starts with `-`. A lone `-` and `--` in a usage pattern are commands, stored as `_` and `__`;
+declare `[--]` to record whether `--` was given:
 
 ```
 Usage: my_program [options] [--] <file>...
@@ -147,7 +147,9 @@ Usage: my_program [options] [--] <file>...
 # my_program -v -- -x.txt  ->  options.verbose = true, __ = true, file = ["-x.txt"]
 ```
 
-If no pattern declares `--`, a `--` among the script arguments fails with `Unknown option: --`.
+If no pattern declares `--`, the `--` is dropped: with `my_program <file>...`, `a -- -b` gives
+`file = ["a", "-b"]`. Remember that `rash` consumes the first `--` itself:
+`rash my_program.rh -- a -- -b`.
 
 ## Optional elements
 
