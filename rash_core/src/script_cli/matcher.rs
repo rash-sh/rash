@@ -303,8 +303,16 @@ impl Builder {
     }
 
     /// Append an epsilon edge with lower priority than the existing edges of `from`.
+    ///
+    /// `from` is always a split: fragment exits are splits, and so are the states the builder
+    /// creates to add edges to.
     fn epsilon(&mut self, from: usize, to: usize) {
-        if let Some(Node::Split(targets)) = self.nodes.get_mut(from) {
+        let source = self.nodes.get_mut(from);
+        debug_assert!(
+            matches!(source, Some(Node::Split(_))),
+            "epsilon edge from state {from}, which is not a split"
+        );
+        if let Some(Node::Split(targets)) = source {
             targets.push(to);
         }
     }
