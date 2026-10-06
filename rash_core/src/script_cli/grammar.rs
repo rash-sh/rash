@@ -87,9 +87,17 @@ impl Count {
     }
 }
 
+/// Maximum nesting of `(...)` and `[...]` groups in a usage pattern. It bounds the recursion of
+/// the parser and of every pass over the AST.
+const MAX_GROUP_DEPTH: usize = 64;
+
 /// Parse the tokens of one usage pattern, without its program name.
 pub(super) fn parse(tokens: Vec<Token>) -> Result<Expr> {
-    let mut parser = Parser { tokens, pos: 0 };
+    let mut parser = Parser {
+        tokens,
+        pos: 0,
+        depth: 0,
+    };
     let expr = parser.parse_alternative()?;
     if parser.pos != parser.tokens.len() {
         return Err(parser.invalid("unexpected trailing token"));
@@ -310,6 +318,8 @@ fn bracketed(inner: Expr) -> Expr {
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    /// Number of currently open groups.
+    depth: usize,
 }
 
 impl Parser {
@@ -339,16 +349,8 @@ impl Parser {
             .ok_or_else(|| self.invalid("unexpected end of usage"))?;
 
         let mut expr = match token {
-            Token::LeftParen => {
-                let inner = self.parse_alternative()?;
-                self.expect(Token::RightParen)?;
-                Expr::Required(Box::new(inner))
-            }
-            Token::LeftBracket => {
-                let inner = self.parse_alternative()?;
-                self.expect(Token::RightBracket)?;
-                bracketed(inner)
-            }
+            Token::LeftParen => Expr::Required(Box::new(self.parse_group(Token::RightParen)?)),
+            Token::LeftBracket => bracketed(self.parse_group(Token::RightBracket)?),
             Token::Atom(value) => Expr::Atom(classify_atom(value)?),
             Token::Option(id) => Expr::Atom(Atom::Option(id)),
             Token::Ellipsis => return Err(self.invalid("ellipsis has no preceding expression")),
@@ -364,6 +366,20 @@ impl Parser {
             }
         }
         Ok(expr)
+    }
+
+    /// Contents of a group whose opening delimiter was just consumed, up to `close`.
+    fn parse_group(&mut self, close: Token) -> Result<Expr> {
+        if self.depth >= MAX_GROUP_DEPTH {
+            return Err(self.invalid(&format!(
+                "groups nested deeper than {MAX_GROUP_DEPTH} levels"
+            )));
+        }
+        self.depth += 1;
+        let inner = self.parse_alternative()?;
+        self.expect(close)?;
+        self.depth -= 1;
+        Ok(inner)
     }
 
     fn expect(&mut self, expected: Token) -> Result<()> {

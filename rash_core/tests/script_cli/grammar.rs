@@ -833,3 +833,21 @@ fn command_named_options_is_reserved_when_options_are_declared() {
         )],
     );
 }
+
+#[test]
+fn deep_group_nesting_is_rejected() {
+    let nested = |depth: usize| {
+        format!(
+            "\n#\n# Usage: tool {}<x>{}\n#\n",
+            "(".repeat(depth),
+            ")".repeat(depth)
+        )
+    };
+    check(&nested(64), &[(&["v"], Ok(json!({"x": "v"})))]);
+    assert_eq!(
+        error_message(&nested(65), &["v"]),
+        "Invalid usage grammar at token 65: groups nested deeper than 64 levels"
+    );
+    // Far beyond the limit, the error is still reported instead of overflowing the stack.
+    check(&nested(100_000), &[(&["v"], Err(INVALID))]);
+}
