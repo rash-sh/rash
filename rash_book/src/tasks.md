@@ -319,3 +319,15 @@ rash --become --become-method sudo -K script.rh
 | Requires sudo executable | No | Yes |
 | Password support | No | Yes |
 | Extra child Rash process | No | Yes |
+
+### Control-flow modules
+
+Modules that only drive Rash itself (`block`, `include`, `meta`, `set_vars`, `debug`, `assert`,
+`fail`, `pause`, `async_status`, `async_poll` and custom modules) always run in the Rash process,
+never as the become user, so `meta: exit` keeps its exit code and vars stay in scope. When
+`become` (or `check_mode`) is set on a `block` or `include`, every child task inherits it and
+escalates on its own.
+
+With the sudo method, task data is exchanged through private (`0600`) temporary files that are
+removed afterwards. Becoming a non-root user other than the current one therefore requires
+running Rash as root.

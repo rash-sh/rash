@@ -255,3 +255,83 @@ exec "$@"
         );
     }
 }
+
+/// Run a script with the mocks (e.g. `sudo`) first in PATH, returning exit code and output.
+fn run_script_status(script_text: &str, args: &[&str]) -> (Option<i32>, String) {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, script_text).unwrap();
+    let mocks = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+    let path = std::env::join_paths(
+        std::iter::once(mocks).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rash"))
+        .args(args)
+        .arg(&script_path)
+        .env("PATH", path)
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    (output.status.code(), text)
+}
+
+const TEMPLATED_EXIT: &str = r#"
+- set_vars:
+    wanted: "{{ 3 + 4 }}"
+- block:
+    - meta:
+        action: exit
+        code: "{{ wanted }}"
+  become: true
+- debug:
+    msg: unreachable-after-exit
+"#;
+
+#[test]
+fn test_meta_exit_code_propagates_with_become() {
+    for args in [
+        &[][..],
+        &["--become"][..],
+        &["--become", "--become-method", "sudo"][..],
+    ] {
+        let (code, output) = run_script_status(TEMPLATED_EXIT, args);
+        assert_eq!(code, Some(7), "{args:?}: {output}");
+        assert!(!output.contains("unreachable-after-exit"), "{output}");
+    }
+}
+
+#[test]
+fn test_block_children_inherit_become_and_escalate_individually() {
+    let script_text = r#"
+- block:
+    - command: echo escalated
+      register: inner
+  become: true
+  become_method: sudo
+- assert:
+    that:
+      - inner.stdout == "escalated\n"
+- debug:
+    msg: block-become-ok
+"#;
+    let (code, output) = run_script_status(script_text, &[]);
+    assert_eq!(code, Some(0), "{output}");
+    assert!(output.contains("block-become-ok"), "{output}");
+}
+
+#[test]
+fn test_failed_become_child_never_continues_script() {
+    let script_text = r#"
+- command: echo hi
+  become: true
+  become_user: nobody
+  ignore_errors: true
+- debug:
+    msg: after-become-task
+"#;
+    let (code, output) = run_script_status(script_text, &[]);
+    assert_eq!(code, Some(0), "{output}");
+    assert_eq!(output.matches("after-become-task").count(), 1, "{output}");
+}

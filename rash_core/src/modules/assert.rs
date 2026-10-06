@@ -70,6 +70,10 @@ impl Module for Assert {
         "assert"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         _: &GlobalParams,

@@ -116,6 +116,10 @@ impl Module for AsyncStatus {
         "async_status"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         _: &GlobalParams,
@@ -199,6 +203,10 @@ pub struct PollParams {
 impl Module for AsyncPoll {
     fn get_name(&self) -> &str {
         "async_poll"
+    }
+
+    fn is_control_flow(&self) -> bool {
+        true
     }
 
     fn exec(

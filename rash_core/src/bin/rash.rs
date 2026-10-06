@@ -5,7 +5,7 @@ use rash_core::logger;
 use rash_core::modules::add_module_search_path;
 use rash_core::signal;
 use rash_core::task::{
-    InternalTaskData, get_internal_result_path, parse_file, parse_file_with_handlers,
+    BecomeOutcome, InternalTaskData, get_internal_result_path, parse_file, parse_file_with_handlers,
 };
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
@@ -189,19 +189,14 @@ fn execute_internal_task(task_path: &Path) {
         });
     let vars = context! {rash => &builtins, ..internal_data.vars};
     let task = tasks.remove(0);
-    let exec_result = task.exec(vars).unwrap_or_else(|e| {
-        if e.kind() == ErrorKind::Interrupted {
-            crash_error(e);
-        }
-        error!("Internal task failed: {e}");
-        exit(1);
-    });
+    // Errors, explicit exits and interrupts are reported to the parent, which handles them.
+    let outcome = BecomeOutcome::from(task.exec(vars));
 
     let result_path = get_internal_result_path().unwrap_or_else(|| {
         error!("No result file path specified");
         exit(1);
     });
-    let result_json = serde_json::to_string(&exec_result).unwrap_or_else(|e| {
+    let result_json = serde_json::to_string(&outcome).unwrap_or_else(|e| {
         error!("Failed to serialize internal task result: {e}");
         exit(1);
     });

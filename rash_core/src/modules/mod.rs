@@ -467,6 +467,13 @@ pub trait Module: Send + Sync + std::fmt::Debug {
         false
     }
 
+    /// Whether the module only drives Rash itself (flow control, vars, messages, child tasks)
+    /// and has no side effects of its own. Such modules always run in the Rash process,
+    /// never as the `become` user; their child tasks escalate on their own.
+    fn is_control_flow(&self) -> bool {
+        false
+    }
+
     /// Whether the output produced with these (rendered) params must never be logged, e.g.
     /// a secret typed by the user. It is still available through `register`.
     fn hides_output(&self, _params: &YamlValue) -> bool {

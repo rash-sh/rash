@@ -55,6 +55,10 @@ impl Module for SetVars {
         "set_vars"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         _: &GlobalParams,

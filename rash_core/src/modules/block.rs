@@ -123,6 +123,10 @@ impl Module for Block {
         "block"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         global_params: &GlobalParams,

@@ -101,6 +101,10 @@ impl Module for Include {
         "include"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         global_params: &GlobalParams,

@@ -1,9 +1,15 @@
 mod handler;
 mod new;
+mod privilege;
 mod process;
 mod valid;
 
 pub use handler::{Handlers, PendingHandlers, parse_notify_value};
+pub use privilege::{
+    BecomeOutcome, InternalTaskData, RASH_INTERNAL_OUTPUT_ENV, RASH_INTERNAL_RESULT_ENV,
+    RASH_INTERNAL_TASK_ENV, RASH_INTERNAL_TASK_FLAG, get_internal_output, get_internal_result_path,
+    is_internal_execution, is_internal_task_execution,
+};
 
 use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
@@ -17,22 +23,12 @@ use crate::task::new::TaskNew;
 
 use std::collections::HashMap;
 use std::env;
-use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command as StdCommand, Output, Stdio, exit};
-use std::result::Result as StdResult;
 use std::thread;
 use std::time::Duration;
 
-use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
 use minijinja::{Value, context};
-use nix::sys::wait::{WaitStatus, waitpid};
-use nix::unistd::{ForkResult, Uid, User, fchown, fork, setgid, setuid};
 use serde::{Deserialize, Serialize};
-use serde_error::Error as SerdeError;
 use serde_norway::Value as YamlValue;
-use tempfile::NamedTempFile;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TaskExecResult {
@@ -115,39 +111,9 @@ impl JsonResult {
     }
 }
 
-/// Internal task serialization for sudo become method.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InternalTaskData {
-    pub original_path: Option<String>,
-    pub args: Option<Vec<String>>,
-    pub vars: Value,
-    pub task: YamlValue,
-}
-
 /// Failure message reported instead of the real one for `no_log` tasks (as Ansible does).
 pub const NO_LOG_MESSAGE: &str =
     "the output has been hidden due to the fact that 'no_log: true' was specified for this result";
-
-pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
-pub const RASH_INTERNAL_RESULT_ENV: &str = "RASH_INTERNAL_RESULT_FILE";
-pub const RASH_INTERNAL_OUTPUT_ENV: &str = "RASH_INTERNAL_OUTPUT";
-pub const RASH_INTERNAL_TASK_FLAG: &str = "RASH_INTERNAL";
-
-pub fn is_internal_task_execution() -> Option<PathBuf> {
-    env::var(RASH_INTERNAL_TASK_ENV).ok().map(PathBuf::from)
-}
-
-pub fn get_internal_result_path() -> Option<PathBuf> {
-    env::var(RASH_INTERNAL_RESULT_ENV).ok().map(PathBuf::from)
-}
-
-pub fn get_internal_output() -> Option<String> {
-    env::var(RASH_INTERNAL_OUTPUT_ENV).ok()
-}
-
-pub fn is_internal_execution() -> bool {
-    env::var(RASH_INTERNAL_TASK_FLAG).is_ok()
-}
 
 fn log_module_result(changed: bool, failed: bool, result: &ModuleResult, hide_output: bool) {
     let hidden;
@@ -503,6 +469,19 @@ impl<'a> Task<'a> {
         TaskExecResult::failed(false, register_vars, message)
     }
 
+    /// Global params as seen by this task's module: the task-level become and check mode
+    /// settings, so child tasks of control-flow modules (block, include) inherit them.
+    fn effective_global_params(&self) -> GlobalParams<'_> {
+        GlobalParams {
+            r#become: self.r#become,
+            become_user: &self.become_user,
+            become_method: self.become_method,
+            become_exe: &self.become_exe,
+            become_password: self.become_password.as_deref(),
+            check_mode: self.check_mode,
+        }
+    }
+
     fn execute_module_with_environment(
         &self,
         rendered_params: &YamlValue,
@@ -520,7 +499,7 @@ impl<'a> Task<'a> {
         }
 
         let module_result = self.module.exec(
-            self.global_params,
+            &self.effective_global_params(),
             rendered_params.clone(),
             &extended_vars,
             self.check_mode,
@@ -546,281 +525,15 @@ impl<'a> Task<'a> {
         }
     }
 
-    fn exec_module_rendered_with_user(
-        &self,
-        rendered_params: &YamlValue,
-        vars: &Value,
-        user: User,
-    ) -> Result<TaskExecResult> {
-        setgid(user.gid).map_err(|_| {
-            Error::new(
-                ErrorKind::Other,
-                format!("gid cannot be changed to {}", user.gid),
-            )
-        })?;
-        setuid(user.uid).map_err(|_| {
-            Error::new(
-                ErrorKind::Other,
-                format!("uid cannot be changed to {}", user.uid),
-            )
-        })?;
-        self.execute_module_with_environment(rendered_params, vars)
-    }
-
-    fn internal_sudo_task(&self, rendered_params: &YamlValue) -> YamlValue {
-        let mut mapping = serde_norway::Mapping::new();
-        let key = |name: &str| YamlValue::String(name.to_owned());
-        mapping.insert(key(self.module.get_name()), rendered_params.clone());
-        if let Some(name) = &self.name {
-            mapping.insert(key("name"), YamlValue::String(name.clone()));
-        }
-        if let Some(expression) = &self.changed_when {
-            mapping.insert(key("changed_when"), YamlValue::String(expression.clone()));
-        }
-        if let Some(expression) = &self.failed_when {
-            mapping.insert(key("failed_when"), YamlValue::String(expression.clone()));
-        }
-        if let Some(register) = &self.register {
-            mapping.insert(key("register"), YamlValue::String(register.clone()));
-        }
-        if let Some(environment) = &self.environment {
-            mapping.insert(key("environment"), environment.clone());
-        }
-        if self.quiet {
-            mapping.insert(key("quiet"), YamlValue::Bool(true));
-        }
-        if self.no_log {
-            mapping.insert(key("no_log"), YamlValue::Bool(true));
-        }
-        // The child must serialize semantic failure rather than terminating before the parent can
-        // run rescue/always or apply the caller's ignore_errors policy.
-        mapping.insert(key("ignore_errors"), YamlValue::Bool(true));
-        YamlValue::Mapping(mapping)
-    }
-
-    fn internal_task_data(
-        &self,
-        rendered_params: &YamlValue,
-        vars: &Value,
-    ) -> Result<InternalTaskData> {
-        Ok(InternalTaskData {
-            original_path: vars
-                .get_attr("rash")
-                .ok()
-                .and_then(|rash| rash.get_attr("path").ok())
-                .and_then(|path| path.as_str().map(String::from)),
-            args: None,
-            vars: self.extend_vars(vars.clone())?,
-            task: self.internal_sudo_task(rendered_params),
-        })
-    }
-
-    /// Create a temporary file only the current user and the become user can access. Task
-    /// files hold rendered params and vars, which may include secrets.
-    fn sudo_private_file(&self, prefix: &str) -> Result<NamedTempFile> {
-        // Created with O_EXCL, a random name and mode 0600; removed on drop.
-        let file = tempfile::Builder::new()
-            .prefix(prefix)
-            .tempfile()
-            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
-        let user = self.resolve_become_user()?;
-        let current = Uid::effective();
-        if user.uid.is_root() || user.uid == current {
-            return Ok(file);
-        }
-        if !current.is_root() {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "become_method sudo cannot share task data privately with user {:?}: run \
-                     rash as root or become root instead",
-                    self.become_user
-                ),
-            ));
-        }
-        fchown(file.as_file(), Some(user.uid), Some(user.gid))?;
-        Ok(file)
-    }
-
-    fn sudo_command(&self, task_file: &Path, result_file: &Path) -> Result<StdCommand> {
-        let rash_path = env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
-        let mut command = StdCommand::new(&self.become_exe);
-        command.arg("-H").arg("-E").arg("-u").arg(&self.become_user);
-        if self.become_password.is_some() {
-            command.arg("-S");
-        }
-        command
-            .arg("--")
-            .arg(&rash_path)
-            .arg("--internal-task")
-            .arg(task_file)
-            .env(RASH_INTERNAL_RESULT_ENV, result_file)
-            .env(RASH_INTERNAL_TASK_FLAG, "1")
-            .stdout(Stdio::inherit());
-        Ok(command)
-    }
-
-    fn run_sudo(&self, mut command: StdCommand) -> Result<Output> {
-        let Some(password) = &self.become_password else {
-            let status = command
-                .stderr(Stdio::inherit())
-                .status()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-            return Ok(Output {
-                status,
-                stdout: Vec::new(),
-                stderr: Vec::new(),
-            });
-        };
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin
-                .write_all(format!("{password}\n").as_bytes())
-                .map_err(|e| Error::new(ErrorKind::Other, e))?;
-        }
-        child
-            .wait_with_output()
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
-    }
-
-    fn exec_module_via_sudo(
-        &self,
-        rendered_params: &YamlValue,
-        vars: &Value,
-    ) -> Result<TaskExecResult> {
-        let mut task_file = self.sudo_private_file("rash_task_")?;
-        let result_file = self.sudo_private_file("rash_result_")?;
-        let task_content = serde_yaml::to_string(&self.internal_task_data(rendered_params, vars)?)
-            .map_err(|e| Error::new(ErrorKind::Other, e))?;
-        task_file
-            .write_all(task_content.as_bytes())
-            .and_then(|()| task_file.flush())
-            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
-
-        let output = self.run_sudo(self.sudo_command(task_file.path(), result_file.path())?)?;
-        if !output.status.success() {
-            return Err(Error::new(
-                ErrorKind::SubprocessFail,
-                format!(
-                    "{} failed with exit code {}: {}",
-                    self.become_exe,
-                    output.status.code().unwrap_or(-1),
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ));
-        }
-
-        let result_content = fs::read_to_string(result_file.path()).map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
-                format!("Failed to read sudo result file: {e}"),
-            )
-        })?;
-        serde_json::from_str(&result_content).map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
-                format!("Failed to parse sudo result JSON: {e}"),
-            )
-        })
-    }
-
-    fn resolve_become_user(&self) -> Result<User> {
-        let not_found = || {
-            Error::new(
-                ErrorKind::Other,
-                format!("User {:?} not found", self.become_user),
-            )
-        };
-        if let Some(user) = User::from_name(&self.become_user).map_err(|_| not_found())? {
-            return Ok(user);
-        }
-        let uid = self
-            .become_user
-            .parse::<u32>()
-            .map(Uid::from_raw)
-            .map_err(|_| not_found())?;
-        User::from_uid(uid)?.ok_or_else(not_found)
-    }
-
     fn exec_module(&self, vars: Value) -> Result<TaskExecResult> {
         if !self.is_exec(&vars)? {
             debug!("skipping");
             return Ok(TaskExecResult::new(false, None));
         }
         let rendered_params = self.render_params(vars.clone())?;
-
-        if self.r#become && !self.check_mode {
-            if self.become_method == BecomeMethod::Sudo {
-                return self.exec_module_via_sudo(&rendered_params, &vars);
-            }
-
-            let user = self.resolve_become_user()?;
-            if user.uid != Uid::current() {
-                if self.module.get_name() == "command"
-                    && rendered_params
-                        .get("transfer_pid")
-                        .and_then(YamlValue::as_bool)
-                        .unwrap_or(false)
-                {
-                    return self.exec_module_rendered_with_user(&rendered_params, &vars, user);
-                }
-
-                #[allow(clippy::type_complexity)]
-                let (tx, rx): (
-                    IpcSender<StdResult<String, SerdeError>>,
-                    IpcReceiver<StdResult<String, SerdeError>>,
-                ) = ipc::channel().map_err(|e| Error::new(ErrorKind::Other, e))?;
-
-                match unsafe { fork() } {
-                    Ok(ForkResult::Child) => {
-                        let result =
-                            self.exec_module_rendered_with_user(&rendered_params, &vars, user);
-                        tx.send(
-                            result
-                                .map(|value| serde_json::to_string(&value))?
-                                .map_err(|e| SerdeError::new(&e)),
-                        )
-                        .unwrap_or_else(|e| {
-                            error!("child failed to send result: {e}");
-                            exit(1)
-                        });
-                        exit(0);
-                    }
-                    Ok(ForkResult::Parent { child, .. }) => {
-                        match waitpid(child, None) {
-                            Ok(WaitStatus::Exited(_, 0)) => {}
-                            Ok(WaitStatus::Exited(_, code)) => {
-                                return Err(Error::new(
-                                    ErrorKind::SubprocessFail,
-                                    format!("become child failed with exit code {code}"),
-                                ));
-                            }
-                            Ok(status) => {
-                                return Err(Error::new(
-                                    ErrorKind::SubprocessFail,
-                                    format!("become child ended with status {status:?}"),
-                                ));
-                            }
-                            Err(e) => return Err(Error::new(ErrorKind::Other, e)),
-                        }
-                        return rx
-                            .recv()
-                            .map_err(|e| Error::new(ErrorKind::Other, format!("{e:?}")))?
-                            .map_err(|e| Error::new(ErrorKind::Other, format!("{e:?}")))
-                            .and_then(|value| {
-                                serde_json::from_str(&value)
-                                    .map_err(|e| Error::new(ErrorKind::Other, e))
-                            });
-                    }
-                    Err(e) => return Err(Error::new(ErrorKind::Other, e)),
-                }
-            }
+        if self.runs_with_become() {
+            return self.exec_module_with_become(&rendered_params, &vars);
         }
-
         self.execute_module_with_environment(&rendered_params, &vars)
     }
 
@@ -1450,7 +1163,6 @@ pub fn parse_file_with_handlers<'a>(
 mod tests {
     use super::*;
     use minijinja::context;
-    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn failed_when_false_keeps_nonzero_command_as_data() {
@@ -1668,29 +1380,6 @@ mod tests {
         let task = Task::new(&yaml, &global_params).unwrap();
         let error = task.exec(context! {}).unwrap_err();
         assert_eq!(error.to_string(), NO_LOG_MESSAGE);
-    }
-
-    #[test]
-    fn sudo_private_file_is_owner_only() {
-        let yaml: YamlValue =
-            serde_norway::from_str("debug: {msg: hi}\nbecome_user: root").unwrap();
-        let global_params = GlobalParams::default();
-        let task = Task::new(&yaml, &global_params).unwrap();
-        let file = task.sudo_private_file("rash_test_").unwrap();
-        let mode = file.as_file().metadata().unwrap().permissions().mode();
-        assert_eq!(mode & 0o777, 0o600);
-    }
-
-    #[test]
-    fn sudo_private_file_refuses_other_user_when_not_root() {
-        if Uid::effective().is_root() {
-            return;
-        }
-        let yaml: YamlValue =
-            serde_norway::from_str("debug: {msg: hi}\nbecome_user: nobody").unwrap();
-        let global_params = GlobalParams::default();
-        let task = Task::new(&yaml, &global_params).unwrap();
-        assert!(task.sudo_private_file("rash_test_").is_err());
     }
 
     #[test]
