@@ -48,11 +48,12 @@ impl<'a> Context<'a> {
     }
 
     fn execute_pending_handlers(&mut self) -> Result<()> {
-        if self.handlers.is_none() || self.pending_handlers.is_empty() {
+        let Some(handlers) = self.handlers.as_ref() else {
+            return Ok(());
+        };
+        if self.pending_handlers.is_empty() {
             return Ok(());
         }
-
-        let handlers = self.handlers.as_ref().unwrap();
         let pending = self.pending_handlers.take_pending();
         for handler_name in &pending {
             if let Some(handler) = handlers.get(handler_name) {
