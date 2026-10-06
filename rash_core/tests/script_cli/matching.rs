@@ -1,7 +1,5 @@
 use serde_json::json;
 
-use rash_core::script_cli;
-
 use crate::{INVALID, check, with};
 
 #[test]
@@ -544,8 +542,8 @@ fn pacman_fixture() {
 }
 
 #[test]
-fn different_bindings_are_rejected_as_ambiguous() {
-    // Intentional difference 2: no result is picked by iteration order.
+fn first_declared_pattern_wins_between_different_bindings() {
+    // Legacy picked a result through iteration order; docopt 0.6.2 picks the first pattern.
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -554,12 +552,196 @@ fn different_bindings_are_rejected_as_ambiguous() {
 #   tool <input> <output>
 #
 "#;
-    let error = script_cli::parse(file, &["a", "b"]).unwrap_err();
-    assert_eq!(error.kind(), INVALID);
+    check(
+        file,
+        &[(&["a", "b"], Ok(json!({"dest": "b", "source": "a"})))],
+    );
+}
+
+#[test]
+fn optional_positionals_are_filled_from_the_left() {
+    // Same result as legacy and docopt 0.6.2.
+    let independent = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [<a>] [<b>]
+#
+"#;
+    check(
+        independent,
+        &[
+            (&[], Ok(json!({}))),
+            (&["x"], Ok(json!({"a": "x"}))),
+            (&["x", "y"], Ok(json!({"a": "x", "b": "y"}))),
+        ],
+    );
+
+    let flat_bracket = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [<a> <b>]
+#
+"#;
+    check(
+        flat_bracket,
+        &[
+            (&["x"], Ok(json!({"a": "x"}))),
+            (&["x", "y"], Ok(json!({"a": "x", "b": "y"}))),
+        ],
+    );
+}
+
+#[test]
+fn optional_positional_yields_to_a_required_one() {
+    // docopt 0.6.2 does not backtrack and rejects these argv; the compiled parser finds the only
+    // possible binding.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [<a>] [<b>] <c>
+#
+"#;
+    check(
+        file,
+        &[
+            (&["x"], Ok(json!({"c": "x"}))),
+            (&["x", "y"], Ok(json!({"a": "x", "c": "y"}))),
+            (&["x", "y", "z"], Ok(json!({"a": "x", "b": "y", "c": "z"}))),
+        ],
+    );
+}
+
+#[test]
+fn cp_with_one_source_matches_the_first_pattern() {
+    // Same result as legacy and docopt 0.6.2 (which also reports `<directory>: null`). The
+    // three-argument case is rejected by docopt 0.6.2, which does not backtrack into `...`.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   cp <source> <dest>
+#   cp <source>... <directory>
+#
+"#;
+    check(
+        file,
+        &[
+            (&["a", "b"], Ok(json!({"dest": "b", "source": ["a"]}))),
+            (
+                &["a", "b", "c"],
+                Ok(json!({"directory": "c", "source": ["a", "b"]})),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn naval_fate_ship_named_like_a_command() {
+    // Same result as docopt 0.6.2: both patterns match, the first declared one wins.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   naval_fate.rh ship new <name>...
+#   naval_fate.rh ship <name> move <x> <y>
+#
+"#;
+    check(
+        file,
+        &[
+            (
+                &["ship", "new", "move", "1", "2"],
+                Ok(json!({
+                    "move": false,
+                    "name": ["move", "1", "2"],
+                    "new": true,
+                    "ship": true,
+                })),
+            ),
+            (
+                &["ship", "titanic", "move", "1", "2"],
+                Ok(json!({
+                    "move": true,
+                    "name": ["titanic"],
+                    "new": false,
+                    "ship": true,
+                    "x": "1",
+                    "y": "2",
+                })),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn repeated_alternative_prefers_the_first_branch() {
+    // Same result as docopt 0.6.2.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool (<a> | <b>)...
+#
+"#;
+    check(
+        file,
+        &[(&["x", "y", "z"], Ok(json!({"a": ["x", "y", "z"]})))],
+    );
+}
+
+/// Matching keeps one candidate per NFA state, so declarations with many equivalent ways to
+/// match stay linear in argv length. These took seconds and gigabytes with an exponential matcher.
+#[test]
+fn many_equivalent_matches_are_resolved_quickly() {
+    let started = std::time::Instant::now();
+
+    let alternatives = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool (<a> | <b>)...
+#
+"#;
+    let args = (0..1_000)
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    let args = args.iter().map(String::as_str).collect::<Vec<_>>();
+    check(alternatives, &[(&args, Ok(json!({"a": args})))]);
+
+    let names = (b'a'..=b'x')
+        .map(|letter| format!("a{}", letter as char))
+        .collect::<Vec<_>>();
+    let slots = names
+        .iter()
+        .map(|name| format!("[<{name}>]"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let optional_slots = format!("\n#\n# Usage: tool {slots}\n#\n");
+    let args = (0..12).map(|value| value.to_string()).collect::<Vec<_>>();
+    let args = args.iter().map(String::as_str).collect::<Vec<_>>();
+    let expected = names
+        .iter()
+        .zip(&args)
+        .map(|(name, value)| (name.clone(), json!(value)));
+    check(
+        &optional_slots,
+        &[(&args, Ok(serde_json::Value::Object(expected.collect())))],
+    );
+
+    let counter = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [-a] [-b] [-a]...
+#
+"#;
+    let args = vec!["-a"; 20_000];
+    check(
+        counter,
+        &[(&args, Ok(json!({"options": {"a": 20_000, "b": false}})))],
+    );
+
     assert!(
-        error
-            .to_string()
-            .starts_with("Ambiguous usage declaration.")
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "took {:?}",
+        started.elapsed()
     );
 }
 

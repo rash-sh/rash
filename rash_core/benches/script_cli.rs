@@ -100,14 +100,53 @@ fn run_ambiguous_grammars(c: &mut Criterion) {
         &["a", "b", "c", "d", "/tmp"],
         true,
     );
-    // Different bindings: the declaration is rejected as ambiguous.
+    // Different bindings: the first declared pattern wins.
     bench_parse(
         &mut group,
         "different-bindings",
         ambiguous,
         &["a", "b"],
-        false,
+        true,
     );
+    group.finish();
+}
+
+/// Declarations with exponentially many equivalent ways to match the argv.
+fn run_pathological(c: &mut Criterion) {
+    let alternatives = "\n#\n# Usage: tool (<a> | <b>)...\n#\n";
+    let alternatives_args = (0..22).map(|value| value.to_string()).collect::<Vec<_>>();
+    let alternatives_args = alternatives_args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+
+    let slots = (b'a'..=b'x')
+        .map(|letter| format!("[<a{}>]", letter as char))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let optional_slots = format!("\n#\n# Usage: tool {slots}\n#\n");
+    let slot_args = (0..12).map(|value| value.to_string()).collect::<Vec<_>>();
+    let slot_args = slot_args.iter().map(String::as_str).collect::<Vec<_>>();
+
+    let counter = "\n#\n# Usage: tool [-a] [-b] [-a]...\n#\n";
+    let counter_args = vec!["-a"; 20_000];
+
+    let mut group = c.benchmark_group("script_cli_pathological");
+    bench_parse(
+        &mut group,
+        "alternatives-repeat-22",
+        alternatives,
+        &alternatives_args,
+        true,
+    );
+    bench_parse(
+        &mut group,
+        "optional-slots-24-args-12",
+        &optional_slots,
+        &slot_args,
+        true,
+    );
+    bench_parse(&mut group, "counter-20000", counter, &counter_args, true);
     group.finish();
 }
 
@@ -368,6 +407,6 @@ criterion_group!(name = script_cli_benches;
     .measurement_time(Duration::from_secs(3))
     .with_plots();
     targets = run_small_scripts, run_compile_dominated, run_ambiguous_grammars,
-        run_repeated_options, run_arguments, run_options,
+        run_pathological, run_repeated_options, run_arguments, run_options,
         run_optional_option_scaling, run_nested_alternatives);
 criterion_main!(script_cli_benches);

@@ -65,10 +65,6 @@ impl OptionRegistry {
         Ok(registry)
     }
 
-    pub(super) fn len(&self) -> usize {
-        self.specs.len()
-    }
-
     pub(super) fn is_empty(&self) -> bool {
         self.specs.is_empty()
     }

@@ -1,27 +1,33 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+//! Priority-ordered epsilon-NFA simulation (Pike VM).
+//!
+//! Every usage pattern is compiled into one NFA whose epsilon edges are ordered by priority:
+//! patterns in declaration order, optional content before skipping it, another repetition before
+//! leaving a repeat, alternatives in written order and option loops consuming before exiting.
+//! Matching advances all threads token by token, keeping them in priority order, and returns the
+//! captures of the highest-priority path that consumes the whole argv, which is the first success
+//! a backtracking matcher exploring the same choices in that order would find.
+//!
+//! Two threads reaching the same state have the same future: option occurrence limits depend only
+//! on how often the option occurred in the argv prefix, which every thread has consumed entirely.
+//! So only the higher-priority thread is kept per state, and matching is
+//! `O(argv × NFA states)`.
+
+use std::collections::HashMap;
 
 use super::InputToken;
 use super::grammar::{self, Atom, Count, Expr};
 use super::options::OptionRegistry;
 
 /// Binding produced by consuming one input token.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Capture {
     Command(String),
     Positional { key: String, value: String },
     Option { id: usize, value: Option<String> },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum MatchError {
-    /// No pattern accepts the input.
-    NoMatch,
-    /// Successful paths produce different bindings.
-    Ambiguous,
-}
-
 /// Condition for consuming one input token.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum Matcher {
     Command {
         literal: String,
@@ -30,413 +36,414 @@ enum Matcher {
     Positional {
         key: String,
     },
-    Option(usize),
+    /// Explicit option, accepted while its occurrences stay within the pattern's limit.
+    Option {
+        id: usize,
+        limit: Count,
+    },
     /// Any option whose id is `true` in the mask (`[options]` with several options).
     AnyOption(Vec<bool>),
     /// Unordered option group; each option may match at most its per-pattern limit.
     BoundedOption(Vec<Count>),
 }
 
-#[derive(Clone, Debug)]
-enum Edge {
-    Epsilon(usize),
+#[derive(Debug)]
+enum Node {
+    /// Epsilon edges, highest priority first. The accept state is a split without edges.
+    Split(Vec<usize>),
+    /// Consume one token accepted by `matcher` and move to `target`.
     Consume { matcher: Matcher, target: usize },
 }
 
-#[derive(Clone, Debug, Default)]
-struct State {
-    edges: Vec<Edge>,
-}
-
 /// Epsilon-NFA of all usage patterns, sharing one start and one accept state.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(super) struct Nfa {
-    states: Vec<State>,
+    nodes: Vec<Node>,
     start: usize,
     accept: usize,
     /// Options that may also fill a positional slot (help, or the legacy short-only `-h`).
     positional_help_options: Vec<bool>,
 }
 
-/// Active matcher state with the captures of the path that reached it.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-struct Candidate {
-    state: usize,
-    /// Last capture of the path in the [`PathArena`]; `None` for the empty path.
-    path: Option<usize>,
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-struct PathNode {
-    prev: Option<usize>,
-    capture: Capture,
-}
-
-/// Interned capture paths stored as linked lists, so extending a path never copies it and
-/// identical paths share one id.
-#[derive(Default)]
-struct PathArena {
-    nodes: Vec<PathNode>,
-    intern: HashMap<PathNode, usize>,
-}
-
-impl PathArena {
-    fn append(&mut self, prev: Option<usize>, capture: Capture) -> usize {
-        let node = PathNode { prev, capture };
-        if let Some(id) = self.intern.get(&node) {
-            return *id;
-        }
-        let id = self.nodes.len();
-        self.nodes.push(node.clone());
-        self.intern.insert(node, id);
-        id
-    }
-
-    fn count_option(&self, path: Option<usize>, expected: usize) -> usize {
-        let mut count = 0;
-        let mut current = path;
-        while let Some(id) = current {
-            let node = &self.nodes[id];
-            if matches!(&node.capture, Capture::Option { id, .. } if *id == expected) {
-                count += 1;
-            }
-            current = node.prev;
-        }
-        count
-    }
-
-    fn materialize(&self, path: Option<usize>) -> Vec<Capture> {
-        let mut out = Vec::new();
-        let mut current = path;
-        while let Some(id) = current {
-            let node = &self.nodes[id];
-            out.push(node.capture.clone());
-            current = node.prev;
-        }
-        out.reverse();
-        out
-    }
-}
-
 /// Compile all usage patterns into one NFA. Its size depends only on the declaration.
+///
+/// `[options]` stands for every option not explicit in the same pattern.
 pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let mut builder = Builder::default();
-    let start = builder.state();
-    let accept = builder.state();
-    let positional_help_options = positional_help_options(options);
+    let start = builder.split();
+    let accept = builder.split();
+
     for pattern in patterns {
         let explicit = grammar::explicit_options(pattern);
-        let mut allowed = vec![false; options.len()];
-        for id in options.all_ids() {
-            if !explicit.contains(&id) {
-                allowed[id] = true;
-            }
-        }
-
+        let shortcut_options = options
+            .all_ids()
+            .map(|id| !explicit.contains(&id))
+            .collect::<Vec<_>>();
         builder.option_limits = grammar::option_limits(pattern);
-        let (pattern_start, pattern_end) = builder.compile_expr(pattern, &allowed);
+        let (pattern_start, pattern_end) = builder.compile_expr(pattern, &shortcut_options);
         builder.epsilon(start, pattern_start);
         builder.epsilon(pattern_end, accept);
     }
 
     Nfa {
-        states: builder.states,
+        nodes: builder.nodes,
         start,
         accept,
-        positional_help_options,
+        positional_help_options: options
+            .all_ids()
+            .map(|id| options.is_positional_help(id))
+            .collect(),
     }
 }
 
-fn positional_help_options(options: &OptionRegistry) -> Vec<bool> {
-    let mut mask = vec![false; options.len()];
-    for id in options.all_ids() {
-        mask[id] = options.is_positional_help(id);
-    }
-    mask
-}
-
-/// Match `input` and return the captures of the single successful binding.
-///
-/// Candidates are advanced token by token; identical `(state, path)` candidates are merged by the
-/// epsilon closure, so nullable cycles terminate.
-pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, MatchError> {
-    let mut arena = PathArena::default();
-    let mut candidates = epsilon_closure(
-        nfa,
-        [Candidate {
-            state: nfa.start,
-            path: None,
-        }],
-    );
-
-    for token in input {
-        let mut next = Vec::new();
-        for candidate in &candidates {
-            for edge in &nfa.states[candidate.state].edges {
-                let Edge::Consume { matcher, target } = edge else {
-                    continue;
-                };
-                if let Some(capture) = matches(
-                    matcher,
-                    token,
-                    &nfa.positional_help_options,
-                    candidate.path,
-                    &arena,
-                ) {
-                    let path = Some(arena.append(candidate.path, capture));
-                    next.push(Candidate {
-                        state: *target,
-                        path,
-                    });
-                }
-            }
-        }
-
-        if next.is_empty() {
-            return Err(MatchError::NoMatch);
-        }
-        candidates = epsilon_closure(nfa, next);
-    }
-
-    candidates = epsilon_closure(nfa, candidates);
-    let mut outputs = HashSet::new();
-    for candidate in candidates {
-        if candidate.state == nfa.accept {
-            outputs.insert(arena.materialize(candidate.path));
-            if outputs.len() > 1 {
-                return Err(MatchError::Ambiguous);
-            }
-        }
-    }
-
-    outputs.into_iter().next().ok_or(MatchError::NoMatch)
-}
-
-fn epsilon_closure(nfa: &Nfa, seeds: impl IntoIterator<Item = Candidate>) -> Vec<Candidate> {
-    let mut queue = seeds.into_iter().collect::<VecDeque<_>>();
-    let mut seen = HashSet::new();
-    let mut out = Vec::new();
-
-    while let Some(candidate) = queue.pop_front() {
-        if !seen.insert(candidate) {
-            continue;
-        }
-        out.push(candidate);
-        for edge in &nfa.states[candidate.state].edges {
-            if let Edge::Epsilon(target) = edge {
-                queue.push_back(Candidate {
-                    state: *target,
-                    path: candidate.path,
-                });
-            }
-        }
-    }
-    out
-}
-
-fn matches(
-    matcher: &Matcher,
-    input: &InputToken,
-    positional_help_options: &[bool],
+/// Active NFA state with the last capture of the path that reached it.
+#[derive(Clone, Copy, Debug)]
+struct Thread {
+    state: usize,
     path: Option<usize>,
-    arena: &PathArena,
-) -> Option<Capture> {
-    match (matcher, input) {
-        (Matcher::Command { literal, key }, InputToken::Word(value)) if literal == value => {
-            Some(Capture::Command(key.clone()))
+}
+
+/// One consumed token of a path, stored as a linked list so extending a path never copies it.
+struct PathNode {
+    prev: Option<usize>,
+    /// Consume state that matched the token.
+    state: usize,
+    token: usize,
+}
+
+/// Threads of one step, in priority order, with at most one thread per state.
+struct ThreadList {
+    threads: Vec<Thread>,
+    /// Generation in which each state was last added.
+    seen: Vec<usize>,
+    generation: usize,
+    stack: Vec<usize>,
+}
+
+impl ThreadList {
+    fn new(states: usize) -> Self {
+        Self {
+            threads: Vec::new(),
+            seen: vec![0; states],
+            generation: 0,
+            stack: Vec::new(),
         }
+    }
+
+    fn clear(&mut self) {
+        self.threads.clear();
+        self.generation += 1;
+    }
+
+    /// Add `state` and its epsilon closure in priority order (depth-first, edges in order).
+    /// States already reached by a higher-priority thread in this step are skipped.
+    fn add(&mut self, nfa: &Nfa, state: usize, path: Option<usize>) {
+        self.stack.push(state);
+        while let Some(state) = self.stack.pop() {
+            if self.seen[state] == self.generation {
+                continue;
+            }
+            self.seen[state] = self.generation;
+            match &nfa.nodes[state] {
+                Node::Split(targets) => {
+                    self.stack.extend(targets.iter().rev());
+                    if state == nfa.accept {
+                        self.threads.push(Thread { state, path });
+                    }
+                }
+                Node::Consume { .. } => self.threads.push(Thread { state, path }),
+            }
+        }
+    }
+}
+
+/// Match `input` and return the captures of the highest-priority path accepting all of it, or
+/// `None` if no pattern accepts it.
+pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Option<Vec<Capture>> {
+    let seen_before = occurrences_before(input);
+    let mut arena = Vec::<PathNode>::new();
+    let mut current = ThreadList::new(nfa.nodes.len());
+    let mut next = ThreadList::new(nfa.nodes.len());
+    current.clear();
+    current.add(nfa, nfa.start, None);
+
+    for (index, token) in input.iter().enumerate() {
+        next.clear();
+        for thread in &current.threads {
+            let Node::Consume { matcher, target } = &nfa.nodes[thread.state] else {
+                continue;
+            };
+            if accepts(matcher, token, seen_before[index], nfa) {
+                arena.push(PathNode {
+                    prev: thread.path,
+                    state: thread.state,
+                    token: index,
+                });
+                next.add(nfa, *target, Some(arena.len() - 1));
+            }
+        }
+        if next.threads.is_empty() {
+            return None;
+        }
+        std::mem::swap(&mut current, &mut next);
+    }
+
+    let thread = current
+        .threads
+        .iter()
+        .find(|thread| thread.state == nfa.accept)?;
+    materialize(nfa, input, &arena, thread.path)
+}
+
+/// For every token, how many earlier tokens are the same option (0 for words).
+fn occurrences_before(input: &[InputToken]) -> Vec<usize> {
+    let mut counts = HashMap::<usize, usize>::new();
+    input
+        .iter()
+        .map(|token| match token {
+            InputToken::Word(_) => 0,
+            InputToken::Option { id, .. } => {
+                let count = counts.entry(*id).or_default();
+                *count += 1;
+                *count - 1
+            }
+        })
+        .collect()
+}
+
+/// Whether `matcher` consumes `token`, which follows `seen_before` occurrences of the same option.
+fn accepts(matcher: &Matcher, token: &InputToken, seen_before: usize, nfa: &Nfa) -> bool {
+    match (matcher, token) {
+        (Matcher::Command { literal, .. }, InputToken::Word(value)) => literal == value,
+        (Matcher::Positional { .. }, InputToken::Word(_)) => true,
+        (Matcher::Positional { .. }, InputToken::Option { id, value }) => {
+            value.is_none() && flag(&nfa.positional_help_options, *id)
+        }
+        (
+            Matcher::Option {
+                id: expected,
+                limit,
+            },
+            InputToken::Option { id, .. },
+        ) => expected == id && limit.allows_another(seen_before),
+        (Matcher::AnyOption(allowed), InputToken::Option { id, .. }) => flag(allowed, *id),
+        (Matcher::BoundedOption(limits), InputToken::Option { id, .. }) => limits
+            .get(*id)
+            .is_some_and(|limit| limit.allows_another(seen_before)),
+        _ => false,
+    }
+}
+
+fn flag(mask: &[bool], id: usize) -> bool {
+    mask.get(id).copied().unwrap_or(false)
+}
+
+/// Captures of the path ending at `path`, in argv order.
+fn materialize(
+    nfa: &Nfa,
+    input: &[InputToken],
+    arena: &[PathNode],
+    path: Option<usize>,
+) -> Option<Vec<Capture>> {
+    let mut out = Vec::new();
+    let mut current = path;
+    while let Some(id) = current {
+        let node = arena.get(id)?;
+        let Node::Consume { matcher, .. } = nfa.nodes.get(node.state)? else {
+            return None;
+        };
+        out.push(capture(matcher, input.get(node.token)?)?);
+        current = node.prev;
+    }
+    out.reverse();
+    Some(out)
+}
+
+/// Binding of `token`, already accepted by `matcher`.
+fn capture(matcher: &Matcher, token: &InputToken) -> Option<Capture> {
+    match (matcher, token) {
+        (Matcher::Command { key, .. }, InputToken::Word(_)) => Some(Capture::Command(key.clone())),
         (Matcher::Positional { key }, InputToken::Word(value)) => Some(Capture::Positional {
             key: key.clone(),
             value: value.clone(),
         }),
-        (Matcher::Positional { .. }, InputToken::Option { id, value })
-            if positional_help_options.get(*id).copied().unwrap_or(false) && value.is_none() =>
-        {
-            Some(Capture::Option {
-                id: *id,
-                value: None,
-            })
-        }
-        (Matcher::Option(expected), InputToken::Option { id, value }) if expected == id => {
-            Some(Capture::Option {
-                id: *id,
-                value: value.clone(),
-            })
-        }
-        (Matcher::AnyOption(allowed), InputToken::Option { id, value })
-            if allowed.get(*id).copied().unwrap_or(false) =>
-        {
-            Some(Capture::Option {
-                id: *id,
-                value: value.clone(),
-            })
-        }
-        (Matcher::BoundedOption(limits), InputToken::Option { id, value })
-            if limits
-                .get(*id)
-                .is_some_and(|limit| limit.allows_another(arena.count_option(path, *id))) =>
-        {
-            Some(Capture::Option {
-                id: *id,
-                value: value.clone(),
-            })
-        }
+        (_, InputToken::Option { id, value }) => Some(Capture::Option {
+            id: *id,
+            value: value.clone(),
+        }),
         _ => None,
     }
 }
 
 #[derive(Default)]
 struct Builder {
-    states: Vec<State>,
+    nodes: Vec<Node>,
     /// Option occurrence limits of the pattern currently being compiled.
     option_limits: HashMap<usize, Count>,
 }
 
+/// Fragment of the NFA: its entry state and its exit state, which is always a split.
+type Fragment = (usize, usize);
+
 impl Builder {
-    fn state(&mut self) -> usize {
-        let id = self.states.len();
-        self.states.push(State::default());
-        id
+    fn push(&mut self, node: Node) -> usize {
+        self.nodes.push(node);
+        self.nodes.len() - 1
     }
 
+    fn split(&mut self) -> usize {
+        self.push(Node::Split(Vec::new()))
+    }
+
+    /// Append an epsilon edge with lower priority than the existing edges of `from`.
     fn epsilon(&mut self, from: usize, to: usize) {
-        self.states[from].edges.push(Edge::Epsilon(to));
-    }
-
-    fn consume(&mut self, from: usize, matcher: Matcher, to: usize) {
-        self.states[from].edges.push(Edge::Consume {
-            matcher,
-            target: to,
-        });
-    }
-
-    fn optional_option(&mut self, id: usize) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
-        self.epsilon(start, end);
-        self.consume(start, Matcher::Option(id), end);
-        (start, end)
-    }
-
-    fn option_loop(&mut self, matcher: Matcher) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
-        self.epsilon(start, end);
-        self.consume(start, matcher, start);
-        (start, end)
-    }
-
-    fn options_shortcut(&mut self, allowed_options: &[bool]) -> (usize, usize) {
-        let mut ids = allowed_options
-            .iter()
-            .enumerate()
-            .filter_map(|(id, allowed)| allowed.then_some(id));
-        let first = ids.next();
-        let second = ids.next();
-
-        match (first, second) {
-            (None, _) => self.empty(),
-            (Some(id), None) => self.optional_option(id),
-            (Some(_), Some(_)) => self.option_loop(Matcher::AnyOption(allowed_options.to_vec())),
+        if let Some(Node::Split(targets)) = self.nodes.get_mut(from) {
+            targets.push(to);
         }
     }
 
-    /// Compile `expr` into a fragment and return its `(start, end)` states.
+    fn consume(&mut self, matcher: Matcher, target: usize) -> usize {
+        self.push(Node::Consume { matcher, target })
+    }
+
+    fn option_limit(&self, id: usize) -> Count {
+        self.option_limits
+            .get(&id)
+            .copied()
+            .unwrap_or(Count::Finite(1))
+    }
+
+    /// Compile `expr` into a fragment.
     ///
-    /// `allowed_options` marks the options available to `[options]` in the current pattern.
-    fn compile_expr(&mut self, expr: &Expr, allowed_options: &[bool]) -> (usize, usize) {
+    /// `shortcut_options` marks the options `[options]` stands for.
+    fn compile_expr(&mut self, expr: &Expr, shortcut_options: &[bool]) -> Fragment {
         match expr {
             Expr::Empty => self.empty(),
             Expr::Atom(atom) => self.atom(atom),
-            Expr::Sequence(items) => self.sequence(items, allowed_options),
-            Expr::Alternative(branches) => self.alternative(branches, allowed_options),
-            Expr::Optional(inner) => self.optional(inner, allowed_options),
-            Expr::Required(inner) => self.compile_expr(inner, allowed_options),
-            Expr::Repeat(inner) => self.repeat(inner, allowed_options),
-            Expr::OptionsGroup(ids) => self.options_group(ids, allowed_options.len()),
-            Expr::OptionsShortcut => self.options_shortcut(allowed_options),
+            Expr::Sequence(items) => self.sequence(items, shortcut_options),
+            Expr::Alternative(branches) => self.alternative(branches, shortcut_options),
+            Expr::Optional(inner) => self.optional(inner, shortcut_options),
+            Expr::Required(inner) => self.compile_expr(inner, shortcut_options),
+            Expr::Repeat(inner) => self.repeat(inner, shortcut_options),
+            Expr::OptionsGroup(ids) => self.options_group(ids, shortcut_options.len()),
+            Expr::OptionsShortcut => self.options_shortcut(shortcut_options),
         }
     }
 
-    fn empty(&mut self) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
+    fn empty(&mut self) -> Fragment {
+        let end = self.split();
+        let start = self.split();
         self.epsilon(start, end);
         (start, end)
     }
 
-    fn atom(&mut self, atom: &Atom) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
+    fn atom(&mut self, atom: &Atom) -> Fragment {
         let matcher = match atom {
             Atom::Command { literal, key } => Matcher::Command {
                 literal: literal.clone(),
                 key: key.clone(),
             },
             Atom::Positional { key } => Matcher::Positional { key: key.clone() },
-            Atom::Option(id) => Matcher::Option(*id),
+            Atom::Option(id) => Matcher::Option {
+                id: *id,
+                limit: self.option_limit(*id),
+            },
         };
-        self.consume(start, matcher, end);
-        (start, end)
+        let end = self.split();
+        (self.consume(matcher, end), end)
     }
 
-    fn sequence(&mut self, items: &[Expr], allowed_options: &[bool]) -> (usize, usize) {
+    fn sequence(&mut self, items: &[Expr], shortcut_options: &[bool]) -> Fragment {
         let Some((first, rest)) = items.split_first() else {
             return self.empty();
         };
-        let (start, mut end) = self.compile_expr(first, allowed_options);
+        let (start, mut end) = self.compile_expr(first, shortcut_options);
         for item in rest {
-            let (next_start, next_end) = self.compile_expr(item, allowed_options);
+            let (next_start, next_end) = self.compile_expr(item, shortcut_options);
             self.epsilon(end, next_start);
             end = next_end;
         }
         (start, end)
     }
 
-    fn alternative(&mut self, branches: &[Expr], allowed_options: &[bool]) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
+    fn alternative(&mut self, branches: &[Expr], shortcut_options: &[bool]) -> Fragment {
+        let start = self.split();
+        let end = self.split();
         for branch in branches {
-            let (branch_start, branch_end) = self.compile_expr(branch, allowed_options);
+            let (branch_start, branch_end) = self.compile_expr(branch, shortcut_options);
             self.epsilon(start, branch_start);
             self.epsilon(branch_end, end);
         }
         (start, end)
     }
 
-    /// Zero or one occurrence of `inner`. The skip edge starts at a fresh state, because the
-    /// start state of `inner` may be re-entered by a cycle.
-    fn optional(&mut self, inner: &Expr, allowed_options: &[bool]) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
-        let (inner_start, inner_end) = self.compile_expr(inner, allowed_options);
-        self.epsilon(start, end);
+    /// Zero or one occurrence of `inner`, preferring one. The skip edge starts at a fresh state,
+    /// because the start state of `inner` may be re-entered by a cycle.
+    fn optional(&mut self, inner: &Expr, shortcut_options: &[bool]) -> Fragment {
+        let start = self.split();
+        let end = self.split();
+        let (inner_start, inner_end) = self.compile_expr(inner, shortcut_options);
         self.epsilon(start, inner_start);
+        self.epsilon(start, end);
         self.epsilon(inner_end, end);
         (start, end)
     }
 
-    /// One or more occurrences of `inner`, compiled as a cycle.
-    fn repeat(&mut self, inner: &Expr, allowed_options: &[bool]) -> (usize, usize) {
-        let start = self.state();
-        let end = self.state();
-        let (inner_start, inner_end) = self.compile_expr(inner, allowed_options);
+    /// One or more occurrences of `inner`, compiled as a cycle preferring another occurrence.
+    fn repeat(&mut self, inner: &Expr, shortcut_options: &[bool]) -> Fragment {
+        let start = self.split();
+        let end = self.split();
+        let (inner_start, inner_end) = self.compile_expr(inner, shortcut_options);
         self.epsilon(start, inner_start);
         self.epsilon(inner_end, inner_start);
         self.epsilon(inner_end, end);
         (start, end)
     }
 
+    /// Zero or more tokens accepted by `matcher`, preferring more.
+    fn option_loop(&mut self, matcher: Matcher) -> Fragment {
+        let start = self.split();
+        let end = self.split();
+        let consume = self.consume(matcher, start);
+        self.epsilon(start, consume);
+        self.epsilon(start, end);
+        (start, end)
+    }
+
+    /// Optional single option, outside any pattern limit.
+    fn optional_option(&mut self, id: usize) -> Fragment {
+        let start = self.split();
+        let end = self.split();
+        let consume = self.consume(
+            Matcher::Option {
+                id,
+                limit: Count::Finite(1),
+            },
+            end,
+        );
+        self.epsilon(start, consume);
+        self.epsilon(start, end);
+        (start, end)
+    }
+
+    fn options_shortcut(&mut self, shortcut_options: &[bool]) -> Fragment {
+        let mut ids = shortcut_options
+            .iter()
+            .enumerate()
+            .filter_map(|(id, allowed)| allowed.then_some(id));
+        match (ids.next(), ids.next()) {
+            (None, _) => self.empty(),
+            (Some(id), None) => self.optional_option(id),
+            (Some(_), Some(_)) => self.option_loop(Matcher::AnyOption(shortcut_options.to_vec())),
+        }
+    }
+
     /// Unordered option loop where each option of `ids` may match up to its per-pattern limit.
-    fn options_group(&mut self, ids: &[usize], option_count: usize) -> (usize, usize) {
+    fn options_group(&mut self, ids: &[usize], option_count: usize) -> Fragment {
         let mut limits = vec![Count::Finite(0); option_count];
         for id in ids {
             if let Some(limit) = limits.get_mut(*id) {
-                *limit = self
-                    .option_limits
-                    .get(id)
-                    .copied()
-                    .unwrap_or(Count::Finite(1));
+                *limit = self.option_limit(*id);
             }
         }
         self.option_loop(Matcher::BoundedOption(limits))
@@ -445,6 +452,8 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
 
     #[test]
@@ -458,7 +467,7 @@ mod tests {
             .collect::<Vec<_>>();
         let captures = execute(&nfa, &input).unwrap();
         assert_eq!(captures.len(), 10_000);
-        assert!(nfa.states.len() < 10);
+        assert!(nfa.nodes.len() < 10);
     }
 
     #[test]
@@ -467,26 +476,89 @@ mod tests {
             Atom::Positional { key: "file".into() },
         )))));
         let nfa = compile(&[pattern], &OptionRegistry::default());
-        assert!(execute(&nfa, &[]).is_ok());
+        assert!(execute(&nfa, &[]).is_some());
         let input = [InputToken::Word("a".into()), InputToken::Word("b".into())];
         let captures = execute(&nfa, &input).unwrap();
         assert_eq!(captures.len(), 2);
-        assert!(nfa.states.len() < 10);
+        assert!(nfa.nodes.len() < 10);
+    }
+
+    fn positional(key: &str) -> Expr {
+        Expr::Atom(Atom::Positional { key: key.into() })
+    }
+
+    fn words(values: &[&str]) -> Vec<InputToken> {
+        values
+            .iter()
+            .map(|value| InputToken::Word((*value).to_owned()))
+            .collect()
+    }
+
+    fn bound_keys(captures: &[Capture]) -> Vec<String> {
+        captures
+            .iter()
+            .map(|capture| match capture {
+                Capture::Command(key) | Capture::Positional { key, .. } => key.clone(),
+                Capture::Option { id, .. } => format!("option {id}"),
+            })
+            .collect()
     }
 
     #[test]
-    fn detects_ambiguous_bindings() {
-        let patterns = vec![
-            Expr::Atom(Atom::Positional { key: "left".into() }),
-            Expr::Atom(Atom::Positional {
-                key: "right".into(),
-            }),
-        ];
+    fn first_declared_pattern_wins() {
+        let patterns = vec![positional("left"), positional("right")];
         let nfa = compile(&patterns, &OptionRegistry::default());
-        assert_eq!(
-            execute(&nfa, &[InputToken::Word("x".into())]),
-            Err(MatchError::Ambiguous)
-        );
+        let captures = execute(&nfa, &words(&["x"])).unwrap();
+        assert_eq!(bound_keys(&captures), ["left"]);
+    }
+
+    #[test]
+    fn optional_prefers_its_content() {
+        let pattern = Expr::Sequence(vec![
+            Expr::Optional(Box::new(positional("a"))),
+            Expr::Optional(Box::new(positional("b"))),
+        ]);
+        let nfa = compile(&[pattern], &OptionRegistry::default());
+        let captures = execute(&nfa, &words(&["x"])).unwrap();
+        assert_eq!(bound_keys(&captures), ["a"]);
+    }
+
+    #[test]
+    fn optional_backtracks_when_its_content_cannot_lead_to_acceptance() {
+        let pattern = Expr::Sequence(vec![
+            Expr::Optional(Box::new(positional("a"))),
+            positional("b"),
+        ]);
+        let nfa = compile(&[pattern], &OptionRegistry::default());
+        let captures = execute(&nfa, &words(&["x"])).unwrap();
+        assert_eq!(bound_keys(&captures), ["b"]);
+    }
+
+    #[test]
+    fn repeat_prefers_more_iterations_and_alternatives_their_written_order() {
+        let pattern = Expr::Sequence(vec![
+            Expr::Repeat(Box::new(Expr::Alternative(vec![
+                positional("a"),
+                positional("b"),
+            ]))),
+            Expr::Optional(Box::new(positional("c"))),
+        ]);
+        let nfa = compile(&[pattern], &OptionRegistry::default());
+        let captures = execute(&nfa, &words(&["x", "y", "z"])).unwrap();
+        assert_eq!(bound_keys(&captures), ["a", "a", "a"]);
+    }
+
+    #[test]
+    fn ambiguous_alternatives_stay_linear() {
+        let pattern = Expr::Repeat(Box::new(Expr::Alternative(vec![
+            positional("a"),
+            positional("b"),
+        ])));
+        let nfa = compile(&[pattern], &OptionRegistry::default());
+        let input = (0..10_000).map(|i| i.to_string()).collect::<Vec<_>>();
+        let input = input.iter().map(String::as_str).collect::<Vec<_>>();
+        let captures = execute(&nfa, &words(&input)).unwrap();
+        assert_eq!(captures.len(), 10_000);
     }
 
     #[test]
@@ -500,9 +572,9 @@ mod tests {
         registry.set_repeatable(&HashSet::new()).unwrap();
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-b", "-a"]).unwrap();
-        assert!(execute(&nfa, &input).is_ok());
+        assert!(execute(&nfa, &input).is_some());
         let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
-        assert_eq!(execute(&nfa, &repeated), Err(MatchError::NoMatch));
+        assert_eq!(execute(&nfa, &repeated), None);
     }
 
     #[test]
@@ -516,9 +588,9 @@ mod tests {
         registry.set_repeatable(&HashSet::from([0])).unwrap();
         let nfa = compile(&[pattern], &registry);
         let twice = registry.normalize_args(&["-a", "-a"]).unwrap();
-        assert!(execute(&nfa, &twice).is_ok());
+        assert!(execute(&nfa, &twice).is_some());
         let thrice = registry.normalize_args(&["-a", "-a", "-a"]).unwrap();
-        assert_eq!(execute(&nfa, &thrice), Err(MatchError::NoMatch));
+        assert_eq!(execute(&nfa, &thrice), None);
     }
 
     #[test]
@@ -532,8 +604,8 @@ mod tests {
         let nfa = compile(&[pattern], &registry);
         let once = registry.normalize_args(&["-a"]).unwrap();
         let twice = registry.normalize_args(&["-a", "-a"]).unwrap();
-        assert!(execute(&nfa, &once).is_ok());
-        assert_eq!(execute(&nfa, &twice), Err(MatchError::NoMatch));
+        assert!(execute(&nfa, &once).is_some());
+        assert_eq!(execute(&nfa, &twice), None);
     }
 
     #[test]
@@ -546,7 +618,7 @@ mod tests {
         .unwrap();
         let nfa = compile(&[pattern], &registry);
         let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
-        assert!(execute(&nfa, &repeated).is_ok());
+        assert!(execute(&nfa, &repeated).is_some());
     }
 
     #[test]
@@ -562,8 +634,8 @@ mod tests {
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["--help"]).unwrap();
         assert!(matches!(
-            execute(&nfa, &input),
-            Ok(captures) if matches!(captures.as_slice(), [Capture::Option { .. }])
+            execute(&nfa, &input).as_deref(),
+            Some([Capture::Option { .. }])
         ));
     }
 
@@ -579,7 +651,7 @@ mod tests {
         .unwrap();
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-h"]).unwrap();
-        assert!(execute(&nfa, &input).is_ok());
+        assert!(execute(&nfa, &input).is_some());
     }
 
     #[test]
@@ -594,6 +666,6 @@ mod tests {
         .unwrap();
         let nfa = compile(&[pattern], &registry);
         let input = registry.normalize_args(&["-h"]).unwrap();
-        assert_eq!(execute(&nfa, &input), Err(MatchError::NoMatch));
+        assert_eq!(execute(&nfa, &input), None);
     }
 }

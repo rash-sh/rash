@@ -7,7 +7,7 @@
 //! 2. build the option registry from the option descriptions and usage patterns ([`options`]);
 //! 3. parse every usage pattern into an AST and analyze symbol multiplicity ([`grammar`]);
 //! 4. compile the patterns into one epsilon-NFA and match the normalized argv ([`matcher`]);
-//! 5. turn the captures of the single successful binding into variables.
+//! 5. turn the captures of the highest-priority successful match into variables.
 
 mod grammar;
 mod matcher;
@@ -22,7 +22,7 @@ use serde_json::{Map, Value};
 use crate::error::{Error, ErrorKind, Result};
 
 use grammar::Metadata;
-use matcher::{Capture, MatchError};
+use matcher::Capture;
 use options::OptionRegistry;
 
 /// Regex compiled on first use; a compilation error is reported by [`compiled`].
@@ -65,7 +65,9 @@ enum InputToken {
 ///
 /// The syntax is Docopt-inspired, but the implementation is Rash-specific. Usage patterns are
 /// parsed into an AST, compiled into an epsilon-NFA, and matched directly against normalized argv.
-/// No concrete usage combinations are generated.
+/// No concrete usage combinations are generated. When several matches are possible, the first
+/// pattern in declaration order wins, and within a pattern optional elements and repetitions
+/// consume as many arguments as still allow a match.
 ///
 /// A script without a `Usage:` declaration yields an empty object.
 ///
@@ -73,8 +75,7 @@ enum InputToken {
 ///
 /// - [`ErrorKind::GracefulExit`] with the help text when help is requested.
 /// - [`ErrorKind::InvalidData`] with the help text when `args` match no usage pattern, and with a
-///   specific message when the declaration is invalid or ambiguous, or an argument is not a
-///   declared option.
+///   specific message when the declaration is invalid or an argument is not a declared option.
 pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     let help_msg = parse_help(file);
     let Some(usages) = parse_usage(&help_msg)? else {
@@ -92,13 +93,8 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
 
     let normalized_args = options.normalize_args(args)?;
     let nfa = matcher::compile(&patterns, &options);
-    let captures = matcher::execute(&nfa, &normalized_args).map_err(|error| match error {
-        MatchError::NoMatch => Error::new(ErrorKind::InvalidData, help_msg.clone()),
-        MatchError::Ambiguous => Error::new(
-            ErrorKind::InvalidData,
-            format!("Ambiguous usage declaration.\n\n{help_msg}"),
-        ),
-    })?;
+    let captures = matcher::execute(&nfa, &normalized_args)
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, help_msg.clone()))?;
 
     let vars = build_vars(&metadata, &options, captures)?;
     if help_requested(&vars) {

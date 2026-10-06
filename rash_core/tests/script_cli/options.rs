@@ -1887,3 +1887,29 @@ fn ambiguous_short_alias_error_names_the_alias() {
     let error = script_cli::parse(file, &["-u"]).unwrap_err();
     assert_eq!(error.to_string(), "Ambiguous option alias: -u");
 }
+
+#[test]
+fn option_cannot_exceed_its_declared_occurrences_across_positions() {
+    // Legacy and docopt 0.6.2 reject a third `-a`: the pattern declares it twice.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [-a] [-b] <x> [-a]
+#
+"#;
+    check(
+        file,
+        &[
+            (
+                &["-a", "-a", "x"],
+                Ok(json!({"options": {"a": 2, "b": false}, "x": "x"})),
+            ),
+            (
+                &["-a", "x", "-a"],
+                Ok(json!({"options": {"a": 2, "b": false}, "x": "x"})),
+            ),
+            (&["-a", "-a", "x", "-a"], Err(INVALID)),
+            (&["-a", "-b", "-a", "x", "-a"], Err(INVALID)),
+        ],
+    );
+}
