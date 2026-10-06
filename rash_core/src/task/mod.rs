@@ -21,6 +21,7 @@ use crate::jinja::{is_render_string, render, render_force_string, render_map, re
 use crate::logger::suppress_logs;
 use crate::modules::Module;
 use crate::task::new::TaskNew;
+use crate::utils::yaml_to_string;
 
 use rash_derive::FieldNames;
 
@@ -115,7 +116,10 @@ impl Task {
             YamlValue::Null => Ok(YamlValue::Mapping(serde_norway::Mapping::new())),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("{original:?} must be a mapping or a string"),
+                format!(
+                    "{} must be a mapping or a string",
+                    yaml_to_string(&original)
+                ),
             )),
         }
     }
@@ -426,7 +430,10 @@ pub fn parse_file(file_content: &str, global_params: &GlobalParams) -> Result<Ta
         YamlValue::Sequence(tasks) => parse_tasks_with_defaults(&tasks, None, global_params),
         _ => Err(Error::new(
             ErrorKind::InvalidData,
-            format!("Expected a YAML sequence of tasks, got: {yaml:?}"),
+            format!(
+                "Expected a YAML sequence of tasks, got: {}",
+                yaml_to_string(&yaml)
+            ),
         )),
     }
 }
@@ -453,7 +460,7 @@ pub fn parse_file_with_handlers(
         if !matches!(key.as_str(), Some("tasks" | "handlers" | "defaults")) {
             return Err(Error::new(
                 ErrorKind::InvalidData,
-                format!("Unknown top-level script key: {key:?}"),
+                format!("Unknown top-level script key: {}", yaml_to_string(key)),
             ));
         }
     }
@@ -750,6 +757,44 @@ mod tests {
         let task = Task::new(&yaml, &global_params).unwrap();
         let error = task.exec(context! {}).unwrap_err();
         assert_eq!(error.to_string(), NO_LOG_MESSAGE);
+    }
+
+    #[test]
+    fn async_script_runs_as_a_job() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("hello.sh");
+        std::fs::write(&script, "#!/bin/sh\necho hello from script\n").unwrap();
+        let yaml: YamlValue = serde_norway::from_str(&format!(
+            "script: {}\nasync: 60\npoll: 1\nregister: job",
+            script.display()
+        ))
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let result = Task::new(&yaml, &global_params)
+            .unwrap()
+            .exec(context! {})
+            .unwrap();
+        let job = result.get_vars().unwrap().get_attr("job").unwrap();
+        assert_eq!(job.get_attr("rc").unwrap().as_i64(), Some(0));
+        assert_eq!(
+            job.get_attr("stdout").unwrap().as_str(),
+            Some("hello from script\n")
+        );
+    }
+
+    #[test]
+    fn async_rejects_modules_without_a_process() {
+        let yaml: YamlValue =
+            serde_norway::from_str("debug: {msg: hi}\nasync: 60\npoll: 1").unwrap();
+        let global_params = GlobalParams::default();
+        let error = Task::new(&yaml, &global_params)
+            .unwrap()
+            .exec(context! {})
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "module debug cannot run with async: only command, shell and script do"
+        );
     }
 
     #[test]

@@ -38,6 +38,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
+use crate::utils::yaml_to_string;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -65,10 +66,13 @@ struct Params {
 }
 
 fn exit_code(code: Option<&YamlValue>) -> Result<i32> {
-    let invalid = |value: &dyn std::fmt::Debug| {
+    let invalid = |value: &YamlValue| {
         Error::new(
             ErrorKind::InvalidData,
-            format!("meta exit code must be an integer between 0 and 255, got {value:?}"),
+            format!(
+                "meta exit code must be an integer between 0 and 255, got {}",
+                yaml_to_string(value)
+            ),
         )
     };
     let number = match code {
@@ -181,6 +185,11 @@ mod tests {
             assert_eq!(error.kind(), ErrorKind::InvalidData, "{code}");
             assert!(error.to_string().contains("between 0 and 255"), "{code}");
         }
+        let params: YamlValue = serde_norway::from_str("action: exit\ncode: 256").unwrap();
+        let error = meta
+            .exec(&global_params, params, &context! {}, false)
+            .unwrap_err();
+        assert!(error.to_string().ends_with("got 256"), "{error}");
     }
 
     #[test]

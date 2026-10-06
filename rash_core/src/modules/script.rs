@@ -30,7 +30,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult, parse_params};
-use crate::process::{OutputMode, ProcessSpec};
+use crate::process::{OutputMode, ProcessPlan, ProcessSpec};
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -42,7 +42,6 @@ use minijinja::Value;
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
-use serde_norway::value;
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
@@ -147,14 +146,34 @@ fn process_spec(params: &Params) -> Result<ProcessSpec> {
     Ok(spec)
 }
 
-fn result_from_process(result: crate::process::ProcessResult) -> Result<ModuleResult> {
-    let failed = !result.success();
-    let extra = Some(value::to_value(json!({
-        "rc": result.rc(),
-        "stderr": result.stderr.clone().unwrap_or_default(),
-        "failed": failed,
-    }))?);
-    Ok(ModuleResult::new(true, extra, result.stdout))
+fn parse(optional_params: YamlValue) -> Result<Params> {
+    match optional_params.as_str() {
+        Some(path) => Ok(Params {
+            path: path.to_owned(),
+            args: None,
+            argv: None,
+            chdir: None,
+            executable: None,
+            stdin: None,
+            stdout: OutputMode::Capture,
+            stderr: OutputMode::Capture,
+        }),
+        None => parse_params(optional_params),
+    }
+}
+
+fn plan(params: &Params, check_mode: bool) -> Result<ProcessPlan> {
+    if !Path::new(&params.path).exists() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Script file '{}' does not exist", params.path),
+        ));
+    }
+    if check_mode {
+        let output = Some(format!("Would run script: {}", params.path));
+        return Ok(ProcessPlan::Done(ModuleResult::new(true, None, output)));
+    }
+    Ok(ProcessPlan::Run(process_spec(params)?))
 }
 
 #[derive(Debug)]
@@ -172,40 +191,12 @@ impl Module for Script {
         _vars: &Value,
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        let params: Params = match optional_params.as_str() {
-            Some(s) => Params {
-                path: s.to_owned(),
-                args: None,
-                argv: None,
-                chdir: None,
-                executable: None,
-                stdin: None,
-                stdout: OutputMode::Capture,
-                stderr: OutputMode::Capture,
-            },
-            None => parse_params(optional_params)?,
-        };
+        let result = plan(&parse(optional_params)?, check_mode)?.execute()?;
+        Ok((result, None))
+    }
 
-        if !Path::new(&params.path).exists() {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Script file '{}' does not exist", params.path),
-            ));
-        }
-
-        if check_mode {
-            return Ok((
-                ModuleResult::new(
-                    true,
-                    None,
-                    Some(format!("Would run script: {}", params.path)),
-                ),
-                None,
-            ));
-        }
-
-        let result = process_spec(&params)?.run()?;
-        Ok((result_from_process(result)?, None))
+    fn plan_process(&self, params: YamlValue, check_mode: bool) -> Result<ProcessPlan> {
+        plan(&parse(params)?, check_mode)
     }
 
     #[cfg(feature = "docs")]

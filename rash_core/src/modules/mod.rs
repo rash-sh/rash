@@ -475,7 +475,10 @@ pub trait Module: Send + Sync + std::fmt::Debug {
     fn plan_process(&self, _params: YamlValue, _check_mode: bool) -> Result<ProcessPlan> {
         Err(Error::new(
             ErrorKind::InvalidData,
-            format!("module {} does not run a single process", self.get_name()),
+            format!(
+                "module {} cannot run with async: only command, shell and script do",
+                self.get_name()
+            ),
         ))
     }
 

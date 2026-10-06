@@ -31,7 +31,7 @@ Upgrading a script written for an older Rash? See [Breaking changes](breaking-ch
 | `until` | string or list | Repeat the task until the expression becomes true. |
 | `retries` | integer | Number of retries for `until`; defaults to 3. |
 | `delay` | integer | Delay between retries, in seconds; defaults to 0. |
-| `async` | integer | Maximum runtime, in seconds, for asynchronous `command`/`shell` execution. |
+| `async` | integer | Maximum runtime, in seconds, for asynchronous `command`/`shell`/`script` execution. |
 | `poll` | integer | Async polling interval in seconds. `0` means fire-and-forget. |
 | `rescue` | list | Tasks executed when the main task fails. |
 | `always` | list | Tasks executed after the main task regardless of success or failure. |
@@ -209,7 +209,7 @@ satisfied` and the registered result reports `failed: true`.
 
 ## Asynchronous commands
 
-`async` currently applies to `command` and `shell` tasks. Rash starts the process in a managed
+`async` applies to `command`, `shell` and `script` tasks. Rash starts the process in a managed
 process group so timeouts can terminate the process tree rather than only the immediate child.
 Without `stdin` data the job gets an empty stdin: a background job never reads Rash's input or the
 terminal.

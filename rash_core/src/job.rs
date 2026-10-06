@@ -138,7 +138,7 @@ pub fn get_job(id: JobId) -> Option<JobStatus> {
 
 enum Completion {
     Exited(ExitStatus),
-    TimedOut(Option<Duration>),
+    TimedOut(Duration),
     Unknown(std::io::Error),
 }
 
@@ -152,12 +152,12 @@ fn claim_completed_process(id: JobId) -> Option<(SpawnedProcess, Completion)> {
     if job.status != JobStatus::Running {
         return None;
     }
-    let timed_out = job.is_timed_out();
-    let completion = match job.process.as_mut()?.try_wait() {
-        Ok(Some(status)) => Completion::Exited(status),
-        Ok(None) if timed_out => Completion::TimedOut(job.timeout),
-        Ok(None) => return None,
-        Err(e) => Completion::Unknown(e),
+    let expired_timeout = job.timeout.filter(|_| job.is_timed_out());
+    let completion = match (job.process.as_mut()?.try_wait(), expired_timeout) {
+        (Ok(Some(status)), _) => Completion::Exited(status),
+        (Ok(None), Some(timeout)) => Completion::TimedOut(timeout),
+        (Ok(None), None) => return None,
+        (Err(e), _) => Completion::Unknown(e),
     };
     let process = job.process.take()?;
     Some((process, completion))
@@ -232,7 +232,7 @@ fn complete(mut process: SpawnedProcess, completion: Completion) -> JobOutcome {
             if let Ok(status) = process.wait() {
                 let _ = process.finish_within(status, OUTPUT_GRACE);
             }
-            JobOutcome::failed(format!("Job timed out after {timeout:?}"))
+            JobOutcome::failed(format!("Job timed out after {}s", timeout.as_secs_f64()))
         }
         Completion::Unknown(e) => {
             JobOutcome::failed(format!("Failed to check process status: {e}"))
@@ -444,7 +444,7 @@ mod tests {
         let job_id = register_job(Some(Duration::from_millis(100)), spawn("sleep 30"));
         let info = wait_until_done(job_id);
         assert_eq!(info.status, JobStatus::Failed);
-        assert!(info.error.unwrap().contains("timed out"));
+        assert_eq!(info.error.as_deref(), Some("Job timed out after 0.1s"));
     }
 
     #[test]

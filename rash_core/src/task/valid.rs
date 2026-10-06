@@ -2,6 +2,7 @@ use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{MODULES, is_module};
 use crate::task::{Task, parse_notify_value};
+use crate::utils::yaml_to_string;
 
 use std::collections::HashSet;
 
@@ -43,7 +44,7 @@ impl TaskValid {
         match modules.as_slice() {
             [] => Err(Error::new(
                 ErrorKind::NotFound,
-                format!("No module found in task: {:?}", self.attrs),
+                format!("No module found in task: {}", yaml_to_string(&self.attrs)),
             )),
             [module] => Ok(module.clone()),
             _ => Err(Error::new(
