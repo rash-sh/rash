@@ -611,42 +611,49 @@ mod tests {
         assert_eq!(result.stdout, None);
     }
 
-    fn child_pid_and_pgid(spec: &mut ProcessSpec) -> (i32, i32) {
-        spec.args = vec!["-c".into(), "echo $$; cut -d' ' -f5 /proc/$$/stat".into()];
-        let stdout = spec.run().unwrap().stdout.unwrap();
-        let ids: Vec<i32> = stdout.lines().map(|l| l.trim().parse().unwrap()).collect();
-        (ids[0], ids[1])
+    /// Pid and process group of a running child, read with getpgid(2) (no `/proc`).
+    fn child_pid_and_pgid(process_group: bool) -> (i32, i32) {
+        let mut spec = ProcessSpec::new("sleep");
+        spec.args = vec!["30".into()];
+        spec.process_group = process_group;
+        // spawn returns once the child exec'd, so its process group is already set.
+        let mut process = spec.spawn_managed().unwrap();
+        let pid = process.id() as i32;
+        // SAFETY: getpgid(2) on our own unreaped child.
+        let pgid = unsafe { libc::getpgid(pid) };
+        process.kill_tree().unwrap();
+        process.wait().unwrap();
+        (pid, pgid)
     }
 
     #[test]
     fn sync_child_runs_in_rash_process_group() {
-        let (_, pgid) = child_pid_and_pgid(&mut ProcessSpec::new("/bin/sh"));
+        let (_, pgid) = child_pid_and_pgid(false);
         // SAFETY: getpgrp(2) has no preconditions.
         assert_eq!(pgid, unsafe { libc::getpgrp() });
     }
 
     #[test]
     fn process_group_isolates_child() {
-        let mut spec = ProcessSpec::new("/bin/sh");
-        spec.process_group = true;
-        let (pid, pgid) = child_pid_and_pgid(&mut spec);
+        let (pid, pgid) = child_pid_and_pgid(true);
         assert_eq!(pid, pgid);
     }
 
     #[test]
     fn finish_within_does_not_block_on_grandchild_holding_stdout() {
-        let mut spec = shell("echo started; sleep 30 &");
+        let mut spec = shell("echo started; sleep 120 &");
         spec.process_group = true;
         let mut process = spec.spawn_managed().unwrap();
         let pgid = process.id() as i32;
         let start = Instant::now();
         let status = process.wait().unwrap();
         let result = process
-            .finish_within(status, Duration::from_millis(200))
+            .finish_within(status, Duration::from_secs(1))
             .unwrap();
         // SAFETY: clean up the orphaned `sleep` in the job's process group.
         unsafe { libc::kill(-pgid, libc::SIGKILL) };
-        assert!(start.elapsed() < Duration::from_secs(5));
+        // Returned after the grace period, not when the grandchild closed stdout.
+        assert!(start.elapsed() < Duration::from_secs(60));
         assert_eq!(result.stdout.as_deref(), Some("started\n"));
     }
 }

@@ -1,17 +1,21 @@
 //! Process execution semantics: stdio modes, signals and terminal handling.
 use crate::cli::modules::run_test;
 
-use std::fs;
-use std::io::{Read, Write};
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, BufReader, ErrorKind, Read, Write};
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use tempfile::{TempDir, tempdir};
 
-const LIMIT: Duration = Duration::from_secs(10);
+/// Generous deadline: rash and its children can be slow to start on a loaded machine.
+const LIMIT: Duration = Duration::from_secs(30);
+const POLL: Duration = Duration::from_millis(10);
 
 #[test]
 fn test_stdio_tee_inherit_and_unread_stdin() {
@@ -50,13 +54,24 @@ fn test_stdio_tee_inherit_and_unread_stdin() {
 
 struct Fixture {
     dir: TempDir,
+    lifeline: File,
 }
 
 impl Fixture {
     fn new(script: &str) -> Self {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("script.rh"), script).unwrap();
-        Self { dir }
+        // A FIFO async jobs hold open for writing: reading it reports EOF only once every
+        // holder exited, which cannot be fooled by pid reuse or unreaped zombies.
+        let lifeline = dir.path().join("lifeline");
+        nix::unistd::mkfifo(&lifeline, nix::sys::stat::Mode::S_IRWXU).unwrap();
+        // Non-blocking: opening does not wait for a writer and reads never block.
+        let lifeline = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NONBLOCK)
+            .open(lifeline)
+            .unwrap();
+        Self { dir, lifeline }
     }
 
     fn path(&self, name: &str) -> PathBuf {
@@ -68,7 +83,7 @@ impl Fixture {
         command
             .arg(self.path("script.rh"))
             .env("RASH_TEST_MARKER", self.path("marker"))
-            .env("RASH_TEST_PIDFILE", self.path("pid"));
+            .env("RASH_TEST_LIFELINE", self.path("lifeline"));
         command
     }
 
@@ -81,22 +96,60 @@ impl Fixture {
             .unwrap()
     }
 
+    /// Wait until `name` holds a full line: a file appears empty before it is written.
     fn wait_for(&self, name: &str) -> String {
         let path = self.path(name);
         let start = Instant::now();
         loop {
             if let Ok(content) = fs::read_to_string(&path)
-                && (name == "marker" || content.ends_with('\n'))
+                && content.ends_with('\n')
             {
                 return content;
             }
             assert!(start.elapsed() < LIMIT, "{path:?} never appeared");
-            thread::sleep(Duration::from_millis(20));
+            thread::sleep(POLL);
         }
     }
 
-    fn async_job_pid(&self) -> i32 {
-        self.wait_for("pid").trim().parse().unwrap()
+    /// Read the lifeline once: `Some(true)` on data, `Some(false)` on EOF, `None` while
+    /// a holder keeps it open.
+    fn read_lifeline(&mut self, line: &mut Vec<u8>) -> Option<bool> {
+        let mut buffer = [0; 64];
+        match self.lifeline.read(&mut buffer) {
+            Ok(0) => Some(false),
+            Ok(n) => {
+                line.extend_from_slice(&buffer[..n]);
+                Some(true)
+            }
+            Err(e) if e.kind() == ErrorKind::WouldBlock => None,
+            Err(e) => panic!("reading lifeline: {e}"),
+        }
+    }
+
+    /// Wait until an async job holding the lifeline wrote a full line.
+    fn wait_async_job_ready(&mut self) {
+        let start = Instant::now();
+        let mut line = Vec::new();
+        // EOF before the job opened the FIFO only means "not yet".
+        while !line.ends_with(b"\n") {
+            assert!(start.elapsed() < LIMIT, "async job never got ready");
+            if self.read_lifeline(&mut line) != Some(true) {
+                thread::sleep(POLL);
+            }
+        }
+    }
+
+    /// Wait until every async job holding the lifeline exited.
+    fn async_jobs_gone(&mut self) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < LIMIT {
+            match self.read_lifeline(&mut Vec::new()) {
+                Some(false) => return true,
+                Some(true) => {}
+                None => thread::sleep(POLL),
+            }
+        }
+        false
     }
 }
 
@@ -110,7 +163,7 @@ fn wait_with_limit(child: &mut Child) -> ExitStatus {
             let _ = child.kill();
             panic!("rash did not exit within {LIMIT:?}");
         }
-        thread::sleep(Duration::from_millis(20));
+        thread::sleep(POLL);
     }
 }
 
@@ -128,25 +181,9 @@ fn send_signal(child: &Child, signal: i32) {
     assert_eq!(unsafe { libc::kill(child.id() as i32, signal) }, 0);
 }
 
-fn process_gone(pid: i32) -> bool {
-    let start = Instant::now();
-    while start.elapsed() < LIMIT {
-        // A zombie is already dead: it only waits for its new parent to reap it.
-        let alive = fs::read_to_string(format!("/proc/{pid}/stat"))
-            .ok()
-            .and_then(|stat| stat.rsplit_once(") ").map(|(_, s)| !s.starts_with('Z')))
-            .unwrap_or(false);
-        if !alive {
-            return true;
-        }
-        thread::sleep(Duration::from_millis(20));
-    }
-    false
-}
-
 const ASYNC_JOB: &str = r#"
 - command:
-    argv: [sh, -c, 'echo $$ > "$RASH_TEST_PIDFILE"; exec sleep 30']
+    argv: [sh, -c, 'exec 3>"$RASH_TEST_LIFELINE"; echo ready >&3; exec sleep 60']
   async: 60
   poll: 0
 "#;
@@ -155,7 +192,9 @@ const BLOCK_WITH_SLEEPING_CHILD: &str = r#"
 - block:
     - name: long running child
       command:
-        argv: [sh, -c, 'touch "$RASH_TEST_MARKER"; exec sleep 30']
+        # A builtin writes the marker: with no child left to wait for, the shell cannot
+        # outlive a SIGINT (bash keeps going if a waited-for child survived it).
+        argv: [sh, -c, 'echo ready > "$RASH_TEST_MARKER"; exec sleep 60']
       ignore_errors: true
       failed_when: false
     - debug:
@@ -171,9 +210,9 @@ const BLOCK_WITH_SLEEPING_CHILD: &str = r#"
 "#;
 
 fn assert_signal_stops_sync_child(signal: i32) {
-    let fixture = Fixture::new(&format!("{ASYNC_JOB}{BLOCK_WITH_SLEEPING_CHILD}"));
+    let mut fixture = Fixture::new(&format!("{ASYNC_JOB}{BLOCK_WITH_SLEEPING_CHILD}"));
     let child = fixture.spawn();
-    let job_pid = fixture.async_job_pid();
+    fixture.wait_async_job_ready();
     fixture.wait_for("marker");
     send_signal(&child, signal);
 
@@ -185,7 +224,7 @@ fn assert_signal_stops_sync_child(signal: i32) {
     assert!(!output.contains("rescue-ran"));
     assert!(!output.contains("after-ignored"));
     assert!(!output.contains("after-block"));
-    assert!(process_gone(job_pid), "async job {job_pid} survived");
+    assert!(fixture.async_jobs_gone(), "async job survived");
 }
 
 #[test]
@@ -203,25 +242,44 @@ fn test_sigterm_between_tasks_exits_and_kills_async_jobs() {
     let script = format!(
         "{ASYNC_JOB}{}",
         r#"
-- command:
-    argv: [touch, "{{ env.RASH_TEST_MARKER }}"]
-- pause:
-    seconds: 30
+- name: wait for signal
+  pause:
+    seconds: 60
 - debug:
     msg: after-pause
 "#
     );
-    let fixture = Fixture::new(&script);
-    let child = fixture.spawn();
-    let job_pid = fixture.async_job_pid();
-    fixture.wait_for("marker");
+    let mut fixture = Fixture::new(&script);
+    let mut child = fixture.spawn();
+    let stdout = child.stdout.take().unwrap();
+    let (lines_tx, lines_rx) = mpsc::channel();
+    let reader = thread::spawn(move || {
+        let mut output = String::new();
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            let _ = lines_tx.send(line.clone());
+            output.push_str(&line);
+            output.push('\n');
+        }
+        output
+    });
+    fixture.wait_async_job_ready();
+    // The header is printed once the previous task is done: no child is supervised.
+    loop {
+        let line = lines_rx
+            .recv_timeout(LIMIT)
+            .expect("pause task never started");
+        if line.contains("wait for signal") {
+            break;
+        }
+    }
     send_signal(&child, libc::SIGTERM);
 
-    let (status, output) = finish(child);
+    let (status, stderr) = finish(child);
+    let output = reader.join().unwrap() + &stderr;
 
     assert_eq!(status.code(), Some(143), "{output}");
     assert!(!output.contains("after-pause"));
-    assert!(process_gone(job_pid), "async job {job_pid} survived");
+    assert!(fixture.async_jobs_gone(), "async job survived");
 }
 
 /// Run rash as session leader of a new pseudo-terminal, like a login shell would, so the

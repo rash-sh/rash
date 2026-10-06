@@ -294,7 +294,15 @@ pub fn job_exists(id: JobId) -> bool {
 mod tests {
     use super::*;
     use crate::process::ProcessSpec;
+    use std::fs::{File, OpenOptions};
+    use std::io::{ErrorKind as IoErrorKind, Read};
+    use std::os::unix::fs::OpenOptionsExt;
+    use std::path::PathBuf;
     use std::thread;
+
+    /// Generous deadline: under a loaded machine these processes can take a while.
+    const LIMIT: Duration = Duration::from_secs(30);
+    const POLL: Duration = Duration::from_millis(10);
 
     fn spawn(command: &str) -> SpawnedProcess {
         let mut spec = ProcessSpec::shell(command, "/bin/sh");
@@ -302,26 +310,86 @@ mod tests {
         spec.spawn_managed().unwrap()
     }
 
-    fn wait_until_done(job_id: JobId, limit: Duration) -> JobInfo {
+    fn wait_until_done(job_id: JobId) -> JobInfo {
         let start = Instant::now();
         loop {
             let info = get_job_info(job_id).unwrap();
-            if info.status != JobStatus::Running || start.elapsed() > limit {
+            if info.status != JobStatus::Running {
                 return info;
             }
-            thread::sleep(Duration::from_millis(20));
+            assert!(start.elapsed() < LIMIT, "job {job_id} still running");
+            thread::sleep(POLL);
         }
     }
 
-    fn process_alive(pid: i32) -> bool {
-        // A zombie is already dead, it only waits for its new parent to reap it.
-        std::fs::read_to_string(format!("/proc/{pid}/stat"))
-            .ok()
-            .and_then(|stat| {
-                stat.rsplit_once(") ")
-                    .map(|(_, rest)| !rest.starts_with('Z'))
-            })
-            .unwrap_or(false)
+    /// A FIFO held open for writing by the processes under test.
+    ///
+    /// They write a line once ready, and reading reports EOF only once every holder
+    /// exited. Unlike checking a pid, this cannot be fooled by pid reuse or by how long
+    /// a zombie waits to be reaped, and it needs no `/proc`.
+    struct Lifeline {
+        _dir: tempfile::TempDir,
+        path: PathBuf,
+        reader: File,
+    }
+
+    impl Lifeline {
+        fn new() -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("lifeline");
+            nix::unistd::mkfifo(&path, nix::sys::stat::Mode::S_IRWXU).unwrap();
+            // Non-blocking: opening does not wait for a writer and reads never block.
+            let reader = OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NONBLOCK)
+                .open(&path)
+                .unwrap();
+            Self {
+                _dir: dir,
+                path,
+                reader,
+            }
+        }
+
+        /// Read once: `Some(true)` on data, `Some(false)` on EOF, `None` if still open.
+        fn read(&mut self, line: &mut Vec<u8>) -> Option<bool> {
+            let mut buffer = [0; 64];
+            match self.reader.read(&mut buffer) {
+                Ok(0) => Some(false),
+                Ok(n) => {
+                    line.extend_from_slice(&buffer[..n]);
+                    Some(true)
+                }
+                Err(e) if e.kind() == IoErrorKind::WouldBlock => None,
+                Err(e) => panic!("reading lifeline: {e}"),
+            }
+        }
+
+        /// Wait until a holder wrote a full line.
+        fn wait_ready(&mut self) {
+            let start = Instant::now();
+            let mut line = Vec::new();
+            // EOF before the first holder opened the FIFO only means "not yet".
+            while !line.ends_with(b"\n") {
+                assert!(start.elapsed() < LIMIT, "lifeline holder never got ready");
+                if self.read(&mut line) != Some(true) {
+                    thread::sleep(POLL);
+                }
+            }
+        }
+
+        /// Wait until every holder exited.
+        fn wait_released(&mut self) -> bool {
+            let start = Instant::now();
+            while start.elapsed() < LIMIT {
+                match self.read(&mut Vec::new()) {
+                    Some(false) => return true,
+                    Some(true) => {}
+                    None => thread::sleep(POLL),
+                }
+            }
+            false
+        }
     }
 
     #[test]
@@ -332,32 +400,15 @@ mod tests {
     #[test]
     fn test_register_job_and_get_status() {
         let job_id = register_job(None, spawn("sleep 0.1"));
-        let mut status = get_job(job_id);
-        for _ in 0..20 {
-            if status == Some(JobStatus::Finished) {
-                break;
-            }
-            thread::sleep(Duration::from_millis(50));
-            status = get_job(job_id);
-        }
-        assert_eq!(status, Some(JobStatus::Finished));
+        wait_until_done(job_id);
+        assert_eq!(get_job(job_id), Some(JobStatus::Finished));
     }
 
     #[test]
     fn test_get_job_info_updates_status() {
         let job_id = register_job(None, spawn("echo test_output"));
-        let mut info = get_job_info(job_id);
-        for _ in 0..20 {
-            if info
-                .as_ref()
-                .is_some_and(|i| i.status == JobStatus::Finished)
-            {
-                break;
-            }
-            thread::sleep(Duration::from_millis(50));
-            info = get_job_info(job_id);
-        }
-        let info = info.unwrap();
+        let info = wait_until_done(job_id);
+        assert_eq!(info.status, JobStatus::Finished);
         assert_eq!(info.rc, Some(0));
         assert!(info.output.unwrap().contains("test_output"));
     }
@@ -365,30 +416,18 @@ mod tests {
     #[test]
     fn test_job_large_output_does_not_deadlock() {
         let job_id = register_job(
-            Some(Duration::from_secs(5)),
+            Some(LIMIT),
             spawn("i=0; while [ $i -lt 20000 ]; do echo abcdefghijklmnop; i=$((i+1)); done"),
         );
-        let mut info = get_job_info(job_id);
-        for _ in 0..100 {
-            if info
-                .as_ref()
-                .is_some_and(|i| i.status != JobStatus::Running)
-            {
-                break;
-            }
-            thread::sleep(Duration::from_millis(20));
-            info = get_job_info(job_id);
-        }
-        let info = info.unwrap();
+        let info = wait_until_done(job_id);
         assert_eq!(info.status, JobStatus::Finished);
         assert!(info.output.unwrap().len() > 300_000);
     }
 
     #[test]
     fn test_job_timeout() {
-        let job_id = register_job(Some(Duration::from_millis(100)), spawn("sleep 10"));
-        thread::sleep(Duration::from_millis(200));
-        let info = get_job_info(job_id).unwrap();
+        let job_id = register_job(Some(Duration::from_millis(100)), spawn("sleep 30"));
+        let info = wait_until_done(job_id);
         assert_eq!(info.status, JobStatus::Failed);
         assert!(info.error.unwrap().contains("timed out"));
     }
@@ -396,8 +435,7 @@ mod tests {
     #[test]
     fn test_job_failed_on_nonzero_exit_preserves_status() {
         let job_id = register_job(None, spawn("echo bad >&2; exit 7"));
-        thread::sleep(Duration::from_millis(50));
-        let info = get_job_info(job_id).unwrap();
+        let info = wait_until_done(job_id);
         assert_eq!(info.status, JobStatus::Failed);
         assert_eq!(info.rc, Some(7));
         assert!(info.stderr.unwrap().contains("bad"));
@@ -405,49 +443,38 @@ mod tests {
 
     #[test]
     fn test_job_with_grandchild_holding_stdout_completes() {
-        let process = spawn("echo started; sleep 30 &");
+        let process = spawn("echo started; sleep 120 &");
         let pgid = process.id() as i32;
-        let start = Instant::now();
         let job_id = register_job(Some(Duration::from_secs(60)), process);
-        let info = wait_until_done(job_id, Duration::from_secs(5));
+        // Completes within LIMIT, long before the grandchild exits or the job times out.
+        let info = wait_until_done(job_id);
         // Concurrent lookups must not block on the completed job either.
         assert!(job_exists(job_id));
         // SAFETY: clean up the orphaned `sleep` left in the job's process group.
         unsafe { libc::kill(-pgid, libc::SIGKILL) };
-        assert!(start.elapsed() < Duration::from_secs(5));
         assert_eq!(info.status, JobStatus::Finished);
         assert_eq!(info.output.as_deref(), Some("started\n"));
     }
 
     #[test]
     fn test_job_timeout_kills_process_tree() {
-        let pid_file = tempfile::NamedTempFile::new().unwrap();
-        let path = pid_file.path().display().to_string();
+        let mut lifeline = Lifeline::new();
         let job_id = register_job(
             Some(Duration::from_millis(300)),
-            spawn(&format!("sleep 30 & echo $! > {path}; wait")),
+            spawn(&format!(
+                "exec 3>'{}'; (echo ready >&3; exec sleep 30) & wait",
+                lifeline.path.display()
+            )),
         );
-        let start = Instant::now();
-        let grandchild = loop {
-            let content = std::fs::read_to_string(&path).unwrap();
-            if let Ok(pid) = content.trim().parse::<i32>() {
-                break pid;
-            }
-            assert!(start.elapsed() < Duration::from_secs(5));
-            thread::sleep(Duration::from_millis(20));
-        };
-        assert!(process_alive(grandchild));
+        // The backgrounded grandchild is running before the timeout can kill anything.
+        lifeline.wait_ready();
 
-        let info = wait_until_done(job_id, Duration::from_secs(5));
+        let info = wait_until_done(job_id);
         assert_eq!(info.status, JobStatus::Failed);
         assert!(info.error.unwrap().contains("timed out"));
-        let start = Instant::now();
-        while process_alive(grandchild) && start.elapsed() < Duration::from_secs(5) {
-            thread::sleep(Duration::from_millis(20));
-        }
         assert!(
-            !process_alive(grandchild),
-            "grandchild {grandchild} survived"
+            lifeline.wait_released(),
+            "a process of the job tree survived the timeout"
         );
     }
 }
