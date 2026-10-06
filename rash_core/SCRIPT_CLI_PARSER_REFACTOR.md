@@ -225,6 +225,15 @@ These are not ordinary compatibility failures and must remain explicit:
 5. **Repeated positionals are always lists.** A positional declared more than once (`tool [<x>] [<x>]`) collects every value into a list (`p q` → `["p", "q"]`, `p` → `["p"]`), as in reference Docopt 0.6.2. Legacy keeps only the last value as a string.
 6. **Optional options around a required command.** `tool [--verbose] (start|stop) [--force]` accepts a bare `start`, as reference Docopt 0.6.2 does; legacy rejects it.
 7. **Repeated reference to a documented value option.** `tool [--tag]...` with `--tag=VALUE` documented under `Options:` is accepted with the same scalar last-value semantics as `tool [--tag=<value>]...` (`--tag=one --tag=two` → `"two"`). Legacy fails with "Not mergeable options".
+8. **Groups inside brackets are independently optional.** `[(a | b) (c | d)]` accepts `a` or `c` alone and `[(a b) c]` accepts `c` alone, as in reference Docopt 0.6.2. Legacy treats the bracket as one all-or-nothing group, and rejects every argv (even empty) for `[(--aa | --bb) (--cc | --dd)]`.
+9. **Option keys are not polluted by grouping punctuation.** An option followed by `)` (`(<key> | --all)`) yields `options.all`; legacy additionally emits a malformed `options["all)"]` key and may reject `--all`.
+10. **Repeated exclusive flags are counters.** `[--quiet | --verbose]...` counts both options (`--quiet --quiet` → `quiet: 2`); legacy reports `quiet` as a boolean and `verbose` as a count, and rejects any repetition.
+11. **Optional value option before exclusive flags.** `foo [-o FILE] [--sorted | --quiet]` accepts empty argv; legacy rejects it.
+12. **Cluster plus repeatable option.** `[-hsoFILE] [--repeatable]... [--quiet | --verbose] [INPUT ...]` with option descriptions parses normally; legacy rejects every argv.
+13. **Value option without its value is an error.** `-o` alone (with `-o FILE` declared) fails with "Option -o requires a value"; legacy binds the option's own spelling (`o: "-o"`) or misparses neighbours (`-s -o` → `INPUT: ["-o=--sorted"]`).
+14. **Short options never fill positional slots.** With `[-hsoFILE] ... [INPUT ...]`, `-F -s` sets both flags; legacy returns `INPUT: ["-s"]` and leaves `s` false.
+15. **Shared short alias is an error.** `-u` declared for both `--sysupgrade` and `--upgrades` fails with "Ambiguous option alias: -u" (reference Docopt also rejects it); legacy silently picks one. The long aliases remain usable.
+16. **Specific error messages.** Invalid declarations and bad option values report the cause ("Invalid usage identifier: Run", "Option --known does not take a value", "Option -n requires a value") instead of legacy's "Invalid usage: <help>" or an empty message.
 
 Known remaining divergences from reference Docopt 0.6.2, shared by legacy and kept for compatibility pending an explicit decision:
 
