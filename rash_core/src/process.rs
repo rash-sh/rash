@@ -1,17 +1,23 @@
 use crate::error::{Error, ErrorKind, Result};
+use crate::signal::{self, ForegroundGuard};
 
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
+use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::Path;
-use std::process::{Child, Command, ExitStatus, Stdio};
-use std::sync::atomic::{AtomicI32, Ordering};
-use std::thread::{self, JoinHandle};
+use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[cfg(feature = "docs")]
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-#[cfg(unix)]
-use std::os::unix::process::{CommandExt, ExitStatusExt};
+/// How long to keep draining output after an interrupt before abandoning pipes that
+/// background grandchildren still hold open.
+const INTERRUPT_OUTPUT_GRACE: Duration = Duration::from_millis(200);
+const STREAM_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "docs", derive(JsonSchema))]
@@ -47,6 +53,9 @@ pub struct ProcessSpec {
     pub stdout: OutputMode,
     pub stderr: OutputMode,
     pub env: Vec<(String, String)>,
+    /// Run the child in its own process group so its whole tree can be killed. Only async
+    /// jobs need it: synchronous children stay in Rash's process group, so they behave as
+    /// a foreground job on the controlling terminal (they can read it and receive Ctrl-C).
     pub process_group: bool,
 }
 
@@ -60,7 +69,7 @@ impl ProcessSpec {
             stdout: OutputMode::Capture,
             stderr: OutputMode::Capture,
             env: Vec::new(),
-            process_group: true,
+            process_group: false,
         }
     }
 
@@ -86,59 +95,56 @@ impl ProcessSpec {
         });
         command.stdout(self.stdout.stdio());
         command.stderr(self.stderr.stdio());
-
-        #[cfg(unix)]
         if self.process_group {
             command.process_group(0);
         }
-
         command
     }
 
     pub fn spawn_managed(&self) -> Result<SpawnedProcess> {
         let mut command = self.command();
         trace!("spawn process: {:?} {:?}", self.program, self.args);
-        let mut child = command
+        let child = command
             .spawn()
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-
-        // Drain piped output before writing stdin. Otherwise a child that writes output while
-        // consuming a large stdin (for example `cat`) can deadlock once both pipe buffers fill.
-        let stdout_reader = if self.stdout.is_piped() {
-            child
-                .stdout
-                .take()
-                .map(|reader| spawn_reader(reader, self.stdout == OutputMode::Tee, false))
-        } else {
-            None
-        };
-        let stderr_reader = if self.stderr.is_piped() {
-            child
-                .stderr
-                .take()
-                .map(|reader| spawn_reader(reader, self.stderr == OutputMode::Tee, true))
-        } else {
-            None
-        };
-
-        write_stdin(&mut child, self.stdin.as_deref())?;
-
-        Ok(SpawnedProcess {
+        let mut process = SpawnedProcess {
             child,
-            stdout_reader,
-            stderr_reader,
+            streams: Streams::default(),
             process_group: self.process_group,
-        })
+        };
+        if let Err(error) = process.start_streams(self) {
+            process.abort();
+            return Err(error);
+        }
+        Ok(process)
     }
 
+    /// Run the child to completion as Rash's foreground job.
+    ///
+    /// Returns [`ErrorKind::Interrupted`] if Rash received a termination signal meanwhile.
     pub fn run(&self) -> Result<ProcessResult> {
+        // Set up before spawning: a signal arriving during the spawn is recorded and
+        // forwarded on attach instead of terminating Rash with an untracked child.
+        let guard = ForegroundGuard::new();
         let mut process = self.spawn_managed()?;
-        let _signal_guard = process
-            .process_group
-            .then_some(process.id() as i32)
-            .map(SignalForwardGuard::new);
-        let status = process.wait()?;
-        process.finish(status)
+        guard.attach(process.id());
+        let status = match process.wait_foreground(&guard) {
+            Ok(status) => status,
+            Err(error) => {
+                process.abort();
+                return Err(error);
+            }
+        };
+        if let Some(interrupt) = guard.take_interrupt(status.signal().is_some()) {
+            let _ = process.finish_within(status, INTERRUPT_OUTPUT_GRACE);
+            return Err(interrupt);
+        }
+        let result = process.finish(status)?;
+        // A signal received while draining output: the child is gone, so always honor it.
+        match guard.take_interrupt(true) {
+            Some(interrupt) => Err(interrupt),
+            None => Ok(result),
+        }
     }
 
     /// Spec used to replace the current process: after `exec` no Rash code remains to
@@ -164,7 +170,6 @@ impl ProcessSpec {
         Ok(spec)
     }
 
-    #[cfg(unix)]
     pub fn replace(&self) -> Error {
         let spec = match self.replacement_spec() {
             Ok(spec) => spec,
@@ -175,10 +180,63 @@ impl ProcessSpec {
     }
 }
 
+type Buffer = Arc<Mutex<Vec<u8>>>;
+
+/// Background threads feeding stdin and draining stdout/stderr of a child.
+#[derive(Default)]
+struct Streams {
+    done: Option<Receiver<io::Result<()>>>,
+    running: usize,
+    stdout: Option<Buffer>,
+    stderr: Option<Buffer>,
+}
+
+impl Streams {
+    /// Wait for the stream threads to finish, until `deadline` (if any) or until Rash
+    /// receives a termination signal. Streams still running are abandoned: background
+    /// grandchildren may hold the pipes open indefinitely.
+    fn wait(&mut self, deadline: Option<Instant>) -> Result<()> {
+        let Some(done) = &self.done else {
+            return Ok(());
+        };
+        while self.running > 0 && !signal::interrupt_pending() {
+            let timeout = match deadline {
+                Some(deadline) => {
+                    let left = deadline.saturating_duration_since(Instant::now());
+                    if left.is_zero() {
+                        break;
+                    }
+                    left.min(STREAM_POLL_INTERVAL)
+                }
+                None => STREAM_POLL_INTERVAL,
+            };
+            match done.recv_timeout(timeout) {
+                Ok(result) => {
+                    self.running -= 1;
+                    result.map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(Error::new(
+                        ErrorKind::SubprocessFail,
+                        "process stream thread panicked",
+                    ));
+                }
+            }
+        }
+        if self.running > 0 {
+            debug!(
+                "{} process stream(s) still open, likely held by background processes",
+                self.running
+            );
+        }
+        Ok(())
+    }
+}
+
 pub struct SpawnedProcess {
     child: Child,
-    stdout_reader: Option<JoinHandle<std::io::Result<Vec<u8>>>>,
-    stderr_reader: Option<JoinHandle<std::io::Result<Vec<u8>>>>,
+    streams: Streams,
     process_group: bool,
 }
 
@@ -206,87 +264,171 @@ impl SpawnedProcess {
             .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
     }
 
+    fn wait_foreground(&mut self, guard: &ForegroundGuard) -> Result<ExitStatus> {
+        if let Err(error) = signal::wait_exited(self.id()) {
+            debug!("waitid failed, reaping directly: {error}");
+        }
+        guard.detach();
+        self.wait()
+    }
+
     pub fn kill_tree(&mut self) -> std::io::Result<()> {
         if self.process_group {
-            #[cfg(unix)]
-            {
-                let pgid = self.child.id() as i32;
-                // SAFETY: ProcessSpec created this child with process_group(0).
-                let result = unsafe { libc::kill(-pgid, libc::SIGKILL) };
-                if result == 0 {
-                    return Ok(());
-                }
+            let pgid = self.child.id() as i32;
+            // SAFETY: ProcessSpec created this child with process_group(0).
+            let result = unsafe { libc::kill(-pgid, libc::SIGKILL) };
+            if result == 0 {
+                return Ok(());
             }
         }
         self.child.kill()
     }
 
-    pub fn finish(mut self, status: ExitStatus) -> Result<ProcessResult> {
+    /// Kill and reap the child after a setup failure.
+    fn abort(&mut self) {
+        let _ = self.kill_tree();
+        let _ = self.child.wait();
+    }
+
+    fn start_streams(&mut self, spec: &ProcessSpec) -> Result<()> {
+        let (done_tx, done_rx) = mpsc::channel();
+        // Drain piped output before feeding stdin. Otherwise a child that writes output
+        // while consuming a large stdin (for example `cat`) deadlocks once pipes fill.
+        if spec.stdout.is_piped()
+            && let Some(reader) = self.child.stdout.take()
+        {
+            let tee = (spec.stdout == OutputMode::Tee).then_some(TeeTarget::Stdout);
+            self.streams.stdout = Some(spawn_reader(reader, tee, done_tx.clone())?);
+            self.streams.running += 1;
+        }
+        if spec.stderr.is_piped()
+            && let Some(reader) = self.child.stderr.take()
+        {
+            let tee = (spec.stderr == OutputMode::Tee).then_some(TeeTarget::Stderr);
+            self.streams.stderr = Some(spawn_reader(reader, tee, done_tx.clone())?);
+            self.streams.running += 1;
+        }
+        if let Some(data) = &spec.stdin
+            && let Some(handle) = self.child.stdin.take()
+        {
+            spawn_writer(handle, data.clone(), done_tx)?;
+            self.streams.running += 1;
+        }
+        self.streams.done = Some(done_rx);
+        Ok(())
+    }
+
+    /// Collect captured output after the child exited, waiting until every stream hits
+    /// EOF. Stops early, keeping what was read, if Rash receives a termination signal.
+    pub fn finish(self, status: ExitStatus) -> Result<ProcessResult> {
+        self.collect(status, None)
+    }
+
+    /// Like [`finish`](Self::finish), but gives up on streams still open after `grace`
+    /// (held by background grandchildren), returning the output read so far.
+    pub fn finish_within(self, status: ExitStatus, grace: Duration) -> Result<ProcessResult> {
+        self.collect(status, Some(Instant::now() + grace))
+    }
+
+    fn collect(mut self, status: ExitStatus, deadline: Option<Instant>) -> Result<ProcessResult> {
         drop(self.child.stdin.take());
-        let stdout = join_reader(self.stdout_reader.take())?;
-        let stderr = join_reader(self.stderr_reader.take())?;
+        self.streams.wait(deadline)?;
         Ok(ProcessResult {
             status,
-            stdout: bytes_to_string(stdout),
-            stderr: bytes_to_string(stderr),
+            stdout: take_output(self.streams.stdout.take()),
+            stderr: take_output(self.streams.stderr.take()),
         })
     }
 }
 
-fn write_stdin(child: &mut Child, stdin: Option<&str>) -> Result<()> {
-    if let Some(data) = stdin
-        && let Some(mut handle) = child.stdin.take()
-    {
-        handle
-            .write_all(data.as_bytes())
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-    }
-    Ok(())
+#[derive(Clone, Copy)]
+enum TeeTarget {
+    Stdout,
+    Stderr,
 }
 
-fn spawn_reader<R>(mut reader: R, tee: bool, stderr: bool) -> JoinHandle<std::io::Result<Vec<u8>>>
+impl TeeTarget {
+    fn write(self, data: &[u8]) -> io::Result<()> {
+        match self {
+            Self::Stdout => {
+                let mut out = io::stdout().lock();
+                out.write_all(data)?;
+                out.flush()
+            }
+            Self::Stderr => {
+                let mut out = io::stderr().lock();
+                out.write_all(data)?;
+                out.flush()
+            }
+        }
+    }
+}
+
+fn spawn_reader<R>(
+    reader: R,
+    tee: Option<TeeTarget>,
+    done: Sender<io::Result<()>>,
+) -> Result<Buffer>
 where
     R: Read + Send + 'static,
 {
-    thread::spawn(move || {
-        let mut collected = Vec::new();
-        let mut buffer = [0_u8; 8192];
-        loop {
-            let read = reader.read(&mut buffer)?;
-            if read == 0 {
-                break;
-            }
-            collected.extend_from_slice(&buffer[..read]);
-            if tee {
-                if stderr {
-                    let mut out = std::io::stderr().lock();
-                    out.write_all(&buffer[..read])?;
-                    out.flush()?;
-                } else {
-                    let mut out = std::io::stdout().lock();
-                    out.write_all(&buffer[..read])?;
-                    out.flush()?;
-                }
-            }
-        }
-        Ok(collected)
-    })
+    let buffer = Buffer::default();
+    let sink = Arc::clone(&buffer);
+    thread::Builder::new()
+        .name("rash-output".to_owned())
+        .spawn(move || {
+            let _ = done.send(drain(reader, &sink, tee));
+        })
+        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+    Ok(buffer)
 }
 
-fn join_reader(handle: Option<JoinHandle<std::io::Result<Vec<u8>>>>) -> Result<Option<Vec<u8>>> {
-    match handle {
-        Some(handle) => handle
-            .join()
-            .map_err(|_| Error::new(ErrorKind::SubprocessFail, "process output reader panicked"))?
-            .map(Some)
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e)),
-        None => Ok(None),
+fn drain<R: Read>(
+    mut reader: R,
+    sink: &Mutex<Vec<u8>>,
+    mut tee: Option<TeeTarget>,
+) -> io::Result<()> {
+    let mut chunk = [0_u8; 8192];
+    loop {
+        let read = match reader.read(&mut chunk) {
+            Ok(0) => return Ok(()),
+            Ok(read) => read,
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
+        sink.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .extend_from_slice(&chunk[..read]);
+        if let Some(target) = tee
+            && target.write(&chunk[..read]).is_err()
+        {
+            // Keep draining so the child never blocks on a full pipe.
+            tee = None;
+        }
     }
 }
 
-fn bytes_to_string(bytes: Option<Vec<u8>>) -> Option<String> {
-    bytes
-        .and_then(|bytes| (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned()))
+fn spawn_writer(mut handle: ChildStdin, data: String, done: Sender<io::Result<()>>) -> Result<()> {
+    thread::Builder::new()
+        .name("rash-stdin".to_owned())
+        .spawn(move || {
+            let result = match handle.write_all(data.as_bytes()) {
+                // The child exited or closed stdin without reading all of it (`head -c1`,
+                // `grep -q`): not an error, its exit status tells the outcome.
+                Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+                result => result,
+            };
+            // Close stdin so the child sees EOF.
+            drop(handle);
+            let _ = done.send(result);
+        })
+        .map(drop)
+        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
+}
+
+fn take_output(buffer: Option<Buffer>) -> Option<String> {
+    let bytes = std::mem::take(&mut *buffer?.lock().unwrap_or_else(PoisonError::into_inner));
+    (!bytes.is_empty()).then(|| String::from_utf8_lossy(&bytes).into_owned())
 }
 
 #[derive(Debug)]
@@ -305,7 +447,6 @@ impl ProcessResult {
         if let Some(code) = self.status.code() {
             return code;
         }
-        #[cfg(unix)]
         if let Some(signal) = self.status.signal() {
             return 128 + signal;
         }
@@ -313,82 +454,17 @@ impl ProcessResult {
     }
 }
 
-#[cfg(unix)]
-static ACTIVE_PROCESS_GROUP: AtomicI32 = AtomicI32::new(0);
-
-#[cfg(unix)]
-extern "C" fn forward_signal(signal: libc::c_int) {
-    let pgid = ACTIVE_PROCESS_GROUP.load(Ordering::Relaxed);
-    if pgid > 0 {
-        // SAFETY: kill(2) is async-signal-safe; a negative pid addresses a process group.
-        unsafe {
-            libc::kill(-pgid, signal);
-        }
-    }
-}
-
-struct SignalForwardGuard {
-    #[cfg(unix)]
-    old_sigint: libc::sighandler_t,
-    #[cfg(unix)]
-    old_sigterm: libc::sighandler_t,
-}
-
-impl SignalForwardGuard {
-    fn new(pgid: i32) -> Self {
-        #[cfg(unix)]
-        {
-            ACTIVE_PROCESS_GROUP.store(pgid, Ordering::SeqCst);
-            // SAFETY: restored in Drop; handler only invokes async-signal-safe kill(2).
-            let old_sigint = unsafe {
-                libc::signal(
-                    libc::SIGINT,
-                    forward_signal as *const () as libc::sighandler_t,
-                )
-            };
-            let old_sigterm = unsafe {
-                libc::signal(
-                    libc::SIGTERM,
-                    forward_signal as *const () as libc::sighandler_t,
-                )
-            };
-            Self {
-                old_sigint,
-                old_sigterm,
-            }
-        }
-
-        #[cfg(not(unix))]
-        {
-            let _ = pgid;
-            Self {}
-        }
-    }
-}
-
-impl Drop for SignalForwardGuard {
-    fn drop(&mut self) {
-        #[cfg(unix)]
-        {
-            ACTIVE_PROCESS_GROUP.store(0, Ordering::SeqCst);
-            // SAFETY: restore the exact previous handlers.
-            unsafe {
-                libc::signal(libc::SIGINT, self.old_sigint);
-                libc::signal(libc::SIGTERM, self.old_sigterm);
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn shell(command: &str) -> ProcessSpec {
+        ProcessSpec::shell(command, "/bin/sh")
+    }
+
     #[test]
     fn captures_stdout_and_status() {
-        let mut spec = ProcessSpec::new("sh");
-        spec.args = vec!["-c".into(), "printf hello".into()];
-        let result = spec.run().unwrap();
+        let result = shell("printf hello").run().unwrap();
         assert!(result.success());
         assert_eq!(result.rc(), 0);
         assert_eq!(result.stdout.as_deref(), Some("hello"));
@@ -398,6 +474,7 @@ mod tests {
     fn replacement_inherits_piped_output() {
         let mut spec = ProcessSpec::new("true");
         spec.stderr = OutputMode::Null;
+        spec.process_group = true;
         let replacement = spec.replacement_spec().unwrap();
         assert_eq!(replacement.stdout, OutputMode::Inherit);
         assert_eq!(replacement.stderr, OutputMode::Null);
@@ -413,8 +490,7 @@ mod tests {
 
     #[test]
     fn carries_environment_without_mutating_parent() {
-        let mut spec = ProcessSpec::new("sh");
-        spec.args = vec!["-c".into(), "printf %s \"$RASH_PROCESS_TEST\"".into()];
+        let mut spec = shell("printf %s \"$RASH_PROCESS_TEST\"");
         spec.env.push(("RASH_PROCESS_TEST".into(), "child".into()));
         let result = spec.run().unwrap();
         assert_eq!(result.stdout.as_deref(), Some("child"));
@@ -423,9 +499,7 @@ mod tests {
 
     #[test]
     fn nonzero_is_a_result_not_a_spawn_error() {
-        let mut spec = ProcessSpec::new("sh");
-        spec.args = vec!["-c".into(), "echo bad >&2; exit 7".into()];
-        let result = spec.run().unwrap();
+        let result = shell("echo bad >&2; exit 7").run().unwrap();
         assert!(!result.success());
         assert_eq!(result.rc(), 7);
         assert_eq!(result.stderr.as_deref(), Some("bad\n"));
@@ -433,11 +507,8 @@ mod tests {
 
     #[test]
     fn managed_process_drains_large_output_before_exit() {
-        let mut spec = ProcessSpec::new("sh");
-        spec.args = vec![
-            "-c".into(),
-            "i=0; while [ $i -lt 20000 ]; do echo 01234567890123456789; i=$((i+1)); done".into(),
-        ];
+        let spec =
+            shell("i=0; while [ $i -lt 20000 ]; do echo 01234567890123456789; i=$((i+1)); done");
         let result = spec.run().unwrap();
         assert!(result.success());
         assert!(result.stdout.unwrap().len() > 300_000);
@@ -454,11 +525,83 @@ mod tests {
     }
 
     #[test]
+    fn unread_stdin_reports_rc_instead_of_broken_pipe() {
+        let payload = "x".repeat(4 * 1024 * 1024);
+        let mut spec = ProcessSpec::new("head");
+        spec.args = vec!["-c1".into()];
+        spec.stdin = Some(payload.clone());
+        let result = spec.run().unwrap();
+        assert_eq!(result.rc(), 0);
+        assert_eq!(result.stdout.as_deref(), Some("x"));
+
+        let mut spec = shell("exit 3");
+        spec.stdin = Some(payload);
+        assert_eq!(spec.run().unwrap().rc(), 3);
+    }
+
+    #[test]
     fn null_discards_output() {
-        let mut spec = ProcessSpec::new("sh");
-        spec.args = vec!["-c".into(), "printf hidden".into()];
+        let mut spec = shell("printf hidden");
         spec.stdout = OutputMode::Null;
         let result = spec.run().unwrap();
         assert_eq!(result.stdout, None);
+    }
+
+    #[test]
+    fn tee_captures_output() {
+        let mut spec = shell("printf teed; printf teed-err >&2");
+        spec.stdout = OutputMode::Tee;
+        spec.stderr = OutputMode::Tee;
+        let result = spec.run().unwrap();
+        assert_eq!(result.stdout.as_deref(), Some("teed"));
+        assert_eq!(result.stderr.as_deref(), Some("teed-err"));
+    }
+
+    #[test]
+    fn inherit_does_not_capture() {
+        let mut spec = shell("printf inherited");
+        spec.stdout = OutputMode::Inherit;
+        let result = spec.run().unwrap();
+        assert!(result.success());
+        assert_eq!(result.stdout, None);
+    }
+
+    fn child_pid_and_pgid(spec: &mut ProcessSpec) -> (i32, i32) {
+        spec.args = vec!["-c".into(), "echo $$; cut -d' ' -f5 /proc/$$/stat".into()];
+        let stdout = spec.run().unwrap().stdout.unwrap();
+        let ids: Vec<i32> = stdout.lines().map(|l| l.trim().parse().unwrap()).collect();
+        (ids[0], ids[1])
+    }
+
+    #[test]
+    fn sync_child_runs_in_rash_process_group() {
+        let (_, pgid) = child_pid_and_pgid(&mut ProcessSpec::new("/bin/sh"));
+        // SAFETY: getpgrp(2) has no preconditions.
+        assert_eq!(pgid, unsafe { libc::getpgrp() });
+    }
+
+    #[test]
+    fn process_group_isolates_child() {
+        let mut spec = ProcessSpec::new("/bin/sh");
+        spec.process_group = true;
+        let (pid, pgid) = child_pid_and_pgid(&mut spec);
+        assert_eq!(pid, pgid);
+    }
+
+    #[test]
+    fn finish_within_does_not_block_on_grandchild_holding_stdout() {
+        let mut spec = shell("echo started; sleep 30 &");
+        spec.process_group = true;
+        let mut process = spec.spawn_managed().unwrap();
+        let pgid = process.id() as i32;
+        let start = Instant::now();
+        let status = process.wait().unwrap();
+        let result = process
+            .finish_within(status, Duration::from_millis(200))
+            .unwrap();
+        // SAFETY: clean up the orphaned `sleep` in the job's process group.
+        unsafe { libc::kill(-pgid, libc::SIGKILL) };
+        assert!(start.elapsed() < Duration::from_secs(5));
+        assert_eq!(result.stdout.as_deref(), Some("started\n"));
     }
 }

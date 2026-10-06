@@ -1,3 +1,4 @@
+use crate::signal;
 use crate::task::{Handlers, PendingHandlers, Tasks};
 use crate::{error::Result, jinja::merge_option};
 use clap::ValueEnum;
@@ -72,6 +73,11 @@ impl<'a> Context<'a> {
         let mut context = self.clone();
 
         while !context.tasks.is_empty() {
+            // A signal recorded while a child ran but not consumed by it (e.g. its setup
+            // failed) still stops the script.
+            if let Some(interrupt) = signal::take_pending_interrupt() {
+                return Err(interrupt);
+            }
             let mut next_tasks = context.tasks.clone();
             let next_task = next_tasks.remove(0);
 

@@ -524,7 +524,7 @@ impl<'a> Task<'a> {
             Ok((result, result_vars)) => {
                 self.finalize_module_result(result, result_vars, &extended_vars)
             }
-            Err(error) if error.kind() == ErrorKind::ExplicitExit => Err(error),
+            Err(error) if error.is_termination() => Err(error),
             Err(error) => Ok(self.module_error_result(error)),
         }
     }
@@ -792,6 +792,8 @@ impl<'a> Task<'a> {
         let extended = self.extend_vars(vars.clone())?;
         let mut spec = process::from_module(self.module.get_name(), rendered_params)?;
         spec.env = self.render_environment(&extended)?;
+        // Async jobs get their own process group: timeouts and interrupts kill the tree.
+        spec.process_group = true;
         let process = spec.spawn_managed()?;
         let job_id = register_job(self.get_async_timeout(), process);
         info!(target: "async", "Started async job {job_id}");
@@ -1099,7 +1101,7 @@ impl<'a> Task<'a> {
 
         let (main_result, main_hard_error) = match self.exec_main_task(initial_vars.clone()) {
             Ok(result) => (result, None),
-            Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+            Err(error) if error.is_termination() => {
                 pending_exit = Some(error);
                 (TaskExecResult::new(false, None), None)
             }
@@ -1126,7 +1128,7 @@ impl<'a> Task<'a> {
                             recovered = true;
                             Some(result)
                         }
-                        Err(error) if error.kind() == ErrorKind::ExplicitExit => {
+                        Err(error) if error.is_termination() => {
                             pending_exit = Some(error);
                             None
                         }
@@ -1147,7 +1149,8 @@ impl<'a> Task<'a> {
         let post_rescue_vars = merge_option(post_main_vars, rescue_vars.clone());
 
         // `always` is a true finally section: execute it after main failures, rescue
-        // failures, and explicit exits. A failure/exit in `always` itself takes precedence.
+        // failures, explicit exits and interrupts. A failure/exit in `always` itself
+        // takes precedence.
         let always = if let Some(always_tasks) = &self.always {
             Some(self.execute_task_sequence(always_tasks, post_rescue_vars)?)
         } else {
@@ -1192,7 +1195,7 @@ impl<'a> Task<'a> {
 
         let result = match execution {
             Ok(result) => result,
-            Err(error) if error.kind() == ErrorKind::ExplicitExit => return Err(error),
+            Err(error) if error.is_termination() => return Err(error),
             Err(error) if self.ignore_errors.unwrap_or(false) => self.module_error_result(error),
             Err(error) => return Err(error),
         };

@@ -26,6 +26,7 @@ enum Repr {
     Simple(ErrorKind),
     Custom(Box<Custom>),
     Exit(i32),
+    Interrupted(i32),
 }
 
 #[derive(Debug)]
@@ -49,6 +50,8 @@ pub enum ErrorKind {
     GracefulExit,
     /// Program termination explicitly requested by the script.
     ExplicitExit,
+    /// Rash received a termination signal (SIGINT, SIGTERM, SIGHUP).
+    Interrupted,
     /// An entity was not found, often a module.
     NotFound,
     /// Data is invalid.
@@ -72,6 +75,7 @@ impl ErrorKind {
         match self {
             ErrorKind::GracefulExit => "program finish gracefully",
             ErrorKind::ExplicitExit => "explicit program exit",
+            ErrorKind::Interrupted => "interrupted by signal",
             ErrorKind::NotFound => "entity not found",
             ErrorKind::InvalidData => "invalid data",
             ErrorKind::IOError => "I/O error",
@@ -197,6 +201,24 @@ impl Error {
         }
     }
 
+    /// Rash received `signal` and must stop: the error is not recoverable by
+    /// `ignore_errors`, `failed_when` or `rescue`, but `always` sections still run.
+    /// The process exit status is `128 + signal`.
+    pub fn interrupted(signal: i32) -> Error {
+        Error {
+            repr: Repr::Interrupted(signal),
+        }
+    }
+
+    /// Whether this error must abort script execution regardless of error handling
+    /// (`ignore_errors`, `failed_when`, `rescue`, loops). `always` sections still run.
+    pub fn is_termination(&self) -> bool {
+        matches!(
+            self.kind(),
+            ErrorKind::ExplicitExit | ErrorKind::Interrupted
+        )
+    }
+
     /// Creates a new `rash` error from a known kind of error as well as an
     /// arbitrary error payload.
     ///
@@ -245,6 +267,7 @@ impl Error {
             Repr::Custom(ref c) => c.kind,
             Repr::Simple(kind) => kind,
             Repr::Exit(_) => ErrorKind::ExplicitExit,
+            Repr::Interrupted(_) => ErrorKind::Interrupted,
         }
     }
 
@@ -269,6 +292,7 @@ impl Error {
     pub fn raw_os_error(&self) -> Option<i32> {
         match self.repr {
             Repr::Exit(code) => Some(code),
+            Repr::Interrupted(signal) => Some(128 + signal),
             Repr::Custom(..) | Repr::Simple(..) => None,
         }
     }
@@ -295,7 +319,7 @@ impl Error {
     /// ```
     pub fn get_ref(&self) -> Option<&(dyn StdError + Send + Sync + 'static)> {
         match self.repr {
-            Repr::Simple(..) | Repr::Exit(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) | Repr::Interrupted(..) => None,
             Repr::Custom(ref c) => Some(&*c.error),
         }
     }
@@ -357,7 +381,7 @@ impl Error {
     /// ```
     pub fn get_mut(&mut self) -> Option<&mut (dyn StdError + Send + Sync + 'static)> {
         match self.repr {
-            Repr::Simple(..) | Repr::Exit(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) | Repr::Interrupted(..) => None,
             Repr::Custom(ref mut c) => Some(&mut *c.error),
         }
     }
@@ -384,7 +408,7 @@ impl Error {
     /// ```
     pub fn into_inner(self) -> Option<Box<dyn StdError + Send + Sync>> {
         match self.repr {
-            Repr::Simple(..) | Repr::Exit(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) | Repr::Interrupted(..) => None,
             Repr::Custom(c) => Some(c.error),
         }
     }
@@ -396,6 +420,7 @@ impl fmt::Debug for Repr {
             Repr::Custom(ref c) => fmt::Debug::fmt(&c, fmt),
             Repr::Simple(kind) => fmt.debug_tuple("Kind").field(&kind).finish(),
             Repr::Exit(code) => fmt.debug_tuple("Exit").field(&code).finish(),
+            Repr::Interrupted(signal) => fmt.debug_tuple("Interrupted").field(&signal).finish(),
         }
     }
 }
@@ -406,6 +431,7 @@ impl fmt::Display for Error {
             Repr::Custom(ref c) => c.error.fmt(fmt),
             Repr::Simple(kind) => write!(fmt, "{}", kind.as_str()),
             Repr::Exit(code) => write!(fmt, "exit requested with status {code}"),
+            Repr::Interrupted(signal) => write!(fmt, "interrupted by signal {signal}"),
         }
     }
 }
@@ -413,7 +439,7 @@ impl fmt::Display for Error {
 impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self.repr {
-            Repr::Simple(..) | Repr::Exit(..) => None,
+            Repr::Simple(..) | Repr::Exit(..) | Repr::Interrupted(..) => None,
             Repr::Custom(ref c) => c.error.source(),
         }
     }
@@ -457,6 +483,17 @@ mod test {
         assert_eq!(error.kind(), ErrorKind::ExplicitExit);
         assert_eq!(error.raw_os_error(), Some(23));
         assert_eq!(error.to_string(), "exit requested with status 23");
+    }
+
+    #[test]
+    fn test_interrupted_maps_to_signal_exit_status() {
+        let error = Error::interrupted(15);
+        assert_eq!(error.kind(), ErrorKind::Interrupted);
+        assert_eq!(error.raw_os_error(), Some(143));
+        assert!(error.is_termination());
+        assert!(Error::explicit_exit(1).is_termination());
+        assert!(!Error::new(ErrorKind::SubprocessFail, "rc 143").is_termination());
+        assert_eq!(error.to_string(), "interrupted by signal 15");
     }
 
     #[test]

@@ -217,6 +217,18 @@ With `poll: 0`, Rash returns immediately and the registered result contains `ras
 the final structured process result. `transfer_pid` and async execution are intentionally
 incompatible.
 
+## Signals and interactive commands
+
+Synchronous `command`, `shell` and `script` processes run in Rash's own process group, like the
+foreground job of a shell: they can prompt on the terminal (`read`, `ssh`, `sudo`, `$EDITOR`) and
+receive Ctrl-C directly.
+
+When Rash receives SIGINT, SIGTERM or SIGHUP while such a process runs, it forwards signals sent
+with `kill` (for example by `docker stop`) to the process, waits for it, and then stops the script:
+the interruption is not swallowed by `ignore_errors`, `failed_when`, `rescue` or loops, but `always`
+sections still run. Between tasks Rash stops immediately. In both cases running async jobs are
+killed and Rash exits with `128 + signal` (130 for SIGINT, 143 for SIGTERM).
+
 ## Script and block defaults
 
 For larger local scripts, the top-level mapping form can define defaults shared by tasks and

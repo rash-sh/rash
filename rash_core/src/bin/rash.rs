@@ -3,6 +3,7 @@ use rash_core::docopt;
 use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
 use rash_core::modules::add_module_search_path;
+use rash_core::signal;
 use rash_core::task::{
     InternalTaskData, get_internal_result_path, parse_file, parse_file_with_handlers,
 };
@@ -88,6 +89,10 @@ fn crash_error(e: Error) -> ! {
     if e.kind() == ErrorKind::ExplicitExit {
         exit(e.raw_os_error().unwrap_or(0));
     }
+    if e.kind() == ErrorKind::Interrupted {
+        // Do not leave async jobs running once the script stops.
+        signal::kill_job_groups();
+    }
     error!("{e}");
     let exit_code = e.raw_os_error().unwrap_or(1);
     if let Some(inner_error) = e.into_inner()
@@ -164,6 +169,9 @@ fn execute_internal_task(task_path: &Path) {
     let vars = context! {rash => &builtins, ..internal_data.vars};
     let task = tasks.remove(0);
     let exec_result = task.exec(vars).unwrap_or_else(|e| {
+        if e.kind() == ErrorKind::Interrupted {
+            crash_error(e);
+        }
         error!("Internal task failed: {e}");
         exit(1);
     });
@@ -225,6 +233,9 @@ fn main() {
         cli.output.clone()
     };
     logger::setup_logging(verbose, &cli.diff, &output).expect("failed to initialize logging.");
+    if let Err(e) = signal::install_handlers() {
+        crash_error(e);
+    }
 
     if let Some(internal_task_path) = &cli.internal_task {
         execute_internal_task(internal_task_path);

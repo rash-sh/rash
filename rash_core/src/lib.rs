@@ -8,6 +8,7 @@ pub mod job;
 pub mod logger;
 pub mod modules;
 pub mod process;
+pub mod signal;
 pub mod task;
 pub mod utils;
 pub mod vars;

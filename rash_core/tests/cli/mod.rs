@@ -11,6 +11,8 @@ mod become_method;
 mod environment;
 #[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
 mod modules;
+#[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
+mod process;
 
 use std::env;
 use std::iter;
