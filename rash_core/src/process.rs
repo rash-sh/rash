@@ -141,12 +141,36 @@ impl ProcessSpec {
         process.finish(status)
     }
 
-    #[cfg(unix)]
-    pub fn replace(&self) -> Error {
+    /// Spec used to replace the current process: after `exec` no Rash code remains to
+    /// feed stdin or drain pipes, so captured streams are inherited instead of piped.
+    fn replacement_spec(&self) -> Result<Self> {
+        if self.stdin.is_some() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "stdin cannot be combined with transfer_pid",
+            ));
+        }
+        let inherit_piped = |mode: OutputMode| {
+            if mode.is_piped() {
+                OutputMode::Inherit
+            } else {
+                mode
+            }
+        };
         let mut spec = self.clone();
         spec.process_group = false;
-        let mut command = spec.command();
-        let error = command.exec();
+        spec.stdout = inherit_piped(self.stdout);
+        spec.stderr = inherit_piped(self.stderr);
+        Ok(spec)
+    }
+
+    #[cfg(unix)]
+    pub fn replace(&self) -> Error {
+        let spec = match self.replacement_spec() {
+            Ok(spec) => spec,
+            Err(e) => return e,
+        };
+        let error = spec.command().exec();
         Error::new(ErrorKind::SubprocessFail, error)
     }
 }
@@ -368,6 +392,23 @@ mod tests {
         assert!(result.success());
         assert_eq!(result.rc(), 0);
         assert_eq!(result.stdout.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn replacement_inherits_piped_output() {
+        let mut spec = ProcessSpec::new("true");
+        spec.stderr = OutputMode::Null;
+        let replacement = spec.replacement_spec().unwrap();
+        assert_eq!(replacement.stdout, OutputMode::Inherit);
+        assert_eq!(replacement.stderr, OutputMode::Null);
+        assert!(!replacement.process_group);
+    }
+
+    #[test]
+    fn replacement_rejects_stdin() {
+        let mut spec = ProcessSpec::new("cat");
+        spec.stdin = Some("data".into());
+        assert!(spec.replace().to_string().contains("stdin"));
     }
 
     #[test]

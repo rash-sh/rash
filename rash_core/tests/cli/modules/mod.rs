@@ -4,6 +4,7 @@ mod apt_hold;
 mod authorized_key;
 mod btrfs;
 mod cargo;
+mod command;
 mod conntrack;
 mod cron;
 mod cronvar;
