@@ -773,6 +773,38 @@ mod tests {
     }
 
     #[test]
+    fn exhausted_until_registers_a_failed_result() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            command:
+              argv: [echo, never]
+            register: probe
+            until: probe.stdout == "done"
+            retries: 1
+            ignore_errors: true
+            "#,
+        )
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let result = Task::new(&yaml, &global_params)
+            .unwrap()
+            .exec(context! {})
+            .unwrap();
+        assert!(result.get_failed());
+        let probe = result.get_vars().unwrap().get_attr("probe").unwrap();
+        assert!(probe.get_attr("failed").unwrap().is_true());
+        assert_eq!(probe.get_attr("rc").unwrap().as_i64(), Some(0));
+        assert!(
+            probe
+                .get_attr("error")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("until condition")
+        );
+    }
+
+    #[test]
     fn task_attributes_are_the_task_fields_without_internals() {
         for attr in ["become", "loop", "async", "no_log", "rescue", "poll"] {
             assert!(Task::is_attr(attr), "{attr}");

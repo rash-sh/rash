@@ -114,11 +114,25 @@ impl Task<'_> {
             }
         }
 
-        Ok(TaskExecResult::failed(
-            false,
-            last_result.take_vars(),
-            format!("until condition not satisfied after {max_retries} retries"),
-        ))
+        let error = format!("until condition not satisfied after {max_retries} retries");
+        let vars = self.exhausted_retry_vars(last_result.take_vars(), &error);
+        Ok(TaskExecResult::failed(false, vars, error))
+    }
+
+    /// Vars of the last attempt, with its registered result marked as failed like the task.
+    fn exhausted_retry_vars(&self, vars: Option<Value>, error: &str) -> Option<Value> {
+        let registered = self
+            .register
+            .as_ref()
+            .and_then(|name| vars.as_ref()?.get_attr(name).ok())
+            .filter(|value| !value.is_undefined());
+        match (vars, registered) {
+            (Some(vars), Some(registered)) => {
+                let failed = context! {failed => true, error => error, ..registered};
+                Some(merge_option(vars, self.register_vars(failed)))
+            }
+            (vars, _) => vars,
+        }
     }
 
     /// Run `exec_item` for each loop item, stopping at the first failure unless ignored.

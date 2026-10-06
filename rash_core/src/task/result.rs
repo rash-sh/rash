@@ -216,7 +216,7 @@ impl Task<'_> {
     }
 
     /// Vars binding the `register` name (if any) to `value`.
-    fn register_vars(&self, value: Value) -> Option<Value> {
+    pub(super) fn register_vars(&self, value: Value) -> Option<Value> {
         self.register
             .as_ref()
             .map(|register| [(register.as_str(), value)].into_iter().collect::<Value>())
