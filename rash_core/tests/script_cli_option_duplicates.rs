@@ -1,4 +1,4 @@
-use rash_core::{docopt, script_cli};
+use rash_core::{docopt, error::ErrorKind, script_cli};
 
 fn assert_parity(file: &str, args: &[&str]) {
     let legacy = docopt::parse(file, args);
@@ -15,7 +15,7 @@ fn assert_parity(file: &str, args: &[&str]) {
 }
 
 #[test]
-fn duplicate_non_repeatable_explicit_option_matches_legacy() {
+fn duplicate_non_repeatable_explicit_option_is_rejected() {
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -27,9 +27,12 @@ fn duplicate_non_repeatable_explicit_option_matches_legacy() {
 #
 "#;
 
-    assert_parity(file, &["-a", "-a"]);
-    assert_parity(file, &["-b", "-b"]);
-    assert_parity(file, &["-a", "-b", "-a"]);
+    // Intentional difference: reference Docopt 0.6.2 rejects an option matched more often than
+    // declared. Legacy silently accepts the extra occurrence.
+    for args in [vec!["-a", "-a"], vec!["-b", "-b"], vec!["-a", "-b", "-a"]] {
+        let err = script_cli::parse(file, &args).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidData, "args={args:?}");
+    }
 }
 
 #[test]

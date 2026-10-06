@@ -1,4 +1,5 @@
 use rash_core::{docopt, script_cli};
+use serde_json::json;
 
 fn assert_parity(file: &str, args: &[&str]) {
     let legacy = docopt::parse(file, args);
@@ -40,6 +41,15 @@ fn documented_repeatable_value_option_preserves_scalar_last_value_semantics() {
 #
 "#;
 
-    assert_parity(file, &["--tag", "one"]);
-    assert_parity(file, &["--tag=one", "--tag=two"]);
+    // Intentional difference: legacy fails to merge the documented value option with the
+    // repeated usage reference ("Not mergeable options"). The compiled parser applies the same
+    // scalar last-value semantics as `[--tag=<value>]...`.
+    assert_eq!(
+        script_cli::parse(file, &["--tag", "one"]).unwrap(),
+        json!({"options": {"tag": "one"}})
+    );
+    assert_eq!(
+        script_cli::parse(file, &["--tag=one", "--tag=two"]).unwrap(),
+        json!({"options": {"tag": "two"}})
+    );
 }

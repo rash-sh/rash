@@ -1,4 +1,5 @@
 use rash_core::{docopt, script_cli};
+use serde_json::json;
 
 fn assert_parity(file: &str, args: &[&str]) {
     let legacy = docopt::parse(file, args);
@@ -24,15 +25,18 @@ fn repeatable_commands_keep_count_semantics() {
 #
 "#;
 
-    for args in [
-        vec![],
-        vec!["a"],
-        vec!["b"],
-        vec!["a", "a"],
-        vec!["a", "b"],
-        vec!["b", "b"],
+    // Intentional difference: repeated commands are counters even when matched once, as in
+    // reference Docopt 0.6.2. Legacy reports `true` for a single match.
+    for (args, a, b) in [
+        (vec![], 0, 0),
+        (vec!["a"], 1, 0),
+        (vec!["b"], 0, 1),
+        (vec!["a", "a"], 2, 0),
+        (vec!["a", "b"], 1, 1),
+        (vec!["b", "b"], 0, 2),
     ] {
-        assert_parity(file, &args);
+        let compiled = script_cli::parse(file, &args).unwrap();
+        assert_eq!(compiled, json!({"a": a, "b": b}), "args={args:?}");
     }
 }
 

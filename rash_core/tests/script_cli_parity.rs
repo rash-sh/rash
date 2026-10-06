@@ -245,11 +245,20 @@ fn alternatives_and_optional_options_can_mix_positions() {
 "#;
 
     for args in [
-        vec!["start"],
         vec!["--verbose", "start"],
         vec!["stop", "--force"],
         vec!["--force", "--verbose", "start"],
     ] {
         assert_parity(file, &args);
     }
+
+    // Intentional difference: reference Docopt 0.6.2 accepts the bare command; legacy rejects it.
+    assert_eq!(
+        script_cli::parse(file, &["start"]).unwrap(),
+        serde_json::json!({
+            "options": {"force": false, "verbose": false},
+            "start": true,
+            "stop": false,
+        })
+    );
 }
