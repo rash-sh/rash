@@ -73,7 +73,8 @@ enum InputToken {
 ///
 /// # Errors
 ///
-/// - [`ErrorKind::GracefulExit`] with the help text when help is requested.
+/// - [`ErrorKind::GracefulExit`] with the help text when help is requested: a `help` command
+///   matches, or a help option (`--help` or an alias of it) occurs before any `--` separator.
 /// - [`ErrorKind::InvalidData`] with the help text when `args` match no usage pattern, and with a
 ///   specific message when the declaration is invalid or an argument is not a declared option.
 pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
@@ -93,6 +94,12 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     options.set_repeatable(&metadata.repeatable_options)?;
 
     let normalized_args = options.normalize_args(args)?;
+    if normalized_args
+        .iter()
+        .any(|token| matches!(token, InputToken::Option { id, .. } if options.is_help(*id)))
+    {
+        return Err(Error::new(ErrorKind::GracefulExit, help_msg));
+    }
     let nfa = matcher::compile(&patterns, &options);
     let captures = matcher::execute(&nfa, &normalized_args)
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, help_msg.clone()))?;

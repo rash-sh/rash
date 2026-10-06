@@ -141,7 +141,7 @@ fn help_option_replaces_positional_after_command() {
 }
 
 #[test]
-fn extra_help_option_is_not_globally_accepted() {
+fn help_option_exits_even_where_no_pattern_accepts_it() {
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -156,8 +156,9 @@ fn extra_help_option_is_not_globally_accepted() {
     check(
         file,
         &[
-            (&["run", "--help"], Err(INVALID)),
-            (&["run", "-h"], Err(INVALID)),
+            // As in docopt 0.6.2, a help option anywhere in argv shows the help.
+            (&["run", "--help"], Err(HELP)),
+            (&["run", "-h"], Err(HELP)),
             (&["-h"], Err(HELP)),
         ],
     );
@@ -236,6 +237,61 @@ fn help_alternative_in_multi_pattern_usage() {
             (
                 &["--version"],
                 Ok(with(&defaults, json!({"options": {"version": true}}))),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn help_option_exits_with_required_positionals_missing() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options] <x> <y>
+#
+# Options:
+#   -h --help    show this help
+#   --mode MODE  mode
+#
+"#;
+    check(
+        file,
+        &[
+            (&["--help"], Err(HELP)),
+            (&["x", "-h"], Err(HELP)),
+            (&["--help", "x", "y", "z"], Err(HELP)),
+            (&[], Err(INVALID)),
+            // An option value is not a help option.
+            (
+                &["--mode", "--help", "x", "y"],
+                Ok(json!({
+                    "options": {"help": false, "mode": "--help"},
+                    "x": "x",
+                    "y": "y",
+                })),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn help_option_after_separator_is_a_word() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options] [--] <args>...
+#
+# Options:
+#   -h --help  show this help
+#
+"#;
+    check(
+        file,
+        &[
+            (&["--help", "--", "x"], Err(HELP)),
+            (
+                &["--", "--help"],
+                Ok(json!({"__": true, "args": ["--help"], "options": {"help": false}})),
             ),
         ],
     );
