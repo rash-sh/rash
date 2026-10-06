@@ -177,6 +177,14 @@ impl Task<'_> {
                 }
                 return format!("{} exited with code {rc}", self.module.get_name());
             }
+            // E.g. `async_status` of a failed job.
+            if let Some(error) = extra
+                .get("error")
+                .and_then(YamlValue::as_str)
+                .filter(|value| !value.is_empty())
+            {
+                return format!("{}: {error}", self.module.get_name());
+            }
         }
         format!(
             "Task '{}' failed",

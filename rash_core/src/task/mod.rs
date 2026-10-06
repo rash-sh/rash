@@ -730,6 +730,49 @@ mod tests {
     }
 
     #[test]
+    fn failed_async_job_error_is_the_task_error() {
+        let global_params = GlobalParams::default();
+        let start: YamlValue = serde_norway::from_str(
+            r#"
+            command:
+              argv: [sh, -c, "echo boom >&2; exit 3"]
+            async: 60
+            poll: 0
+            register: job
+            "#,
+        )
+        .unwrap();
+        let started = Task::new(&start, &global_params)
+            .unwrap()
+            .exec(context! {})
+            .unwrap();
+        let vars = started.get_vars().unwrap();
+        let jid = vars
+            .get_attr("job")
+            .unwrap()
+            .get_attr("rash_job_id")
+            .unwrap()
+            .as_i64()
+            .unwrap() as u64;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while crate::job::get_job(jid) == Some(crate::job::JobStatus::Running) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "job {jid} still running"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        let status: YamlValue =
+            serde_norway::from_str(&format!("async_status:\n  jid: {jid}")).unwrap();
+        let error = Task::new(&status, &global_params)
+            .unwrap()
+            .exec(vars.clone())
+            .unwrap_err();
+        assert!(error.to_string().contains("code 3: boom"), "{error}");
+    }
+
+    #[test]
     fn task_attributes_are_the_task_fields_without_internals() {
         for attr in ["become", "loop", "async", "no_log", "rescue", "poll"] {
             assert!(Task::is_attr(attr), "{attr}");
