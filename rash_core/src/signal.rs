@@ -29,6 +29,9 @@ const MAX_JOB_GROUPS: usize = 1024;
 static FOREGROUND_CHILD: AtomicI32 = AtomicI32::new(NO_CHILD);
 static PENDING_SIGNAL: AtomicI32 = AtomicI32::new(0);
 static PENDING_FROM_TERMINAL: AtomicBool = AtomicBool::new(false);
+/// Signal the supervised child still has to receive. Whoever swaps it out sends it, so
+/// the handler and [`ForegroundGuard::attach`] racing on another thread deliver it once.
+static UNFORWARDED_SIGNAL: AtomicI32 = AtomicI32::new(0);
 static JOB_GROUPS: [AtomicI32; MAX_JOB_GROUPS] = [const { AtomicI32::new(0) }; MAX_JOB_GROUPS];
 
 /// Install Rash's termination handlers for SIGINT, SIGTERM and SIGHUP.
@@ -81,8 +84,23 @@ extern "C" fn handle_signal(
     let from_user = info.is_null() || unsafe { (*info).si_code } <= 0;
     PENDING_FROM_TERMINAL.store(!from_user, Ordering::SeqCst);
     PENDING_SIGNAL.store(signal, Ordering::SeqCst);
-    // Terminal signals already reached the child through the shared process group.
-    if child > 0 && from_user {
+    // Terminal signals already reached an attached child through the shared process
+    // group; a child attached later missed them.
+    if from_user || child == BUSY {
+        UNFORWARDED_SIGNAL.store(signal, Ordering::SeqCst);
+        // Reload: `attach` may have published the pid after the load above and checked
+        // for unforwarded signals before the store above.
+        forward_unforwarded(FOREGROUND_CHILD.load(Ordering::SeqCst));
+    }
+}
+
+/// Send the unforwarded signal, if any, to `child`. Async-signal-safe.
+fn forward_unforwarded(child: i32) {
+    if child <= 0 {
+        return;
+    }
+    let signal = UNFORWARDED_SIGNAL.swap(0, Ordering::SeqCst);
+    if signal != 0 {
         // SAFETY: kill(2) is async-signal-safe; the pid is not reaped while attached.
         unsafe { libc::kill(child, signal) };
     }
@@ -98,6 +116,7 @@ pub struct ForegroundGuard(());
 impl ForegroundGuard {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
+        UNFORWARDED_SIGNAL.store(0, Ordering::SeqCst);
         FOREGROUND_CHILD.store(BUSY, Ordering::SeqCst);
         Self(())
     }
@@ -108,11 +127,8 @@ impl ForegroundGuard {
             return;
         };
         FOREGROUND_CHILD.store(pid, Ordering::SeqCst);
-        let pending = PENDING_SIGNAL.load(Ordering::SeqCst);
-        if pending != 0 {
-            // SAFETY: the child is not reaped yet; deliver a signal it may have missed.
-            unsafe { libc::kill(pid, pending) };
-        }
+        // Deliver a signal received while the child was being spawned.
+        forward_unforwarded(pid);
     }
 
     /// Stop forwarding: call after the child exited and before it is reaped.
@@ -135,6 +151,7 @@ impl ForegroundGuard {
 impl Drop for ForegroundGuard {
     fn drop(&mut self) {
         FOREGROUND_CHILD.store(NO_CHILD, Ordering::SeqCst);
+        UNFORWARDED_SIGNAL.store(0, Ordering::SeqCst);
     }
 }
 
