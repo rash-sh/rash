@@ -10,6 +10,7 @@ weight: 10000
 - [Where the declaration is read from](#where-the-declaration-is-read-from)
 - [Passing arguments to a script](#passing-arguments-to-a-script)
 - [Language summary](#language-summary)
+- [Choosing between matches](#choosing-between-matches)
 - [Help and errors](#help-and-errors)
 - [Compatibility notes](#compatibility-notes)
 - [Differences from Docopt](#differences-from-docopt)
@@ -55,8 +56,9 @@ In this example:
   - **Block**: `# Usage:` on its own line, followed by one indented pattern per line. The block ends
     at an empty comment line or at a non-indented line such as `Options:`.
 - The first word of each pattern is the program name and is ignored.
-- Every help-text line that starts with `-` (after indentation) describes an option, conventionally
-  under an `Options:` heading. See [Options](syntax.md#options).
+- Every help-text line that starts with an option (after indentation) describes it, conventionally
+  under an `Options:` heading; a Markdown bullet such as `- note` does not. See
+  [Options](syntax.md#options).
 - If there is no `Usage:`, the arguments are not parsed and no variables are added. They are
   still available as a list of strings in [`{{ rash.args }}`](builtins.md).
 
@@ -74,48 +76,80 @@ be called as `./copy.rh --mode 0600 a.txt /tmp/dest`.
 
 ## Language summary
 
-| Syntax                  | Meaning                                                | Variable                                                       |
-| ----------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
-| `name`                  | Command: the literal word `name`                       | `name`: `true`/`false`, or a count if it can repeat            |
-| `<name>`, `NAME`        | Positional argument                                    | `name`: string, or list if it can repeat; omitted if not given |
-| `-v`, `--verbose`       | Option flag                                            | `options.verbose`: `true`/`false`, or a count if it can repeat |
-| `--port=<n>`, `-o FILE` | Option with a value                                    | `options.port`: string, its `[default: ...]`, or `null`        |
-| `[ ... ]`               | Optional elements                                      |                                                                |
-| `( ... )`               | Required group                                         |                                                                |
-| `a \| b`                | Mutually exclusive alternatives                        |                                                                |
-| `elem...`               | One or more repetitions of `elem`                      |                                                                |
-| `[options]`             | Any described option not used elsewhere in the pattern |                                                                |
+| Syntax                  | Meaning                                                 | Variable                                                       |
+| ----------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| `name`                  | Command: the literal word `name`                        | `name`: `true`/`false`, or a count if it can repeat            |
+| `<name>`, `NAME`        | Positional argument                                     | `name`: string, or list if it can repeat; omitted if not given |
+| `-v`, `--verbose`       | Option flag                                             | `options.verbose`: `true`/`false`, or a count if it can repeat |
+| `--port=<n>`, `-o FILE` | Option with a value                                     | `options.port`: string, its `[default: ...]`, or `null`        |
+| `[ ... ]`               | Optional elements                                       |                                                                |
+| `( ... )`               | Required group                                          |                                                                |
+| `a \| b`                | Mutually exclusive alternatives                         |                                                                |
+| `elem...`               | One or more repetitions of `elem`                       |                                                                |
+| `[options]`             | Any described option that no usage pattern names        |                                                                |
+| `[--]`                  | Accept `--`; every later argument is a positional value | `__`: `true`/`false`                                           |
+| `-`                     | Command: a lone `-` (by convention, standard input)     | `_`: `true`/`false`                                            |
 
-Commands and positional names use ASCII letters only (lowercase for `name` and `<name>`, uppercase
-for `NAME`), with words joined by `-` or `_`. Variable names replace `-` with `_` and lowercase
-`NAME`. Options are stored under `options`, keyed by their long name if they have one.
+Command and positional names are ASCII words: a letter, then letters or digits, with words joined
+by `-` or `_` (lowercase for `name` and `<name>`, uppercase for `NAME`). `<file1>`, `FILE-2` and
+`step2` are valid; `<1st>` and `Run` are not. Variable names replace `-` with `_` and lowercase
+`NAME`. Options are stored under `options`, keyed by their long name if they have one, so a usage
+that declares options cannot also name a command or positional `options`. Groups can be nested up
+to 64 levels deep.
+
+A variable has the same type in every pattern: if `<source>` can repeat in one pattern, it is a
+list in all of them.
 
 See [Syntax](syntax.md) for the full description of each element, and [Parser](parser.md) for the
 variables they produce.
 
+## Choosing between matches
+
+When the arguments fit the declaration in more than one way, `rash` picks one result,
+deterministically:
+
+1. Usage patterns are tried in declaration order: the first pattern that matches wins.
+2. Alternatives (`a | b`) are tried in the order they are written.
+3. Optional elements and repetitions take as many arguments as they can, but give arguments back
+   when the rest of the pattern needs them.
+
+| Declaration                                           | Arguments | Result                                                   |
+| ----------------------------------------------------- | --------- | -------------------------------------------------------- |
+| `tool [<a>] [<b>]`                                    | `x`       | `a = "x"`, `b` omitted                                   |
+| `tool (<a> \| <b>)`                                   | `x`       | `a = "x"`, `b` omitted                                   |
+| `tool [<a>]... [<b>]`                                 | `x y`     | `a = ["x", "y"]`, `b` omitted                            |
+| `tool [<a>] [<b>] <c>`                                | `x`       | `c = "x"`, `a` and `b` omitted                           |
+| `cp <source> <dest>` and `cp <source>... <directory>` | `a b`     | first pattern: `source = ["a"]`, `dest = "b"`            |
+| (same)                                                | `a b c`   | second pattern: `source = ["a", "b"]`, `directory = "c"` |
+
 ## Help and errors
 
-**Help.** If the matched arguments include a `help` command or an option whose long name is
-`--help` (or one of its aliases, such as `-h` in `-h --help`), `rash` prints the help text followed by
-a note about `--`, and exits with status 0 without running any task. The help request must still fit
-a usage pattern: `--help` may take the place of a positional argument (`tool run --help` with
-`tool run <target>`), but it is not accepted at a position that no pattern allows.
+**Help.** `rash` prints the help text, followed by a note about `--`, and exits with status 0
+without running any task when:
+
+- The arguments contain a **help option**: the option whose long name is `--help`, or one of its
+  aliases (`-h` in `-h --help`). It can appear anywhere, even if the other arguments match no
+  pattern, but it must be declared and the other options must be valid (`Unknown option: --nope`
+  is reported instead). It is not a help request after a declared `--` separator, or when it is
+  the value of another option (`--port --help`). A `-h` without a `--help` alias is an ordinary
+  option.
+- The arguments match a pattern through a `help` command, such as `tool (help | run <target>)`.
 
 **Usage errors.** When the arguments match no usage pattern, `rash` prints `[ERROR]` and the help
 text to stderr and exits with status 1. These more specific errors are reported the same way:
 
-| Error                                    | Cause                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------- |
-| `Unknown option: --nope`                 | The option is not declared (long options cannot be abbreviated).     |
-| `Option --port requires a value`         | A value option is the last argument.                                 |
-| `Option --dry-run does not take a value` | A flag is given a value with `=`.                                    |
-| `Ambiguous option alias: -u`             | The short alias is declared for two different options.               |
-| `Ambiguous usage declaration.`           | The arguments can be matched in two ways that give different values. |
-| `Invalid usage identifier: Run`          | The declaration contains an invalid command or positional name.      |
+| Error                                    | Cause                                                            |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `Unknown option: --nope`                 | The option is not declared (long options cannot be abbreviated). |
+| `Unknown option: --`                     | `--` is given but no usage pattern declares `[--]`.              |
+| `Option --port requires a value`         | A value option is the last argument.                             |
+| `Option --dry-run does not take a value` | A flag is given a value with `=`.                                |
+| `Ambiguous option alias: -u`             | The short alias is declared for two different options.           |
+| `Invalid usage identifier: Run`          | The declaration contains an invalid command or positional name.  |
+| `Invalid usage grammar at token ...`     | Unbalanced brackets, or groups nested deeper than 64 levels.     |
+| `` `options` is a reserved name ... ``   | A command or positional named `options` in a usage with options. |
 
 An ambiguous alias is only an error when it is used: the long aliases of both options keep working.
-An ambiguous declaration is only reported for the arguments that trigger it; for example
-`tool <source> <dest>` and `tool <input> <output>` as two patterns cannot bind `a b` unambiguously.
 
 ## Compatibility notes
 
@@ -138,27 +172,30 @@ behave differently:
   last value wins).
 - `[-o FILE] [--sorted | --quiet]` accepts an empty call, and declarations that combine a short
   option cluster such as `[-hsoFILE]` with repeatable options no longer reject every call.
-- `[options]` stands for every described option not explicit in **its own** pattern. Previously
-  an option written explicitly in one pattern was also excluded from `[options]` in later patterns.
+- The `--` separator: `tool [options] [--] <file>...` accepts `-v -- -x` (`file = ["-x"]`).
+  `-` and `--` are commands with the variables `_` and `__`.
+- A help option shows the help wherever it appears: with `tool <name>` and `-h --help` described,
+  `tool a b --help` shows the help instead of a usage error.
+- Digits in names (`<file1>`, `FILE-2`, `step2`) and directly nested brackets (`[[<x>]]`).
 
 **Now rejected** (previously accepted, often with a wrong result):
 
-- An option given more times than the pattern allows: `tool [-a] [-b]` rejects `-a -a`, and
-  `tool [options] [-a]` rejects `-a -a`.
+- An option given more times than the pattern declares it: `tool [-a] [-b]` rejects `-a -a`, and
+  `tool [-a] [-b] [-a]` rejects `-a -a -a`.
 - A value option without its value fails with `Option -o requires a value` instead of storing
   `"-o"` or swallowing the next option.
-- Short options never fill positional slots. With some short option clusters, such as
-  `[-hsoFILE] ... [INPUT ...]`, an option like `-s` could previously end up as an `INPUT` value.
 - A short alias declared for two options (`-u --sysupgrade` and `-u --upgrades`) fails with
   `Ambiguous option alias: -u` when used, instead of silently picking one. The long aliases work.
-- Arguments that the declaration can bind in two different ways fail with
-  `Ambiguous usage declaration.` instead of picking one result. For example `tool [<a>] [<b>]`
-  called with one argument; write `tool [<a> [<b>]]` instead.
+- A command or positional named `options` in a usage that declares options.
 - Invalid declarations and option values report the cause (`Invalid usage identifier: Run`,
   `Option --known does not take a value`) instead of the whole help text or an empty message.
 
-**Value-type changes:**
+**Value changes:**
 
+- When several matches are possible, the result follows [Choosing between
+  matches](#choosing-between-matches). Previously the choice was arbitrary and could change from
+  one run to the next: `cp <source> <dest>` / `cp <source>... <directory>` with `a b` sometimes set
+  `directory`, and `tool (<a> | <b>)` with `x` usually set `b`.
 - A command that can occur more than once in a pattern (`go (up | down)...`, `tool a [a]`) is
   always a count: `0` when absent and `1` when given once (previously `false`/`true` until given
   twice).
@@ -166,6 +203,10 @@ behave differently:
   (`[--quiet | --verbose]...`) is a count (previously `true`, or a mix of boolean and count).
 - A positional written more than once in a pattern (`[<x>] [<x>]`) is always a list, even with a
   single value (previously the last value as a string).
+- Short options never fill positional slots: `tool [-hsoFILE] [INPUT ...]` with `-hs` sets
+  `options.s` (previously `input = ["-s"]`).
+- Help lines starting with `-` that declare no option, such as Markdown bullets (`- note`), no
+  longer add an empty `options[""]` key.
 
 ## Differences from Docopt
 
@@ -175,12 +216,12 @@ These Docopt behaviours are not supported:
   `tool [--verbose] (start|stop) [--force]`, `start --force` works but `--force start` and
   `start --verbose` are rejected. Adjacent optional options, and the options in `[options]`, can be
   given in any order among themselves.
-- **No end-of-options marker.** `--` cannot be used inside the script arguments; it fails with
-  `Unknown option: --`.
+- **`--` needs `[--]`.** Without `--` in a usage pattern, `--` in the arguments fails with
+  `Unknown option: --`; Docopt reads it as a positional value. The variables of `--` and `-` are
+  `__` and `_`.
 - **No abbreviated long options.** `--verb` does not match `--verbose`.
-- **No preference between ambiguous matches.** `tool [<source>] [<dest>]` rejects a single argument
-  as ambiguous, where Docopt fills `<source>`. Nest the brackets to express the dependency:
-  `tool [<source> [<dest>]]`. The same applies to `[cmd <arg>]` called with the word `cmd`.
+- **Only `--help` and its aliases request help.** Docopt also treats a `-h` without a `--help`
+  alias as a help request.
 - **One-line usage holds one pattern.** Continuation lines after `Usage: tool ...` are ignored; use
   the block form for several patterns.
 - **Bare `[options]` accepts a repeated flag** when it stands for two or more options:
@@ -191,5 +232,8 @@ These Docopt behaviours are not supported:
   (Docopt sets it to `null`, or `[]` if repeatable); use `{{ name | default(...) }}`.
 - **A usage reference to a value option may omit the value.** `tool [--tag]` with `--tag=VALUE`
   under `Options:` is accepted; Docopt rejects the declaration.
-- **Stricter identifiers.** Command and positional names cannot contain digits or mix case
-  (`<file1>` and `Run` are invalid).
+- **Stricter identifiers.** Command and positional names are ASCII, cannot mix case and cannot
+  start with a digit (`Run`, `<File>` and `<1st>` are invalid).
+
+Rash also accepts some arguments that Docopt rejects, because it backtracks into optional and
+repeated elements: `tool [<a>] [<b>] <c>` with `x`, and the `cp` patterns above with `a b c`.

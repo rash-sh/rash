@@ -59,6 +59,9 @@ Example: with the usage pattern `./program (start|stop|restart)`, if you call `.
 A command that can occur more than once in a pattern, such as `./program go (up|down)...`, is a
 count instead: `./program go up up` gives `"up": 2, "down": 0`.
 
+The `-` and `--` commands are stored as `_` and `__`: with `./program [--] <file>...`, the call
+`./program -- -x` gives `"__": true, "file": ["-x"]`.
+
 ## Option parsing
 
 Options are grouped under the `options` key in the resulting JSON:
@@ -97,8 +100,8 @@ will show all documentation and exit with a status code of 0 without running any
 ./program help     # Same behavior if 'help' is defined as a command
 ```
 
-`--help` must be accepted by a usage pattern, either where it is declared or in place of a
-positional argument. See [Help and errors](docopt.md#help-and-errors).
+`--help` (or its alias) shows the help wherever it appears, even if the other arguments match no
+usage pattern. See [Help and errors](docopt.md#help-and-errors).
 
 ### Default values for options
 
@@ -141,7 +144,8 @@ Would result in:
 ## Positional argument parsing
 
 Positional arguments are parsed as strings or arrays depending on whether they're repeatable
-(followed by `...`, inside a repeated group, or written more than once in a pattern):
+(followed by `...`, inside a repeated group, or written more than once in a pattern). A
+positional that is repeatable in one usage pattern is an array in all of them:
 
 ```json
 {

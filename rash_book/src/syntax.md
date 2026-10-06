@@ -55,9 +55,10 @@ Usage: my_program HOST PORT
 Both styles are equivalent, though the `<argument-name>` style is recommended for clarity. Positional
 arguments are required by default unless placed within optional brackets `[]`.
 
-Names are made of ASCII letters (lowercase inside `<>`, uppercase for `NAME`) joined by `-` or `_`;
-digits are not allowed. When used in your program, these positional arguments will be available as
-variables with their name in lowercase and `-` replaced by `_`:
+Names are ASCII words: a letter, then letters or digits (lowercase inside `<>`, uppercase for
+`NAME`), with words joined by `-` or `_`, such as `<file1>` or `FILE-2`. When used in your program,
+these positional arguments will be available as variables with their name in lowercase and `-`
+replaced by `_`:
 
 ```
 # If invoked as: my_program example.com 8080
@@ -86,8 +87,9 @@ Usage: my_program -i INPUT
 ```
 
 Options are described in the help text, conventionally under `Options:`. Every line that starts
-with `-` declares one option: its short and/or long aliases (separated by a space or `,`), an
-optional value placeholder, then **at least two spaces** and a description. A `[default: value]` in
+with an option declares it: its short and/or long aliases (separated by a space or `,`), an
+optional value placeholder, then **at least two spaces** and a description. Lines starting with a
+bare `-`, such as Markdown bullets (`- note`), are not option descriptions. A `[default: value]` in
 the description sets the value used when the option is not given:
 
 ```
@@ -131,7 +133,21 @@ rash script.rh --option value
 ```
 
 **Note**: The shebang line `#!/usr/bin/env -S rash --` passes every argument to the script, so
-`./script.rh --option value` works. A `--` among the script arguments themselves is rejected.
+`./script.rh --option value` works.
+
+### The `--` separator and `-`
+
+A lone `-` and `--` in a usage pattern are commands, stored as `_` and `__`. When a pattern
+declares `--`, usually as `[--]`, a `--` in the arguments ends the options: every later argument is
+a positional value, even if it starts with `-`:
+
+```
+Usage: my_program [options] [--] <file>...
+
+# my_program -v -- -x.txt  ->  options.verbose = true, __ = true, file = ["-x.txt"]
+```
+
+If no pattern declares `--`, a `--` among the script arguments fails with `Unknown option: --`.
 
 ## Optional elements
 
@@ -156,9 +172,10 @@ Usage: my_program [command [--option]]
 
 In this example, `--option` can only be used if `command` is provided.
 
-Arguments must bind in exactly one way. With `my_program [<source>] [<dest>]`, a single argument
-could be either `<source>` or `<dest>`, so it is rejected as an ambiguous usage. Nest the brackets
-to say that `<dest>` needs `<source>`: `my_program [<source> [<dest>]]`.
+Optional elements take arguments greedily, left to right: with `my_program [<source>] [<dest>]`, a
+single argument fills `<source>`. They give arguments back when a later required element needs
+them, so `my_program [<source>] <dest>` with one argument fills `<dest>`. See
+[Choosing between matches](docopt.md#choosing-between-matches).
 
 ## Required groups
 
@@ -266,8 +283,8 @@ list and `[-v] [-v]` a count. An option cannot be given more times than its patt
 
 ## The `[options]` shortcut
 
-`[options]` stands for every option described in the help text that is not written explicitly in
-the same pattern. The options can be given in any order:
+`[options]` stands for every option described in the help text that no usage pattern writes
+explicitly. The options can be given in any order:
 
 ```
 Usage: my_program [options] <file>
@@ -278,14 +295,16 @@ Options:
 ```
 
 Here `my_program -n -v file.txt` and `my_program --verbose file.txt` are valid, but options after
-`<file>` are not.
+`<file>` are not. An option written explicitly in any pattern is left out of `[options]` in every
+pattern: with `my_program run [-v]` and `my_program list [options]`, `list -v` is rejected.
 
 ## Argument formatting rules
 
 When writing your usage patterns, follow these formatting rules:
 
-1. Command names are lowercase ASCII words, joined by `-` or `_` (`my-command`)
-2. Positional arguments are written as `<lowercase-with-hyphens>` or `UPPERCASE`, without digits
+1. Command names are lowercase ASCII words of letters and digits, starting with a letter and
+   joined by `-` or `_` (`my-command`, `step2`)
+2. Positional arguments follow the same rules, written as `<lowercase-with-hyphens>` or `UPPERCASE`
 3. Option flags begin with `-` or `--`
 4. Long option names use hyphens for spaces (`--long-option`)
 5. When option flags accept values, format as `--option=VALUE` or `-o VALUE`, and describe them in
