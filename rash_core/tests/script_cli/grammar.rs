@@ -793,3 +793,43 @@ fn dash_and_double_dash_are_commands() {
         ],
     );
 }
+
+#[test]
+fn command_named_options_is_reserved_when_options_are_declared() {
+    let with_options = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool options [--force]
+#
+"#;
+    assert_eq!(
+        error_message(with_options, &["options"]),
+        "`options` is a reserved name when the usage declares options: rename the `options` \
+         command or positional"
+    );
+
+    let positional = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool <options>
+#
+# Options:
+#   -v  verbose
+#
+"#;
+    check(positional, &[(&["x"], Err(INVALID))]);
+
+    let without_options = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool options <options-file>
+#
+"#;
+    check(
+        without_options,
+        &[(
+            &["options", "x"],
+            Ok(json!({"options": true, "options_file": "x"})),
+        )],
+    );
+}

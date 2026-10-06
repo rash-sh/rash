@@ -89,6 +89,7 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
         .collect::<Result<Vec<_>>>()?;
 
     let metadata = grammar::analyze(&patterns);
+    check_reserved_names(&metadata, &options)?;
     options.set_repeatable(&metadata.repeatable_options)?;
 
     let normalized_args = options.normalize_args(args)?;
@@ -102,6 +103,21 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     } else {
         Ok(vars)
     }
+}
+
+/// Reject a command or positional named `options` when there are options: the `options` variable
+/// holds the option values.
+fn check_reserved_names(metadata: &Metadata, options: &OptionRegistry) -> Result<()> {
+    let declares_options_symbol = metadata.command_repeated.contains_key("options")
+        || metadata.positional_repeated.contains_key("options");
+    if declares_options_symbol && !options.is_empty() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "`options` is a reserved name when the usage declares options: rename the `options` \
+             command or positional",
+        ));
+    }
+    Ok(())
 }
 
 /// Initial values of every command and option, updated with the captures of the match.
