@@ -56,9 +56,10 @@ pub struct ProcessSpec {
     pub env: Vec<(String, String)>,
     /// Run the child as this `(uid, gid)` instead of Rash's user.
     pub user: Option<(u32, u32)>,
-    /// Run the child in its own process group so its whole tree can be killed. Only async
-    /// jobs need it: synchronous children stay in Rash's process group, so they behave as
-    /// a foreground job on the controlling terminal (they can read it and receive Ctrl-C).
+    /// Run the child as a background job in its own process group, so its whole tree can
+    /// be killed, and without `stdin` data on an empty stdin. Only async jobs need it:
+    /// synchronous children stay in Rash's process group, so they behave as a foreground
+    /// job on the controlling terminal (they can read it and receive Ctrl-C).
     pub process_group: bool,
 }
 
@@ -92,10 +93,12 @@ impl ProcessSpec {
         for (key, value) in &self.env {
             command.env(key, value);
         }
-        command.stdin(if self.stdin.is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::inherit()
+        command.stdin(match (&self.stdin, self.process_group) {
+            (Some(_), _) => Stdio::piped(),
+            // A background job reading the terminal would be stopped by SIGTTIN, and it
+            // would compete with the following tasks for Rash's input.
+            (None, true) => Stdio::null(),
+            (None, false) => Stdio::inherit(),
         });
         command.stdout(self.stdout.stdio());
         command.stderr(self.stderr.stdio());

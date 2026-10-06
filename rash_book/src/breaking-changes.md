@@ -55,6 +55,8 @@ input) are described in [Tasks](tasks.md) and the module pages.
 - **`command` and `script` inherit stdin** like `shell` already did (it was `/dev/null`). A
   process reading stdin can now consume Rash's input or wait for terminal input; pass `stdin: ""`
   to give it an empty stdin.
+- **Async jobs get an empty stdin** unless `stdin` is given. Before, they inherited Rash's stdin,
+  so on a terminal they could be stopped waiting for input until their timeout.
 - **`command` with `transfer_pid`** splits `cmd` with shell-like quoting instead of whitespace, and
   rejects `stdin`.
 - **`meta`** rejects unknown parameters.

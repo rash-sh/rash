@@ -282,6 +282,38 @@ fn test_sigterm_between_tasks_exits_and_kills_async_jobs() {
     assert!(fixture.async_jobs_gone(), "async job survived");
 }
 
+#[test]
+fn test_async_job_without_stdin_data_reads_empty_stdin() {
+    let script = r#"
+- command:
+    argv: [sh, -c, 'cat; echo eof']
+  async: 600
+  poll: 1
+  register: job
+- assert:
+    that:
+      - job.stdout == "eof\n"
+- debug:
+    msg: async-stdin-ok
+"#;
+    let fixture = Fixture::new(script);
+    let mut child = fixture
+        .command()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    // Rash's stdin stays open and empty: a job inheriting it would wait until its timeout.
+    let stdin = child.stdin.take();
+
+    let (status, output) = finish(child);
+    drop(stdin);
+
+    assert!(status.success(), "{output}");
+    assert!(output.contains("async-stdin-ok"), "{output}");
+}
+
 /// Run rash as session leader of a new pseudo-terminal, like a login shell would, so the
 /// test does not depend on the CI runner having a TTY.
 fn spawn_on_pty(fixture: &Fixture) -> (Child, fs::File) {

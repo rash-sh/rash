@@ -207,6 +207,8 @@ satisfied` and the registered result reports `failed: true`.
 
 `async` currently applies to `command` and `shell` tasks. Rash starts the process in a managed
 process group so timeouts can terminate the process tree rather than only the immediate child.
+Without `stdin` data the job gets an empty stdin: a background job never reads Rash's input or the
+terminal.
 
 ```yaml
 - command:
@@ -301,7 +303,7 @@ the terminal.
 `command`, `shell` and `script` choose per stream what happens with process output: `capture`
 (default, registered), `tee` (streamed live and registered), `inherit` (streamed live, not
 registered) or `null` (discarded; quote it in YAML). `stdin` feeds data to the process; without it,
-the process inherits Rash's stdin.
+the process inherits Rash's stdin (async jobs get an empty one).
 
 ```yaml
 {{#include ../../examples/stdio.rh:6:}}
