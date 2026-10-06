@@ -3,7 +3,7 @@
 //! synchronous executions.
 use crate::context::BecomeMethod;
 use crate::error::{Error, ErrorKind, Result};
-use crate::job::{JobInfo, JobStatus, get_job_info, register_job};
+use crate::job::{JobInfo, JobStatus, get_job_info, kill_job, register_job};
 use crate::modules::ModuleResult;
 use crate::process::{ProcessPlan, ProcessSpec};
 use crate::task::{Task, TaskExecResult};
@@ -159,12 +159,18 @@ impl Task {
         self.finish_outcome(outcome, &extended)
     }
 
-    /// Start every loop item before waiting for any of them.
+    /// Start every loop item before waiting for any of them. If an item cannot start, the
+    /// jobs of the previous items are killed: nobody would wait for them.
     fn start_async_items(&self, vars: &Value) -> Result<Vec<ItemResult>> {
-        let mut items = Vec::new();
+        let mut items: Vec<ItemResult> = Vec::new();
         for item in self.render_iterator(vars.clone())? {
             let item_vars = context! {item => &item, ..vars.clone()};
-            match self.start_async(&item_vars)? {
+            let started = self.start_async(&item_vars).inspect_err(|_| {
+                for job_id in items.iter().filter_map(|entry| entry.job_id) {
+                    kill_job(job_id);
+                }
+            })?;
+            match started {
                 AsyncStart::Skipped => {}
                 AsyncStart::Done(result) => items.push(ItemResult {
                     item,

@@ -286,6 +286,21 @@ pub fn update_job_status(
     }
 }
 
+/// Kill the whole process tree of a job and forget the job, for jobs nobody will wait
+/// for. Returns whether the job existed.
+pub fn kill_job(id: JobId) -> bool {
+    let Some(job) = registry().remove(id) else {
+        return false;
+    };
+    if let Some(mut process) = job.process {
+        let _ = process.kill_tree();
+        // Unregister before reaping: afterwards the process group id may be reused.
+        signal::unregister_job_group(process.id());
+        let _ = process.wait();
+    }
+    true
+}
+
 pub fn job_exists(id: JobId) -> bool {
     registry().contains(id)
 }
@@ -430,6 +445,27 @@ mod tests {
         let info = wait_until_done(job_id);
         assert_eq!(info.status, JobStatus::Failed);
         assert!(info.error.unwrap().contains("timed out"));
+    }
+
+    #[test]
+    fn test_kill_job_kills_process_tree_and_forgets_job() {
+        let mut lifeline = Lifeline::new();
+        let job_id = register_job(
+            None,
+            spawn(&format!(
+                "exec 3>'{}'; (echo ready >&3; exec sleep 30) & wait",
+                lifeline.path.display()
+            )),
+        );
+        lifeline.wait_ready();
+
+        assert!(kill_job(job_id));
+        assert!(!job_exists(job_id));
+        assert!(!kill_job(job_id));
+        assert!(
+            lifeline.wait_released(),
+            "a process of the job tree survived"
+        );
     }
 
     #[test]

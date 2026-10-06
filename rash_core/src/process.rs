@@ -114,9 +114,12 @@ impl ProcessSpec {
     pub fn spawn_managed(&self) -> Result<SpawnedProcess> {
         let mut command = self.command();
         trace!("spawn process: {:?} {:?}", self.program, self.args);
-        let child = command
-            .spawn()
-            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+        let child = command.spawn().map_err(|e| {
+            Error::new(
+                ErrorKind::SubprocessFail,
+                format!("Failed to execute '{}': {e}", self.program),
+            )
+        })?;
         let mut process = SpawnedProcess {
             child,
             streams: Streams::default(),

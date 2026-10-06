@@ -323,6 +323,35 @@ fn test_async_job_without_stdin_data_reads_empty_stdin() {
     assert!(output.contains("async-stdin-ok"), "{output}");
 }
 
+#[test]
+fn test_async_loop_kills_started_jobs_when_an_item_fails_to_start() {
+    // The second item starts once the first job is ready, and fails: no such program.
+    let script = r#"
+- command:
+    argv:
+      - "{{ item if item == 'sh' else pipe('while [ ! -s \"$RASH_TEST_MARKER\" ]; do sleep 0.01; done; echo /nonexistent/program') }}"
+      - -c
+      - 'exec 3>"$RASH_TEST_LIFELINE"; echo ready >&3; echo ready > "$RASH_TEST_MARKER"; exec sleep 60'
+  loop: [sh, missing]
+  async: 60
+  poll: 1
+- debug:
+    msg: after-loop
+"#;
+    let mut fixture = Fixture::new(script);
+
+    let (status, output) = finish(fixture.spawn());
+
+    assert_eq!(status.code(), Some(1), "{output}");
+    assert!(
+        output.contains("Failed to execute '/nonexistent/program'"),
+        "{output}"
+    );
+    assert!(!output.contains("after-loop"), "{output}");
+    assert_eq!(fixture.wait_for("marker"), "ready\n");
+    assert!(fixture.async_jobs_gone(), "job of the first item survived");
+}
+
 const BECOME_CHILD_WAITING_FOR_SIGNAL: &str = r#"
 - block:
     - command:
