@@ -1993,3 +1993,47 @@ fn bullet_lines_in_help_are_not_options() {
         &[(&["x"], Ok(json!({"options": {"v": false}, "x": "x"})))],
     );
 }
+
+#[test]
+fn single_space_description_makes_the_option_take_a_value() {
+    // As in docopt 0.6.2, words after the option before a two-space separator declare a value,
+    // so `Verbose` is the value placeholder of `--verbose`. Legacy bound the truthy string
+    // `"--verbose"`. A missing value of such an unconventional placeholder hints at the cause.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [options]
+#
+# Options:
+#   -v --verbose Verbose output
+#   -o FILE      Output file
+#   --level=lvl  Log level
+#
+"#;
+    check(
+        file,
+        &[
+            (
+                &["-v", "x"],
+                Ok(json!({"options": {"verbose": "x", "o": null, "level": null}})),
+            ),
+            (&["--verbose"], Err(INVALID)),
+        ],
+    );
+    let hint = ": if it takes no value, separate its description from it with at least two \
+                spaces in the Options section";
+    assert_eq!(
+        error_message(file, &["--verbose"]),
+        format!("Option --verbose requires a value{hint}")
+    );
+    assert_eq!(
+        error_message(file, &["-v"]),
+        format!("Option -v requires a value{hint}")
+    );
+    // Conventional placeholders, separate or attached with `=`, get no hint.
+    assert_eq!(error_message(file, &["-o"]), "Option -o requires a value");
+    assert_eq!(
+        error_message(file, &["--level"]),
+        "Option --level requires a value"
+    );
+}

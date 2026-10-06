@@ -33,6 +33,9 @@ struct OptionSpec {
     takes_value: bool,
     default_value: Option<String>,
     repeatable: bool,
+    /// Whether an option description declares the value with a separate placeholder that is not
+    /// `<value>` or upper case: possibly a description separated by a single space.
+    unconventional_placeholder: bool,
 }
 
 impl OptionSpec {
@@ -205,7 +208,7 @@ impl OptionRegistry {
         let id = self.resolve(name)?;
         let value = match (self.specs[id].takes_value, attached) {
             (true, Some(value)) => Some(value.to_owned()),
-            (true, None) => Some(next_value(name, rest)?),
+            (true, None) => Some(self.next_value(id, name, rest)?),
             (false, Some(_)) => {
                 return Err(Error::new(
                     ErrorKind::InvalidData,
@@ -242,7 +245,7 @@ impl OptionRegistry {
 
             let attached = &cluster[offset + ch.len_utf8()..];
             let value = if attached.is_empty() {
-                next_value(&alias, rest)?
+                self.next_value(id, &alias, rest)?
             } else {
                 attached.strip_prefix('=').unwrap_or(attached).to_owned()
             };
@@ -314,6 +317,27 @@ impl OptionRegistry {
         Ok(())
     }
 
+    /// Next argument as the value of option `id`, given as `name`.
+    fn next_value<'a>(
+        &self,
+        id: usize,
+        name: &str,
+        rest: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<String> {
+        rest.next().map(str::to_owned).ok_or_else(|| {
+            let hint = if self.specs[id].unconventional_placeholder {
+                ": if it takes no value, separate its description from it with at least two \
+                 spaces in the Options section"
+            } else {
+                ""
+            };
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Option {name} requires a value{hint}"),
+            )
+        })
+    }
+
     pub(super) fn all_ids(&self) -> impl Iterator<Item = usize> + '_ {
         0..self.specs.len()
     }
@@ -350,6 +374,7 @@ impl OptionRegistry {
         let mut short = None;
         let mut long = None;
         let mut takes_value = false;
+        let mut unconventional_placeholder = false;
 
         for word in declaration.split_whitespace() {
             if word.starts_with('-') && !has_option_name(word) {
@@ -363,8 +388,9 @@ impl OptionRegistry {
                 let (name, has_value) = split_option_declaration(word);
                 short = Some(name);
                 takes_value |= has_value;
-            } else {
+            } else if !takes_value {
                 takes_value = true;
+                unconventional_placeholder = !is_value_placeholder(word);
             }
         }
 
@@ -380,6 +406,7 @@ impl OptionRegistry {
             takes_value,
             default_value,
             repeatable: false,
+            unconventional_placeholder,
         })?;
         Ok(())
     }
@@ -404,6 +431,7 @@ impl OptionRegistry {
                         takes_value: has_value,
                         default_value: None,
                         repeatable: false,
+                        unconventional_placeholder: false,
                     })?;
                 }
                 short if short.starts_with('-') => self.discover_short_cluster(short)?,
@@ -440,6 +468,7 @@ impl OptionRegistry {
                 takes_value,
                 default_value: None,
                 repeatable: false,
+                unconventional_placeholder: false,
             })?;
             if takes_value {
                 break;
@@ -533,6 +562,7 @@ impl OptionRegistry {
             spec.long = incoming.long;
         }
         spec.takes_value |= incoming.takes_value;
+        spec.unconventional_placeholder |= incoming.unconventional_placeholder;
         if spec.default_value.is_none() {
             spec.default_value = incoming.default_value;
         }
@@ -613,16 +643,6 @@ fn check_mergeable(existing: &OptionSpec, incoming: &OptionSpec) -> Result<()> {
     Ok(())
 }
 
-/// Next argument as the value of option `name`.
-fn next_value<'a>(name: &str, rest: &mut impl Iterator<Item = &'a str>) -> Result<String> {
-    rest.next().map(str::to_owned).ok_or_else(|| {
-        Error::new(
-            ErrorKind::InvalidData,
-            format!("Option {name} requires a value"),
-        )
-    })
-}
-
 /// Text between `[default: ` and the last `]` of an option description.
 fn default_value(description: &str) -> Option<&str> {
     let (_, rest) = description.split_once("[default: ")?;
@@ -637,10 +657,11 @@ fn is_dash_command(word: &str) -> bool {
 /// Whether a usage token is a value placeholder: `<value>` or an ASCII uppercase word like
 /// `FILE`, as for positionals.
 fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
-    let Some(Token::Atom(value)) = token else {
-        return false;
-    };
+    matches!(token, Some(Token::Atom(value)) if is_value_placeholder(value))
+}
 
+/// Whether `value` is a conventional value placeholder: `<value>` or an ASCII uppercase word.
+fn is_value_placeholder(value: &str) -> bool {
     if value.starts_with('<') && value.ends_with('>') {
         return true;
     }
