@@ -2,7 +2,8 @@
 /// # pause
 ///
 /// Pause execution for a duration or prompt a human for input. Human input is returned as the
-/// module output and can be captured with `register`.
+/// module output and can be captured with `register`. With `echo: false` the input is never
+/// logged.
 ///
 /// ## Attributes
 ///
@@ -43,7 +44,7 @@ use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::time::Duration;
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -79,7 +80,8 @@ fn read_input(prompt: Option<&str>, echo: bool) -> Result<String> {
             .map_err(|e| Error::new(ErrorKind::IOError, e))?;
     }
 
-    if echo {
+    // Without a terminal there is nothing to echo: read piped input from stdin.
+    if echo || !io::stdin().is_terminal() {
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)
@@ -138,6 +140,11 @@ impl Module for Pause {
         check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
         Ok((pause(parse_params(optional_params)?, check_mode)?, None))
+    }
+
+    fn hides_output(&self, params: &YamlValue) -> bool {
+        // Unparseable params fail in `exec` before producing any output.
+        parse_params::<Params>(params.clone()).is_ok_and(|params| params.input && !params.echo)
     }
 
     #[cfg(feature = "docs")]
@@ -211,6 +218,16 @@ mod tests {
             result.get_output().as_deref(),
             Some("Would prompt for input")
         );
+    }
+
+    #[test]
+    fn test_hides_output_only_for_hidden_input() {
+        let hidden: YamlValue = serde_norway::from_str("input: true\necho: false").unwrap();
+        let echoed: YamlValue = serde_norway::from_str("input: true").unwrap();
+        let no_input: YamlValue = serde_norway::from_str("echo: false").unwrap();
+        assert!(Pause.hides_output(&hidden));
+        assert!(!Pause.hides_output(&echoed));
+        assert!(!Pause.hides_output(&no_input));
     }
 
     #[test]

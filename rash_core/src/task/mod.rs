@@ -149,7 +149,14 @@ pub fn is_internal_execution() -> bool {
     env::var(RASH_INTERNAL_TASK_FLAG).is_ok()
 }
 
-fn log_module_result(changed: bool, failed: bool, result: &ModuleResult) {
+fn log_module_result(changed: bool, failed: bool, result: &ModuleResult, hide_output: bool) {
+    let hidden;
+    let result = if hide_output {
+        hidden = ModuleResult::new(result.get_changed(), result.get_extra(), None);
+        &hidden
+    } else {
+        result
+    };
     if is_json_output() {
         let json_result = JsonResult::new(changed, failed, result);
         match serde_json::to_string(&json_result) {
@@ -419,11 +426,13 @@ impl<'a> Task<'a> {
         )
     }
 
+    /// `hide_output`: never log the module output (it is still registered).
     fn finalize_module_result(
         &self,
         result: ModuleResult,
         result_vars: Option<Value>,
         vars: &Value,
+        hide_output: bool,
     ) -> Result<TaskExecResult> {
         let default_changed = result.get_changed();
         let default_failed = Self::module_default_failed(&result);
@@ -460,7 +469,7 @@ impl<'a> Task<'a> {
 
         let module_name = self.module.get_name();
         if !self.quiet && !matches!(module_name, "include" | "block" | "meta") {
-            log_module_result(changed, failed, &result);
+            log_module_result(changed, failed, &result, hide_output);
         }
 
         let is_meta_flush = module_name == "meta"
@@ -529,7 +538,8 @@ impl<'a> Task<'a> {
 
         match module_result {
             Ok((result, result_vars)) => {
-                self.finalize_module_result(result, result_vars, &extended_vars)
+                let hide_output = self.module.hides_output(rendered_params);
+                self.finalize_module_result(result, result_vars, &extended_vars, hide_output)
             }
             Err(error) if error.is_termination() => Err(error),
             Err(error) => Ok(self.module_error_result(error)),
@@ -856,10 +866,20 @@ impl<'a> Task<'a> {
             })?;
             match info.status {
                 JobStatus::Finished => {
-                    return self.finalize_module_result(self.job_module_result(&info)?, None, vars);
+                    return self.finalize_module_result(
+                        self.job_module_result(&info)?,
+                        None,
+                        vars,
+                        false,
+                    );
                 }
                 JobStatus::Failed if info.rc.is_some() => {
-                    return self.finalize_module_result(self.job_module_result(&info)?, None, vars);
+                    return self.finalize_module_result(
+                        self.job_module_result(&info)?,
+                        None,
+                        vars,
+                        false,
+                    );
                 }
                 JobStatus::Failed => {
                     return Ok(self.module_error_result(Error::new(
@@ -894,6 +914,7 @@ impl<'a> Task<'a> {
                 ),
                 None,
                 &extended,
+                false,
             );
         }
         self.poll_job(job_id, poll_interval, &extended)
@@ -924,6 +945,7 @@ impl<'a> Task<'a> {
                 ModuleResult::new(true, Some(extra), None),
                 None,
                 &extended,
+                false,
             );
         }
 
@@ -977,6 +999,7 @@ impl<'a> Task<'a> {
             ModuleResult::new(any_changed, Some(extra), None),
             None,
             &extended,
+            false,
         )
     }
 

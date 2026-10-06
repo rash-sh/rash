@@ -467,6 +467,12 @@ pub trait Module: Send + Sync + std::fmt::Debug {
         false
     }
 
+    /// Whether the output produced with these (rendered) params must never be logged, e.g.
+    /// a secret typed by the user. It is still available through `register`.
+    fn hides_output(&self, _params: &YamlValue) -> bool {
+        false
+    }
+
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<Schema>;
 }

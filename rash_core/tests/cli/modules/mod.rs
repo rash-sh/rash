@@ -48,6 +48,7 @@ mod openrc;
 mod pacman;
 mod pam_limits;
 mod patch;
+mod pause;
 mod pids;
 mod pip;
 mod rclone;
