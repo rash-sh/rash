@@ -207,9 +207,12 @@ These invariants are release gates, not preferences.
 - [x] malformed command/positional identifier parity cases;
 - [x] permissive legacy option-name characterization cases;
 - [x] legacy one-line/multiline `Usage:` extraction and malformed-spacing boundary cases;
-- [ ] all legacy parser unit-test scenarios mirrored or exercised through the differential suite;
+- [x] all legacy parser unit-test scenarios mirrored or exercised through the differential suite;
 - [ ] remaining malformed declarations and error-path parity where compatibility matters;
 - [ ] broader fuzz/property-generated grammars if the bounded exhaustive suite reveals gaps worth generalizing.
+
+The differential cases are recorded as explicit expected values in `tests/script_cli/`, so the
+suite no longer calls the legacy parser and survives its removal.
 
 ### Intentional differences already identified
 
