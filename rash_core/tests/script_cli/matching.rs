@@ -168,7 +168,7 @@ fn optional_options_around_command_alternative() {
 "#;
 
     // Options are matched at their declared position (`--force start` is rejected).
-    // Intentional difference 6: a bare `start` is accepted.
+    // Unlike legacy (as in docopt 0.6.2): a bare `start` is accepted.
     check(
         file,
         &[
@@ -389,7 +389,7 @@ fn required_group_and_option_alternative() {
 #
 "#;
 
-    // Intentional difference 9: no malformed `options["all)"]` key scanned from `--all)`.
+    // Unlike legacy (as in docopt 0.6.2): no malformed `options["all)"]` key scanned from `--all)`.
     check(
         file,
         &[
@@ -452,7 +452,7 @@ fn option_before_closing_parenthesis() {
 #
 "#;
 
-    // Intentional difference 9: legacy scanned `--all)` as an option and rejected `--all`.
+    // As in docopt 0.6.2; legacy scanned `--all)` as an option and rejected `--all`.
     check(
         file,
         &[

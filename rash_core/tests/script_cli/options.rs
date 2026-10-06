@@ -63,7 +63,7 @@ fn unknown_long_option_is_rejected() {
             (&["--known=value"], Err(INVALID)),
         ],
     );
-    // Intentional difference 16: the error names the option instead of being empty.
+    // Unlike legacy: the error names the option instead of being empty.
     assert_eq!(
         error_message(file, &["--known=value"]),
         "Option --known does not take a value"
@@ -364,8 +364,8 @@ fn value_placeholders_in_descriptions() {
             (&["-n"], Err(INVALID)),
         ],
     );
-    // Intentional difference 13: a value option without its value is an error (legacy bound the
-    // option's own spelling, `"-n"`, as its value). Difference 16: the message names the option.
+    // Unlike legacy (as in docopt 0.6.2): a value option without its value is an error (legacy
+    // bound the option's own spelling, `"-n"`, as its value). The message names the option.
     assert_eq!(error_message(file, &["-n"]), "Option -n requires a value");
 }
 
@@ -705,7 +705,7 @@ fn explicit_option_is_bounded_by_its_declarations() {
 #
 "#;
 
-    // Intentional difference 4: an option matched more often than declared is rejected.
+    // Unlike legacy (as in docopt 0.6.2): an option matched more often than declared is rejected.
     check(
         file,
         &[
@@ -734,7 +734,7 @@ fn explicit_option_after_options_shortcut_is_bounded() {
 #
 "#;
 
-    // Intentional difference 4: an option matched more often than declared is rejected.
+    // Unlike legacy (as in docopt 0.6.2): an option matched more often than declared is rejected.
     check(
         file,
         &[
@@ -875,7 +875,8 @@ fn flag_with_ellipsis_inside_brackets_is_a_counter() {
 #
 "#;
 
-    // Intentional difference 4: a repeatable flag is a counter; legacy rejected every argv.
+    // Unlike legacy (as in docopt 0.6.2): a repeatable flag is a counter; legacy rejected every
+    // argv.
     check(
         file,
         &[
@@ -899,7 +900,7 @@ fn flag_declared_twice_is_a_counter() {
 #
 "#;
 
-    // Intentional difference 4: an option declared twice is a counter bounded by its
+    // Unlike legacy (as in docopt 0.6.2): an option declared twice is a counter bounded by its
     // declarations.
     check(
         file,
@@ -947,7 +948,8 @@ fn documented_repeatable_value_option_keeps_last_value() {
 #
 "#;
 
-    // Intentional difference 7: same scalar last-value semantics as `[--tag=<value>]...`.
+    // Legacy failed with "Not mergeable options" and docopt 0.6.2 rejects the declaration; the
+    // compiled parser applies the same scalar last-value semantics as `[--tag=<value>]...`.
     check(
         file,
         &[
@@ -974,8 +976,8 @@ fn shared_short_alias_keeps_long_options_usable() {
 #
 "#;
 
-    // Intentional difference 15: a short alias shared by two options is ambiguous and rejected
-    // (legacy silently picked one); the long aliases still work.
+    // Unlike legacy (as in docopt 0.6.2): a short alias shared by two options is ambiguous and
+    // rejected (legacy silently picked one); the long aliases still work.
     check(
         file,
         &[
@@ -1336,7 +1338,7 @@ fn options_registry_from_descriptions() {
             ),
             (&["-r"], Err(INVALID)),
             (&["-h"], Err(HELP)),
-            // Intentional difference 13: legacy bound `"-o"` (or `"-o=--sorted"` as INPUT).
+            // As in docopt 0.6.2; legacy bound `"-o"` (or `"-o=--sorted"` as INPUT).
             (&["-o"], Err(INVALID)),
             (&["-s", "-o"], Err(INVALID)),
         ],
@@ -1370,7 +1372,7 @@ fn options_registry_with_repeatable_option() {
         },
     });
 
-    // Intentional difference 12: legacy rejected every argv for this declaration.
+    // Legacy rejected every argv for this declaration.
     check(
         file,
         &[
@@ -1449,7 +1451,7 @@ fn options_registry_from_usage_only() {
                     },
                 })),
             ),
-            // Intentional difference 14: a short option never fills the INPUT slot (legacy
+            // Unlike legacy (as in docopt 0.6.2): a short option never fills the INPUT slot (legacy
             // returned `"input": ["-s"]`).
             (
                 &["-F", "-s"],
@@ -1572,8 +1574,8 @@ fn repeated_exclusive_flags_are_counters() {
 #
 "#;
 
-    // Intentional difference 10: both alternatives are counters; legacy reported `quiet` as a
-    // boolean and rejected any repetition.
+    // Unlike legacy (as in docopt 0.6.2): both alternatives are counters; legacy reported `quiet`
+    // as a boolean and rejected any repetition.
     check(
         file,
         &[
@@ -1607,8 +1609,7 @@ fn independent_repeatable_flags_before_positional_are_counters() {
 #
 "#;
 
-    // Intentional difference 17: both flags are counters, as in reference Docopt 0.6.2; legacy
-    // rejected every argv for this declaration.
+    // As in docopt 0.6.2, both flags are counters; legacy rejected every argv for this declaration.
     check(
         file,
         &[
@@ -1727,7 +1728,7 @@ fn value_option_and_exclusive_flags() {
 #   -q --quiet    quiet
 #
 "#;
-    // Intentional difference 11: empty argv is accepted; legacy rejected it.
+    // Unlike legacy: empty argv is accepted; legacy rejected it.
     check(
         file,
         &[

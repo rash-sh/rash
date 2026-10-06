@@ -56,7 +56,7 @@ fn unordered_optional_flags() {
 #
 "#;
 
-    // Intentional difference 4: a flag repeated beyond its declarations is rejected.
+    // Unlike legacy (as in docopt 0.6.2): a flag repeated beyond its declarations is rejected.
     check_model(file, &["-a", "-b", "-c"], 4, |args| {
         if ["-a", "-b", "-c"].iter().any(|flag| count(args, flag) > 1) {
             return Err(INVALID);
@@ -133,8 +133,8 @@ fn repeated_command_counts() {
 #
 "#;
 
-    // Intentional difference 3: commands repeated in the pattern are counters even when matched
-    // once.
+    // Unlike legacy (as in docopt 0.6.2): commands repeated in the pattern are counters even when
+    // matched once.
     check_model(file, &["a", "b", "c"], 3, |args| {
         if args.len() > 2 || args.contains(&"c") {
             return Err(INVALID);
@@ -156,7 +156,7 @@ fn duplicated_optional_flag_counts() {
 #
 "#;
 
-    // Intentional difference 4: an option declared twice is a counter bounded by its
+    // Unlike legacy (as in docopt 0.6.2): an option declared twice is a counter bounded by its
     // declarations.
     check_model(file, &["-a", "-b"], 4, |args| {
         if count(args, "-a") > 2 || count(args, "-b") > 1 {
@@ -175,8 +175,8 @@ fn repeated_positional_collects_list() {
 #
 "#;
 
-    // Intentional difference 5: a positional declared twice collects a list. Absent positionals
-    // are omitted.
+    // Unlike legacy (as in docopt 0.6.2): a positional declared twice collects a list. Absent
+    // positionals are omitted.
     check_model(file, &["p", "q"], 3, |args| match args.len() {
         0 => Ok(json!({})),
         1 | 2 => Ok(json!({"x": args})),

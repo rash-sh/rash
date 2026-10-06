@@ -277,8 +277,8 @@ fn grouped_optional_sequence_is_atomic() {
 
 #[test]
 fn groups_inside_brackets_are_independently_optional() {
-    // Intentional difference 8: each group inside `[...]` is optional on its own; legacy treated
-    // the whole bracket as one all-or-nothing group.
+    // Unlike legacy (as in docopt 0.6.2): each group inside `[...]` is optional on its own; legacy
+    // treated the whole bracket as one all-or-nothing group.
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -357,8 +357,8 @@ fn groups_inside_brackets_are_independently_optional() {
 
 #[test]
 fn option_opening_a_group_is_recognized() {
-    // Intentional difference 18: an option right after `(` or `[` is an option; legacy reported it
-    // as unknown and rejected every argv for these declarations.
+    // Unlike legacy (as in docopt 0.6.2): an option right after `(` or `[` is an option; legacy
+    // reported it as unknown and rejected every argv for these declarations.
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -565,8 +565,8 @@ fn repeated_commands_are_counters() {
 #
 "#;
 
-    // Intentional difference 3: a command that can occur more than once is a counter, even when
-    // matched once.
+    // Unlike legacy (as in docopt 0.6.2): a command that can occur more than once is a counter,
+    // even when matched once.
     check(
         file,
         &[
@@ -590,7 +590,7 @@ fn command_declared_twice_is_a_counter() {
 #
 "#;
 
-    // Intentional difference 3: a command that can occur more than once is a counter.
+    // Unlike legacy (as in docopt 0.6.2): a command that can occur more than once is a counter.
     check(
         file,
         &[
@@ -613,7 +613,7 @@ fn mixed_case_command_is_rejected() {
 
     // Command and positional identifiers are lowercase (or uppercase positional) ASCII words.
     check(file, &[(&["Run"], Err(INVALID))]);
-    // Intentional difference 16: the error names the offending identifier.
+    // Unlike legacy: the error names the offending identifier.
     assert_eq!(
         error_message(file, &["Run"]),
         "Invalid usage identifier: Run"
@@ -760,7 +760,7 @@ fn repeated_command_alternatives_without_parentheses_are_counters() {
 # Usage: foo [a | b] [a | b]
 #
 "#;
-    // Intentional difference 3: a command that can occur more than once is a counter.
+    // Unlike legacy (as in docopt 0.6.2): a command that can occur more than once is a counter.
     check(
         file,
         &[

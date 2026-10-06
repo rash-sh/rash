@@ -1,8 +1,9 @@
 //! Behavioural tests for the compiled script CLI parser (`rash_core::script_cli`).
 //!
 //! Every case states the expected template variables, or the expected error kind, explicitly.
-//! Cases where the parser intentionally differs from the former Rash parser cite the numbered
-//! entries in `rash_core/SCRIPT_CLI_PARSER_REFACTOR.md` ("Intentional differences").
+//! Cases where the parser intentionally differs from the former (legacy) Rash parser say so, and
+//! whether the new behaviour follows reference docopt 0.6.2. The user-facing semantics are
+//! documented in the book (`rash_book/src/docopt.md`).
 //!
 //! - [`extraction`]: which comment lines become the usage declaration and the help text.
 //! - [`grammar`]: commands, positionals, groups, optionals, repetition and identifier rules.
