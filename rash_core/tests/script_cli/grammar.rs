@@ -212,6 +212,25 @@ fn repeatable_optional_positional() {
 }
 
 #[test]
+fn repetition_never_takes_an_empty_iteration() {
+    // As in docopt 0.6.2: after `go`, the repetition does not take an empty `[go]` iteration to
+    // leave `v1` to `<y>`; the next iteration binds it to `<x>` instead.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool ([go] | <x>)... [<y>]
+#
+"#;
+    check(
+        file,
+        &[
+            (&["go", "v1"], Ok(json!({"go": 1, "x": ["v1"]}))),
+            (&["v1", "v2"], Ok(json!({"go": 0, "x": ["v1", "v2"]}))),
+        ],
+    );
+}
+
+#[test]
 fn repeated_group_rejects_incomplete_tail() {
     let file = r#"
 #!/usr/bin/env rash

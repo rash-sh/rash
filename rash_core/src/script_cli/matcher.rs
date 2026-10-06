@@ -4,8 +4,11 @@
 //! patterns in declaration order, optional content before skipping it, another repetition before
 //! leaving a repeat, alternatives in written order and option loops consuming before exiting.
 //! Matching advances all threads token by token, keeping them in priority order, and returns the
-//! captures of the highest-priority path that consumes the whole argv, which is the first success
-//! a backtracking matcher exploring the same choices in that order would find.
+//! captures of the highest-priority path that consumes the whole argv. That is the first success
+//! a backtracking matcher exploring the same choices in that order would find, except that a
+//! repetition never takes an iteration that consumes nothing: the epsilon closure of a step visits
+//! each state once, so a path never returns to a state without consuming a token. For example,
+//! `([go] | <x>)...` never takes an empty `[go]` iteration, so `<x>` matches the next word.
 //!
 //! Two threads reaching the same state have the same future: option occurrence limits depend only
 //! on how often the option occurred in the argv prefix, which every thread has consumed entirely.
