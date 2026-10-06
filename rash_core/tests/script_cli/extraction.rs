@@ -234,3 +234,48 @@ fn unmatched_argv_reports_the_help_text() {
         format!("\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\n\n{NOTE}")
     );
 }
+
+#[test]
+fn usage_patterns_tolerate_trailing_whitespace_and_tab_indentation() {
+    let file = "\n#!/usr/bin/env rash\n# Usage:\n# \ttool <a>  \n#   tool <a> <b>\t\n#\n";
+    check(
+        file,
+        &[
+            (&["x"], Ok(json!({"a": "x"}))),
+            (&["x", "y"], Ok(json!({"a": "x", "b": "y"}))),
+            (&["x", "y", "z"], Err(INVALID)),
+        ],
+    );
+}
+
+#[test]
+fn whitespace_only_line_in_usage_block_is_skipped() {
+    // Legacy read such a line as an empty pattern, so it also accepted an empty argv. Like
+    // docopt 0.6.2, the line is skipped and the patterns after it still belong to the block.
+    for blank in ["  ", "\t", " \t "] {
+        let file = format!(
+            "\n#!/usr/bin/env rash\n# Usage:\n#   tool <a>\n#{blank}\n#   tool <a> <b>\n#\n"
+        );
+        check(
+            &file,
+            &[
+                (&["x"], Ok(json!({"a": "x"}))),
+                (&["x", "y"], Ok(json!({"a": "x", "b": "y"}))),
+                (&[], Err(INVALID)),
+            ],
+        );
+    }
+}
+
+#[test]
+fn whitespace_only_line_before_next_section_is_skipped() {
+    let file = "\n#!/usr/bin/env rash\n# Usage:\n#   tool [options] <a>\n#  \n# Options:\n#   -v  verbose\n";
+    check(
+        file,
+        &[
+            (&["x"], Ok(json!({"a": "x", "options": {"v": false}}))),
+            (&["-v", "x"], Ok(json!({"a": "x", "options": {"v": true}}))),
+            (&[], Err(INVALID)),
+        ],
+    );
+}

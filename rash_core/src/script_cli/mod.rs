@@ -259,6 +259,8 @@ fn strip_indentation(line: &str) -> Option<&str> {
     Some(line[start..].trim_start_matches(char::is_whitespace))
 }
 
+/// Indented lines after the `Usage:` line, up to the first unindented or empty line.
+/// Whitespace-only lines are skipped, as in docopt.
 fn parse_usage_multiline(doc: &str) -> Result<Option<Vec<String>>> {
     let Some(captures) = compiled(&USAGE_MULTILINE_RE)?.captures(doc) else {
         return Ok(None);
@@ -267,6 +269,7 @@ fn parse_usage_multiline(doc: &str) -> Result<Option<Vec<String>>> {
         captures[1]
             .split('\n')
             .map_while(strip_indentation)
+            .filter(|usage| !usage.is_empty())
             .map(str::to_owned)
             .collect(),
     ))
