@@ -1,25 +1,7 @@
 use crate::cli::modules::run_test_with_env;
-use std::env;
-use std::path::Path;
-
-fn build_test_path() -> String {
-    let mocks_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
-    let target_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("target/debug");
-    format!(
-        "{}:{}:{}",
-        mocks_dir.to_str().unwrap(),
-        target_dir.to_str().unwrap(),
-        env::var("PATH").unwrap_or_default()
-    )
-}
 
 #[test]
 fn test_trace_file_opens() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace file opens
@@ -36,7 +18,7 @@ fn test_trace_file_opens() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Traced for"), "stdout: {}", stdout);
@@ -44,8 +26,6 @@ fn test_trace_file_opens() {
 
 #[test]
 fn test_trace_process_exec() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace process execution
@@ -62,7 +42,7 @@ fn test_trace_process_exec() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Traced for"), "stdout: {}", stdout);
@@ -70,8 +50,6 @@ fn test_trace_process_exec() {
 
 #[test]
 fn test_trace_syscalls_with_filter() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace syscalls with filter
@@ -89,7 +67,7 @@ fn test_trace_syscalls_with_filter() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Traced for"), "stdout: {}", stdout);
@@ -97,8 +75,6 @@ fn test_trace_syscalls_with_filter() {
 
 #[test]
 fn test_trace_custom_expression() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace with custom expression
@@ -115,7 +91,7 @@ fn test_trace_custom_expression() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Traced for"), "stdout: {}", stdout);
@@ -123,8 +99,6 @@ fn test_trace_custom_expression() {
 
 #[test]
 fn test_trace_stats_included() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace file opens
@@ -140,7 +114,7 @@ fn test_trace_stats_included() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Total:"), "stdout: {}", stdout);
@@ -148,8 +122,6 @@ fn test_trace_stats_included() {
 
 #[test]
 fn test_trace_network_connect() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace network connections
@@ -166,7 +138,7 @@ fn test_trace_network_connect() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Traced for"), "stdout: {}", stdout);
@@ -174,8 +146,6 @@ fn test_trace_network_connect() {
 
 #[test]
 fn test_trace_default_duration() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace with default duration
@@ -189,7 +159,7 @@ fn test_trace_default_duration() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
     assert!(stdout.contains("Duration:"), "stdout: {}", stdout);
@@ -197,8 +167,6 @@ fn test_trace_default_duration() {
 
 #[test]
 fn test_trace_invalid_probe() {
-    let mock_path = build_test_path();
-
     let script_text = r#"
 #!/usr/bin/env rash
 - name: Trace with invalid probe
@@ -209,7 +177,7 @@ fn test_trace_invalid_probe() {
     .to_string();
 
     let args: &[&str] = &[];
-    let (_stdout, stderr) = run_test_with_env(&script_text, args, &[("PATH", &mock_path)]);
+    let (_stdout, stderr) = run_test_with_env(&script_text, args, &[]);
 
     assert!(!stderr.is_empty());
     assert!(stderr.contains("Invalid probe"));

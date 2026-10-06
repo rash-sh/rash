@@ -1,6 +1,4 @@
 use crate::cli::modules::run_test_with_env;
-use std::env;
-use std::path::Path;
 
 // Generate a unique state file path for each test
 fn get_test_state_file() -> String {
@@ -15,25 +13,9 @@ fn cleanup_state_file(path: &str) {
     let _ = std::fs::remove_file(path);
 }
 
-// Build PATH that includes both mocks directory and rash binary
-fn build_test_path() -> String {
-    let mocks_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
-    let target_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("target/debug");
-    format!(
-        "{}:{}:{}",
-        mocks_dir.to_str().unwrap(),
-        target_dir.to_str().unwrap(),
-        env::var("PATH").unwrap_or_default()
-    )
-}
-
 #[test]
 fn test_dconf_write_value() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -49,7 +31,7 @@ fn test_dconf_write_value() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -65,7 +47,6 @@ fn test_dconf_write_value() {
 #[test]
 fn test_dconf_write_value_already_set() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -87,7 +68,7 @@ fn test_dconf_write_value_already_set() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -99,7 +80,6 @@ fn test_dconf_write_value_already_set() {
 #[test]
 fn test_dconf_read_value() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -118,7 +98,7 @@ fn test_dconf_read_value() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -134,7 +114,6 @@ fn test_dconf_read_value() {
 #[test]
 fn test_dconf_reset_value() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -149,7 +128,7 @@ fn test_dconf_reset_value() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -165,7 +144,6 @@ fn test_dconf_reset_value() {
 #[test]
 fn test_dconf_reset_already_reset() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -185,7 +163,7 @@ fn test_dconf_reset_already_reset() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -197,7 +175,6 @@ fn test_dconf_reset_already_reset() {
 #[test]
 fn test_dconf_default_state_present() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -212,7 +189,7 @@ fn test_dconf_default_state_present() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -224,7 +201,6 @@ fn test_dconf_default_state_present() {
 #[test]
 fn test_dconf_error_missing_value_for_present() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -239,7 +215,7 @@ fn test_dconf_error_missing_value_for_present() {
     let (_stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(!stderr.is_empty());
@@ -251,7 +227,6 @@ fn test_dconf_error_missing_value_for_present() {
 #[test]
 fn test_dconf_check_mode() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -267,7 +242,7 @@ fn test_dconf_check_mode() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
@@ -279,7 +254,6 @@ fn test_dconf_check_mode() {
 #[test]
 fn test_dconf_array_value() {
     let state_file = get_test_state_file();
-    let mock_path = build_test_path();
 
     let script_text = r#"
 #!/usr/bin/env rash
@@ -295,7 +269,7 @@ fn test_dconf_array_value() {
     let (stdout, stderr) = run_test_with_env(
         &script_text,
         &args,
-        &[("PATH", &mock_path), ("DCONF_MOCK_STATE_FILE", &state_file)],
+        &[("DCONF_MOCK_STATE_FILE", &state_file)],
     );
 
     assert!(stderr.is_empty(), "stderr: {}", stderr);
