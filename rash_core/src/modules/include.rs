@@ -12,6 +12,15 @@
 ///   support: full
 /// ```
 /// ANCHOR_END: module
+/// ANCHOR: parameters
+/// `include` takes either the file path or a mapping:
+///
+/// | Parameter | Required | Type            | Values | Description                                                              |
+/// | --------- | -------- | --------------- | ------ | ------------------------------------------------------------------------ |
+/// | file      | true     | string          |        | Rash file whose tasks are executed with the caller's variables.          |
+/// | export    | false    | boolean or list |        | Return all (`true`) or the listed variables set by the file to the caller. |
+///
+/// ANCHOR_END: parameters
 /// ANCHOR: examples
 /// ## Example
 ///

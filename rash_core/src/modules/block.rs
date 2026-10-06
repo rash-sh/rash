@@ -12,6 +12,15 @@
 ///   support: full
 /// ```
 /// ANCHOR_END: module
+/// ANCHOR: parameters
+/// `block` takes either a list of tasks or a mapping:
+///
+/// | Parameter | Required | Type | Values | Description                                                |
+/// | --------- | -------- | ---- | ------ | ---------------------------------------------------------- |
+/// | tasks     | true     | list |        | Tasks to execute.                                          |
+/// | defaults  | false    | map  |        | Task attributes applied to every child task it doesn't set. |
+///
+/// ANCHOR_END: parameters
 /// ANCHOR: examples
 /// ## Example
 ///
