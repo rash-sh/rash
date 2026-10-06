@@ -621,14 +621,36 @@ fn mixed_case_command_is_rejected() {
 }
 
 #[test]
-fn numeric_command_suffix_is_rejected() {
+fn digits_after_the_first_character_are_kept_in_keys() {
+    // Legacy rejected digits in command and positional names; docopt 0.6.2 accepts them.
     let file = r#"
 #!/usr/bin/env rash
 #
-# Usage: tool run2
+# Usage: tool run2 <file1> FILE-2 [<x1_y2>]
 #
 "#;
-    check(file, &[(&["run2"], Err(INVALID))]);
+    check(
+        file,
+        &[(
+            &["run2", "a", "b", "c"],
+            Ok(json!({"file1": "a", "file_2": "b", "run2": true, "x1_y2": "c"})),
+        )],
+    );
+}
+
+#[test]
+fn leading_digit_identifiers_are_rejected() {
+    for usage in ["tool 2run", "tool <1file>", "tool 2FILE"] {
+        let file = format!("\n#\n# Usage: {usage}\n#\n");
+        assert_eq!(
+            error_message(&file, &["x"]),
+            format!(
+                "Invalid usage identifier: {}",
+                usage.trim_start_matches("tool ")
+            ),
+            "{usage}"
+        );
+    }
 }
 
 #[test]
@@ -637,17 +659,6 @@ fn uppercase_angle_positional_is_rejected() {
 #!/usr/bin/env rash
 #
 # Usage: tool <FILE>
-#
-"#;
-    check(file, &[(&["value"], Err(INVALID))]);
-}
-
-#[test]
-fn numeric_angle_positional_is_rejected() {
-    let file = r#"
-#!/usr/bin/env rash
-#
-# Usage: tool <file2>
 #
 "#;
     check(file, &[(&["value"], Err(INVALID))]);

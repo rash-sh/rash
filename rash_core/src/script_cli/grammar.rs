@@ -420,7 +420,7 @@ impl Parser {
 }
 
 /// `<name>` and `NAME` are positionals and `name` is a command; names are ASCII words joined by
-/// `-` or `_`. `-` (stdin/stdout by convention) and `--` (end of options) are commands too, with
+/// `-` or `_`, starting with a letter and possibly containing digits. `-` (stdin/stdout by convention) and `--` (end of options) are commands too, with
 /// the keys `_` and `__`.
 fn classify_atom(value: String) -> Result<Atom> {
     if matches!(value.as_str(), "-" | "--") {
@@ -471,14 +471,19 @@ fn is_upper_word(value: &str) -> bool {
     is_word(value, u8::is_ascii_uppercase)
 }
 
+/// Segments of letters accepted by `predicate` and ASCII digits, joined by `-` or `_`, where the
+/// first character is a letter.
 fn is_word(value: &str, predicate: fn(&u8) -> bool) -> bool {
-    if value.is_empty() {
+    if !value.as_bytes().first().is_some_and(predicate) {
         return false;
     }
 
-    value
-        .split(['_', '-'])
-        .all(|segment| !segment.is_empty() && segment.as_bytes().iter().all(predicate))
+    value.split(['_', '-']).all(|segment| {
+        !segment.is_empty()
+            && segment
+                .bytes()
+                .all(|byte| predicate(&byte) || byte.is_ascii_digit())
+    })
 }
 
 fn normalize_key(value: &str) -> String {
@@ -570,13 +575,17 @@ mod tests {
     }
 
     #[test]
-    fn identifier_grammar_matches_legacy_ascii_words() {
+    fn identifier_grammar_is_ascii_words_with_digits() {
         assert!(is_lower_word("daemon-reload"));
         assert!(is_lower_word("package_filters"));
         assert!(is_upper_word("UNIT-NAME"));
-        assert!(!is_lower_word("run2"));
+        assert!(is_lower_word("run2"));
+        assert!(is_lower_word("x1-y2_3"));
+        assert!(!is_lower_word("2run"));
         assert!(!is_lower_word("Run"));
-        assert!(!is_upper_word("FILE2"));
+        assert!(is_upper_word("FILE2"));
+        assert!(!is_upper_word("2FILE"));
         assert!(!is_upper_word("File"));
+        assert!(!is_upper_word("F2a"));
     }
 }
