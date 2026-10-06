@@ -392,7 +392,7 @@ impl<'a> Task<'a> {
             .as_ref()
             .map(|register| [(register.as_str(), result)].into_iter().collect::<Value>());
         let additions = merge_option(result_binding, register_binding);
-        context! {..vars.clone(), ..additions}
+        context! {..additions, ..vars.clone()}
     }
 
     fn failure_message(&self, result: &ModuleResult) -> String {
@@ -954,7 +954,7 @@ impl<'a> Task<'a> {
         for attempt in 0..=max_retries {
             let result = self.exec_module(vars.clone())?;
             let result_vars = result.get_vars().cloned().unwrap_or(context! {});
-            let merged = context! {..vars.clone(), ..result_vars};
+            let merged = context! {..result_vars, ..vars.clone()};
             let check_vars = context! {retries => attempt, ..merged};
             if self.is_until_satisfied(&check_vars)? {
                 return Ok(result);
@@ -990,7 +990,7 @@ impl<'a> Task<'a> {
             }
             flush_handlers |= result.is_flush_handlers();
             if let Some(new_vars) = result.take_vars() {
-                all_vars = context! {..all_vars, ..new_vars};
+                all_vars = context! {..new_vars, ..all_vars};
             }
             if failed && !self.ignore_errors.unwrap_or(false) {
                 break;
@@ -1027,7 +1027,7 @@ impl<'a> Task<'a> {
                 error = result.get_error().map(str::to_owned);
             }
             if let Some(new_vars) = result.take_vars() {
-                all_vars = context! {..all_vars, ..new_vars};
+                all_vars = context! {..new_vars, ..all_vars};
             }
             if failed && !self.ignore_errors.unwrap_or(false) {
                 break;
@@ -1081,8 +1081,8 @@ impl<'a> Task<'a> {
             changed |= result.get_changed();
             flush_handlers |= result.is_flush_handlers();
             if let Some(vars) = result.take_vars() {
-                current_vars = context! {..current_vars, ..vars.clone()};
-                new_vars = context! {..new_vars, ..vars};
+                current_vars = context! {..vars.clone(), ..current_vars};
+                new_vars = context! {..vars, ..new_vars};
             }
         }
 
@@ -1521,6 +1521,65 @@ mod tests {
         let error = task.exec(context! {}).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::ExplicitExit);
         assert_eq!(error.raw_os_error(), Some(17));
+    }
+
+    #[test]
+    fn sequential_loop_keeps_vars_from_the_last_item() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            set_vars:
+              from_loop: "{{ item }}"
+            loop: [first, last]
+            "#,
+        )
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        let result = task.exec(context! {}).unwrap();
+        let vars = result.get_vars().unwrap();
+        assert_eq!(vars.get_attr("from_loop").unwrap().as_str(), Some("last"));
+    }
+
+    #[test]
+    fn failed_when_sees_current_result_over_stale_var() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            command:
+              argv: [sh, -c, "exit 0"]
+            register: previous
+            failed_when: result.rc != 0 or previous.rc != 0
+            "#,
+        )
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        let stale = context! {
+            result => context! {rc => 1},
+            previous => context! {rc => 1},
+        };
+        assert!(!task.exec(stale).unwrap().get_failed());
+    }
+
+    #[test]
+    fn rescue_sees_vars_registered_again_by_earlier_rescue_tasks() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            fail:
+              msg: boom
+            rescue:
+              - set_vars:
+                  stage: rescued
+              - assert:
+                  that:
+                    - stage == "rescued"
+            "#,
+        )
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        let result = task.exec(context! {stage => "initial"}).unwrap();
+        let vars = result.get_vars().unwrap();
+        assert_eq!(vars.get_attr("stage").unwrap().as_str(), Some("rescued"));
     }
 
     #[test]
