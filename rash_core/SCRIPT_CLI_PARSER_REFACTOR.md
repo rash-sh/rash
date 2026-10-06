@@ -234,6 +234,7 @@ These are not ordinary compatibility failures and must remain explicit:
 14. **Short options never fill positional slots.** With `[-hsoFILE] ... [INPUT ...]`, `-F -s` sets both flags; legacy returns `INPUT: ["-s"]` and leaves `s` false.
 15. **Shared short alias is an error.** `-u` declared for both `--sysupgrade` and `--upgrades` fails with "Ambiguous option alias: -u" (reference Docopt also rejects it); legacy silently picks one. The long aliases remain usable.
 16. **Specific error messages.** Invalid declarations and bad option values report the cause ("Invalid usage identifier: Run", "Option --known does not take a value", "Option -n requires a value") instead of legacy's "Invalid usage: <help>" or an empty message.
+17. **Independent repeatable flags before a positional.** `tool [--verbose]... [--quiet]... <file>` (with `-v --verbose` and `-q --quiet` documented) counts both flags, as in reference Docopt 0.6.2: `-vvvv -qq file` → `verbose: 4`, `quiet: 2`. Legacy rejects every argv for this declaration.
 
 Known remaining divergences from reference Docopt 0.6.2, shared by legacy and kept for compatibility pending an explicit decision:
 

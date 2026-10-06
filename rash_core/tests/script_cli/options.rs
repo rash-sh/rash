@@ -1601,6 +1601,42 @@ fn repeated_exclusive_flags_are_counters() {
 }
 
 #[test]
+fn independent_repeatable_flags_before_positional_are_counters() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [--verbose]... [--quiet]... <file>
+#
+# Options:
+#   -v --verbose  print more text
+#   -q --quiet    print less text
+#
+"#;
+
+    // Intentional difference 17: both flags are counters, as in reference Docopt 0.6.2; legacy
+    // rejected every argv for this declaration.
+    check(
+        file,
+        &[
+            (
+                &["file"],
+                Ok(json!({"file": "file", "options": {"quiet": 0, "verbose": 0}})),
+            ),
+            (
+                &["-vvvv", "-qq", "file"],
+                Ok(json!({"file": "file", "options": {"quiet": 2, "verbose": 4}})),
+            ),
+            (
+                &["--verbose", "-v", "--quiet", "file"],
+                Ok(json!({"file": "file", "options": {"quiet": 1, "verbose": 2}})),
+            ),
+            (&[], Err(INVALID)),
+            (&["-v"], Err(INVALID)),
+        ],
+    );
+}
+
+#[test]
 fn value_option_from_usage_only() {
     let file = r#"
 #!/usr/bin/env rash
