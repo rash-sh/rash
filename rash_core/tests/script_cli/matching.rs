@@ -560,7 +560,8 @@ fn first_declared_pattern_wins_between_different_bindings() {
 
 #[test]
 fn optional_positionals_are_filled_from_the_left() {
-    // Same result as legacy and docopt 0.6.2.
+    // Deterministic and as in docopt 0.6.2. Legacy bound a single `x` to `<a>` or to `<b>`
+    // non-deterministically between runs.
     let independent = r#"
 #!/usr/bin/env rash
 #
@@ -613,8 +614,10 @@ fn optional_positional_yields_to_a_required_one() {
 
 #[test]
 fn cp_with_one_source_matches_the_first_pattern() {
-    // Same result as legacy and docopt 0.6.2 (which also reports `<directory>: null`). The
-    // three-argument case is rejected by docopt 0.6.2, which does not backtrack into `...`.
+    // Deterministic: the first matching pattern wins, as in docopt 0.6.2 (which also reports
+    // `<directory>: null`); legacy picked either pattern for `a b` non-deterministically between
+    // runs. The three-argument case is rejected by docopt 0.6.2, which does not backtrack into
+    // `...`.
     let file = r#"
 #!/usr/bin/env rash
 #
