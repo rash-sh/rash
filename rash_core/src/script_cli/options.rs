@@ -37,7 +37,7 @@ impl OptionSpec {
 ///
 /// An alias shared by several options is ambiguous: it is kept out of alias resolution, and the
 /// options remain reachable through their other aliases.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub(super) struct OptionRegistry {
     specs: Vec<OptionSpec>,
     aliases: HashMap<String, usize>,
@@ -602,7 +602,8 @@ fn is_dash_command(word: &str) -> bool {
     matches!(word, "-" | "--")
 }
 
-/// Whether a usage token is a value placeholder: `<value>` or an uppercase word like `FILE`.
+/// Whether a usage token is a value placeholder: `<value>` or an ASCII uppercase word like
+/// `FILE`, as for positionals.
 fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
     let Some(Token::Atom(value)) = token else {
         return false;
@@ -612,14 +613,10 @@ fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
         return true;
     }
 
-    let has_alpha = value.chars().any(char::is_alphabetic);
-    has_alpha
+    value.bytes().any(|byte| byte.is_ascii_uppercase())
         && value
-            .chars()
-            .all(|ch| !ch.is_alphabetic() || ch.is_uppercase())
-        && value
-            .chars()
-            .all(|ch| ch.is_alphanumeric() || matches!(ch, '_' | '-'))
+            .bytes()
+            .all(|byte| matches!(byte, b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-'))
 }
 
 /// Whether an option word such as `-o`, `--out` or `--out=FILE` names an option, unlike `-`,
