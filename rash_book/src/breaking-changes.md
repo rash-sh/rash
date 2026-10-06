@@ -86,6 +86,9 @@ input) are described in [Tasks](tasks.md) and the module pages.
   which switches to the become user before running the task, taking that user's supplementary
   groups, on Linux and macOS alike. Before, Rash forked itself and the child kept Rash's
   supplementary groups (all of root's groups when running as root).
+- **`command` with `transfer_pid` and `become_method: syscall`** exits Rash with an error when the
+  program cannot be executed. Before, Rash had already switched to the become user and went on
+  running the remaining tasks as that user.
 - **`become_method: sudo` to a non-root user other than the current one** is refused unless Rash
   runs as root: task data is exchanged through private files that user could not read.
 - **Async tasks with `become`** run the job as the become user (it was ignored before);

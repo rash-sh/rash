@@ -390,6 +390,31 @@ fn test_as_root_syscall_become_runs_modules_as_user_with_its_own_groups() {
     assert_eq!(std::fs::metadata(&dest).unwrap().uid(), nobody.uid.as_raw());
 }
 
+/// With `transfer_pid`, Rash switches to the become user in place before replacing itself:
+/// if the program cannot be executed, it must stop instead of going on as that user.
+#[test]
+fn test_as_root_failed_transfer_pid_never_continues_as_become_user() {
+    if !running_as_root("test_as_root_failed_transfer_pid_never_continues_as_become_user") {
+        return;
+    }
+    let script_text = r#"
+- command:
+    cmd: /nonexistent/rash-test-program
+    transfer_pid: true
+  become: true
+  become_user: nobody
+  ignore_errors: true
+- command: id -u
+  register: after
+- debug:
+    msg: "continued-as-uid-{{ after.stdout | trim }}"
+"#;
+    let (code, output) = run_script_status(script_text, &[]);
+    assert_eq!(code, Some(1), "{output}");
+    assert!(!output.contains("continued-as-uid"), "{output}");
+    assert!(output.contains("transfer_pid failed"), "{output}");
+}
+
 #[test]
 fn test_ignored_become_failure_is_reported_once() {
     let script_text = r#"

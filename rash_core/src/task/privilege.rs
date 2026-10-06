@@ -410,7 +410,8 @@ impl Task {
             if self.transfers_pid(rendered_params) {
                 // The process is replaced on success: switching users in place is fine.
                 BecomeUser::from(&user).switch()?;
-                return self.execute_module_with_environment(rendered_params, vars);
+                let result = self.execute_module_with_environment(rendered_params, vars);
+                exit_after_failed_transfer(&user.name, result);
             }
         }
         self.exec_module_in_become_child(rendered_params, vars)
@@ -659,6 +660,27 @@ impl Task {
             .map_err(|e| Error::new(ErrorKind::IOError, e))?;
         BecomeOutcome::from_json(&read_exchange_file(result_file, "become result file")?)
     }
+}
+
+/// A `transfer_pid` task returned after Rash switched to the become user in place, so the
+/// process was not replaced: stop instead of running further tasks (or `always` sections)
+/// as that user.
+fn exit_after_failed_transfer(user: &str, result: Result<TaskExecResult>) -> ! {
+    let (reason, code) = match &result {
+        Ok(result) => (
+            result
+                .get_error()
+                .unwrap_or("process not replaced")
+                .to_owned(),
+            1,
+        ),
+        Err(error) if error.is_termination() => {
+            (error.to_string(), error.raw_os_error().unwrap_or(1))
+        }
+        Err(error) => (error.to_string(), 1),
+    };
+    error!("transfer_pid failed after switching to user {user}, exiting: {reason}");
+    std::process::exit(code)
 }
 
 #[cfg(test)]

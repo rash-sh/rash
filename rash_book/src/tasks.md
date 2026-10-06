@@ -377,3 +377,7 @@ The temporary directory may be writable by other users (e.g. a `TMPDIR` kept by 
 child only gets the user to switch to from Rash's command line, never from those files, and refuses
 a task or result file that is not a regular, single-link, owner-only file of the expected owner;
 Rash reads the result through the file it created instead of reopening its path.
+
+A `command` with `transfer_pid: true` and the syscall method switches user in Rash itself, since
+the program replaces Rash: if it cannot be executed, Rash exits with an error instead of running
+further tasks as the become user.
