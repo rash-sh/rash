@@ -1,16 +1,12 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::LazyLock;
 
-use regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::error::{Error, ErrorKind, Result};
 
 use super::{InputToken, Token};
 
-static RE_DEFAULT_VALUE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[default: (.*)\]").unwrap());
-
+/// One logical option: its aliases and value semantics.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct OptionSpec {
     short: Option<String>,
@@ -21,20 +17,26 @@ struct OptionSpec {
 }
 
 impl OptionSpec {
+    /// Output key: the preferred name without dashes, with `-` replaced by `_`.
     fn key(&self) -> String {
         self.preferred_name()
             .trim_start_matches('-')
             .replace('-', "_")
     }
 
+    /// Long alias if any, else the short one. Specs are only created with at least one alias.
     fn preferred_name(&self) -> &str {
         self.long
             .as_deref()
             .or(self.short.as_deref())
-            .expect("option must have at least one name")
+            .unwrap_or_default()
     }
 }
 
+/// All options of a declaration, discovered from option descriptions and usage patterns.
+///
+/// An alias shared by several options is ambiguous: it is kept out of alias resolution, and the
+/// options remain reachable through their other aliases.
 #[derive(Clone, Debug, Default)]
 pub(super) struct OptionRegistry {
     specs: Vec<OptionSpec>,
@@ -43,7 +45,9 @@ pub(super) struct OptionRegistry {
 }
 
 impl OptionRegistry {
-    pub fn from_doc(help: &str, usages: &[String]) -> Result<Self> {
+    /// Register the options described in `help` (lines starting with `-`), then the options
+    /// that only appear in `usages`.
+    pub(super) fn from_doc(help: &str, usages: &[String]) -> Result<Self> {
         let mut registry = Self::default();
 
         for line in help.lines() {
@@ -61,19 +65,20 @@ impl OptionRegistry {
         Ok(registry)
     }
 
-    pub fn len(&self) -> usize {
+    pub(super) fn len(&self) -> usize {
         self.specs.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub(super) fn is_empty(&self) -> bool {
         self.specs.is_empty()
     }
 
-    pub fn is_help(&self, id: usize) -> bool {
+    pub(super) fn is_help(&self, id: usize) -> bool {
         self.specs.get(id).is_some_and(|spec| spec.key() == "help")
     }
 
-    pub fn is_positional_help(&self, id: usize) -> bool {
+    /// Whether the option may fill a positional slot: a help option, or a short-only `-h`.
+    pub(super) fn is_positional_help(&self, id: usize) -> bool {
         self.is_help(id)
             || self
                 .specs
@@ -81,7 +86,8 @@ impl OptionRegistry {
                 .is_some_and(|spec| spec.long.is_none() && spec.short.as_deref() == Some("-h"))
     }
 
-    pub fn set_repeatable(&mut self, ids: &HashSet<usize>) -> Result<()> {
+    /// Mark flags that can occur more than once as counters. Value options keep scalar values.
+    pub(super) fn set_repeatable(&mut self, ids: &HashSet<usize>) -> Result<()> {
         for id in ids {
             let Some(spec) = self.specs.get_mut(*id) else {
                 return Err(Error::new(
@@ -96,7 +102,9 @@ impl OptionRegistry {
         Ok(())
     }
 
-    pub fn tokenize_usage(&self, usage: &str) -> Result<Vec<Token>> {
+    /// Tokenize a usage pattern, dropping its program name and resolving options to ids. A value
+    /// placeholder after an option that takes a separate value is dropped too.
+    pub(super) fn tokenize_usage(&self, usage: &str) -> Result<Vec<Token>> {
         let mut tokens = lex_usage(usage)?;
         if !matches!(tokens.first(), Some(Token::Atom(_))) {
             return Err(Error::new(
@@ -124,114 +132,93 @@ impl OptionRegistry {
         Ok(out)
     }
 
-    pub fn normalize_args(&self, args: &[&str]) -> Result<Vec<InputToken>> {
+    /// Normalize argv: resolve option aliases, split short clusters and attach option values.
+    pub(super) fn normalize_args(&self, args: &[&str]) -> Result<Vec<InputToken>> {
         let mut out = Vec::with_capacity(args.len());
-        let mut i = 0;
+        let mut args = args.iter().copied();
 
-        while i < args.len() {
-            let arg = args[i];
-            if arg == "-" {
-                out.push(InputToken::Word(arg.to_owned()));
-                i += 1;
-                continue;
-            }
-
+        while let Some(arg) = args.next() {
             if arg.starts_with("--") {
-                if arg == "--" {
-                    return Err(Error::new(ErrorKind::InvalidData, "Unknown option: --"));
-                }
-                let (name, attached) = match arg.split_once('=') {
-                    Some((name, value)) => (name, Some(value.to_owned())),
-                    None => (arg, None),
-                };
-                let id = self.resolve(name)?;
-                let spec = &self.specs[id];
-                let value = if spec.takes_value {
-                    match attached {
-                        Some(value) => Some(value),
-                        None => {
-                            i += 1;
-                            Some(
-                                args.get(i)
-                                    .ok_or_else(|| {
-                                        Error::new(
-                                            ErrorKind::InvalidData,
-                                            format!("Option {name} requires a value"),
-                                        )
-                                    })?
-                                    .to_string(),
-                            )
-                        }
-                    }
-                } else {
-                    if attached.is_some() {
-                        return Err(Error::new(
-                            ErrorKind::InvalidData,
-                            format!("Option {name} does not take a value"),
-                        ));
-                    }
-                    None
-                };
-                self.push_option(&mut out, id, value);
-                i += 1;
-                continue;
+                out.push(self.normalize_long(arg, &mut args)?);
+            } else if let Some(cluster) = arg.strip_prefix('-').filter(|body| !body.is_empty()) {
+                self.normalize_short_cluster(arg, cluster, &mut args, &mut out)?;
+            } else {
+                out.push(InputToken::Word(arg.to_owned()));
             }
-
-            if let Some(body) = arg.strip_prefix('-') {
-                if body.is_empty() {
-                    out.push(InputToken::Word(arg.to_owned()));
-                    i += 1;
-                    continue;
-                }
-
-                for (offset, ch) in body.char_indices() {
-                    if ch == '=' {
-                        return Err(Error::new(
-                            ErrorKind::InvalidData,
-                            format!("Invalid short option cluster: {arg}"),
-                        ));
-                    }
-                    let alias = format!("-{ch}");
-                    let id = self.resolve(&alias)?;
-                    let spec = &self.specs[id];
-                    let next_offset = offset + ch.len_utf8();
-                    let rest = &body[next_offset..];
-
-                    if spec.takes_value {
-                        let value = if !rest.is_empty() {
-                            Some(rest.strip_prefix('=').unwrap_or(rest).to_owned())
-                        } else {
-                            i += 1;
-                            Some(
-                                args.get(i)
-                                    .ok_or_else(|| {
-                                        Error::new(
-                                            ErrorKind::InvalidData,
-                                            format!("Option {alias} requires a value"),
-                                        )
-                                    })?
-                                    .to_string(),
-                            )
-                        };
-                        self.push_option(&mut out, id, value);
-                        break;
-                    }
-
-                    self.push_option(&mut out, id, None);
-                }
-
-                i += 1;
-                continue;
-            }
-
-            out.push(InputToken::Word(arg.to_owned()));
-            i += 1;
         }
 
         Ok(out)
     }
 
-    pub fn initial_options(&self) -> Map<String, Value> {
+    /// `--name`, `--name=value`, or `--name value` for options taking a value.
+    fn normalize_long<'a>(
+        &self,
+        arg: &str,
+        rest: &mut impl Iterator<Item = &'a str>,
+    ) -> Result<InputToken> {
+        if arg == "--" {
+            return Err(Error::new(ErrorKind::InvalidData, "Unknown option: --"));
+        }
+        let (name, attached) = match arg.split_once('=') {
+            Some((name, value)) => (name, Some(value)),
+            None => (arg, None),
+        };
+        let id = self.resolve(name)?;
+        let value = match (self.specs[id].takes_value, attached) {
+            (true, Some(value)) => Some(value.to_owned()),
+            (true, None) => Some(next_value(name, rest)?),
+            (false, Some(_)) => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Option {name} does not take a value"),
+                ));
+            }
+            (false, None) => None,
+        };
+        Ok(InputToken::Option { id, value })
+    }
+
+    /// `-abc` is `-a -b -c`; an option taking a value consumes the rest of the cluster (without a
+    /// leading `=`) or, if nothing is left, the next argument.
+    fn normalize_short_cluster<'a>(
+        &self,
+        arg: &str,
+        cluster: &str,
+        rest: &mut impl Iterator<Item = &'a str>,
+        out: &mut Vec<InputToken>,
+    ) -> Result<()> {
+        for (offset, ch) in cluster.char_indices() {
+            if ch == '=' {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Invalid short option cluster: {arg}"),
+                ));
+            }
+            let alias = format!("-{ch}");
+            let id = self.resolve(&alias)?;
+            if !self.specs[id].takes_value {
+                out.push(InputToken::Option { id, value: None });
+                continue;
+            }
+
+            let attached = &cluster[offset + ch.len_utf8()..];
+            let value = if attached.is_empty() {
+                next_value(&alias, rest)?
+            } else {
+                attached.strip_prefix('=').unwrap_or(attached).to_owned()
+            };
+            out.push(InputToken::Option {
+                id,
+                value: Some(value),
+            });
+            break;
+        }
+        Ok(())
+    }
+
+    /// Value of every option before matching: the default (or `null`) for value options, `0`
+    /// for counters and `false` for flags.
+    pub(super) fn initial_options(&self) -> Map<String, Value> {
         self.specs
             .iter()
             .map(|spec| {
@@ -249,7 +236,8 @@ impl OptionRegistry {
             .collect()
     }
 
-    pub fn apply_capture(
+    /// Record one matched occurrence of option `id`.
+    pub(super) fn apply_capture(
         &self,
         options: &mut Map<String, Value>,
         id: usize,
@@ -287,14 +275,11 @@ impl OptionRegistry {
         Ok(())
     }
 
-    pub fn all_ids(&self) -> impl Iterator<Item = usize> + '_ {
+    pub(super) fn all_ids(&self) -> impl Iterator<Item = usize> + '_ {
         0..self.specs.len()
     }
 
-    fn push_option(&self, out: &mut Vec<InputToken>, id: usize, value: Option<String>) {
-        out.push(InputToken::Option { id, value });
-    }
-
+    /// Option of an unambiguous alias.
     fn find(&self, alias: &str) -> Option<usize> {
         if self.ambiguous_aliases.contains(alias) {
             None
@@ -303,6 +288,7 @@ impl OptionRegistry {
         }
     }
 
+    /// Like [`Self::find`], failing for unknown and ambiguous aliases.
     fn resolve(&self, alias: &str) -> Result<usize> {
         if self.ambiguous_aliases.contains(alias) {
             return Err(Error::new(
@@ -316,6 +302,8 @@ impl OptionRegistry {
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, format!("Unknown option: {alias}")))
     }
 
+    /// Register an option description such as `-o, --output=FILE  text [default: out]`. Any
+    /// non-option word in the declaration part means the option takes a value.
     fn add_description_line(&mut self, line: &str) -> Result<()> {
         let (declaration, description) = line.split_once("  ").unwrap_or((line, ""));
         let declaration = declaration.replace(',', " ");
@@ -341,10 +329,7 @@ impl OptionRegistry {
             return Ok(());
         }
 
-        let default_value = RE_DEFAULT_VALUE
-            .captures(description)
-            .and_then(|captures| captures.get(1))
-            .map(|value| value.as_str().to_owned());
+        let default_value = default_value(description).map(str::to_owned);
 
         self.upsert(OptionSpec {
             short,
@@ -356,6 +341,7 @@ impl OptionRegistry {
         Ok(())
     }
 
+    /// Register options that only appear in a usage pattern.
     fn discover_usage_options(&mut self, usage: &str) -> Result<()> {
         let words = usage
             .replace(['[', ']', '(', ')', '|'], " ")
@@ -415,6 +401,8 @@ impl OptionRegistry {
         Ok(())
     }
 
+    /// Option ids of a usage option word (a short cluster may hold several), and whether its last
+    /// option takes its value from the next usage token.
     fn expand_usage_option(&self, atom: &str) -> Result<(Vec<usize>, bool)> {
         if atom.starts_with("--") {
             let name = atom.split_once('=').map_or(atom, |(name, _)| name);
@@ -448,91 +436,68 @@ impl OptionRegistry {
         Ok((ids, takes_separate_value))
     }
 
+    /// Merge `incoming` into the option sharing one of its aliases, or register it as a new one.
     fn upsert(&mut self, incoming: OptionSpec) -> Result<usize> {
-        let short_existing = incoming.short.as_ref().and_then(|alias| self.find(alias));
-        let long_existing = incoming.long.as_ref().and_then(|alias| self.find(alias));
-        let existing = match (short_existing, long_existing) {
-            (Some(short), Some(long)) if short != long => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!(
-                        "Option aliases resolve to different options: {} {}",
-                        incoming.short.as_deref().unwrap_or(""),
-                        incoming.long.as_deref().unwrap_or("")
-                    ),
-                ));
-            }
-            (Some(id), _) | (_, Some(id)) => Some(id),
-            (None, None) => None,
+        let Some(id) = self.existing(&incoming)? else {
+            return self.insert_distinct(incoming);
         };
 
-        if let Some(id) = existing {
-            let existing_spec = &self.specs[id];
-            let shared_short_with_distinct_longs = existing_spec.short == incoming.short
-                && existing_spec.short.is_some()
-                && matches!(
-                    (&existing_spec.long, &incoming.long),
-                    (Some(existing_long), Some(incoming_long)) if existing_long != incoming_long
-                );
-            if shared_short_with_distinct_longs {
-                return self.insert_distinct(incoming);
-            }
-
-            if let (Some(a), Some(b)) = (&existing_spec.short, &incoming.short)
-                && a != b
-            {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Conflicting short option aliases: {a} and {b}"),
-                ));
-            }
-            if let (Some(a), Some(b)) = (&existing_spec.long, &incoming.long)
-                && a != b
-            {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Conflicting long option aliases: {a} and {b}"),
-                ));
-            }
-            if let (Some(a), Some(b)) = (&existing_spec.default_value, &incoming.default_value)
-                && a != b
-            {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!(
-                        "Conflicting defaults for option {}",
-                        existing_spec.preferred_name()
-                    ),
-                ));
-            }
-
-            let spec = &mut self.specs[id];
-            if spec.short.is_none() {
-                spec.short = incoming.short.clone();
-            }
-            if spec.long.is_none() {
-                spec.long = incoming.long.clone();
-            }
-            spec.takes_value |= incoming.takes_value;
-            if spec.default_value.is_none() {
-                spec.default_value = incoming.default_value.clone();
-            }
-            if let Some(alias) = &spec.short
-                && !self.ambiguous_aliases.contains(alias)
-            {
-                self.aliases.insert(alias.clone(), id);
-            }
-            if let Some(alias) = &spec.long
-                && !self.ambiguous_aliases.contains(alias)
-            {
-                self.aliases.insert(alias.clone(), id);
-            }
-            return Ok(id);
+        let existing = &self.specs[id];
+        let shared_short_with_distinct_longs = existing.short.is_some()
+            && existing.short == incoming.short
+            && matches!(
+                (&existing.long, &incoming.long),
+                (Some(existing_long), Some(incoming_long)) if existing_long != incoming_long
+            );
+        if shared_short_with_distinct_longs {
+            return self.insert_distinct(incoming);
         }
 
-        self.insert_distinct(incoming)
+        check_mergeable(existing, &incoming)?;
+        self.merge(id, incoming);
+        Ok(id)
     }
 
+    /// Option matching one of the aliases of `incoming`; aliases of different options conflict.
+    fn existing(&self, incoming: &OptionSpec) -> Result<Option<usize>> {
+        let short_existing = incoming.short.as_ref().and_then(|alias| self.find(alias));
+        let long_existing = incoming.long.as_ref().and_then(|alias| self.find(alias));
+        match (short_existing, long_existing) {
+            (Some(short), Some(long)) if short != long => Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "Option aliases resolve to different options: {} {}",
+                    incoming.short.as_deref().unwrap_or_default(),
+                    incoming.long.as_deref().unwrap_or_default()
+                ),
+            )),
+            (Some(id), _) | (_, Some(id)) => Ok(Some(id)),
+            (None, None) => Ok(None),
+        }
+    }
+
+    /// Fill the missing aliases, value arity and default of option `id` from `incoming`.
+    fn merge(&mut self, id: usize, incoming: OptionSpec) {
+        let spec = &mut self.specs[id];
+        if spec.short.is_none() {
+            spec.short = incoming.short;
+        }
+        if spec.long.is_none() {
+            spec.long = incoming.long;
+        }
+        spec.takes_value |= incoming.takes_value;
+        if spec.default_value.is_none() {
+            spec.default_value = incoming.default_value;
+        }
+        for alias in [&spec.short, &spec.long].into_iter().flatten() {
+            if !self.ambiguous_aliases.contains(alias) {
+                self.aliases.insert(alias.clone(), id);
+            }
+        }
+    }
+
+    /// Register `incoming` as a new option. Aliases already taken become ambiguous; the option
+    /// needs at least one alias of its own.
     fn insert_distinct(&mut self, incoming: OptionSpec) -> Result<usize> {
         let id = self.specs.len();
         let aliases = [incoming.short.as_ref(), incoming.long.as_ref()]
@@ -568,6 +533,56 @@ impl OptionRegistry {
     }
 }
 
+/// Check that `incoming` describes the same option as `existing`: no different aliases or
+/// defaults.
+fn check_mergeable(existing: &OptionSpec, incoming: &OptionSpec) -> Result<()> {
+    if let (Some(a), Some(b)) = (&existing.short, &incoming.short)
+        && a != b
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Conflicting short option aliases: {a} and {b}"),
+        ));
+    }
+    if let (Some(a), Some(b)) = (&existing.long, &incoming.long)
+        && a != b
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Conflicting long option aliases: {a} and {b}"),
+        ));
+    }
+    if let (Some(a), Some(b)) = (&existing.default_value, &incoming.default_value)
+        && a != b
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!(
+                "Conflicting defaults for option {}",
+                existing.preferred_name()
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// Next argument as the value of option `name`.
+fn next_value<'a>(name: &str, rest: &mut impl Iterator<Item = &'a str>) -> Result<String> {
+    rest.next().map(str::to_owned).ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Option {name} requires a value"),
+        )
+    })
+}
+
+/// Text between `[default: ` and the last `]` of an option description.
+fn default_value(description: &str) -> Option<&str> {
+    let (_, rest) = description.split_once("[default: ")?;
+    rest.rfind(']').map(|end| &rest[..end])
+}
+
+/// Whether a usage token is a value placeholder: `<value>` or an uppercase word like `FILE`.
 fn is_usage_value_placeholder(token: Option<&Token>) -> bool {
     let Some(Token::Atom(value)) = token else {
         return false;
@@ -594,6 +609,18 @@ fn split_option_declaration(value: &str) -> (String, bool) {
     }
 }
 
+fn delimiter(ch: char) -> Option<Token> {
+    match ch {
+        '[' => Some(Token::LeftBracket),
+        ']' => Some(Token::RightBracket),
+        '(' => Some(Token::LeftParen),
+        ')' => Some(Token::RightParen),
+        '|' => Some(Token::Pipe),
+        _ => None,
+    }
+}
+
+/// Split a usage pattern into delimiters, `...` and whitespace-separated atoms.
 fn lex_usage(usage: &str) -> Result<Vec<Token>> {
     let chars = usage.char_indices().collect::<Vec<_>>();
     let mut tokens = Vec::new();
@@ -613,16 +640,9 @@ fn lex_usage(usage: &str) -> Result<Vec<Token>> {
             i += 1;
             continue;
         }
-        if matches!(ch, '[' | ']' | '(' | ')' | '|') {
+        if let Some(delimiter) = delimiter(ch) {
             flush(&mut current, &mut tokens);
-            tokens.push(match ch {
-                '[' => Token::LeftBracket,
-                ']' => Token::RightBracket,
-                '(' => Token::LeftParen,
-                ')' => Token::RightParen,
-                '|' => Token::Pipe,
-                _ => unreachable!(),
-            });
+            tokens.push(delimiter);
             i += 1;
             continue;
         }

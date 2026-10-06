@@ -1,6 +1,20 @@
+//! Script CLI parser: turns the usage declaration in a Rash script's leading comment block, and
+//! the script arguments, into template variables.
+//!
+//! The pipeline is:
+//!
+//! 1. extract the help text and its `Usage:` patterns from the script comments;
+//! 2. build the option registry from the option descriptions and usage patterns ([`options`]);
+//! 3. parse every usage pattern into an AST and analyze symbol multiplicity ([`grammar`]);
+//! 4. compile the patterns into one epsilon-NFA and match the normalized argv ([`matcher`]);
+//! 5. turn the captures of the single successful binding into variables.
+
 mod grammar;
 mod matcher;
 mod options;
+
+use std::collections::BTreeMap;
+use std::sync::LazyLock;
 
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -11,8 +25,24 @@ use grammar::Metadata;
 use matcher::{Capture, MatchError};
 use options::OptionRegistry;
 
+/// Regex compiled on first use; a compilation error is reported by [`compiled`].
+type LazyRegex = LazyLock<std::result::Result<Regex, regex::Error>>;
+
+/// Usage block made of the indented lines after a `Usage:` line.
+static USAGE_MULTILINE_RE: LazyRegex =
+    LazyLock::new(|| Regex::new(r"(?mi)Usage:\n((.|\n)*?(^[a-z\n]|\z))"));
+/// Single usage pattern on the `Usage:` line itself.
+static USAGE_ONE_LINE_RE: LazyRegex = LazyLock::new(|| Regex::new(r"(?i)Usage:\s+(.*)\n"));
+
+const HELP_FOOTER: [&str; 3] = [
+    "Note: Options must be preceded by `--`. If not, you are passing options directly to rash.",
+    "For more information check rash options with `rash --help`.",
+    "",
+];
+
+/// Lexical token of a usage pattern.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum Token {
+enum Token {
     LeftBracket,
     RightBracket,
     LeftParen,
@@ -20,11 +50,13 @@ pub(super) enum Token {
     Pipe,
     Ellipsis,
     Atom(String),
+    /// Option resolved to its id in the [`OptionRegistry`].
     Option(usize),
 }
 
+/// Script argument after option normalization.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum InputToken {
+enum InputToken {
     Word(String),
     Option { id: usize, value: Option<String> },
 }
@@ -34,11 +66,19 @@ pub(super) enum InputToken {
 /// The syntax is Docopt-inspired, but the implementation is Rash-specific. Usage patterns are
 /// parsed into an AST, compiled into an epsilon-NFA, and matched directly against normalized argv.
 /// No concrete usage combinations are generated.
+///
+/// A script without a `Usage:` declaration yields an empty object.
+///
+/// # Errors
+///
+/// - [`ErrorKind::GracefulExit`] with the help text when help is requested.
+/// - [`ErrorKind::InvalidData`] with the help text when `args` match no usage pattern, and with a
+///   specific message when the declaration is invalid or ambiguous, or an argument is not a
+///   declared option.
 pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     let help_msg = parse_help(file);
-    let usages = match parse_usage(&help_msg) {
-        Some(usages) => usages,
-        None => return Ok(json!({})),
+    let Some(usages) = parse_usage(&help_msg)? else {
+        return Ok(json!({}));
     };
 
     let mut options = OptionRegistry::from_doc(&help_msg, &usages)?;
@@ -52,18 +92,13 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
 
     let normalized_args = options.normalize_args(args)?;
     let nfa = matcher::compile(&patterns, &options);
-    let captures = match matcher::execute(&nfa, &normalized_args) {
-        Ok(captures) => captures,
-        Err(MatchError::NoMatch) => {
-            return Err(Error::new(ErrorKind::InvalidData, help_msg));
-        }
-        Err(MatchError::Ambiguous) => {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Ambiguous usage declaration.\n\n{help_msg}"),
-            ));
-        }
-    };
+    let captures = matcher::execute(&nfa, &normalized_args).map_err(|error| match error {
+        MatchError::NoMatch => Error::new(ErrorKind::InvalidData, help_msg.clone()),
+        MatchError::Ambiguous => Error::new(
+            ErrorKind::InvalidData,
+            format!("Ambiguous usage declaration.\n\n{help_msg}"),
+        ),
+    })?;
 
     let vars = build_vars(&metadata, &options, captures)?;
     if help_requested(&vars) {
@@ -73,6 +108,9 @@ pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     }
 }
 
+/// Initial values of every command and option, updated with the captures of the match.
+///
+/// Absent positionals are omitted.
 fn build_vars(
     metadata: &Metadata,
     options: &OptionRegistry,
@@ -88,50 +126,19 @@ fn build_vars(
     }
 
     for (command, repeated) in &metadata.command_repeated {
-        root.insert(
-            command.clone(),
-            if *repeated {
-                Value::from(0_u64)
-            } else {
-                Value::Bool(false)
-            },
-        );
+        let initial = if *repeated {
+            Value::from(0_u64)
+        } else {
+            Value::Bool(false)
+        };
+        root.insert(command.clone(), initial);
     }
 
     for capture in captures {
         match capture {
-            Capture::Command(key) => {
-                if metadata
-                    .command_repeated
-                    .get(&key)
-                    .copied()
-                    .unwrap_or(false)
-                {
-                    let count = root.get(&key).and_then(Value::as_u64).unwrap_or_default() + 1;
-                    root.insert(key, Value::from(count));
-                } else {
-                    root.insert(key, Value::Bool(true));
-                }
-            }
+            Capture::Command(key) => apply_command(&mut root, metadata, key),
             Capture::Positional { key, value } => {
-                if metadata
-                    .positional_repeated
-                    .get(&key)
-                    .copied()
-                    .unwrap_or(false)
-                {
-                    match root.entry(key).or_insert_with(|| Value::Array(Vec::new())) {
-                        Value::Array(values) => values.push(Value::String(value)),
-                        current => {
-                            return Err(Error::new(
-                                ErrorKind::InvalidData,
-                                format!("Positional argument changed type unexpectedly: {current}"),
-                            ));
-                        }
-                    }
-                } else {
-                    root.insert(key, Value::String(value));
-                }
+                apply_positional(&mut root, metadata, key, value)?
             }
             Capture::Option { id, value } => {
                 let options_value = root
@@ -151,12 +158,47 @@ fn build_vars(
     Ok(Value::Object(root))
 }
 
+/// Repeatable commands count their occurrences; other commands become `true`.
+fn apply_command(root: &mut Map<String, Value>, metadata: &Metadata, key: String) {
+    if is_repeated(&metadata.command_repeated, &key) {
+        let count = root.get(&key).and_then(Value::as_u64).unwrap_or_default() + 1;
+        root.insert(key, Value::from(count));
+    } else {
+        root.insert(key, Value::Bool(true));
+    }
+}
+
+/// Repeatable positionals collect a list of values; other positionals hold a single string.
+fn apply_positional(
+    root: &mut Map<String, Value>,
+    metadata: &Metadata,
+    key: String,
+    value: String,
+) -> Result<()> {
+    if !is_repeated(&metadata.positional_repeated, &key) {
+        root.insert(key, Value::String(value));
+        return Ok(());
+    }
+
+    match root.entry(key).or_insert_with(|| Value::Array(Vec::new())) {
+        Value::Array(values) => {
+            values.push(Value::String(value));
+            Ok(())
+        }
+        current => Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Positional argument changed type unexpectedly: {current}"),
+        )),
+    }
+}
+
+fn is_repeated(repeated: &BTreeMap<String, bool>, key: &str) -> bool {
+    repeated.get(key).copied().unwrap_or(false)
+}
+
 fn help_requested(vars: &Value) -> bool {
     value_enabled(vars.get("help"))
-        || vars
-            .get("options")
-            .and_then(|options| options.get("help"))
-            .is_some_and(|value| value_enabled(Some(value)))
+        || value_enabled(vars.get("options").and_then(|options| options.get("help")))
 }
 
 fn value_enabled(value: Option<&Value>) -> bool {
@@ -167,44 +209,56 @@ fn value_enabled(value: Option<&Value>) -> bool {
     }
 }
 
+/// Help text: the comment block after the first line of `file`, without the comment marker, the
+/// first following space, or `#!` lines, followed by a note about passing options to scripts.
 fn parse_help(file: &str) -> String {
-    let re = Regex::new(r"#(.*)").unwrap();
     file.split('\n')
         .skip(1)
-        .map_while(|line| re.captures(line))
-        .filter(|cap| !cap[1].starts_with('!'))
-        .map(|cap| cap[1].to_owned().replacen(' ', "", 1))
-        .chain([
-            "Note: Options must be preceded by `--`. If not, you are passing options directly to rash."
-                .to_owned(),
-            "For more information check rash options with `rash --help`.".to_owned(),
-            String::new(),
-        ])
+        .map_while(|line| line.split_once('#').map(|(_, comment)| comment))
+        .filter(|comment| !comment.starts_with('!'))
+        .map(|comment| comment.replacen(' ', "", 1))
+        .chain(HELP_FOOTER.map(str::to_owned))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-fn parse_usage_multiline(doc: &str) -> Option<Vec<String>> {
-    let re = Regex::new(r"(?mi)Usage:\n((.|\n)*?(^[a-z\n]|\z))").unwrap();
-    let re_rm_indentation = Regex::new(r"\s+(.*)").unwrap();
-    let cap = re.captures_iter(doc).next()?;
-    Some(
-        cap[1]
+fn compiled(regex: &'static LazyRegex) -> Result<&'static Regex> {
+    LazyLock::force(regex)
+        .as_ref()
+        .map_err(|error| Error::new(ErrorKind::Other, error.clone()))
+}
+
+/// Text after the first whitespace run of `line`, or `None` if `line` has no whitespace.
+fn strip_indentation(line: &str) -> Option<&str> {
+    let start = line.find(char::is_whitespace)?;
+    Some(line[start..].trim_start_matches(char::is_whitespace))
+}
+
+fn parse_usage_multiline(doc: &str) -> Result<Option<Vec<String>>> {
+    let Some(captures) = compiled(&USAGE_MULTILINE_RE)?.captures(doc) else {
+        return Ok(None);
+    };
+    Ok(Some(
+        captures[1]
             .split('\n')
-            .map_while(|line| re_rm_indentation.captures(line))
-            .map(|cap| cap[1].to_owned())
-            .collect::<Vec<_>>(),
-    )
+            .map_while(strip_indentation)
+            .map(str::to_owned)
+            .collect(),
+    ))
 }
 
-fn parse_usage_one_line(doc: &str) -> Option<Vec<String>> {
-    let re = Regex::new(r"(?i)Usage:\s+(.*)\n").unwrap();
-    let cap = re.captures_iter(doc).next()?;
-    Some(vec![cap[1].to_owned()])
+fn parse_usage_one_line(doc: &str) -> Result<Option<Vec<String>>> {
+    Ok(compiled(&USAGE_ONE_LINE_RE)?
+        .captures(doc)
+        .map(|captures| vec![captures[1].to_owned()]))
 }
 
-fn parse_usage(doc: &str) -> Option<Vec<String>> {
-    parse_usage_multiline(doc).or_else(|| parse_usage_one_line(doc))
+/// Usage patterns of the help text, or `None` if it declares no usage.
+fn parse_usage(doc: &str) -> Result<Option<Vec<String>>> {
+    match parse_usage_multiline(doc)? {
+        Some(usages) => Ok(Some(usages)),
+        None => parse_usage_one_line(doc),
+    }
 }
 
 #[cfg(test)]
@@ -259,7 +313,7 @@ doe: "a deer, a female deer"
     fn multiline_usage() {
         let doc = "\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\n";
         assert_eq!(
-            parse_usage(doc),
+            parse_usage(doc).unwrap(),
             Some(vec![
                 "cp <source> <dest>".to_owned(),
                 "cp <source>... <dest>".to_owned(),
@@ -271,7 +325,7 @@ doe: "a deer, a female deer"
     fn multiline_usage_ends_at_blank_line() {
         let doc = "\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\n\nfoo\n";
         assert_eq!(
-            parse_usage(doc),
+            parse_usage(doc).unwrap(),
             Some(vec![
                 "cp <source> <dest>".to_owned(),
                 "cp <source>... <dest>".to_owned(),
@@ -283,7 +337,7 @@ doe: "a deer, a female deer"
     fn multiline_usage_ends_at_next_section() {
         let doc = "\nUsage:\n  cp <source> <dest>\n  cp <source>... <dest>\nFoo:\n  buu\n  fuu\n";
         assert_eq!(
-            parse_usage(doc),
+            parse_usage(doc).unwrap(),
             Some(vec![
                 "cp <source> <dest>".to_owned(),
                 "cp <source>... <dest>".to_owned(),
@@ -295,13 +349,13 @@ doe: "a deer, a female deer"
     fn one_line_usage() {
         let doc = "\nUsage:  cp <source> <dest>\n";
         assert_eq!(
-            parse_usage(doc),
+            parse_usage(doc).unwrap(),
             Some(vec!["cp <source> <dest>".to_owned()])
         );
     }
 
     #[test]
     fn missing_usage() {
-        assert_eq!(parse_usage("\nNo usage here\n"), None);
+        assert_eq!(parse_usage("\nNo usage here\n").unwrap(), None);
     }
 }

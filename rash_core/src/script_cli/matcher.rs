@@ -4,6 +4,7 @@ use super::InputToken;
 use super::grammar::{self, Atom, Count, Expr};
 use super::options::OptionRegistry;
 
+/// Binding produced by consuming one input token.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(super) enum Capture {
     Command(String),
@@ -13,10 +14,13 @@ pub(super) enum Capture {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum MatchError {
+    /// No pattern accepts the input.
     NoMatch,
+    /// Successful paths produce different bindings.
     Ambiguous,
 }
 
+/// Condition for consuming one input token.
 #[derive(Clone, Debug)]
 enum Matcher {
     Command {
@@ -27,6 +31,7 @@ enum Matcher {
         key: String,
     },
     Option(usize),
+    /// Any option whose id is `true` in the mask (`[options]` with several options).
     AnyOption(Vec<bool>),
     /// Unordered option group; each option may match at most its per-pattern limit.
     BoundedOption(Vec<Count>),
@@ -43,50 +48,47 @@ struct State {
     edges: Vec<Edge>,
 }
 
+/// Epsilon-NFA of all usage patterns, sharing one start and one accept state.
 #[derive(Clone, Debug)]
 pub(super) struct Nfa {
     states: Vec<State>,
     start: usize,
     accept: usize,
+    /// Options that may also fill a positional slot (help, or the legacy short-only `-h`).
     positional_help_options: Vec<bool>,
 }
 
+/// Active matcher state with the captures of the path that reached it.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct Candidate {
     state: usize,
+    /// Last capture of the path in the [`PathArena`]; `None` for the empty path.
     path: Option<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct PathNode {
     prev: Option<usize>,
     capture: Capture,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-struct PathKey {
-    prev: Option<usize>,
-    capture: Capture,
-}
-
+/// Interned capture paths stored as linked lists, so extending a path never copies it and
+/// identical paths share one id.
 #[derive(Default)]
 struct PathArena {
     nodes: Vec<PathNode>,
-    intern: HashMap<PathKey, usize>,
+    intern: HashMap<PathNode, usize>,
 }
 
 impl PathArena {
     fn append(&mut self, prev: Option<usize>, capture: Capture) -> usize {
-        let key = PathKey {
-            prev,
-            capture: capture.clone(),
-        };
-        if let Some(id) = self.intern.get(&key) {
+        let node = PathNode { prev, capture };
+        if let Some(id) = self.intern.get(&node) {
             return *id;
         }
         let id = self.nodes.len();
-        self.nodes.push(PathNode { prev, capture });
-        self.intern.insert(key, id);
+        self.nodes.push(node.clone());
+        self.intern.insert(node, id);
         id
     }
 
@@ -116,6 +118,7 @@ impl PathArena {
     }
 }
 
+/// Compile all usage patterns into one NFA. Its size depends only on the declaration.
 pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let mut builder = Builder::default();
     let start = builder.state();
@@ -152,6 +155,10 @@ fn positional_help_options(options: &OptionRegistry) -> Vec<bool> {
     mask
 }
 
+/// Match `input` and return the captures of the single successful binding.
+///
+/// Candidates are advanced token by token; identical `(state, path)` candidates are merged by the
+/// epsilon closure, so nullable cycles terminate.
 pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, MatchError> {
     let mut arena = PathArena::default();
     let mut candidates = epsilon_closure(
@@ -328,90 +335,111 @@ impl Builder {
         let second = ids.next();
 
         match (first, second) {
-            (None, _) => self.compile_expr(&Expr::Empty, allowed_options),
+            (None, _) => self.empty(),
             (Some(id), None) => self.optional_option(id),
             (Some(_), Some(_)) => self.option_loop(Matcher::AnyOption(allowed_options.to_vec())),
         }
     }
 
+    /// Compile `expr` into a fragment and return its `(start, end)` states.
+    ///
+    /// `allowed_options` marks the options available to `[options]` in the current pattern.
     fn compile_expr(&mut self, expr: &Expr, allowed_options: &[bool]) -> (usize, usize) {
         match expr {
-            Expr::Empty => {
-                let start = self.state();
-                let end = self.state();
-                self.epsilon(start, end);
-                (start, end)
-            }
-            Expr::Atom(atom) => {
-                let start = self.state();
-                let end = self.state();
-                let matcher = match atom {
-                    Atom::Command { literal, key } => Matcher::Command {
-                        literal: literal.clone(),
-                        key: key.clone(),
-                    },
-                    Atom::Positional { key } => Matcher::Positional { key: key.clone() },
-                    Atom::Option(id) => Matcher::Option(*id),
-                };
-                self.consume(start, matcher, end);
-                (start, end)
-            }
-            Expr::Sequence(items) => {
-                if items.is_empty() {
-                    return self.compile_expr(&Expr::Empty, allowed_options);
-                }
-                let (start, mut end) = self.compile_expr(&items[0], allowed_options);
-                for item in &items[1..] {
-                    let (next_start, next_end) = self.compile_expr(item, allowed_options);
-                    self.epsilon(end, next_start);
-                    end = next_end;
-                }
-                (start, end)
-            }
-            Expr::Alternative(branches) => {
-                let start = self.state();
-                let end = self.state();
-                for branch in branches {
-                    let (branch_start, branch_end) = self.compile_expr(branch, allowed_options);
-                    self.epsilon(start, branch_start);
-                    self.epsilon(branch_end, end);
-                }
-                (start, end)
-            }
-            Expr::Optional(inner) => {
-                let start = self.state();
-                let end = self.state();
-                let (inner_start, inner_end) = self.compile_expr(inner, allowed_options);
-                self.epsilon(start, end);
-                self.epsilon(start, inner_start);
-                self.epsilon(inner_end, end);
-                (start, end)
-            }
+            Expr::Empty => self.empty(),
+            Expr::Atom(atom) => self.atom(atom),
+            Expr::Sequence(items) => self.sequence(items, allowed_options),
+            Expr::Alternative(branches) => self.alternative(branches, allowed_options),
+            Expr::Optional(inner) => self.optional(inner, allowed_options),
             Expr::Required(inner) => self.compile_expr(inner, allowed_options),
-            Expr::Repeat(inner) => {
-                let start = self.state();
-                let end = self.state();
-                let (inner_start, inner_end) = self.compile_expr(inner, allowed_options);
-                self.epsilon(start, inner_start);
-                self.epsilon(inner_end, inner_start);
-                self.epsilon(inner_end, end);
-                (start, end)
-            }
-            Expr::OptionsGroup(ids) => {
-                let mut limits = vec![Count::Finite(0); allowed_options.len()];
-                for id in ids {
-                    if let Some(limit) = limits.get_mut(*id) {
-                        *limit = self
-                            .option_limits
-                            .get(id)
-                            .copied()
-                            .unwrap_or(Count::Finite(1));
-                    }
-                }
-                self.option_loop(Matcher::BoundedOption(limits))
-            }
+            Expr::Repeat(inner) => self.repeat(inner, allowed_options),
+            Expr::OptionsGroup(ids) => self.options_group(ids, allowed_options.len()),
             Expr::OptionsShortcut => self.options_shortcut(allowed_options),
         }
+    }
+
+    fn empty(&mut self) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        self.epsilon(start, end);
+        (start, end)
+    }
+
+    fn atom(&mut self, atom: &Atom) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        let matcher = match atom {
+            Atom::Command { literal, key } => Matcher::Command {
+                literal: literal.clone(),
+                key: key.clone(),
+            },
+            Atom::Positional { key } => Matcher::Positional { key: key.clone() },
+            Atom::Option(id) => Matcher::Option(*id),
+        };
+        self.consume(start, matcher, end);
+        (start, end)
+    }
+
+    fn sequence(&mut self, items: &[Expr], allowed_options: &[bool]) -> (usize, usize) {
+        let Some((first, rest)) = items.split_first() else {
+            return self.empty();
+        };
+        let (start, mut end) = self.compile_expr(first, allowed_options);
+        for item in rest {
+            let (next_start, next_end) = self.compile_expr(item, allowed_options);
+            self.epsilon(end, next_start);
+            end = next_end;
+        }
+        (start, end)
+    }
+
+    fn alternative(&mut self, branches: &[Expr], allowed_options: &[bool]) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        for branch in branches {
+            let (branch_start, branch_end) = self.compile_expr(branch, allowed_options);
+            self.epsilon(start, branch_start);
+            self.epsilon(branch_end, end);
+        }
+        (start, end)
+    }
+
+    /// Zero or one occurrence of `inner`. The skip edge starts at a fresh state, because the
+    /// start state of `inner` may be re-entered by a cycle.
+    fn optional(&mut self, inner: &Expr, allowed_options: &[bool]) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        let (inner_start, inner_end) = self.compile_expr(inner, allowed_options);
+        self.epsilon(start, end);
+        self.epsilon(start, inner_start);
+        self.epsilon(inner_end, end);
+        (start, end)
+    }
+
+    /// One or more occurrences of `inner`, compiled as a cycle.
+    fn repeat(&mut self, inner: &Expr, allowed_options: &[bool]) -> (usize, usize) {
+        let start = self.state();
+        let end = self.state();
+        let (inner_start, inner_end) = self.compile_expr(inner, allowed_options);
+        self.epsilon(start, inner_start);
+        self.epsilon(inner_end, inner_start);
+        self.epsilon(inner_end, end);
+        (start, end)
+    }
+
+    /// Unordered option loop where each option of `ids` may match up to its per-pattern limit.
+    fn options_group(&mut self, ids: &[usize], option_count: usize) -> (usize, usize) {
+        let mut limits = vec![Count::Finite(0); option_count];
+        for id in ids {
+            if let Some(limit) = limits.get_mut(*id) {
+                *limit = self
+                    .option_limits
+                    .get(id)
+                    .copied()
+                    .unwrap_or(Count::Finite(1));
+            }
+        }
+        self.option_loop(Matcher::BoundedOption(limits))
     }
 }
 

@@ -4,6 +4,7 @@ use crate::error::{Error, ErrorKind, Result};
 
 use super::Token;
 
+/// Leaf of a usage pattern.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Atom {
     Command { literal: String, key: String },
@@ -11,6 +12,7 @@ pub(super) enum Atom {
     Option(usize),
 }
 
+/// Usage pattern AST. Its size depends only on the declaration, never on argv.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Expr {
     Empty,
@@ -18,17 +20,25 @@ pub(super) enum Expr {
     Sequence(Vec<Expr>),
     Alternative(Vec<Expr>),
     Optional(Box<Expr>),
+    /// Parenthesized group.
     Required(Box<Expr>),
+    /// `expr...`: one or more occurrences.
     Repeat(Box<Expr>),
+    /// Adjacent optional options matched in any order, each up to its per-pattern limit.
     OptionsGroup(Vec<usize>),
+    /// `[options]`: every option not explicit in the same pattern.
     OptionsShortcut,
 }
 
+/// Multiplicity of every symbol across all usage patterns.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct Metadata {
-    pub command_repeated: BTreeMap<String, bool>,
-    pub positional_repeated: BTreeMap<String, bool>,
-    pub repeatable_options: HashSet<usize>,
+    /// Commands, and whether any pattern can match them more than once.
+    pub(super) command_repeated: BTreeMap<String, bool>,
+    /// Positionals, and whether any pattern can match them more than once.
+    pub(super) positional_repeated: BTreeMap<String, bool>,
+    /// Options that some pattern can match more than once.
+    pub(super) repeatable_options: HashSet<usize>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -38,6 +48,7 @@ enum Symbol {
     Option(usize),
 }
 
+/// Maximum number of occurrences of a symbol in one match.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Count {
     Finite(usize),
@@ -76,6 +87,7 @@ impl Count {
     }
 }
 
+/// Parse the tokens of one usage pattern, without its program name.
 pub(super) fn parse(tokens: Vec<Token>) -> Result<Expr> {
     let mut parser = Parser { tokens, pos: 0 };
     let expr = parser.parse_alternative()?;
@@ -85,6 +97,8 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Expr> {
     Ok(normalize_option_groups(expr))
 }
 
+/// Compute the symbol multiplicity of all patterns: the maximum over patterns of the maximum
+/// occurrences within each pattern.
 pub(super) fn analyze(patterns: &[Expr]) -> Metadata {
     let mut total = HashMap::<Symbol, Count>::new();
 
@@ -110,6 +124,7 @@ pub(super) fn analyze(patterns: &[Expr]) -> Metadata {
     metadata
 }
 
+/// Options referenced explicitly in `expr`, which `[options]` in the same pattern excludes.
 pub(super) fn explicit_options(expr: &Expr) -> HashSet<usize> {
     let mut out = HashSet::new();
     collect_explicit_options(expr, &mut out);
@@ -213,43 +228,10 @@ fn merge_max(target: &mut HashMap<Symbol, Count>, source: HashMap<Symbol, Count>
     }
 }
 
+/// Merge runs of adjacent optional options into unordered option groups.
 fn normalize_option_groups(expr: Expr) -> Expr {
     match expr {
-        Expr::Sequence(items) => {
-            let items = items
-                .into_iter()
-                .map(normalize_option_groups)
-                .collect::<Vec<_>>();
-            let mut out = Vec::with_capacity(items.len());
-            let mut option_run = Vec::new();
-
-            let flush = |out: &mut Vec<Expr>, run: &mut Vec<usize>| {
-                match run.len() {
-                    0 => {}
-                    1 => out.push(Expr::Optional(Box::new(Expr::Atom(Atom::Option(run[0]))))),
-                    _ => out.push(Expr::OptionsGroup(std::mem::take(run))),
-                }
-                run.clear();
-            };
-
-            for item in items {
-                if let Expr::Optional(inner) = &item
-                    && let Expr::Atom(Atom::Option(id)) = inner.as_ref()
-                {
-                    option_run.push(*id);
-                    continue;
-                }
-                flush(&mut out, &mut option_run);
-                out.push(item);
-            }
-            flush(&mut out, &mut option_run);
-
-            match out.len() {
-                0 => Expr::Empty,
-                1 => out.pop().unwrap(),
-                _ => Expr::Sequence(out),
-            }
-        }
+        Expr::Sequence(items) => normalize_sequence(items),
         Expr::Alternative(items) => {
             Expr::Alternative(items.into_iter().map(normalize_option_groups).collect())
         }
@@ -257,6 +239,43 @@ fn normalize_option_groups(expr: Expr) -> Expr {
         Expr::Required(inner) => Expr::Required(Box::new(normalize_option_groups(*inner))),
         Expr::Repeat(inner) => Expr::Repeat(Box::new(normalize_option_groups(*inner))),
         other => other,
+    }
+}
+
+fn normalize_sequence(items: Vec<Expr>) -> Expr {
+    let mut out = Vec::with_capacity(items.len());
+    let mut option_run = Vec::new();
+
+    for item in items.into_iter().map(normalize_option_groups) {
+        if let Expr::Optional(inner) = &item
+            && let Expr::Atom(Atom::Option(id)) = inner.as_ref()
+        {
+            option_run.push(*id);
+            continue;
+        }
+        flush_option_run(&mut out, &mut option_run);
+        out.push(item);
+    }
+    flush_option_run(&mut out, &mut option_run);
+
+    single_or(out, Expr::Sequence)
+}
+
+fn flush_option_run(out: &mut Vec<Expr>, run: &mut Vec<usize>) {
+    match run.as_slice() {
+        [] => {}
+        [id] => out.push(Expr::Optional(Box::new(Expr::Atom(Atom::Option(*id))))),
+        _ => out.push(Expr::OptionsGroup(std::mem::take(run))),
+    }
+    run.clear();
+}
+
+/// `Empty` for no items, the item itself for one, and `many(items)` otherwise.
+fn single_or(items: Vec<Expr>, many: fn(Vec<Expr>) -> Expr) -> Expr {
+    match <[Expr; 1]>::try_from(items) {
+        Ok([item]) => item,
+        Err(items) if items.is_empty() => Expr::Empty,
+        Err(items) => many(items),
     }
 }
 
@@ -271,6 +290,23 @@ fn contains_nested_optional(expr: &Expr) -> bool {
     }
 }
 
+/// `[inner]`: `[options]` is the options shortcut, a flat sequence makes every element
+/// independently optional, and anything else (including a sequence with a nested optional) is
+/// optional as a whole.
+fn bracketed(inner: Expr) -> Expr {
+    match inner {
+        Expr::Atom(Atom::Command { literal, .. }) if literal == "options" => Expr::OptionsShortcut,
+        Expr::Sequence(items) if !items.iter().any(contains_nested_optional) => Expr::Sequence(
+            items
+                .into_iter()
+                .map(|item| Expr::Optional(Box::new(item)))
+                .collect(),
+        ),
+        inner => Expr::Optional(Box::new(inner)),
+    }
+}
+
+/// Recursive descent parser over the tokens of one usage pattern.
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
@@ -282,11 +318,7 @@ impl Parser {
         while self.consume_if(&Token::Pipe) {
             branches.push(self.parse_sequence()?);
         }
-        Ok(if branches.len() == 1 {
-            branches.pop().unwrap()
-        } else {
-            Expr::Alternative(branches)
-        })
+        Ok(single_or(branches, Expr::Alternative))
     }
 
     fn parse_sequence(&mut self) -> Result<Expr> {
@@ -297,11 +329,7 @@ impl Parser {
             }
             items.push(self.parse_primary()?);
         }
-        Ok(match items.len() {
-            0 => Expr::Empty,
-            1 => items.pop().unwrap(),
-            _ => Expr::Sequence(items),
-        })
+        Ok(single_or(items, Expr::Sequence))
     }
 
     fn parse_primary(&mut self) -> Result<Expr> {
@@ -319,25 +347,7 @@ impl Parser {
             Token::LeftBracket => {
                 let inner = self.parse_alternative()?;
                 self.expect(Token::RightBracket)?;
-                if matches!(
-                    &inner,
-                    Expr::Atom(Atom::Command { literal, .. }) if literal == "options"
-                ) {
-                    Expr::OptionsShortcut
-                } else if let Expr::Sequence(items) = inner {
-                    if items.iter().any(contains_nested_optional) {
-                        Expr::Optional(Box::new(Expr::Sequence(items)))
-                    } else {
-                        Expr::Sequence(
-                            items
-                                .into_iter()
-                                .map(|item| Expr::Optional(Box::new(item)))
-                                .collect(),
-                        )
-                    }
-                } else {
-                    Expr::Optional(Box::new(inner))
-                }
+                bracketed(inner)
             }
             Token::Atom(value) => Expr::Atom(classify_atom(value)?),
             Token::Option(id) => Expr::Atom(Atom::Option(id)),
@@ -393,6 +403,8 @@ impl Parser {
     }
 }
 
+/// `<name>` and `NAME` are positionals and `name` is a command; names are ASCII words joined by
+/// `-` or `_`.
 fn classify_atom(value: String) -> Result<Atom> {
     if value.starts_with('<') {
         let Some(name) = value.strip_prefix('<').and_then(|v| v.strip_suffix('>')) else {
