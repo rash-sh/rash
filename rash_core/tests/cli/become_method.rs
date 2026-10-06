@@ -1,4 +1,4 @@
-use crate::cli::execute_rash;
+use crate::cli::{execute_rash, execute_rash_with_env};
 
 #[test]
 fn test_become_method_sudo_command() {
@@ -189,4 +189,69 @@ fn test_become_password_task_parameter() {
         "stdout should contain debug output or be empty: {}",
         stdout
     );
+}
+
+#[test]
+fn test_become_sudo_task_files_are_private_and_removed() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let log_path = temp_dir.path().join("sudo.log");
+    let fake_sudo = temp_dir.path().join("fake-sudo");
+    std::fs::write(
+        &fake_sudo,
+        r#"#!/bin/sh
+while [ "$1" != "--" ]; do shift; done
+shift
+{
+  echo "$3"
+  echo "$RASH_INTERNAL_RESULT_FILE"
+  stat -c '%a' "$3" "$RASH_INTERNAL_RESULT_FILE"
+} > "$RASH_TEST_SUDO_LOG"
+exec "$@"
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        &fake_sudo,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .unwrap();
+
+    let script_text = r#"
+#!/usr/bin/env rash
+- command: echo "{{ secret }}"
+  vars:
+    secret: top-secret-value
+  become: true
+  become_method: sudo
+  become_user: root
+  register: result
+- assert:
+    that:
+      - result.stdout == "top-secret-value\n"
+- debug:
+    msg: sudo-files-ok
+"#;
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, script_text).unwrap();
+
+    let args = [
+        "--output",
+        "raw",
+        "--become-exe",
+        fake_sudo.to_str().unwrap(),
+        script_path.to_str().unwrap(),
+    ];
+    let log = log_path.to_str().unwrap();
+    let (stdout, stderr) = execute_rash_with_env(&args, &[("RASH_TEST_SUDO_LOG", log)]);
+
+    assert!(stdout.contains("sudo-files-ok"), "stderr: {stderr}");
+    let log_content = std::fs::read_to_string(&log_path).unwrap();
+    let lines: Vec<&str> = log_content.lines().collect();
+    assert_eq!(&lines[2..], ["600", "600"], "{log_content}");
+    for file in &lines[..2] {
+        assert!(
+            !std::path::Path::new(file).exists(),
+            "{file} was not removed"
+        );
+    }
 }

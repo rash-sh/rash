@@ -12,8 +12,9 @@ use rash_core::vars::env;
 
 use rpassword::read_password;
 use std::error::Error as StdError;
-use std::fs::{File, read_to_string};
+use std::fs::{OpenOptions, read_to_string};
 use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -204,8 +205,14 @@ fn execute_internal_task(task_path: &Path) {
         error!("Failed to serialize internal task result: {e}");
         exit(1);
     });
-    if let Err(e) = File::create(&result_path).and_then(|mut f| f.write_all(result_json.as_bytes()))
-    {
+    // The parent created the result file privately: never create one or follow a symlink.
+    let write_result = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&result_path)
+        .and_then(|mut f| f.write_all(result_json.as_bytes()));
+    if let Err(e) = write_result {
         error!("Failed to write result file: {e}");
         exit(1);
     }

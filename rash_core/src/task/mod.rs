@@ -17,9 +17,9 @@ use crate::task::new::TaskNew;
 
 use std::collections::HashMap;
 use std::env;
-use std::fs::{self, File};
+use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command as StdCommand, Output, Stdio, exit};
 use std::result::Result as StdResult;
 use std::thread;
@@ -28,10 +28,11 @@ use std::time::Duration;
 use ipc_channel::ipc::{self, IpcReceiver, IpcSender};
 use minijinja::{Value, context};
 use nix::sys::wait::{WaitStatus, waitpid};
-use nix::unistd::{ForkResult, Uid, User, fork, setgid, setuid};
+use nix::unistd::{ForkResult, Uid, User, fchown, fork, setgid, setuid};
 use serde::{Deserialize, Serialize};
 use serde_error::Error as SerdeError;
 use serde_norway::Value as YamlValue;
+use tempfile::NamedTempFile;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TaskExecResult {
@@ -122,6 +123,10 @@ pub struct InternalTaskData {
     pub vars: Value,
     pub task: YamlValue,
 }
+
+/// Failure message reported instead of the real one for `no_log` tasks (as Ansible does).
+pub const NO_LOG_MESSAGE: &str =
+    "the output has been hidden due to the fact that 'no_log: true' was specified for this result";
 
 pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
 pub const RASH_INTERNAL_RESULT_ENV: &str = "RASH_INTERNAL_RESULT_FILE";
@@ -583,83 +588,111 @@ impl<'a> Task<'a> {
         YamlValue::Mapping(mapping)
     }
 
-    fn exec_module_via_sudo(
+    fn internal_task_data(
         &self,
         rendered_params: &YamlValue,
         vars: &Value,
-    ) -> Result<TaskExecResult> {
-        let temp_dir = std::env::temp_dir();
-        let task_file = temp_dir.join(format!("rash_task_{}.yaml", uuid::Uuid::new_v4()));
-        let result_file = temp_dir.join(format!("rash_result_{}.json", uuid::Uuid::new_v4()));
-        let extended_vars = self.extend_vars(vars.clone())?;
-
-        let internal_data = InternalTaskData {
+    ) -> Result<InternalTaskData> {
+        Ok(InternalTaskData {
             original_path: vars
                 .get_attr("rash")
                 .ok()
                 .and_then(|rash| rash.get_attr("path").ok())
                 .and_then(|path| path.as_str().map(String::from)),
             args: None,
-            vars: extended_vars,
+            vars: self.extend_vars(vars.clone())?,
             task: self.internal_sudo_task(rendered_params),
-        };
-        let task_content =
-            serde_yaml::to_string(&internal_data).map_err(|e| Error::new(ErrorKind::Other, e))?;
-        let mut file = File::create(&task_file).map_err(|e| Error::new(ErrorKind::Other, e))?;
-        file.write_all(task_content.as_bytes())
-            .map_err(|e| Error::new(ErrorKind::Other, e))?;
+        })
+    }
 
-        let rash_path = std::env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
+    /// Create a temporary file only the current user and the become user can access. Task
+    /// files hold rendered params and vars, which may include secrets.
+    fn sudo_private_file(&self, prefix: &str) -> Result<NamedTempFile> {
+        // Created with O_EXCL, a random name and mode 0600; removed on drop.
+        let file = tempfile::Builder::new()
+            .prefix(prefix)
+            .tempfile()
+            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+        let user = self.resolve_become_user()?;
+        let current = Uid::effective();
+        if user.uid.is_root() || user.uid == current {
+            return Ok(file);
+        }
+        if !current.is_root() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "become_method sudo cannot share task data privately with user {:?}: run \
+                     rash as root or become root instead",
+                    self.become_user
+                ),
+            ));
+        }
+        fchown(file.as_file(), Some(user.uid), Some(user.gid))?;
+        Ok(file)
+    }
+
+    fn sudo_command(&self, task_file: &Path, result_file: &Path) -> Result<StdCommand> {
+        let rash_path = env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
         let mut command = StdCommand::new(&self.become_exe);
         command.arg("-H").arg("-E").arg("-u").arg(&self.become_user);
-
         if self.become_password.is_some() {
             command.arg("-S");
         }
-
         command
             .arg("--")
             .arg(&rash_path)
             .arg("--internal-task")
-            .arg(&task_file)
-            .env(RASH_INTERNAL_RESULT_ENV, &result_file)
+            .arg(task_file)
+            .env(RASH_INTERNAL_RESULT_ENV, result_file)
             .env(RASH_INTERNAL_TASK_FLAG, "1")
             .stdout(Stdio::inherit());
+        Ok(command)
+    }
 
-        let output = if let Some(password) = &self.become_password {
-            let mut child = command
-                .stdin(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-            if let Some(mut stdin) = child.stdin.take() {
-                stdin
-                    .write_all(format!("{password}\n").as_bytes())
-                    .map_err(|e| Error::new(ErrorKind::Other, e))?;
-            }
-            let output = child
-                .wait_with_output()
-                .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-            Output {
-                status: output.status,
-                stdout: Vec::new(),
-                stderr: output.stderr,
-            }
-        } else {
+    fn run_sudo(&self, mut command: StdCommand) -> Result<Output> {
+        let Some(password) = &self.become_password else {
             let status = command
                 .stderr(Stdio::inherit())
                 .status()
                 .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-            Output {
+            return Ok(Output {
                 status,
                 stdout: Vec::new(),
                 stderr: Vec::new(),
-            }
+            });
         };
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(format!("{password}\n").as_bytes())
+                .map_err(|e| Error::new(ErrorKind::Other, e))?;
+        }
+        child
+            .wait_with_output()
+            .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))
+    }
 
-        let _ = fs::remove_file(&task_file);
+    fn exec_module_via_sudo(
+        &self,
+        rendered_params: &YamlValue,
+        vars: &Value,
+    ) -> Result<TaskExecResult> {
+        let mut task_file = self.sudo_private_file("rash_task_")?;
+        let result_file = self.sudo_private_file("rash_result_")?;
+        let task_content = serde_yaml::to_string(&self.internal_task_data(rendered_params, vars)?)
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
+        task_file
+            .write_all(task_content.as_bytes())
+            .and_then(|()| task_file.flush())
+            .map_err(|e| Error::new(ErrorKind::IOError, e))?;
+
+        let output = self.run_sudo(self.sudo_command(task_file.path(), result_file.path())?)?;
         if !output.status.success() {
-            let _ = fs::remove_file(&result_file);
             return Err(Error::new(
                 ErrorKind::SubprocessFail,
                 format!(
@@ -671,13 +704,12 @@ impl<'a> Task<'a> {
             ));
         }
 
-        let result_content = fs::read_to_string(&result_file).map_err(|e| {
+        let result_content = fs::read_to_string(result_file.path()).map_err(|e| {
             Error::new(
                 ErrorKind::Other,
                 format!("Failed to read sudo result file: {e}"),
             )
         })?;
-        let _ = fs::remove_file(&result_file);
         serde_json::from_str(&result_content).map_err(|e| {
             Error::new(
                 ErrorKind::Other,
@@ -1184,7 +1216,21 @@ impl<'a> Task<'a> {
             Ok(TaskExecResult::new(changed, all_vars))
         }
     }
+    /// Hide failure details of `no_log` tasks: they may contain secrets (e.g. a command's
+    /// stderr) and are reported after log suppression ended. Registered results keep them.
+    fn redact_error(&self, error: Error) -> Error {
+        if !self.no_log || error.is_termination() {
+            return error;
+        }
+        Error::new(error.kind(), NO_LOG_MESSAGE)
+    }
+
     pub fn exec(&self, vars: Value) -> Result<TaskExecResult> {
+        self.exec_unredacted(vars)
+            .map_err(|error| self.redact_error(error))
+    }
+
+    fn exec_unredacted(&self, vars: Value) -> Result<TaskExecResult> {
         let _no_log_guard = self.no_log.then(suppress_logs);
         debug!("Module: {}", self.module.get_name());
         debug!("Params: {:?}", self.params);
@@ -1381,6 +1427,7 @@ pub fn parse_file_with_handlers<'a>(
 mod tests {
     use super::*;
     use minijinja::context;
+    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn failed_when_false_keeps_nonzero_command_as_data() {
@@ -1582,6 +1629,45 @@ mod tests {
         let result = task.exec(context! {stage => "initial"}).unwrap();
         let vars = result.get_vars().unwrap();
         assert_eq!(vars.get_attr("stage").unwrap().as_str(), Some("rescued"));
+    }
+
+    #[test]
+    fn no_log_failure_error_is_redacted() {
+        let yaml: YamlValue = serde_norway::from_str(
+            r#"
+            command:
+              argv: [sh, -c, "echo hidden >&2; exit 1"]
+            no_log: true
+            "#,
+        )
+        .unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        let error = task.exec(context! {}).unwrap_err();
+        assert_eq!(error.to_string(), NO_LOG_MESSAGE);
+    }
+
+    #[test]
+    fn sudo_private_file_is_owner_only() {
+        let yaml: YamlValue =
+            serde_norway::from_str("debug: {msg: hi}\nbecome_user: root").unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        let file = task.sudo_private_file("rash_test_").unwrap();
+        let mode = file.as_file().metadata().unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+
+    #[test]
+    fn sudo_private_file_refuses_other_user_when_not_root() {
+        if Uid::effective().is_root() {
+            return;
+        }
+        let yaml: YamlValue =
+            serde_norway::from_str("debug: {msg: hi}\nbecome_user: nobody").unwrap();
+        let global_params = GlobalParams::default();
+        let task = Task::new(&yaml, &global_params).unwrap();
+        assert!(task.sudo_private_file("rash_test_").is_err());
     }
 
     #[test]
