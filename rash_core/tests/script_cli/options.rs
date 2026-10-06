@@ -1943,14 +1943,34 @@ fn double_dash_separator() {
 }
 
 #[test]
-fn double_dash_without_separator_in_usage_is_unknown() {
+fn double_dash_without_separator_in_usage_ends_options() {
+    // POSIX end of options when the usage does not declare `[--]`: the first `--` is dropped and
+    // every argument after it is a word. Docopt 0.6.2 also stops parsing options there but keeps
+    // `--` as a word; legacy rejected `--` as an unknown option.
     let file = r#"
 #!/usr/bin/env rash
 #
-# Usage: tool <args>...
+# Usage: tool [options] <x>...
+#
+# Options:
+#   -h --help  show this help
+#   -v         verbose
 #
 "#;
-    assert_eq!(error_message(file, &["--", "a"]), "Unknown option: --");
+    let words = |values: &[&str], verbose: bool| {
+        Ok(json!({"options": {"help": false, "v": verbose}, "x": values}))
+    };
+    check(
+        file,
+        &[
+            (&["a", "--", "-b", "c"], words(&["a", "-b", "c"], false)),
+            (&["--", "--help"], words(&["--help"], false)),
+            (&["-v", "--", "-v", "-h"], words(&["-v", "-h"], true)),
+            (&["--", "a", "--"], words(&["a", "--"], false)),
+            (&["--"], Err(INVALID)),
+            (&["--help", "--", "a"], Err(HELP)),
+        ],
+    );
 }
 
 #[test]

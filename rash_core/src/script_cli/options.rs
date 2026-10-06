@@ -132,16 +132,19 @@ impl OptionRegistry {
 
     /// Normalize argv: resolve option aliases, split short clusters and attach option values.
     ///
-    /// When the usage declares `--`, a `--` argument is a word matching that command, and every
-    /// argument after it is a word too, even if it starts with `-`.
+    /// The first `--` argument ends the options: every argument after it is a word, even if it
+    /// starts with `-`. When the usage declares `--`, that `--` is a word matching the command;
+    /// otherwise it is dropped.
     pub(super) fn normalize_args(&self, args: &[&str]) -> Result<Vec<InputToken>> {
         let mut out = Vec::with_capacity(args.len());
         let mut args = args.iter().copied();
 
         while let Some(arg) = args.next() {
-            if arg == "--" && self.separator {
+            if arg == "--" {
+                let separator = self.separator.then_some(arg);
                 out.extend(
-                    std::iter::once(arg)
+                    separator
+                        .into_iter()
                         .chain(args.by_ref())
                         .map(|word| InputToken::Word(word.to_owned())),
                 );
@@ -163,9 +166,6 @@ impl OptionRegistry {
         arg: &str,
         rest: &mut impl Iterator<Item = &'a str>,
     ) -> Result<InputToken> {
-        if arg == "--" {
-            return Err(Error::new(ErrorKind::InvalidData, "Unknown option: --"));
-        }
         let (name, attached) = match arg.split_once('=') {
             Some((name, value)) => (name, Some(value)),
             None => (arg, None),
