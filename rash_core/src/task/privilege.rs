@@ -538,14 +538,28 @@ impl Task {
         spec
     }
 
+    /// Path of this Rash binary to start a become child with.
+    fn rash_exe(&self) -> Result<String> {
+        // Still this binary if it was replaced or removed meanwhile (e.g. by an upgrade).
+        // Only when Rash executes the child itself: sudo would resolve it to sudo.
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if self.become_method == BecomeMethod::Syscall {
+            let proc_exe = Path::new("/proc/self/exe");
+            if proc_exe.exists() {
+                return path_arg(proc_exe);
+            }
+        }
+        let rash = env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
+        path_arg(&rash)
+    }
+
     fn become_child_spec(
         &self,
         task_file: &Path,
         result_file: &Path,
         file_owner: u32,
     ) -> Result<ProcessSpec> {
-        let rash = env::current_exe().map_err(|e| Error::new(ErrorKind::Other, e))?;
-        let rash = path_arg(&rash)?;
+        let rash = self.rash_exe()?;
         let mut internal_args = vec![
             "--internal-task".to_owned(),
             path_arg(task_file)?,
