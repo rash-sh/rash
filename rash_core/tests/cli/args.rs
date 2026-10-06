@@ -43,3 +43,21 @@ fn test_help_describes_options() {
     }
     assert!(!stdout.contains("internal-task"));
 }
+
+#[test]
+fn test_parse_error_of_the_script_form_is_reported() {
+    let sequence = r#"
+    - command: echo hi
+      become_method: doas
+    "#;
+    let (_stdout, stderr) = execute_rash(&["-s", sequence]);
+    assert!(stderr.contains("Invalid become_method 'doas'"), "{stderr}");
+
+    let mapping = r#"
+    vars: {}
+    tasks:
+      - command: echo hi
+    "#;
+    let (_stdout, stderr) = execute_rash(&["-s", mapping]);
+    assert!(stderr.contains("Unknown top-level script key"), "{stderr}");
+}

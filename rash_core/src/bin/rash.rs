@@ -124,6 +124,10 @@ fn crash_error(e: Error) -> ! {
     exit(exit_code)
 }
 
+fn is_task_sequence(script: &str) -> bool {
+    serde_norway::from_str::<serde_norway::Value>(script).is_ok_and(|yaml| yaml.is_sequence())
+}
+
 fn setup_module_search_paths(script_path: &Path) {
     if let Some(script_dir) = script_path.parent() {
         let script_modules = script_dir.join("modules");
@@ -318,9 +322,11 @@ fn main() {
 
     let (tasks, handlers) = match parse_file_with_handlers(&main_file, &global_params) {
         Ok(parsed) => (parsed.tasks, parsed.handlers),
-        Err(e1) => match parse_file(&main_file, &global_params) {
+        Err(mapping_error) => match parse_file(&main_file, &global_params) {
             Ok(tasks) => (tasks, None),
-            Err(_) => crash_error(e1),
+            // Report the error of the form the script is written in.
+            Err(sequence_error) if is_task_sequence(&main_file) => crash_error(sequence_error),
+            Err(_) => crash_error(mapping_error),
         },
     };
 
