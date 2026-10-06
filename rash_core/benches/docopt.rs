@@ -1,11 +1,159 @@
-use std::time::Duration;
+//! Legacy (`docopt`) versus compiled (`script_cli`) script CLI parser.
+//!
+//! Every benchmark measures a full `parse` call: the public API does not expose compilation and
+//! matching separately, so `script_cli_compile_dominated` (large declaration, empty argv) and
+//! `script_cli_arguments` (tiny declaration, long argv) bracket the two costs.
+//!
+//! Suggested run: `cargo bench -p rash_core --bench docopt -- --warm-up-time 1 --measurement-time 3`.
+
+use std::hint::black_box;
+use std::time::{Duration, Instant};
 
 use criterion::{
-    AxisScale, BenchmarkId, Criterion, PlotConfiguration, Throughput, criterion_group,
-    criterion_main,
+    AxisScale, BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
+    criterion_group, criterion_main, measurement::WallTime,
 };
+use serde_json::Value;
 
-use rash_core::{docopt, script_cli};
+use rash_core::{docopt, error::Result, script_cli};
+
+type Parser = fn(&str, &[&str]) -> Result<Value>;
+
+const PARSERS: [(&str, Parser); 2] = [("legacy", docopt::parse), ("compiled", script_cli::parse)];
+
+/// A single legacy iteration slower than this is not benchmarked.
+const LEGACY_ITERATION_CAP: Duration = Duration::from_secs(1);
+
+const NAVAL_FATE: &str = r#"
+#!/usr/bin/env rash
+#
+# Naval Fate.
+#
+# Usage:
+#   naval_fate.rh ship new <name>...
+#   naval_fate.rh ship <name> move <x> <y> [--speed=<kn>]
+#   naval_fate.rh ship shoot <x> <y>
+#   naval_fate.rh mine (set|remove) <x> <y> [--moored|--drifting]
+#   naval_fate.rh -h | --help
+#   naval_fate.rh --version
+#
+# Options:
+#   -h --help        Show this screen.
+#   -v --version     Show version.
+#   -s --speed=<kn>  Speed in knots [default: 10].
+#   --moored         Moored (anchored) mine.
+#   --drifting       Drifting mine.
+#
+"#;
+
+/// Benchmark `file`/`args` with both parsers, checking first that both agree on success or failure.
+fn bench_both(
+    group: &mut BenchmarkGroup<'_, WallTime>,
+    name: &str,
+    file: &str,
+    args: &[&str],
+    expect_ok: bool,
+) {
+    for (parser_name, parser) in PARSERS {
+        assert_eq!(
+            parser(file, args).is_ok(),
+            expect_ok,
+            "{parser_name}/{name} args={args:?}"
+        );
+        group.bench_with_input(BenchmarkId::new(parser_name, name), args, |b, args| {
+            b.iter(|| parser(black_box(file), black_box(args)))
+        });
+    }
+}
+
+fn run_small_scripts(c: &mut Criterion) {
+    let mut group = c.benchmark_group("script_cli_small");
+    let cases: [(&str, &[&str], bool); 4] = [
+        ("success-new", &["ship", "new", "titanic"], true),
+        (
+            "success-move",
+            &["ship", "titanic", "move", "1", "2", "--speed=20"],
+            true,
+        ),
+        ("failure-no-match", &["ship", "titanic", "sink"], false),
+        ("failure-unknown-option", &["mine", "--bogus"], false),
+    ];
+    for (name, args, expect_ok) in cases {
+        bench_both(&mut group, name, NAVAL_FATE, args, expect_ok);
+    }
+    group.finish();
+}
+
+fn run_ambiguous_grammars(c: &mut Criterion) {
+    let overlapping = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   cp <source> <dest>
+#   cp <source>... <dest>
+#
+"#;
+    let ambiguous = r#"
+#!/usr/bin/env rash
+#
+# Usage:
+#   tool <source> <dest>
+#   tool <input> <output>
+#
+"#;
+    let mut group = c.benchmark_group("script_cli_ambiguous");
+    // Several successful paths with identical bindings.
+    bench_both(
+        &mut group,
+        "overlapping-identical",
+        overlapping,
+        &["a", "b", "c", "d", "/tmp"],
+        true,
+    );
+    // Different bindings: compiled rejects the declaration, legacy picks one.
+    for (parser_name, parser) in PARSERS {
+        group.bench_function(BenchmarkId::new(parser_name, "different-bindings"), |b| {
+            b.iter(|| parser(black_box(ambiguous), black_box(&["a", "b"])))
+        });
+    }
+    group.finish();
+}
+
+fn run_repeated_options(c: &mut Criterion) {
+    let options =
+        "#\n# Options:\n#   -v --verbose  more\n#   -q --quiet    less\n#   --tag=<tag>   tag\n#\n";
+    let counted = format!("\n#\n# Usage: tool [--verbose]... <file>\n{options}");
+    let shortcut = format!("\n#\n# Usage: tool [options] <file>\n{options}");
+    let tags = format!("\n#\n# Usage: tool [--tag=<tag>]... <file>\n{options}");
+    let flags_100: Vec<&str> = std::iter::repeat_n("-v", 100).chain(["file"]).collect();
+    let mixed_100: Vec<&str> = std::iter::repeat_n(["-v", "--quiet"], 50)
+        .flatten()
+        .chain(["file"])
+        .collect();
+    let tags_50: Vec<&str> = std::iter::repeat_n("--tag=x", 50).chain(["file"]).collect();
+    let cases: [(&str, &str, &[&str]); 5] = [
+        ("counter-cluster-vvvv", &counted, &["-vvvv", "file"]),
+        ("counter-flags-100", &counted, &flags_100),
+        (
+            "shortcut-cluster-vvvv-qq",
+            &shortcut,
+            &["-vvvv", "-qq", "file"],
+        ),
+        ("shortcut-mixed-100", &shortcut, &mixed_100),
+        ("value-option-50", &tags, &tags_50),
+    ];
+    let mut group = c.benchmark_group("script_cli_repeated_options");
+    for (name, file, args) in cases {
+        bench_both(&mut group, name, file, args, true);
+    }
+    group.finish();
+}
+
+fn run_compile_dominated(c: &mut Criterion) {
+    let mut group = c.benchmark_group("script_cli_compile_dominated");
+    bench_both(&mut group, "pacman-empty-argv", PACMAN, &[], true);
+    group.finish();
+}
 
 fn run_docopt_arguments(c: &mut Criterion) {
     let file = r#"
@@ -17,24 +165,31 @@ fn run_docopt_arguments(c: &mut Criterion) {
 
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("script_cli_arguments");
-    group.measurement_time(Duration::from_secs(25));
     group.plot_config(plot_config);
 
     for args_len in [10, 100, 1000, 10000] {
-        let args = vec!["foo"; args_len];
+        let values: Vec<String> = (0..args_len).map(|i| format!("value-{i}")).collect();
+        let args: Vec<&str> = values.iter().map(String::as_str).collect();
         group.throughput(Throughput::Elements(args_len as u64));
-        group.bench_with_input(BenchmarkId::new("legacy", args_len), &args, |b, args| {
-            b.iter(|| docopt::parse(file, args).unwrap());
-        });
-        group.bench_with_input(BenchmarkId::new("compiled", args_len), &args, |b, args| {
-            b.iter(|| script_cli::parse(file, args).unwrap());
-        });
+        for (parser_name, parser) in PARSERS {
+            let start = Instant::now();
+            assert!(parser(file, &args).is_ok(), "{parser_name}/{args_len}");
+            let elapsed = start.elapsed();
+            if parser_name == "legacy" && elapsed > LEGACY_ITERATION_CAP {
+                eprintln!(
+                    "script_cli_arguments/legacy/{args_len}: skipped, one iteration took {elapsed:?}"
+                );
+                continue;
+            }
+            group.bench_with_input(BenchmarkId::new(parser_name, args_len), &args, |b, args| {
+                b.iter(|| parser(black_box(file), black_box(args)))
+            });
+        }
     }
     group.finish();
 }
 
-fn run_docopt_options(c: &mut Criterion) {
-    let file = r#"
+const PACMAN: &str = r#"
 # Pacman binary mock for Pacman module tests.
 #
 # Usage:
@@ -86,9 +241,10 @@ fn run_docopt_options(c: &mut Criterion) {
 #                       specify how the targets should be printed
 #      --sysroot        operate on a mounted guest system (root-only)
 #      --help
-    "#;
+"#;
+
+fn run_docopt_options(c: &mut Criterion) {
     let mut group = c.benchmark_group("script_cli_options");
-    group.measurement_time(Duration::from_secs(25));
     let args = vec![
         "-b",
         "yea",
@@ -136,12 +292,7 @@ fn run_docopt_options(c: &mut Criterion) {
         "--sysroot",
     ];
 
-    group.bench_with_input(BenchmarkId::new("legacy", "pacman"), &args, |b, args| {
-        b.iter(|| docopt::parse(file, args).unwrap());
-    });
-    group.bench_with_input(BenchmarkId::new("compiled", "pacman"), &args, |b, args| {
-        b.iter(|| script_cli::parse(file, args).unwrap());
-    });
+    bench_both(&mut group, "pacman", PACMAN, &args, true);
     group.finish();
 }
 
@@ -209,12 +360,7 @@ fn run_optional_option_scaling(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("script_cli_optional_option_scaling");
     for (name, file, args) in cases {
-        group.bench_with_input(BenchmarkId::new("legacy", name), &args, |b, args| {
-            b.iter(|| docopt::parse(file, args).unwrap());
-        });
-        group.bench_with_input(BenchmarkId::new("compiled", name), &args, |b, args| {
-            b.iter(|| script_cli::parse(file, args).unwrap());
-        });
+        bench_both(&mut group, name, file, &args, true);
     }
     group.finish();
 }
@@ -232,19 +378,17 @@ fn run_nested_alternatives(c: &mut Criterion) {
 "#;
     let args = vec!["start", "worker", "safe", "--force", "node"];
     let mut group = c.benchmark_group("script_cli_nested_alternatives");
-    group.bench_function("legacy", |b| {
-        b.iter(|| docopt::parse(file, &args).unwrap());
-    });
-    group.bench_function("compiled", |b| {
-        b.iter(|| script_cli::parse(file, &args).unwrap());
-    });
+    bench_both(&mut group, "start-worker-safe", file, &args, true);
     group.finish();
 }
 
 criterion_group!(name = docopt;
     config = Criterion::default()
     .sample_size(10)
-    .warm_up_time(Duration::from_secs(3))
+    .warm_up_time(Duration::from_secs(1))
+    .measurement_time(Duration::from_secs(3))
     .with_plots();
-    targets = run_docopt_arguments, run_docopt_options, run_optional_option_scaling, run_nested_alternatives);
+    targets = run_small_scripts, run_compile_dominated, run_ambiguous_grammars,
+        run_repeated_options, run_docopt_arguments, run_docopt_options,
+        run_optional_option_scaling, run_nested_alternatives);
 criterion_main!(docopt);

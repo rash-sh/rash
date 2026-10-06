@@ -269,11 +269,11 @@ Every mismatch must be placed in one of three categories:
 - [x] large Pacman-style option declaration;
 - [x] `[options]` with larger option sets;
 - [x] nested alternatives;
-- [ ] compile-only cost separated from match cost where useful;
-- [ ] success and failure paths;
-- [ ] ambiguous grammar path;
-- [ ] repeated option clusters;
-- [ ] capture-heavy long argv.
+- [x] compile-dominated (large declaration, empty argv) versus match-dominated (long argv) cases; the public API does not split the two;
+- [x] success and failure paths;
+- [x] ambiguous grammar path;
+- [x] repeated option clusters;
+- [x] capture-heavy long argv.
 
 ### Optimization order
 
