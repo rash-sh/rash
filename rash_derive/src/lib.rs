@@ -6,15 +6,17 @@ use syn::{Expr, ExprLit, ExprTuple, Lit, Token, parse_macro_input, punctuated::P
 
 /// Implementation of the `#[derive(FieldNames)]` derive macro.
 ///
-/// Add a new method which return field names
+/// Add a constant and a method with the names of the struct fields (raw identifiers like
+/// `r#loop` are returned as `loop`). Fields marked with `#[field_names(skip)]` are left out.
 /// ```
 /// # use std::collections::HashSet;
+/// pub const FIELD_NAMES: &'static [&'static str] = &[];
 /// pub fn get_field_names() -> HashSet<String>
 /// # {
 /// # HashSet::new()
 /// # }
 /// ```
-#[proc_macro_derive(FieldNames)]
+#[proc_macro_derive(FieldNames, attributes(field_names))]
 pub fn derive_field_names(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::ItemStruct);
 
@@ -22,20 +24,50 @@ pub fn derive_field_names(input: TokenStream) -> TokenStream {
     let generics = &input.generics; // Handle lifetimes and generics here
     let where_clause = &generics.where_clause;
 
-    let field_names: Vec<String> = input
-        .fields
-        .iter()
-        .map(|field| field.ident.clone().unwrap().to_string())
-        .collect();
+    let mut field_names = Vec::new();
+    for field in &input.fields {
+        match is_skipped(field) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(error) => return error.to_compile_error().into(),
+        }
+        if let Some(ident) = &field.ident {
+            field_names.push(ident.to_string().trim_start_matches("r#").to_owned());
+        }
+    }
 
     quote! {
         impl #generics #name #generics #where_clause {
+            /// Field names.
+            pub const FIELD_NAMES: &'static [&'static str] = &[#(#field_names),*];
+
             /// Return field names.
             pub fn get_field_names() -> std::collections::HashSet<String> {
-                [#(#field_names),*].iter().map(ToString::to_string).map(|s| s.replace("r#", "")).collect::<std::collections::HashSet<String>>()
+                Self::FIELD_NAMES.iter().map(ToString::to_string).collect()
             }
         }
-    }.into()
+    }
+    .into()
+}
+
+/// Whether a field has the `#[field_names(skip)]` attribute.
+fn is_skipped(field: &syn::Field) -> syn::Result<bool> {
+    let mut skipped = false;
+    for attr in field
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident("field_names"))
+    {
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("skip") {
+                skipped = true;
+                Ok(())
+            } else {
+                Err(meta.error("unsupported field_names attribute, expected `skip`"))
+            }
+        })?;
+    }
+    Ok(skipped)
 }
 
 /// Implementation of the `#[derive(DocJsonSchema)]` derive macro.

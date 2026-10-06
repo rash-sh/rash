@@ -38,3 +38,17 @@ fn test_fieldnames_lifetimes() {
             .collect::<HashSet<String>>()
     ];
 }
+
+#[allow(dead_code)]
+#[derive(FieldNames)]
+struct TestSkip {
+    foo: bool,
+    #[field_names(skip)]
+    internal: u8,
+    r#loop: u16,
+}
+
+#[test]
+fn test_fieldnames_skip() {
+    assert_eq!(TestSkip::FIELD_NAMES, &["foo", "loop"]);
+}

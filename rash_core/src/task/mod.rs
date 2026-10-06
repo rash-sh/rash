@@ -21,6 +21,8 @@ use crate::logger::suppress_logs;
 use crate::modules::Module;
 use crate::task::new::TaskNew;
 
+use rash_derive::FieldNames;
+
 use std::collections::HashMap;
 use std::env;
 
@@ -31,7 +33,7 @@ use serde_norway::Value as YamlValue;
 pub const NO_LOG_MESSAGE: &str =
     "the output has been hidden due to the fact that 'no_log: true' was specified for this result";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, FieldNames)]
 // ANCHOR: task
 pub struct Task<'a> {
     r#become: bool,
@@ -40,7 +42,9 @@ pub struct Task<'a> {
     become_exe: String,
     become_password: Option<String>,
     check_mode: bool,
+    #[field_names(skip)]
     module: &'static dyn Module,
+    #[field_names(skip)]
     params: YamlValue,
     changed_when: Option<String>,
     failed_when: Option<String>,
@@ -61,6 +65,7 @@ pub struct Task<'a> {
     until: Option<String>,
     r#async: Option<u64>,
     poll: Option<u64>,
+    #[field_names(skip)]
     global_params: &'a GlobalParams<'a>,
 }
 // ANCHOR_END: task
@@ -75,36 +80,8 @@ impl<'a> Task<'a> {
             .get_task(global_params)
     }
 
-    #[inline(always)]
     fn is_attr(attr: &str) -> bool {
-        matches!(
-            attr,
-            "become"
-                | "become_user"
-                | "become_method"
-                | "become_exe"
-                | "become_password"
-                | "check_mode"
-                | "changed_when"
-                | "failed_when"
-                | "ignore_errors"
-                | "quiet"
-                | "no_log"
-                | "name"
-                | "loop"
-                | "register"
-                | "vars"
-                | "when"
-                | "rescue"
-                | "always"
-                | "environment"
-                | "notify"
-                | "retries"
-                | "delay"
-                | "until"
-                | "async"
-                | "poll"
-        )
+        Self::FIELD_NAMES.contains(&attr)
     }
 
     fn extend_vars(&self, additional_vars: Value) -> Result<Value> {
@@ -750,6 +727,16 @@ mod tests {
         let task = Task::new(&yaml, &global_params).unwrap();
         let error = task.exec(context! {}).unwrap_err();
         assert_eq!(error.to_string(), NO_LOG_MESSAGE);
+    }
+
+    #[test]
+    fn task_attributes_are_the_task_fields_without_internals() {
+        for attr in ["become", "loop", "async", "no_log", "rescue", "poll"] {
+            assert!(Task::is_attr(attr), "{attr}");
+        }
+        for internal in ["module", "params", "global_params"] {
+            assert!(!Task::is_attr(internal), "{internal}");
+        }
     }
 
     #[test]
