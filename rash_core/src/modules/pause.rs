@@ -60,10 +60,11 @@ pub struct Params {
     /// Optional message to display.
     #[serde(default)]
     prompt: Option<String>,
-    /// Read one line of input from the user after displaying the prompt.
+    /// Read one line of input after displaying the prompt and return it as the task output.
+    /// Without a terminal, the line is read from stdin.
     #[serde(default)]
     input: bool,
-    /// Echo interactive input. Set false for passwords/secrets.
+    /// Echo the typed input. Set false for passwords/secrets: the input is then never logged.
     #[serde(default = "default_echo")]
     echo: bool,
 }

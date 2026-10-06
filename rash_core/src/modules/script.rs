@@ -60,10 +60,12 @@ pub struct Params {
     pub executable: Option<String>,
     /// Optional data written to stdin.
     pub stdin: Option<String>,
-    /// stdout handling: capture (default), inherit, null, or tee.
+    /// stdout handling: `capture` (default, registered), `tee` (streamed live and registered),
+    /// `inherit` (streamed live, not registered) or `null` (discarded; quote it in YAML).
     #[serde(default)]
     pub stdout: OutputMode,
-    /// stderr handling: capture (default), inherit, null, or tee.
+    /// stderr handling: `capture` (default, registered), `tee` (streamed live and registered),
+    /// `inherit` (streamed live, not registered) or `null` (discarded; quote it in YAML).
     #[serde(default)]
     pub stderr: OutputMode,
 }

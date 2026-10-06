@@ -6,6 +6,7 @@
 - [Installation](installation.md)
 - [CLI Reference](cli.md)
 - [Tasks](tasks.md)
+  - [Breaking changes](breaking-changes.md)
 - [Modules](modules.md)
 - [Vars](vars.md)
   - [Builtins](builtins.md)

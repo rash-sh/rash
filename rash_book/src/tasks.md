@@ -9,6 +9,8 @@ Tasks are Rash's main execution unit. Every task selects exactly one module and 
 keywords such as conditions, registration, retries, privilege escalation, error handling, or output
 control.
 
+Upgrading a script written for an older Rash? See [Breaking changes](breaking-changes.md).
+
 ```yaml
 {{#include ../../examples/task.rh:3:}}
 ```
@@ -25,7 +27,7 @@ control.
 | `changed_when` | string or list | Override the task's changed status with a MiniJinja expression. |
 | `failed_when` | string or list | Override the task's failure status with a MiniJinja expression. |
 | `ignore_errors` | boolean | Continue execution after a failed task while preserving the failed result. |
-| `loop` | list or template | Execute the task for every rendered item. The current item is available as `item`. |
+| `loop` | list or template | Execute the task for every rendered item. The current item is available as `item`; `register` keeps the last item's result. |
 | `until` | string or list | Repeat the task until the expression becomes true. |
 | `retries` | integer | Number of retries for `until`; defaults to 3. |
 | `delay` | integer | Delay between retries, in seconds; defaults to 0. |
@@ -36,7 +38,7 @@ control.
 | `notify` | string or list | Handler name(s) queued when the task reports `changed: true`. |
 | `check_mode` | boolean | Execute the task in dry-run/check mode when supported by the module. |
 | `quiet` | boolean | Suppress the task's normal module-result output while leaving the task itself visible. |
-| `no_log` | boolean | Suppress/redact logging for the task. Use for credentials and other sensitive values. |
+| `no_log` | boolean | Suppress all logging for the task and redact its name and error. Use for credentials and other sensitive values. |
 | `become` | boolean | Run the task with privilege escalation. |
 | `become_user` | string | Target user when `become` is enabled. |
 | `become_method` | string | Privilege escalation method: `syscall` (default) or `sudo`. |
@@ -128,7 +130,8 @@ Both `result` and the task's `register` name are available while Rash evaluates 
 `failed_when`.
 
 `ignore_errors: true` changes control flow, not the result: execution continues, but the registered
-value remains `failed: true`. This makes it possible to inspect the exact failure later.
+value remains `failed: true`. This makes it possible to inspect the exact failure later. It also
+ignores errors rendering the task (undefined variables in params or conditions).
 
 ## Error handling
 
@@ -197,6 +200,9 @@ as `retries` while evaluating the condition:
   delay: 1
 ```
 
+Failed attempts are retried too. When the retries run out the task fails with `until condition not
+satisfied` and the registered result reports `failed: true`.
+
 ## Asynchronous commands
 
 `async` currently applies to `command` and `shell` tasks. Rash starts the process in a managed
@@ -231,8 +237,12 @@ receive Ctrl-C directly.
 When Rash receives SIGINT, SIGTERM or SIGHUP while such a process runs, it forwards signals sent
 with `kill` (for example by `docker stop`) to the process, waits for it, and then stops the script:
 the interruption is not swallowed by `ignore_errors`, `failed_when`, `rescue` or loops, but `always`
-sections still run. Between tasks Rash stops immediately. In both cases running async jobs are
-killed and Rash exits with `128 + signal` (130 for SIGINT, 143 for SIGTERM).
+sections still run. A terminal Ctrl-C that the process handles itself (it exits normally, like an
+editor or a REPL) does not stop Rash.
+
+Between tasks, or while an in-process module such as `pause`, `copy` or async polling runs, Rash
+stops immediately and `always` sections do not run. In every case running async jobs are killed and
+Rash exits with `128 + signal` (130 for SIGINT, 143 for SIGTERM, 129 for SIGHUP).
 
 ## Script and block defaults
 
@@ -279,7 +289,23 @@ This is useful with `--output raw` when the script should behave like a Unix com
 final selected value.
 
 Use `no_log: true` for sensitive tasks. It suppresses task logging rather than merely hiding the
-final result, so rendered credentials are not exposed by normal debug/trace output.
+final result, so rendered credentials are not exposed by normal debug/trace output: the task name
+is shown as `<redacted>` and a failure is reported without its details. The registered result still
+holds the real values, and output a process writes itself (`stdout: tee` or `inherit`) still reaches
+the terminal.
+
+```yaml
+{{#include ../../examples/no_log.rh:5:}}
+```
+
+`command`, `shell` and `script` choose per stream what happens with process output: `capture`
+(default, registered), `tee` (streamed live and registered), `inherit` (streamed live, not
+registered) or `null` (discarded; quote it in YAML). `stdin` feeds data to the process; without it,
+the process inherits Rash's stdin.
+
+```yaml
+{{#include ../../examples/stdio.rh:6:}}
+```
 
 ## Using become
 
@@ -331,7 +357,7 @@ Modules that only drive Rash itself (`block`, `include`, `meta`, `set_vars`, `de
 `fail`, `pause`, `async_status`, `async_poll` and custom modules) always run in the Rash process,
 never as the become user, so `meta: exit` keeps its exit code and vars stay in scope. When
 `become` (or `check_mode`) is set on a `block` or `include`, every child task inherits it and
-escalates on its own.
+escalates on its own; a child cannot turn it off.
 
 With the sudo method, task data is exchanged through private (`0600`) temporary files that are
 removed afterwards. Becoming a non-root user other than the current one therefore requires
