@@ -15,19 +15,20 @@ mod modules;
 mod process;
 
 use std::env;
-use std::iter;
+use std::ffi::OsString;
 use std::path::Path;
 use std::process::Command;
 
-pub fn update_path(new_path: &Path) {
-    let path = env::var_os("PATH").unwrap();
-    let paths = iter::once(new_path.to_path_buf())
-        .chain(env::split_paths(&path))
-        .collect::<Vec<_>>();
-    let new_path = env::join_paths(paths).unwrap();
-    unsafe {
-        env::set_var("PATH", new_path);
-    }
+/// PATH for Rash under test: mocks first, then the Rash binary. Passed to each command
+/// instead of changing the test process environment, which parallel tests share.
+fn test_path() -> OsString {
+    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
+    let mocks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+    let path = env::var_os("PATH").unwrap_or_default();
+    let paths = [mocks_path, bin_path.parent().unwrap().to_path_buf()]
+        .into_iter()
+        .chain(env::split_paths(&path));
+    env::join_paths(paths).unwrap()
 }
 
 pub fn execute_rash(args: &[&str]) -> (String, String) {
@@ -35,13 +36,8 @@ pub fn execute_rash(args: &[&str]) -> (String, String) {
 }
 
 pub fn execute_rash_with_env(args: &[&str], env_vars: &[(&str, &str)]) -> (String, String) {
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-    let mocks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
-    update_path(&mocks_path);
-
-    let mut cmd = Command::new(bin_path);
-    cmd.args(args);
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rash"));
+    cmd.args(args).env("PATH", test_path());
 
     // Pass provided environment variables to subprocess
     for (key, value) in env_vars {
