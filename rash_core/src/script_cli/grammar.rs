@@ -39,7 +39,7 @@ enum Symbol {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Count {
+pub(super) enum Count {
     Finite(usize),
     Unbounded,
 }
@@ -65,6 +65,14 @@ impl Count {
 
     fn present(self) -> bool {
         !matches!(self, Self::Finite(0))
+    }
+
+    /// Whether one more occurrence fits after `seen` occurrences were already consumed.
+    pub(super) fn allows_another(self, seen: usize) -> bool {
+        match self {
+            Self::Unbounded => true,
+            Self::Finite(limit) => seen < limit,
+        }
     }
 }
 
@@ -126,6 +134,17 @@ fn collect_explicit_options(expr: &Expr, out: &mut HashSet<usize>) {
     }
 }
 
+/// Maximum number of times each option may occur in a single match of `pattern`.
+pub(super) fn option_limits(pattern: &Expr) -> HashMap<usize, Count> {
+    occurrences(pattern)
+        .into_iter()
+        .filter_map(|(symbol, count)| match symbol {
+            Symbol::Option(id) => Some((id, count)),
+            Symbol::Command(_) | Symbol::Positional(_) => None,
+        })
+        .collect()
+}
+
 fn occurrences(expr: &Expr) -> HashMap<Symbol, Count> {
     match expr {
         Expr::Empty | Expr::OptionsShortcut => HashMap::new(),
@@ -137,11 +156,16 @@ fn occurrences(expr: &Expr) -> HashMap<Symbol, Count> {
             };
             HashMap::from([(symbol, Count::Finite(1))])
         }
-        Expr::OptionsGroup(ids) => ids
-            .iter()
-            .copied()
-            .map(|id| (Symbol::Option(id), Count::Finite(1)))
-            .collect(),
+        Expr::OptionsGroup(ids) => {
+            let mut out = HashMap::new();
+            for id in ids {
+                merge_add(
+                    &mut out,
+                    HashMap::from([(Symbol::Option(*id), Count::Finite(1))]),
+                );
+            }
+            out
+        }
         Expr::Sequence(items) => {
             let mut out = HashMap::new();
             for item in items {
@@ -472,6 +496,15 @@ mod tests {
             Expr::Optional(Box::new(Expr::Atom(Atom::Option(2)))),
         ]));
         assert_eq!(expr, Expr::OptionsGroup(vec![1, 2]));
+    }
+
+    #[test]
+    fn duplicated_option_in_group_is_counted_per_occurrence() {
+        let expr = Expr::OptionsGroup(vec![1, 1, 2]);
+        let limits = option_limits(&expr);
+        assert_eq!(limits.get(&1), Some(&Count::Finite(2)));
+        assert_eq!(limits.get(&2), Some(&Count::Finite(1)));
+        assert!(analyze(&[expr]).repeatable_options.contains(&1));
     }
 
     #[test]

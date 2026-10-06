@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::InputToken;
-use super::grammar::{self, Atom, Expr};
+use super::grammar::{self, Atom, Count, Expr};
 use super::options::OptionRegistry;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -19,11 +19,17 @@ pub(super) enum MatchError {
 
 #[derive(Clone, Debug)]
 enum Matcher {
-    Command { literal: String, key: String },
-    Positional { key: String },
+    Command {
+        literal: String,
+        key: String,
+    },
+    Positional {
+        key: String,
+    },
     Option(usize),
     AnyOption(Vec<bool>),
-    UniqueOption(Vec<bool>),
+    /// Unordered option group; each option may match at most its per-pattern limit.
+    BoundedOption(Vec<Count>),
 }
 
 #[derive(Clone, Debug)]
@@ -43,7 +49,6 @@ pub(super) struct Nfa {
     start: usize,
     accept: usize,
     positional_help_options: Vec<bool>,
-    repeatable_options: Vec<bool>,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -85,16 +90,17 @@ impl PathArena {
         id
     }
 
-    fn contains_option(&self, path: Option<usize>, expected: usize) -> bool {
+    fn count_option(&self, path: Option<usize>, expected: usize) -> usize {
+        let mut count = 0;
         let mut current = path;
         while let Some(id) = current {
             let node = &self.nodes[id];
             if matches!(&node.capture, Capture::Option { id, .. } if *id == expected) {
-                return true;
+                count += 1;
             }
             current = node.prev;
         }
-        false
+        count
     }
 
     fn materialize(&self, path: Option<usize>) -> Vec<Capture> {
@@ -115,12 +121,6 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let start = builder.state();
     let accept = builder.state();
     let positional_help_options = positional_help_options(options);
-    let metadata = grammar::analyze(patterns);
-    let repeatable_options = options
-        .all_ids()
-        .map(|id| metadata.repeatable_options.contains(&id))
-        .collect();
-
     for pattern in patterns {
         let explicit = grammar::explicit_options(pattern);
         let mut allowed = vec![false; options.len()];
@@ -130,6 +130,7 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
             }
         }
 
+        builder.option_limits = grammar::option_limits(pattern);
         let (pattern_start, pattern_end) = builder.compile_expr(pattern, &allowed);
         builder.epsilon(start, pattern_start);
         builder.epsilon(pattern_end, accept);
@@ -140,7 +141,6 @@ pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
         start,
         accept,
         positional_help_options,
-        repeatable_options,
     }
 }
 
@@ -173,7 +173,6 @@ pub(super) fn execute(nfa: &Nfa, input: &[InputToken]) -> Result<Vec<Capture>, M
                     matcher,
                     token,
                     &nfa.positional_help_options,
-                    &nfa.repeatable_options,
                     candidate.path,
                     &arena,
                 ) {
@@ -232,7 +231,6 @@ fn matches(
     matcher: &Matcher,
     input: &InputToken,
     positional_help_options: &[bool],
-    repeatable_options: &[bool],
     path: Option<usize>,
     arena: &PathArena,
 ) -> Option<Capture> {
@@ -266,10 +264,10 @@ fn matches(
                 value: value.clone(),
             })
         }
-        (Matcher::UniqueOption(allowed), InputToken::Option { id, value })
-            if allowed.get(*id).copied().unwrap_or(false)
-                && (repeatable_options.get(*id).copied().unwrap_or(false)
-                    || !arena.contains_option(path, *id)) =>
+        (Matcher::BoundedOption(limits), InputToken::Option { id, value })
+            if limits
+                .get(*id)
+                .is_some_and(|limit| limit.allows_another(arena.count_option(path, *id))) =>
         {
             Some(Capture::Option {
                 id: *id,
@@ -283,6 +281,8 @@ fn matches(
 #[derive(Default)]
 struct Builder {
     states: Vec<State>,
+    /// Option occurrence limits of the pattern currently being compiled.
+    option_limits: HashMap<usize, Count>,
 }
 
 impl Builder {
@@ -311,15 +311,10 @@ impl Builder {
         (start, end)
     }
 
-    fn option_loop(&mut self, mask: Vec<bool>, unique: bool) -> (usize, usize) {
+    fn option_loop(&mut self, matcher: Matcher) -> (usize, usize) {
         let start = self.state();
         let end = self.state();
         self.epsilon(start, end);
-        let matcher = if unique {
-            Matcher::UniqueOption(mask)
-        } else {
-            Matcher::AnyOption(mask)
-        };
         self.consume(start, matcher, start);
         (start, end)
     }
@@ -335,7 +330,7 @@ impl Builder {
         match (first, second) {
             (None, _) => self.compile_expr(&Expr::Empty, allowed_options),
             (Some(id), None) => self.optional_option(id),
-            (Some(_), Some(_)) => self.option_loop(allowed_options.to_vec(), false),
+            (Some(_), Some(_)) => self.option_loop(Matcher::AnyOption(allowed_options.to_vec())),
         }
     }
 
@@ -403,13 +398,17 @@ impl Builder {
                 (start, end)
             }
             Expr::OptionsGroup(ids) => {
-                let mut mask = vec![false; allowed_options.len()];
+                let mut limits = vec![Count::Finite(0); allowed_options.len()];
                 for id in ids {
-                    if let Some(value) = mask.get_mut(*id) {
-                        *value = true;
+                    if let Some(limit) = limits.get_mut(*id) {
+                        *limit = self
+                            .option_limits
+                            .get(id)
+                            .copied()
+                            .unwrap_or(Count::Finite(1));
                     }
                 }
-                self.option_loop(mask, true)
+                self.option_loop(Matcher::BoundedOption(limits))
             }
             Expr::OptionsShortcut => self.options_shortcut(allowed_options),
         }
@@ -476,6 +475,22 @@ mod tests {
         assert!(execute(&nfa, &input).is_ok());
         let repeated = registry.normalize_args(&["-a", "-a"]).unwrap();
         assert_eq!(execute(&nfa, &repeated), Err(MatchError::NoMatch));
+    }
+
+    #[test]
+    fn option_group_allows_duplicated_option_up_to_its_occurrences() {
+        let pattern = Expr::OptionsGroup(vec![0, 0]);
+        let mut registry = OptionRegistry::from_doc(
+            "Usage: tool [-a] [-a]\n\n-a  a",
+            &["tool [-a] [-a]".to_owned()],
+        )
+        .unwrap();
+        registry.set_repeatable(&HashSet::from([0])).unwrap();
+        let nfa = compile(&[pattern], &registry);
+        let twice = registry.normalize_args(&["-a", "-a"]).unwrap();
+        assert!(execute(&nfa, &twice).is_ok());
+        let thrice = registry.normalize_args(&["-a", "-a", "-a"]).unwrap();
+        assert_eq!(execute(&nfa, &thrice), Err(MatchError::NoMatch));
     }
 
     #[test]
