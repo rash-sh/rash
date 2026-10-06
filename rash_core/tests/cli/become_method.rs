@@ -204,7 +204,9 @@ shift
 {
   echo "$3"
   echo "$RASH_INTERNAL_RESULT_FILE"
-  stat -c '%a' "$3" "$RASH_INTERNAL_RESULT_FILE"
+  # Portable (GNU and BSD) permission strings, e.g. -rw-------
+  ls -ln "$3" | cut -c1-10
+  ls -ln "$RASH_INTERNAL_RESULT_FILE" | cut -c1-10
 } > "$RASH_TEST_SUDO_LOG"
 exec "$@"
 "#,
@@ -247,7 +249,7 @@ exec "$@"
     assert!(stdout.contains("sudo-files-ok"), "stderr: {stderr}");
     let log_content = std::fs::read_to_string(&log_path).unwrap();
     let lines: Vec<&str> = log_content.lines().collect();
-    assert_eq!(&lines[2..], ["600", "600"], "{log_content}");
+    assert_eq!(&lines[2..], ["-rw-------", "-rw-------"], "{log_content}");
     for file in &lines[..2] {
         assert!(
             !std::path::Path::new(file).exists(),
