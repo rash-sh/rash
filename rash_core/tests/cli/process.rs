@@ -3,7 +3,7 @@ use crate::cli::modules::run_test;
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, ErrorKind, Read, Write};
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -79,8 +79,13 @@ impl Fixture {
     }
 
     fn command(&self) -> Command {
+        self.command_with_args(&[])
+    }
+
+    fn command_with_args(&self, args: &[&std::ffi::OsStr]) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_rash"));
         command
+            .args(args)
             .arg(self.path("script.rh"))
             .env("RASH_TEST_MARKER", self.path("marker"))
             .env("RASH_TEST_LIFELINE", self.path("lifeline"));
@@ -88,7 +93,11 @@ impl Fixture {
     }
 
     fn spawn(&self) -> Child {
-        self.command()
+        self.spawn_command(self.command())
+    }
+
+    fn spawn_command(&self, mut command: Command) -> Child {
+        command
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -312,6 +321,73 @@ fn test_async_job_without_stdin_data_reads_empty_stdin() {
 
     assert!(status.success(), "{output}");
     assert!(output.contains("async-stdin-ok"), "{output}");
+}
+
+const BECOME_CHILD_WAITING_FOR_SIGNAL: &str = r#"
+- block:
+    - command:
+        argv: [sh, -c, 'exec 3>"$RASH_TEST_LIFELINE"; echo ready > "$RASH_TEST_MARKER"; exec sleep 60']
+      become: true
+  always:
+    - debug:
+        msg: always-ran
+- debug:
+    msg: after-block
+"#;
+
+/// Interrupt rash while a become child runs `sleep`, which holds the lifeline open.
+fn assert_signal_stops_become_child(fixture: &mut Fixture, args: &[&std::ffi::OsStr]) {
+    let tmp = fixture.path("tmp");
+    fs::create_dir(&tmp).unwrap();
+    let mut command = fixture.command_with_args(args);
+    command.env("TMPDIR", &tmp);
+    let child = fixture.spawn_command(command);
+    fixture.wait_for("marker");
+    send_signal(&child, libc::SIGTERM);
+
+    let (status, output) = finish(child);
+
+    assert_eq!(status.code(), Some(143), "{output}");
+    assert!(output.contains("always-ran"), "{output}");
+    assert!(output.contains("interrupted by signal 15"), "{output}");
+    assert!(!output.contains("after-block"), "{output}");
+    let left: Vec<_> = fs::read_dir(&tmp).unwrap().collect();
+    assert!(left.is_empty(), "task files left behind: {left:?}");
+    assert!(fixture.async_jobs_gone(), "become child process survived");
+}
+
+#[test]
+fn test_sigterm_during_sudo_become_task_runs_always_and_cleans_up() {
+    let mut fixture = Fixture::new(BECOME_CHILD_WAITING_FOR_SIGNAL);
+    // Like sudo, run the command after `--` (as the current user).
+    let fake_sudo = fixture.path("fake-sudo");
+    fs::write(
+        &fake_sudo,
+        "#!/bin/sh\nwhile [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"\n",
+    )
+    .unwrap();
+    fs::set_permissions(&fake_sudo, fs::Permissions::from_mode(0o755)).unwrap();
+    let args = [
+        "--become-method".as_ref(),
+        "sudo".as_ref(),
+        "--become-exe".as_ref(),
+        fake_sudo.as_os_str(),
+    ];
+    assert_signal_stops_become_child(&mut fixture, &args);
+}
+
+/// Switching to another user needs root: skipped otherwise.
+#[test]
+fn test_sigterm_during_syscall_become_task_runs_always_and_cleans_up() {
+    if !nix::unistd::Uid::effective().is_root() {
+        return;
+    }
+    let mut fixture = Fixture::new(BECOME_CHILD_WAITING_FOR_SIGNAL);
+    // The become user writes the marker and opens the lifeline.
+    fs::set_permissions(fixture.dir.path(), fs::Permissions::from_mode(0o777)).unwrap();
+    fs::set_permissions(fixture.path("lifeline"), fs::Permissions::from_mode(0o666)).unwrap();
+    let args = ["--become-user".as_ref(), "nobody".as_ref()];
+    assert_signal_stops_become_child(&mut fixture, &args);
 }
 
 /// Run rash as session leader of a new pseudo-terminal, like a login shell would, so the

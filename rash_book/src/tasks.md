@@ -317,7 +317,8 @@ the process inherits Rash's stdin (async jobs get an empty one).
 
 ### Syscall method (default)
 
-The syscall method changes UID/GID directly and requires `CAP_SETUID` and `CAP_SETGID` (or root):
+The syscall method starts a child Rash process that switches to the become user (its groups, GID
+and UID) before running the task, and requires `CAP_SETUID` and `CAP_SETGID` (or root):
 
 ```bash
 sudo setcap cap_setgid,cap_setuid+ep $(which rash)
@@ -355,7 +356,7 @@ rash --become --become-method sudo -K script.rh
 | Requires UID/GID capabilities | Yes | No |
 | Requires sudo executable | No | Yes |
 | Password support | No | Yes |
-| Extra child Rash process | No | Yes |
+| Extra child Rash process | Yes (not for the current user or with `transfer_pid`) | Yes (started by sudo) |
 
 ### Control-flow modules
 
@@ -365,6 +366,8 @@ never as the become user, so `meta: exit` keeps its exit code and vars stay in s
 `become` (or `check_mode`) is set on a `block` or `include`, every child task inherits it and
 escalates on its own; a child cannot turn it off.
 
-With the sudo method, task data is exchanged through private (`0600`) temporary files that are
-removed afterwards. Becoming a non-root user other than the current one therefore requires
-running Rash as root.
+With both methods, task data is exchanged with the child through private (`0600`) temporary files
+that are removed afterwards, also when the script is interrupted. The syscall child opens them
+before switching user; with the sudo method, becoming a non-root user other than the current one
+requires running Rash as root. Signals sent to Rash while a become task runs are forwarded to the
+child, like for any other process (see [Signals](#signals-and-interactive-commands)).

@@ -8,9 +8,10 @@ mod valid;
 
 pub use handler::{Handlers, PendingHandlers, parse_notify_value};
 pub use privilege::{
-    BecomeOutcome, InternalTaskData, RASH_INTERNAL_OUTPUT_ENV, RASH_INTERNAL_RESULT_ENV,
-    RASH_INTERNAL_TASK_ENV, RASH_INTERNAL_TASK_FLAG, get_internal_output, get_internal_result_path,
-    is_internal_execution, is_internal_task_execution,
+    BecomeOutcome, BecomeUser, InternalTaskData, RASH_INTERNAL_OUTPUT_ENV,
+    RASH_INTERNAL_RESULT_ENV, RASH_INTERNAL_TASK_ENV, RASH_INTERNAL_TASK_FLAG,
+    execute_internal_task, get_internal_output, get_internal_result_path, is_internal_execution,
+    is_internal_task_execution,
 };
 pub use result::TaskExecResult;
 
@@ -303,6 +304,16 @@ impl Task {
             ));
         }
         Ok(result)
+    }
+
+    /// Run the task in a become child process: a failure is reported as a failed result,
+    /// without applying `ignore_errors` or logging it, since the parent task does both.
+    pub(crate) fn exec_in_become_child(&self, vars: Value) -> Result<TaskExecResult> {
+        let _no_log_guard = self.no_log.then(suppress_logs);
+        match self.exec_main_task(vars) {
+            Err(error) if !error.is_termination() => Ok(self.module_error_result(error)),
+            execution => execution,
+        }
     }
 
     pub fn get_name(&self) -> Option<String> {

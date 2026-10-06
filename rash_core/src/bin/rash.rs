@@ -4,17 +4,13 @@ use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
 use rash_core::modules::add_module_search_path;
 use rash_core::signal;
-use rash_core::task::{
-    BecomeOutcome, InternalTaskData, get_internal_result_path, parse_file, parse_file_with_handlers,
-};
+use rash_core::task::{parse_file, parse_file_with_handlers};
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
 use rpassword::read_password;
 use std::error::Error as StdError;
-use std::fs::{OpenOptions, read_to_string};
-use std::io::Write;
-use std::os::unix::fs::OpenOptionsExt;
+use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -94,7 +90,7 @@ struct Cli {
     /// they will be parsed and added as variables too. For more information check rash_book.
     #[arg(action = ArgAction::Append, num_args = 1)]
     script_args: Vec<String>,
-    /// Internal task file for sudo become execution (hidden, not for direct use)
+    /// Internal task file for become execution (hidden, not for direct use)
     #[arg(long, hide = true)]
     internal_task: Option<PathBuf>,
 }
@@ -157,62 +153,8 @@ fn setup_module_search_paths(script_path: &Path) {
 
 fn execute_internal_task(task_path: &Path) {
     trace!("Internal task execution from: {task_path:?}");
-    let task_content = read_to_string(task_path).unwrap_or_else(|e| {
-        error!("Failed to read internal task file: {e}");
-        exit(1);
-    });
-    let internal_data: InternalTaskData = serde_yaml::from_str(&task_content).unwrap_or_else(|e| {
-        error!("Failed to parse internal task data: {e}");
-        exit(1);
-    });
-
-    let global_params = GlobalParams::default();
-    let task_yaml = serde_yaml::to_string(std::slice::from_ref(&internal_data.task))
-        .unwrap_or_else(|e| {
-            error!("Failed to serialize internal task: {e}");
-            exit(1);
-        });
-    let mut tasks = parse_file(&task_yaml, &global_params).unwrap_or_else(|e| {
-        error!("Failed to parse internal task: {e}");
-        exit(1);
-    });
-    if tasks.len() != 1 {
-        error!("Internal execution requires exactly one task");
-        exit(1);
-    }
-
-    let script_path = internal_data
-        .original_path
-        .as_deref()
-        .map(Path::new)
-        .unwrap_or_else(|| Path::new("internal_task"));
-    let builtins = Builtins::new(internal_data.args.unwrap_or_default(), script_path, false)
-        .unwrap_or_else(|e| {
-            error!("Failed to create builtins: {e}");
-            exit(1);
-        });
-    let vars = context! {rash => &builtins, ..internal_data.vars};
-    let task = tasks.remove(0);
-    // Errors, explicit exits and interrupts are reported to the parent, which handles them.
-    let outcome = BecomeOutcome::from(task.exec(vars));
-
-    let result_path = get_internal_result_path().unwrap_or_else(|| {
-        error!("No result file path specified");
-        exit(1);
-    });
-    let result_json = serde_json::to_string(&outcome).unwrap_or_else(|e| {
-        error!("Failed to serialize internal task result: {e}");
-        exit(1);
-    });
-    // The parent created the result file privately: never create one or follow a symlink.
-    let write_result = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(&result_path)
-        .and_then(|mut f| f.write_all(result_json.as_bytes()));
-    if let Err(e) = write_result {
-        error!("Failed to write result file: {e}");
+    if let Err(e) = rash_core::task::execute_internal_task(task_path) {
+        error!("{e}");
         exit(1);
     }
 }

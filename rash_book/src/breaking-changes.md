@@ -82,6 +82,10 @@ input) are described in [Tasks](tasks.md) and the module pages.
   its `become` and `check_mode` (before, they ran for real under `check_mode: true`). With
   `ignore_errors: true` a failure is no longer rescued: `always` runs and the task is reported as an
   ignored failure instead of a success that notified handlers.
+- **`become_method: syscall` runs the task in a new child Rash process** started as Rash's user,
+  which switches to the become user before running the task, taking that user's supplementary
+  groups. Before, Rash forked itself and the child kept Rash's supplementary groups (all of root's
+  groups when running as root).
 - **`become_method: sudo` to a non-root user other than the current one** is refused unless Rash
   runs as root: task data is exchanged through private files that user could not read.
 - **Async tasks with `become`** run the job as the become user (it was ignored before);

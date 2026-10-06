@@ -335,3 +335,73 @@ fn test_failed_become_child_never_continues_script() {
     assert_eq!(code, Some(0), "{output}");
     assert_eq!(output.matches("after-become-task").count(), 1, "{output}");
 }
+
+/// Switching to another user needs root: skipped otherwise.
+#[test]
+fn test_syscall_become_runs_modules_as_user_with_its_own_groups() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    if !nix::unistd::Uid::effective().is_root() {
+        return;
+    }
+    let nobody = nix::unistd::User::from_name("nobody").unwrap().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o777)).unwrap();
+    let dest = dir.path().join("owned-by-nobody");
+    let script_text = format!(
+        r#"
+- command: id -u
+  become: true
+  become_user: nobody
+  register: uid
+- command: id -G
+  become: true
+  become_user: nobody
+  register: groups
+- copy:
+    content: written as nobody
+    dest: {}
+  become: true
+  become_user: nobody
+- debug:
+    msg: "uid=[{{{{ uid.stdout | trim }}}}] groups=[{{{{ groups.stdout | trim }}}}]"
+"#,
+        dest.display()
+    );
+
+    let (code, output) = run_script_status(&script_text, &[]);
+
+    assert_eq!(code, Some(0), "{output}");
+    assert!(
+        output.contains(&format!("uid=[{}]", nobody.uid)),
+        "{output}"
+    );
+    let groups = output
+        .split("groups=[")
+        .nth(1)
+        .unwrap()
+        .split(']')
+        .next()
+        .unwrap();
+    // initgroups: root's supplementary groups are not kept.
+    assert!(!groups.split_whitespace().any(|gid| gid == "0"), "{output}");
+    assert_eq!(std::fs::metadata(&dest).unwrap().uid(), nobody.uid.as_raw());
+}
+
+#[test]
+fn test_ignored_become_failure_is_reported_once() {
+    let script_text = r#"
+- command: sh -c 'echo become-child-failed >&2; exit 3'
+  become: true
+  become_method: sudo
+  ignore_errors: true
+  register: failed_in_child
+- assert:
+    that:
+      - failed_in_child is failed
+      - failed_in_child.rc == 3
+"#;
+    let (code, output) = run_script_status(script_text, &["--output", "raw"]);
+    assert_eq!(code, Some(0), "{output}");
+    assert_eq!(output.matches("become-child-failed").count(), 1, "{output}");
+}

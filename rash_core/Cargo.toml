@@ -38,7 +38,6 @@ minijinja = { version = "2.12.0", features = ["loader", "json", "loop_controls",
 clap = { workspace = true, features = ["std", "color", "derive", "cargo"] }
 fern = { version = "0.7.0", features = ["colored"] }
 ignore = "0.4"
-ipc-channel = "0.23.0"
 itertools = "0.15"
 libc = "0.2"
 md-5 = "0.11"
