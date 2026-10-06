@@ -1,0 +1,35 @@
+#!/usr/bin/env rash
+# `include` runs another file with the caller's variables. Variables it sets stay in that
+# file unless `export` returns all of them (`true`) or a selected list.
+
+- name: scoped include
+  include: "{{ rash.dir }}/include/facts.rh"
+  vars:
+    app_name: Scoped App
+
+- assert:
+    that:
+      - app_slug is not defined
+
+- name: export only what the caller needs
+  include:
+    file: "{{ rash.dir }}/include/facts.rh"
+    export:
+      - app_slug
+  vars:
+    app_name: My App
+
+- assert:
+    that:
+      - app_slug == "my-app"
+      - scratch is not defined
+
+- name: export everything
+  include:
+    file: "{{ rash.dir }}/include/facts.rh"
+    export: true
+
+- assert:
+    that:
+      - app_name == "rash"
+      - scratch == "only used inside this file"

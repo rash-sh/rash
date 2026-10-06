@@ -1,0 +1,29 @@
+#!/usr/bin/env rash
+# The mapping form of `block` sets `defaults` for every child task. A child overrides a
+# scalar default; `vars` and `environment` are merged key by key.
+
+- name: commands sharing defaults
+  block:
+    defaults:
+      environment:
+        APP_ENV: production
+        APP_REGION: eu
+      changed_when: false
+    tasks:
+      - command:
+          argv: [sh, -c, 'echo "$APP_ENV/$APP_REGION"']
+        register: inherited
+
+      - command:
+          argv: [sh, -c, 'echo "$APP_ENV/$APP_REGION"']
+        environment:
+          APP_REGION: us
+        changed_when: true
+        register: overridden
+
+- assert:
+    that:
+      - inherited.stdout == "production/eu\n"
+      - not inherited.changed
+      - overridden.stdout == "production/us\n"
+      - overridden.changed

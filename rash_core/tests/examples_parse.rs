@@ -1,3 +1,8 @@
+//! Schema check for every `examples/**/*.rh`, including the examples `make test-examples`
+//! cannot run (they need root, network or external services).
+//!
+//! This only parses the top-level tasks. Executing the runnable examples is the job of
+//! `make test-examples`, which CI runs in the minimum supported Rust version job.
 use std::fs;
 use std::path::Path;
 

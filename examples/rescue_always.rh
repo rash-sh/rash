@@ -46,6 +46,7 @@
     - name: Handle copy failure
       debug:
         msg: "Copy failed, cleaning up"
+    - name: Remove partial copy
       file:
         path: "/tmp/test_copy.txt"
         state: absent
@@ -82,6 +83,7 @@
     - name: Handle template failure
       debug:
         msg: "Template task failed, creating fallback"
+    - name: Write fallback content
       copy:
         content: "Fallback content"
         dest: /tmp/test_template.txt
@@ -101,3 +103,12 @@
     - name: Report findings
       debug:
         msg: "Find operation completed successfully"
+
+- name: Clean up files created by this example
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/test_file
+    - /tmp/test_copy.txt
+    - /tmp/test_template.txt

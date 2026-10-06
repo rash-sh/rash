@@ -1,0 +1,41 @@
+#!/usr/bin/env rash
+# `command` and `shell` choose per stream what happens with process output:
+# `capture` (default, registered), `tee` (shown live and registered), `inherit` (shown
+# live, not registered) or `null` (discarded, quoted in YAML). `stdin` feeds data to it.
+
+- name: capture is the default
+  command: echo captured
+  register: captured
+
+- name: stream output live and still register it
+  command:
+    argv: [echo, teed]
+    stdout: tee
+  register: teed
+
+- name: let the process write to Rash's own stdout
+  command:
+    argv: [echo, inherited]
+    stdout: inherit
+  register: inherited
+
+- name: discard noisy stderr
+  shell:
+    cmd: echo kept; echo noise >&2
+    stderr: "null"
+  register: quiet_stderr
+
+- name: feed stdin
+  command:
+    argv: [tr, a-z, A-Z]
+    stdin: "hello stdin"
+  register: upper
+
+- assert:
+    that:
+      - captured.stdout == "captured\n"
+      - teed.stdout == "teed\n"
+      - not inherited.stdout
+      - quiet_stderr.stdout == "kept\n"
+      - not quiet_stderr.stderr
+      - upper.stdout == "HELLO STDIN"

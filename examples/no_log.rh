@@ -1,0 +1,25 @@
+#!/usr/bin/env rash
+# `no_log` hides a task's rendered params and result from logs, even with `-vv`;
+# `quiet` only drops the normal result output.
+
+- name: handle a secret without printing it
+  set_vars:
+    api_token: "{{ env.API_TOKEN | default('s3cr3t-token') }}"
+  no_log: true
+
+- name: derive a value from the secret
+  command:
+    argv: [sh, -c, 'printf %s "$TOKEN" | wc -c']
+  environment:
+    TOKEN: "{{ api_token }}"
+  register: token_length
+  changed_when: false
+  no_log: true
+
+- name: internal step that adds nothing to the output
+  command: "true"
+  quiet: true
+
+- assert:
+    that:
+      - token_length.stdout | trim | int == api_token | length

@@ -1,0 +1,34 @@
+#!/usr/bin/env rash
+# `failed_when` decides which results are failures; `ignore_errors` keeps going while the
+# registered result still reports `failed: true`.
+
+- name: grep exits 1 when nothing matches, which is not an error here
+  command:
+    argv: [grep, -q, needle, "{{ rash.path }}"]
+  register: search
+  changed_when: false
+  failed_when: search.rc not in [0, 1]
+
+- name: a zero exit can still be a failure
+  command:
+    argv: [printf, "status=degraded"]
+  register: health
+  changed_when: false
+  failed_when: "'degraded' in health.stdout"
+  ignore_errors: true
+
+- name: non-zero exits are results too
+  command:
+    argv: [sh, -c, "echo boom >&2; exit 3"]
+  register: broken
+  ignore_errors: true
+
+- assert:
+    that:
+      - search is succeeded
+      - search.rc in [0, 1]
+      - health is failed
+      - health.rc == 0
+      - broken is failed
+      - broken.rc == 3
+      - broken.stderr == "boom\n"
