@@ -391,7 +391,7 @@ fn required_group_and_option_alternative() {
 #
 "#;
 
-    // The legacy parser also exposed a malformed `options["all)"]` key scanned from `--all)`.
+    // Intentional difference 9: no malformed `options["all)"]` key scanned from `--all)`.
     check(
         file,
         &[
@@ -441,6 +441,26 @@ fn required_group_and_option_alternative() {
                     "sync": false,
                 })),
             ),
+        ],
+    );
+}
+
+#[test]
+fn option_before_closing_parenthesis() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool (<key> | --all)
+#
+"#;
+
+    // Intentional difference 9: legacy scanned `--all)` as an option and rejected `--all`.
+    check(
+        file,
+        &[
+            (&["--all"], Ok(json!({"options": {"all": true}}))),
+            (&["k"], Ok(json!({"key": "k", "options": {"all": false}}))),
+            (&[], Err(INVALID)),
         ],
     );
 }

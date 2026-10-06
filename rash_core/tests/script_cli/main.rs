@@ -44,6 +44,15 @@ pub fn check(file: &str, cases: &[(&[&str], Expected)]) {
     }
 }
 
+/// The error message of a failed parse.
+#[track_caller]
+pub fn error_message(file: &str, args: &[&str]) -> String {
+    match script_cli::parse(file, args) {
+        Ok(value) => panic!("args={args:?} unexpectedly parsed to {value}"),
+        Err(error) => error.to_string(),
+    }
+}
+
 /// Return `defaults` with `overrides` merged in; nested objects (e.g. `options`) merge per key.
 pub fn with(defaults: &Value, overrides: Value) -> Value {
     let mut merged = defaults.clone();

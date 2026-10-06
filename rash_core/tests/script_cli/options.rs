@@ -2,7 +2,7 @@ use serde_json::json;
 
 use rash_core::script_cli;
 
-use crate::{HELP, INVALID, check, with};
+use crate::{HELP, INVALID, check, error_message, with};
 
 #[test]
 fn short_and_long_aliases_share_one_key() {
@@ -62,6 +62,11 @@ fn unknown_long_option_is_rejected() {
             (&[], Ok(json!({"options": {"known": false}}))),
             (&["--known=value"], Err(INVALID)),
         ],
+    );
+    // Intentional difference 16: the error names the option instead of being empty.
+    assert_eq!(
+        error_message(file, &["--known=value"]),
+        "Option --known does not take a value"
     );
 }
 
@@ -359,6 +364,9 @@ fn value_placeholders_in_descriptions() {
             (&["-n"], Err(INVALID)),
         ],
     );
+    // Intentional difference 13: a value option without its value is an error (legacy bound the
+    // option's own spelling, `"-n"`, as its value). Difference 16: the message names the option.
+    assert_eq!(error_message(file, &["-n"]), "Option -n requires a value");
 }
 
 #[test]
@@ -873,13 +881,14 @@ fn flag_with_ellipsis_inside_brackets_is_a_counter() {
 #
 "#;
 
-    // Intentional difference 4: a repeatable flag is a counter.
+    // Intentional difference 4: a repeatable flag is a counter; legacy rejected every argv.
     check(
         file,
         &[
             (&[], Ok(json!({"options": {"alpha": 0}}))),
             (&["-a"], Ok(json!({"options": {"alpha": 1}}))),
             (&["-a", "-a"], Ok(json!({"options": {"alpha": 2}}))),
+            (&["-aaa"], Ok(json!({"options": {"alpha": 3}}))),
         ],
     );
 }
@@ -971,7 +980,8 @@ fn shared_short_alias_keeps_long_options_usable() {
 #
 "#;
 
-    // A short alias shared by two options is ambiguous and rejected; the long aliases still work.
+    // Intentional difference 15: a short alias shared by two options is ambiguous and rejected
+    // (legacy silently picked one); the long aliases still work.
     check(
         file,
         &[
@@ -1332,6 +1342,72 @@ fn options_registry_from_descriptions() {
             ),
             (&["-r"], Err(INVALID)),
             (&["-h"], Err(HELP)),
+            // Intentional difference 13: legacy bound `"-o"` (or `"-o=--sorted"` as INPUT).
+            (&["-o"], Err(INVALID)),
+            (&["-s", "-o"], Err(INVALID)),
+        ],
+    );
+    assert_eq!(error_message(file, &["-o"]), "Option -o requires a value");
+}
+
+#[test]
+fn options_registry_with_repeatable_option() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: my_program.rh [-hsoFILE] [--repeatable]... [--quiet | --verbose] [INPUT ...]
+#
+# -h --help        show this
+# -s --sorted      sorted output
+# -o FILE          specify output file [default: ./test.txt]
+# -r --repeatable  can be repeated. E.g.: -rr
+# --quiet          print less text
+# --verbose        print more text
+#
+"#;
+    let defaults = json!({
+        "options": {
+            "help": false,
+            "o": "./test.txt",
+            "quiet": false,
+            "repeatable": 0,
+            "sorted": false,
+            "verbose": false,
+        },
+    });
+
+    // Intentional difference 12: legacy rejected every argv for this declaration.
+    check(
+        file,
+        &[
+            (&[], Ok(defaults.clone())),
+            (
+                &["-rr"],
+                Ok(with(&defaults, json!({"options": {"repeatable": 2}}))),
+            ),
+            (
+                &["-s", "--quiet", "in"],
+                Ok(with(
+                    &defaults,
+                    json!({"input": ["in"], "options": {"quiet": true, "sorted": true}}),
+                )),
+            ),
+            (
+                &["-oout", "-r", "a", "b"],
+                Ok(with(
+                    &defaults,
+                    json!({"input": ["a", "b"], "options": {"o": "out", "repeatable": 1}}),
+                )),
+            ),
+            (
+                &["--repeatable", "--repeatable", "--verbose"],
+                Ok(with(
+                    &defaults,
+                    json!({"options": {"repeatable": 2, "verbose": true}}),
+                )),
+            ),
+            (&["-s", "-s"], Err(INVALID)),
+            (&["-o"], Err(INVALID)),
         ],
     );
 }
@@ -1375,6 +1451,40 @@ fn options_registry_from_usage_only() {
                         "o": false,
                         "quiet": false,
                         "s": false,
+                        "verbose": false,
+                    },
+                })),
+            ),
+            // Intentional difference 14: a short option never fills the INPUT slot (legacy
+            // returned `"input": ["-s"]`).
+            (
+                &["-F", "-s"],
+                Ok(json!({
+                    "options": {
+                        "E": false,
+                        "F": true,
+                        "I": false,
+                        "L": false,
+                        "h": false,
+                        "o": false,
+                        "quiet": false,
+                        "s": true,
+                        "verbose": false,
+                    },
+                })),
+            ),
+            (
+                &["-s", "-F"],
+                Ok(json!({
+                    "options": {
+                        "E": false,
+                        "F": true,
+                        "I": false,
+                        "L": false,
+                        "h": false,
+                        "o": false,
+                        "quiet": false,
+                        "s": true,
                         "verbose": false,
                     },
                 })),
@@ -1454,6 +1564,37 @@ fn repeatable_option_with_description() {
             (
                 &["--repeatable", "-r"],
                 Ok(json!({"options": {"repeatable": 2}})),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn repeated_exclusive_flags_are_counters() {
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: tool [--quiet | --verbose]...
+#
+"#;
+
+    // Intentional difference 10: both alternatives are counters; legacy reported `quiet` as a
+    // boolean and rejected any repetition.
+    check(
+        file,
+        &[
+            (&[], Ok(json!({"options": {"quiet": 0, "verbose": 0}}))),
+            (
+                &["--quiet"],
+                Ok(json!({"options": {"quiet": 1, "verbose": 0}})),
+            ),
+            (
+                &["--quiet", "--quiet"],
+                Ok(json!({"options": {"quiet": 2, "verbose": 0}})),
+            ),
+            (
+                &["--verbose", "--verbose", "--quiet"],
+                Ok(json!({"options": {"quiet": 1, "verbose": 2}})),
             ),
         ],
     );
@@ -1556,9 +1697,14 @@ fn value_option_and_exclusive_flags() {
 #   -q --quiet    quiet
 #
 "#;
+    // Intentional difference 11: empty argv is accepted; legacy rejected it.
     check(
         file,
         &[
+            (
+                &[],
+                Ok(json!({"options": {"o": "./test.txt", "quiet": false, "sorted": false}})),
+            ),
             (
                 &["-o", "x"],
                 Ok(json!({"options": {"o": "x", "quiet": false, "sorted": false}})),

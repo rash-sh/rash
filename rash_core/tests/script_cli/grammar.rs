@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::{HELP, INVALID, check, with};
+use crate::{HELP, INVALID, check, error_message, with};
 
 #[test]
 fn commands_with_repeatable_positional() {
@@ -276,6 +276,86 @@ fn grouped_optional_sequence_is_atomic() {
 }
 
 #[test]
+fn groups_inside_brackets_are_independently_optional() {
+    // Intentional difference 8: each group inside `[...]` is optional on its own; legacy treated
+    // the whole bracket as one all-or-nothing group.
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [(a | b) (c | d)]
+#
+"#;
+    let defaults = json!({"a": false, "b": false, "c": false, "d": false});
+    check(
+        file,
+        &[
+            (&[], Ok(defaults.clone())),
+            (&["a"], Ok(with(&defaults, json!({"a": true})))),
+            (&["c"], Ok(with(&defaults, json!({"c": true})))),
+            (
+                &["b", "d"],
+                Ok(with(&defaults, json!({"b": true, "d": true}))),
+            ),
+            (&["c", "a"], Err(INVALID)),
+        ],
+    );
+
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [(a b) c]
+#
+"#;
+    let defaults = json!({"a": false, "b": false, "c": false});
+    check(
+        file,
+        &[
+            (&[], Ok(defaults.clone())),
+            (&["c"], Ok(with(&defaults, json!({"c": true})))),
+            (
+                &["a", "b"],
+                Ok(with(&defaults, json!({"a": true, "b": true}))),
+            ),
+            (
+                &["a", "b", "c"],
+                Ok(json!({"a": true, "b": true, "c": true})),
+            ),
+            (&["a"], Err(INVALID)),
+            (&["b"], Err(INVALID)),
+        ],
+    );
+
+    let file = r#"
+#!/usr/bin/env rash
+#
+# Usage: foo [(--aa | --bb) (--cc | --dd)]
+#
+"#;
+    let defaults = json!({"options": {"aa": false, "bb": false, "cc": false, "dd": false}});
+    check(
+        file,
+        &[
+            (&[], Ok(defaults.clone())),
+            (
+                &["--aa"],
+                Ok(with(&defaults, json!({"options": {"aa": true}}))),
+            ),
+            (
+                &["--cc"],
+                Ok(with(&defaults, json!({"options": {"cc": true}}))),
+            ),
+            (
+                &["--bb", "--dd"],
+                Ok(with(
+                    &defaults,
+                    json!({"options": {"bb": true, "dd": true}}),
+                )),
+            ),
+        ],
+    );
+}
+
+#[test]
 fn nested_option_requires_outer_command() {
     let file = r#"
 #!/usr/bin/env rash
@@ -484,6 +564,11 @@ fn mixed_case_command_is_rejected() {
 
     // Command and positional identifiers are lowercase (or uppercase positional) ASCII words.
     check(file, &[(&["Run"], Err(INVALID))]);
+    // Intentional difference 16: the error names the offending identifier.
+    assert_eq!(
+        error_message(file, &["Run"]),
+        "Invalid usage identifier: Run"
+    );
 }
 
 #[test]
