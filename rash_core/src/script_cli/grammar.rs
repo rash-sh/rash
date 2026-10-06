@@ -26,7 +26,7 @@ pub(super) enum Expr {
     Repeat(Box<Expr>),
     /// Adjacent optional options matched in any order, each up to its per-pattern limit.
     OptionsGroup(Vec<usize>),
-    /// `[options]`: every option not explicit in the same pattern.
+    /// `[options]`: every option that no usage pattern references explicitly.
     OptionsShortcut,
 }
 
@@ -124,7 +124,7 @@ pub(super) fn analyze(patterns: &[Expr]) -> Metadata {
     metadata
 }
 
-/// Options referenced explicitly in `expr`, which `[options]` in the same pattern excludes.
+/// Options referenced explicitly in `expr`, which `[options]` excludes.
 pub(super) fn explicit_options(expr: &Expr) -> HashSet<usize> {
     let mut out = HashSet::new();
     collect_explicit_options(expr, &mut out);

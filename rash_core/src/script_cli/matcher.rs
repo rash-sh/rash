@@ -12,7 +12,7 @@
 //! So only the higher-priority thread is kept per state, and matching is
 //! `O(argv × NFA states)`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::InputToken;
 use super::grammar::{self, Atom, Count, Expr};
@@ -67,18 +67,22 @@ pub(super) struct Nfa {
 
 /// Compile all usage patterns into one NFA. Its size depends only on the declaration.
 ///
-/// `[options]` stands for every option not explicit in the same pattern.
+/// `[options]` stands for every option that no usage pattern references explicitly.
 pub(super) fn compile(patterns: &[Expr], options: &OptionRegistry) -> Nfa {
     let mut builder = Builder::default();
     let start = builder.split();
     let accept = builder.split();
 
+    let explicit = patterns
+        .iter()
+        .flat_map(grammar::explicit_options)
+        .collect::<HashSet<_>>();
+    let shortcut_options = options
+        .all_ids()
+        .map(|id| !explicit.contains(&id))
+        .collect::<Vec<_>>();
+
     for pattern in patterns {
-        let explicit = grammar::explicit_options(pattern);
-        let shortcut_options = options
-            .all_ids()
-            .map(|id| !explicit.contains(&id))
-            .collect::<Vec<_>>();
         builder.option_limits = grammar::option_limits(pattern);
         let (pattern_start, pattern_end) = builder.compile_expr(pattern, &shortcut_options);
         builder.epsilon(start, pattern_start);
@@ -452,8 +456,6 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use super::*;
 
     #[test]

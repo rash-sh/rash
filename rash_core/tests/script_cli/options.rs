@@ -553,7 +553,7 @@ fn options_shortcut_flag_combinations() {
 }
 
 #[test]
-fn options_shortcut_is_scoped_per_usage_pattern() {
+fn options_shortcut_excludes_options_of_every_usage_pattern() {
     let file = r#"
 #!/usr/bin/env rash
 #
@@ -567,18 +567,12 @@ fn options_shortcut_is_scoped_per_usage_pattern() {
 #
 "#;
 
-    // Intentional difference 1: `[options]` only excludes options explicit in its own pattern.
+    // As in legacy and docopt 0.6.2, `[options]` stands for the described options that no usage
+    // pattern references, so `--force` is only accepted where it is written.
     check(
         file,
         &[
-            (
-                &["get", "--force"],
-                Ok(json!({
-                    "get": true,
-                    "options": {"force": true, "verbose": false},
-                    "set": false,
-                })),
-            ),
+            (&["get", "--force"], Err(INVALID)),
             (
                 &["get", "--verbose"],
                 Ok(json!({
