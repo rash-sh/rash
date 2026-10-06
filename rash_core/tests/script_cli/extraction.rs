@@ -2,7 +2,7 @@ use serde_json::json;
 
 use rash_core::script_cli;
 
-use crate::{HELP, INVALID, check};
+use crate::{HELP, INVALID, check, error_message, parse};
 
 const DOTS: &str = r#"
 #!/usr/bin/env -S rash --diff
@@ -278,4 +278,46 @@ fn whitespace_only_line_before_next_section_is_skipped() {
             (&[], Err(INVALID)),
         ],
     );
+}
+
+#[test]
+fn usage_line_with_trailing_whitespace_starts_a_usage_block() {
+    // Legacy read only the first indented line as a one-line usage, so `x y` failed.
+    let file = "\n#!/usr/bin/env rash\n# Usage: \t\n#   tool <a>\n#   tool <a> <b>\n#\n";
+    check(
+        file,
+        &[
+            (&["x"], Ok(json!({"a": "x"}))),
+            (&["x", "y"], Ok(json!({"a": "x", "b": "y"}))),
+            (&[], Err(INVALID)),
+        ],
+    );
+}
+
+#[test]
+fn usage_block_without_patterns_is_a_declaration_error() {
+    // Legacy and the help-text fallback rejected every argv with the help text only.
+    let files = [
+        // Unindented pattern: `#` plus one space is the comment prefix.
+        "\n#!/usr/bin/env rash\n# Usage:\n# tool <a>\n#\n",
+        // Blank comment line between `Usage:` and the patterns.
+        "\n#!/usr/bin/env rash\n# Usage:\n#\n#   tool <a>\n",
+        // Trailing whitespace on the `Usage:` line, then a blank comment line.
+        "\n#!/usr/bin/env rash\n# Usage: \n#\n#   tool <a>\n",
+        // `Usage:` at the end of the comment block.
+        "\n#!/usr/bin/env rash\n# Usage:\n- debug:\n    msg: hi\n",
+    ];
+    for file in files {
+        for args in [&[][..], &["x"]] {
+            assert_eq!(
+                parse(file, args),
+                Err(INVALID),
+                "file={file:?} args={args:?}"
+            );
+            assert!(
+                error_message(file, args).contains("Usage block declares no patterns"),
+                "file={file:?}"
+            );
+        }
+    }
 }

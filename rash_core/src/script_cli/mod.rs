@@ -28,11 +28,11 @@ use options::OptionRegistry;
 /// Regex compiled on first use; a compilation error is reported by [`compiled`].
 type LazyRegex = LazyLock<std::result::Result<Regex, regex::Error>>;
 
-/// Usage block made of the indented lines after a `Usage:` line.
+/// Usage block made of the indented lines after a `Usage:` line (trailing blanks allowed).
 static USAGE_MULTILINE_RE: LazyRegex =
-    LazyLock::new(|| Regex::new(r"(?mi)Usage:\n((.|\n)*?(^[a-z\n]|\z))"));
+    LazyLock::new(|| Regex::new(r"(?mi)Usage:[ \t]*\n((.|\n)*?(^[a-z\n]|\z))"));
 /// Single usage pattern on the `Usage:` line itself.
-static USAGE_ONE_LINE_RE: LazyRegex = LazyLock::new(|| Regex::new(r"(?i)Usage:\s+(.*)\n"));
+static USAGE_ONE_LINE_RE: LazyRegex = LazyLock::new(|| Regex::new(r"(?i)Usage:[ \t]+(.*)\n"));
 
 const HELP_FOOTER: [&str; 3] = [
     "Note: Options must be preceded by `--`. If not, you are passing options directly to rash.",
@@ -77,12 +77,20 @@ enum InputToken {
 ///   matches, or a help option occurs before any `--` separator. A help option is a flag named
 ///   `--help` or `-h` (alone or together); `-h` aliasing another long option is not one.
 /// - [`ErrorKind::InvalidData`] with the help text when `args` match no usage pattern, and with a
-///   specific message when the declaration is invalid or an argument is not a declared option.
+///   specific message when the declaration is invalid (including a `Usage:` block without
+///   patterns) or an argument is not a declared option.
 pub fn parse(file: &str, args: &[&str]) -> Result<Value> {
     let help_msg = parse_help(file);
     let Some(usages) = parse_usage(&help_msg)? else {
         return Ok(json!({}));
     };
+    if usages.is_empty() {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Usage block declares no patterns: indent each pattern on the lines right after \
+             `Usage:`, or write a single pattern on the `Usage:` line",
+        ));
+    }
 
     let mut options = OptionRegistry::from_doc(&help_msg, &usages)?;
     let patterns = usages
