@@ -381,6 +381,8 @@ fn merge_default_mappings(
     merged
 }
 
+/// Merge script or block `defaults` into a task: task values win, `vars` and `environment`
+/// maps are merged key by key.
 fn apply_task_defaults(task: &YamlValue, defaults: &YamlValue) -> Result<YamlValue> {
     let task_map = task
         .as_mapping()
@@ -407,19 +409,27 @@ fn apply_task_defaults(task: &YamlValue, defaults: &YamlValue) -> Result<YamlVal
     Ok(YamlValue::Mapping(merged))
 }
 
-fn parse_tasks_with_defaults<'a>(
+pub(crate) fn parse_tasks_with_defaults<'a>(
     tasks: &[YamlValue],
     defaults: Option<&YamlValue>,
     global_params: &'a GlobalParams<'a>,
 ) -> Result<Tasks<'a>> {
     tasks
         .iter()
-        .map(|task| {
+        .enumerate()
+        .map(|(index, task)| {
             let effective = match defaults {
-                Some(defaults) => apply_task_defaults(task, defaults)?,
-                None => task.clone(),
+                Some(defaults) => apply_task_defaults(task, defaults),
+                None => Ok(task.clone()),
             };
-            Task::new(&effective, global_params)
+            effective
+                .and_then(|effective| Task::new(&effective, global_params))
+                .map_err(|e| {
+                    Error::new(
+                        e.kind(),
+                        format!("Failed to parse task at index {index}: {e}"),
+                    )
+                })
         })
         .collect()
 }
@@ -594,6 +604,32 @@ mod tests {
                 .as_i64(),
             Some(4)
         );
+    }
+
+    #[test]
+    fn task_values_override_defaults_and_maps_merge() {
+        let task: YamlValue = serde_norway::from_str(
+            r#"
+            command: echo hi
+            become: false
+            environment:
+              B: task
+            "#,
+        )
+        .unwrap();
+        let defaults: YamlValue = serde_norway::from_str(
+            r#"
+            become: true
+            environment:
+              A: default
+              B: default
+            "#,
+        )
+        .unwrap();
+        let merged = apply_task_defaults(&task, &defaults).unwrap();
+        assert_eq!(merged["become"].as_bool(), Some(false));
+        assert_eq!(merged["environment"]["A"].as_str(), Some("default"));
+        assert_eq!(merged["environment"]["B"].as_str(), Some("task"));
     }
 
     #[test]
