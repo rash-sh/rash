@@ -445,6 +445,9 @@ impl Builder {
     }
 
     /// Unordered option loop where each option of `ids` may match up to its per-pattern limit.
+    ///
+    /// Known limitation: the limit counts every occurrence in the pattern, not in this group, so
+    /// `tool [-a] [-b] cmd [-a] [-b]` accepts `-a -a cmd` while `tool [-a] cmd [-a]` rejects it.
     fn options_group(&mut self, ids: &[usize], option_count: usize) -> Fragment {
         let mut limits = vec![Count::Finite(0); option_count];
         for id in ids {

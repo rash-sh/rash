@@ -762,3 +762,58 @@ fn ten_thousand_repeatable_arguments() {
     let args = args.iter().map(String::as_str).collect::<Vec<_>>();
     check(file, &[(&args, Ok(json!({"file": args})))]);
 }
+
+#[test]
+fn option_group_limit_is_pattern_wide() {
+    // Known limitation (docopt 0.6.2 accepts `-a -a cmd` in both declarations): each option of
+    // a group of adjacent optional options may occur as often as the whole pattern declares it,
+    // while a single optional option accepts one occurrence.
+    let group = r#"
+#!/usr/bin/env rash
+# Usage: tool [-a] [-b] cmd [-a] [-b]
+"#;
+    check(
+        group,
+        &[
+            (
+                &["-a", "-a", "cmd"],
+                Ok(json!({"cmd": true, "options": {"a": 2, "b": 0}})),
+            ),
+            (&["-a", "-a", "cmd", "-a"], Err(INVALID)),
+        ],
+    );
+    let single = r#"
+#!/usr/bin/env rash
+# Usage: tool [-a] cmd [-a]
+"#;
+    check(
+        single,
+        &[
+            (&["-a", "-a", "cmd"], Err(INVALID)),
+            (
+                &["-a", "cmd", "-a"],
+                Ok(json!({"cmd": true, "options": {"a": 2}})),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn options_inside_optional_command_group_follow_the_command() {
+    // Docopt 0.6.2 also accepts `-o` alone.
+    let file = r#"
+#!/usr/bin/env rash
+# Usage: tool [cmd [-o]]
+"#;
+    check(
+        file,
+        &[
+            (&[], Ok(json!({"cmd": false, "options": {"o": false}}))),
+            (
+                &["cmd", "-o"],
+                Ok(json!({"cmd": true, "options": {"o": true}})),
+            ),
+            (&["-o"], Err(INVALID)),
+        ],
+    );
+}

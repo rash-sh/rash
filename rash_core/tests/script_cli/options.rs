@@ -2037,3 +2037,69 @@ fn single_space_description_makes_the_option_take_a_value() {
         "Option --level requires a value"
     );
 }
+
+#[test]
+fn default_marker_is_case_sensitive() {
+    // Docopt 0.6.2 also reads `[Default: 80]`.
+    let file = r#"
+#!/usr/bin/env rash
+# Usage: tool [options]
+#
+# Options:
+#   --port=<p>  Port [Default: 80]
+#   --host=<h>  Host [default: localhost]
+"#;
+    check(
+        file,
+        &[(
+            &[],
+            Ok(json!({"options": {"port": null, "host": "localhost"}})),
+        )],
+    );
+}
+
+#[test]
+fn value_option_takes_the_next_argument_even_if_it_starts_with_a_dash() {
+    // As in legacy and docopt 0.6.2. Legacy rejected `-5` (`Unknown option: -5`) and, for
+    // `--port -v`, also set `v` to `true`.
+    let file = r#"
+#!/usr/bin/env rash
+# Usage: tool [--port=<p>] [-v] [<x>]
+"#;
+    check(
+        file,
+        &[
+            (
+                &["--port", "-5", "a"],
+                Ok(json!({"options": {"port": "-5", "v": false}, "x": "a"})),
+            ),
+            (
+                &["--port=-5"],
+                Ok(json!({"options": {"port": "-5", "v": false}})),
+            ),
+            (
+                &["--port", "-v"],
+                Ok(json!({"options": {"port": "-v", "v": false}})),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn option_named_explicitly_and_through_options_shortcut() {
+    // Legacy rejected `-v a`; docopt 0.6.2 accepts it.
+    let file = r#"
+#!/usr/bin/env rash
+# Usage: tool [options] [-v] <x>
+#
+# Options:
+#   -v  verbose
+"#;
+    check(
+        file,
+        &[
+            (&["-v", "a"], Ok(json!({"options": {"v": true}, "x": "a"}))),
+            (&["a"], Ok(json!({"options": {"v": false}, "x": "a"}))),
+        ],
+    );
+}
