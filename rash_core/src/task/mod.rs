@@ -254,8 +254,11 @@ impl<'a> Task<'a> {
     }
 
     fn render_params(&self, vars: Value) -> Result<YamlValue> {
-        let extended_vars = self.extend_vars(vars)?;
         let original = self.params.clone();
+        if self.module.defer_params_rendering() {
+            return Ok(original);
+        }
+        let extended_vars = self.extend_vars(vars)?;
         match original {
             YamlValue::Mapping(mapping) => render_map(
                 mapping,
@@ -266,7 +269,6 @@ impl<'a> Task<'a> {
                 Ok(YamlValue::String(render_string(&value, &extended_vars)?))
             }
             YamlValue::Null => Ok(YamlValue::Mapping(serde_norway::Mapping::new())),
-            YamlValue::Sequence(_) if self.module.get_name() == "block" => Ok(original),
             _ => Err(Error::new(
                 ErrorKind::InvalidData,
                 format!("{original:?} must be a mapping or a string"),

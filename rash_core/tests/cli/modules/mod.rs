@@ -2,6 +2,7 @@ mod apk;
 mod apt;
 mod apt_hold;
 mod authorized_key;
+mod block;
 mod btrfs;
 mod cargo;
 mod command;

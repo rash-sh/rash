@@ -144,6 +144,10 @@ impl Module for Block {
         false
     }
 
+    fn defer_params_rendering(&self) -> bool {
+        true
+    }
+
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<Schema> {
         None

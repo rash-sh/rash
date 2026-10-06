@@ -460,6 +460,13 @@ pub trait Module: Send + Sync + std::fmt::Debug {
         true
     }
 
+    /// Whether the task must pass params to the module without rendering them first.
+    /// Needed by modules holding child tasks, which render their own params when they run
+    /// (so they can use vars registered by previous children or loop `item`s).
+    fn defer_params_rendering(&self) -> bool {
+        false
+    }
+
     #[cfg(feature = "docs")]
     fn get_json_schema(&self) -> Option<Schema>;
 }
