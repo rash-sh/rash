@@ -72,7 +72,8 @@ fn test_pause_hidden_input_is_registered_but_never_logged() {
 }
 
 /// Run rash as session leader of a new pseudo-terminal, which `echo: false` needs to open
-/// `/dev/tty`. Returns the child, the master and a slave descriptor to inspect the terminal.
+/// `/dev/tty`. Returns the child, the master and a slave descriptor kept open until the test
+/// is done with the terminal.
 fn spawn_on_pty(script: &Path) -> (Child, File, File) {
     let pty = nix::pty::openpty(None, None).unwrap();
     let slave = File::from(pty.slave);
@@ -95,8 +96,10 @@ fn spawn_on_pty(script: &Path) -> (Child, File, File) {
     (child, File::from(pty.master), slave)
 }
 
-fn echo_enabled(slave: &File) -> bool {
-    tcgetattr(slave)
+/// Read the slave's termios through the master: when rash, the session leader, exits,
+/// macOS revokes its controlling terminal and every slave descriptor fails with `ENOTTY`.
+fn echo_enabled(master: &File) -> bool {
+    tcgetattr(master)
         .unwrap()
         .local_flags
         .contains(LocalFlags::ECHO)
@@ -125,7 +128,7 @@ fn interrupt_hidden_prompt(interrupt: impl FnOnce(&Child, &mut File)) -> (i32, b
         String::from_utf8_lossy(&output).to_string()
     });
 
-    wait_until("echo off", || !echo_enabled(&slave));
+    wait_until("echo off", || !echo_enabled(&master));
     interrupt(&child, &mut master);
 
     let mut status = None;
@@ -133,7 +136,7 @@ fn interrupt_hidden_prompt(interrupt: impl FnOnce(&Child, &mut File)) -> (i32, b
         status = child.try_wait().unwrap();
         status.is_some()
     });
-    let echo_restored = echo_enabled(&slave);
+    let echo_restored = echo_enabled(&master);
     drop(slave);
     drop(master);
     let output = drain.join().unwrap();
@@ -193,14 +196,14 @@ fn test_pause_hidden_input_ctrl_d_is_empty_and_restores_echo() {
         String::from_utf8_lossy(&output).to_string()
     });
 
-    wait_until("echo off", || !echo_enabled(&slave));
+    wait_until("echo off", || !echo_enabled(&master));
     master.write_all(b"\x04").unwrap();
     let mut status = None;
     wait_until("rash to exit", || {
         status = child.try_wait().unwrap();
         status.is_some()
     });
-    let echo_restored = echo_enabled(&slave);
+    let echo_restored = echo_enabled(&master);
     drop(slave);
     drop(master);
     let output = drain.join().unwrap();
