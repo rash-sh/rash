@@ -117,7 +117,7 @@ impl BecomeUser {
 }
 
 #[cfg(not(any(target_vendor = "apple", target_os = "redox", target_os = "haiku")))]
-fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
+pub(crate) fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
     let name = std::ffi::CString::new(name).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     let groups = nix::unistd::getgrouplist(&name, gid)?;
     Ok(groups.into_iter().map(Gid::as_raw).collect())
@@ -125,7 +125,7 @@ fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
 
 /// nix has no `getgrouplist(3)` binding on Apple targets, whose gids are `int`s.
 #[cfg(target_vendor = "apple")]
-fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
+pub(crate) fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
     let name = std::ffi::CString::new(name).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     // Wrapping is intended: gids above i32::MAX, like nobody's (-2), are negative ints.
     let gid = gid.as_raw() as libc::c_int;
@@ -154,7 +154,7 @@ fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
 
 /// No `getgrouplist(3)` here: only the primary group, matching `set_supplementary_groups`.
 #[cfg(any(target_os = "redox", target_os = "haiku"))]
-fn supplementary_groups(_name: &str, gid: Gid) -> Result<Vec<u32>> {
+pub(crate) fn supplementary_groups(_name: &str, gid: Gid) -> Result<Vec<u32>> {
     Ok(vec![gid.as_raw()])
 }
 
@@ -982,7 +982,10 @@ mod tests {
 
     #[test]
     fn process_user_resolves_supplementary_groups() {
-        let current = User::from_uid(Uid::current()).unwrap().unwrap();
+        // Under `cross` (Docker) the runner's uid may have no passwd entry.
+        let Some(current) = User::from_uid(Uid::current()).unwrap() else {
+            return;
+        };
         let user = BecomeUser::from(&current).process_user().unwrap();
         assert_eq!(user.uid, current.uid.as_raw());
         assert_eq!(user.gid, current.gid.as_raw());

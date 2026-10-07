@@ -325,7 +325,8 @@ mod tests {
     /// user's uid, gid and supplementary groups, not root's.
     #[test]
     fn test_as_root_become_syscall_job_has_become_user_groups() {
-        use nix::unistd::{Gid, User, getgrouplist};
+        use crate::task::privilege::supplementary_groups;
+        use nix::unistd::User;
         use std::collections::BTreeSet;
 
         if !Uid::effective().is_root() {
@@ -337,12 +338,10 @@ mod tests {
         // Under sudo, the invoking user: unlike nobody, it usually has supplementary groups.
         let name = std::env::var("SUDO_USER").unwrap_or_else(|_| "nobody".to_owned());
         let user = User::from_name(&name).unwrap().unwrap();
-        let cname = std::ffi::CString::new(name.clone()).unwrap();
-        let expected: BTreeSet<u32> = getgrouplist(&cname, user.gid)
+        let expected: BTreeSet<u32> = supplementary_groups(&name, user.gid)
             .unwrap()
             .into_iter()
-            .chain([user.gid])
-            .map(Gid::as_raw)
+            .chain([user.gid.as_raw()])
             .collect();
 
         let result = exec(&format!(
