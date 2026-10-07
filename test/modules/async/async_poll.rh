@@ -62,8 +62,10 @@
 - name: Verify loop result even with failures
   assert:
     that:
-      - loop_result.rash_job_ids is defined
-      - loop_result.rash_job_ids | length == 3
+      - loop_result is failed
+      - loop_result.results | length == 3
+      - loop_result.results[1].rc == 1
+      - loop_result.error == "command exited with code 1"
 
 - name: Final verification - all tests passed
   debug:

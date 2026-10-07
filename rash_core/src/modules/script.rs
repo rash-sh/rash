@@ -49,13 +49,16 @@ use serde_norway::Value as YamlValue;
 pub struct Params {
     /// Path to the script file to execute.
     pub path: String,
-    /// Shell-like argument string. Quoting is parsed with shlex.
+    /// Shell-like argument string, parsed with shlex: quotes group words and a word starting with
+    /// `#` begins a comment, so quote it (`"'#channel'"`).
     pub args: Option<String>,
     /// Exact argument vector. Mutually exclusive with `args`.
     pub argv: Option<Vec<String>>,
     /// Change into this directory before running the script.
     pub chdir: Option<String>,
-    /// Interpreter override. If absent, a shebang is honored; otherwise the file is executed directly.
+    /// Interpreter override, split like `args` (`python3 -u`; a word starting with `#` begins a
+    /// comment). If absent, the shebang line is honored and split the same way; otherwise the file
+    /// is executed directly.
     pub executable: Option<String>,
     /// Optional data written to stdin.
     pub stdin: Option<String>,

@@ -215,6 +215,15 @@ impl Task {
         ))
     }
 
+    /// The value `vars` bind to the `register` name, if any.
+    pub(super) fn registered_value(&self, vars: Option<&Value>) -> Option<Value> {
+        let name = self.register.as_ref()?;
+        vars?
+            .get_attr(name)
+            .ok()
+            .filter(|value| !value.is_undefined())
+    }
+
     /// Vars binding the `register` name (if any) to `value`.
     pub(super) fn register_vars(&self, value: Value) -> Option<Value> {
         self.register

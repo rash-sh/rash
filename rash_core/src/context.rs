@@ -1,6 +1,6 @@
 use crate::signal;
 use crate::task::{Handlers, PendingHandlers, Tasks};
-use crate::{error::Result, jinja::merge_option};
+use crate::{error::Result, jinja::merge_replacing};
 use clap::ValueEnum;
 use minijinja::{Value, context};
 
@@ -72,6 +72,11 @@ impl Context {
 
     pub fn exec(&self) -> Result<Self> {
         let mut context = self.clone();
+        let merge_replacing_option =
+            |vars: Value, new: Option<Value>, register: Option<&str>| match new {
+                Some(new) => merge_replacing(vars, new, register),
+                None => vars,
+            };
 
         while !context.tasks.is_empty() {
             // A signal recorded while a child ran but not consumed by it (e.g. its setup
@@ -104,10 +109,14 @@ impl Context {
                 context.pending_handlers.notify(notify);
             }
 
-            let vars = merge_option(context.vars.clone(), new_vars.clone());
+            // A registered result replaces the one registered before under the same name.
+            let register = next_task.get_register();
+            let vars = merge_replacing_option(context.vars.clone(), new_vars.clone(), register);
             let scoped_vars_value = [context.scoped_vars, new_vars]
                 .into_iter()
-                .fold(context! {}, merge_option);
+                .fold(context! {}, |vars, new| {
+                    merge_replacing_option(vars, new, register)
+                });
             let scoped_vars = (scoped_vars_value != context! {}).then_some(scoped_vars_value);
 
             context = Self {

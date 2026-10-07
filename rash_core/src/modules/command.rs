@@ -61,8 +61,10 @@ pub struct Params {
     #[serde(flatten)]
     pub required: Required,
     /// Replace the Rash process with this command, keeping its PID (e.g. PID 1 in containers).
-    /// `cmd` is split with shell-like quoting and executed directly, without `/bin/sh`.
-    /// No later Rash task is executed.
+    /// `cmd` is split with shell-like quoting (a word starting with `#` begins a comment, so quote
+    /// it) and executed directly, without `/bin/sh`. `stdout`/`stderr: capture` or `tee` behave as
+    /// `inherit`. If the program cannot be executed, Rash exits with status 1. No later Rash task
+    /// is executed.
     pub transfer_pid: Option<bool>,
     /// Optional data written to the child stdin.
     pub stdin: Option<String>,

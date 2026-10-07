@@ -213,6 +213,62 @@ fn interrupt_applies(signal: i32, from_terminal: bool, child_killed_by_signal: b
     !(signal == libc::SIGINT && from_terminal && !child_killed_by_signal)
 }
 
+/// Defers termination signals while an in-process module has the terminal in a state it
+/// must restore before Rash stops.
+///
+/// `rpassword` turns echo off and, on Ctrl-C, raises SIGINT before restoring the terminal:
+/// exiting from the handler would leave the user's shell without echo. While this guard
+/// lives the handler only records the signal (there is no child to forward it to) and
+/// Rash's handlers do not restart system calls, so a read blocked on the terminal fails
+/// with `EINTR` and the module can clean up. The caller then turns the recorded signal
+/// into an error with [`take_interrupt`](Self::take_interrupt); one recorded after that
+/// stops the script before the next task.
+#[derive(Debug)]
+pub struct DeferredInterrupt(ForegroundGuard);
+
+impl DeferredInterrupt {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        let guard = ForegroundGuard::new();
+        set_restart(false);
+        Self(guard)
+    }
+
+    /// Consume a signal received while deferring, whatever its origin.
+    pub fn take_interrupt(&self) -> Option<Error> {
+        self.0.take_interrupt(true)
+    }
+}
+
+impl Drop for DeferredInterrupt {
+    fn drop(&mut self) {
+        // The inner guard then drops to NO_CHILD: a signal in between is only recorded.
+        set_restart(true);
+    }
+}
+
+/// Toggle `SA_RESTART` on the signals Rash handles, leaving any other disposition alone.
+fn set_restart(restart: bool) {
+    let handler = handle_signal as *const () as libc::sighandler_t;
+    for signal in HANDLED_SIGNALS {
+        // SAFETY: an all-zero sigaction is valid output storage for sigaction(2).
+        let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
+        // SAFETY: a null new action only queries the current disposition.
+        if unsafe { libc::sigaction(signal, std::ptr::null(), &mut action) } != 0
+            || action.sa_sigaction != handler
+        {
+            continue;
+        }
+        action.sa_flags = if restart {
+            action.sa_flags | libc::SA_RESTART
+        } else {
+            action.sa_flags & !libc::SA_RESTART
+        };
+        // SAFETY: re-installs the queried action for our own handler with changed flags.
+        unsafe { libc::sigaction(signal, &action, std::ptr::null_mut()) };
+    }
+}
+
 /// Whether a termination signal is waiting to be turned into an interrupt error.
 pub fn interrupt_pending() -> bool {
     PENDING_SIGNAL.load(Ordering::SeqCst) != 0
@@ -359,6 +415,81 @@ mod tests {
         }
         let code = CODE.load(Ordering::SeqCst);
         assert!(sent_by_process(code), "si_code of kill(2): {code:#x}");
+    }
+
+    /// Serializes tests that drive the global signal state.
+    static STATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Run the handler the way `raise(3)` (null info is treated as user-sent) or the
+    /// terminal driver would. Only valid while a guard keeps it from exiting.
+    fn deliver(signal: libc::c_int, from_terminal: bool) {
+        // SAFETY: an all-zero siginfo_t is valid; only si_code is read by the handler.
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        if from_terminal {
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            {
+                info.si_code = libc::SI_KERNEL;
+            }
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            {
+                info.si_code = 0x10006;
+            }
+        }
+        let info = if from_terminal {
+            &mut info as *mut libc::siginfo_t
+        } else {
+            std::ptr::null_mut()
+        };
+        handle_signal(signal, info, std::ptr::null_mut());
+    }
+
+    #[test]
+    fn deferred_interrupt_records_signals_and_returns_them() {
+        let _lock = STATE.lock().unwrap();
+        for (signal, from_terminal) in [(libc::SIGINT, false), (libc::SIGINT, true)] {
+            let deferred = DeferredInterrupt::new();
+            assert_eq!(FOREGROUND_CHILD.load(Ordering::SeqCst), BUSY);
+            assert!(deferred.take_interrupt().is_none());
+
+            deliver(signal, from_terminal);
+            assert!(interrupt_pending());
+            let error = deferred.take_interrupt().unwrap();
+            assert_eq!(error.kind(), ErrorKind::Interrupted);
+            assert_eq!(error.raw_os_error(), Some(128 + signal));
+            assert!(deferred.take_interrupt().is_none());
+
+            drop(deferred);
+            assert_eq!(FOREGROUND_CHILD.load(Ordering::SeqCst), NO_CHILD);
+            assert_eq!(UNFORWARDED_SIGNAL.load(Ordering::SeqCst), 0);
+        }
+    }
+
+    #[test]
+    fn deferred_interrupt_keeps_unconsumed_signal_pending() {
+        let _lock = STATE.lock().unwrap();
+        let deferred = DeferredInterrupt::new();
+        deliver(libc::SIGTERM, false);
+        drop(deferred);
+        assert_eq!(FOREGROUND_CHILD.load(Ordering::SeqCst), NO_CHILD);
+        let error = take_pending_interrupt().unwrap();
+        assert_eq!(error.raw_os_error(), Some(128 + libc::SIGTERM));
+        assert!(take_pending_interrupt().is_none());
+    }
+
+    #[test]
+    fn set_restart_leaves_foreign_dispositions_alone() {
+        let _lock = STATE.lock().unwrap();
+        // SAFETY: queries the current disposition only.
+        let before = |signal| unsafe {
+            let mut action: libc::sigaction = std::mem::zeroed();
+            assert_eq!(libc::sigaction(signal, std::ptr::null(), &mut action), 0);
+            (action.sa_sigaction, action.sa_flags)
+        };
+        let saved: Vec<_> = HANDLED_SIGNALS.into_iter().map(before).collect();
+        set_restart(false);
+        set_restart(true);
+        let after: Vec<_> = HANDLED_SIGNALS.into_iter().map(before).collect();
+        assert_eq!(saved, after);
     }
 
     #[test]

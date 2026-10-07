@@ -88,6 +88,72 @@ fn sequential_loop_uses_same_failure_contract() {
     let probe = registered(&result, "loop_result");
     assert_eq!(probe.get_attr("rc").unwrap().as_i64(), Some(5));
     assert!(probe.get_attr("failed").unwrap().is_true());
+    assert_eq!(probe.get_attr("item").unwrap().as_i64(), Some(5));
+    let results = probe.get_attr("results").unwrap();
+    assert_eq!(results.len(), Some(1));
+    let only = results.get_item(&Value::from(0)).unwrap();
+    assert_eq!(only.get_attr("rc").unwrap().as_i64(), Some(5));
+    assert!(only.get_attr("failed").unwrap().is_true());
+}
+
+#[test]
+fn loop_registers_last_item_with_failure_summary_and_results() {
+    let params = GlobalParams::default();
+    let task = task_from_yaml(
+        r#"
+        command:
+          argv: [sh, -c, "echo {{ item }}; test {{ item }} != b"]
+        loop: [a, b, c]
+        register: loop_result
+        ignore_errors: true
+        "#,
+        &params,
+    );
+
+    let result = task.exec(context! {}).unwrap();
+    assert!(result.get_failed());
+    let probe = registered(&result, "loop_result");
+    // Last item's data, failure of any item, first error.
+    assert_eq!(probe.get_attr("stdout").unwrap().as_str(), Some("c\n"));
+    assert_eq!(probe.get_attr("rc").unwrap().as_i64(), Some(0));
+    assert!(probe.get_attr("failed").unwrap().is_true());
+    assert!(probe.get_attr("changed").unwrap().is_true());
+    assert_eq!(
+        probe.get_attr("error").unwrap().as_str(),
+        Some("command exited with code 1")
+    );
+    let results = probe.get_attr("results").unwrap();
+    assert_eq!(results.len(), Some(3));
+    let failed_item = results.get_item(&Value::from(1)).unwrap();
+    assert_eq!(failed_item.get_attr("item").unwrap().as_str(), Some("b"));
+    assert_eq!(failed_item.get_attr("rc").unwrap().as_i64(), Some(1));
+    assert!(failed_item.get_attr("failed").unwrap().is_true());
+}
+
+#[test]
+fn registering_again_replaces_the_previous_result() {
+    let params = GlobalParams::default();
+    let script = r#"
+    - command:
+        argv: [sh, -c, "echo {{ item }}"]
+      loop: [a, b]
+      register: probe
+    - command:
+        argv: [sh, -c, "echo {{ item }}"]
+      loop: [c]
+      register: probe
+    "#;
+    let tasks = parse_file(script, &params).unwrap();
+    let rash = context! {rash => context! {path => "probe.rh"}};
+    let context = rash_core::context::Context::new(tasks, rash, None)
+        .exec()
+        .unwrap();
+
+    let probe = context.get_vars().get_attr("probe").unwrap();
+    // The lists of the old result are not concatenated with the new ones.
+    assert_eq!(probe.get_attr("results").unwrap().len(), Some(1));
+    assert_eq!(probe.get_attr("stdout").unwrap().as_str(), Some("c\n"));
+    assert_eq!(probe.get_attr("item").unwrap().as_str(), Some("c"));
 }
 
 #[test]

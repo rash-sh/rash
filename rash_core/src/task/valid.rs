@@ -80,6 +80,64 @@ impl TaskValid {
         self.attrs.get(name).cloned()
     }
 
+    /// The YAML value as users wrote it, strings quoted.
+    fn describe_value(value: &Value) -> String {
+        match value.as_str() {
+            Some(text) => format!("{text:?}"),
+            None => yaml_to_string(value),
+        }
+    }
+
+    /// Error for a typed attribute (never templated) of the wrong YAML type.
+    fn typed_attr_error(name: &str, expected: &str, value: &Value) -> Error {
+        let value = Self::describe_value(value);
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("{name} must be {expected}, templates are not supported: {value}"),
+        )
+    }
+
+    /// An attribute that must be a YAML boolean when present (`null` counts as absent).
+    fn bool_attr(&self, name: &str) -> Result<Option<bool>> {
+        match self.attrs.get(name) {
+            None | Some(Value::Null) => Ok(None),
+            Some(value) => value
+                .as_bool()
+                .map(Some)
+                .ok_or_else(|| Self::typed_attr_error(name, "a boolean", value)),
+        }
+    }
+
+    /// An attribute that must be a non-negative YAML integer when present.
+    fn u64_attr(&self, name: &str) -> Result<Option<u64>> {
+        match self.attrs.get(name) {
+            None | Some(Value::Null) => Ok(None),
+            Some(value) if value.is_number() => value.as_u64().map(Some).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!(
+                        "{name} must be a non-negative integer: {}",
+                        Self::describe_value(value)
+                    ),
+                )
+            }),
+            Some(value) => Err(Self::typed_attr_error(name, "an integer", value)),
+        }
+    }
+
+    fn u32_attr(&self, name: &str) -> Result<Option<u32>> {
+        self.u64_attr(name)?
+            .map(|value| {
+                u32::try_from(value).map_err(|_| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        format!("{name} must be at most {}: {value}", u32::MAX),
+                    )
+                })
+            })
+            .transpose()
+    }
+
     fn validate_sequence_attr(&self, name: &str) -> Result<()> {
         if let Some(value) = self.attrs.get(name)
             && value.as_sequence().is_none()
@@ -111,7 +169,7 @@ impl TaskValid {
         };
 
         Ok(Task {
-            r#become: global_params.r#become || self.attrs["become"].as_bool().unwrap_or(false),
+            r#become: global_params.r#become || self.bool_attr("become")?.unwrap_or(false),
             become_user: self.attrs["become_user"]
                 .as_str()
                 .unwrap_or(global_params.become_user)
@@ -125,15 +183,14 @@ impl TaskValid {
                 .as_str()
                 .map(String::from)
                 .or_else(|| global_params.become_password.map(String::from)),
-            check_mode: global_params.check_mode
-                || self.attrs["check_mode"].as_bool().unwrap_or(false),
+            check_mode: global_params.check_mode || self.bool_attr("check_mode")?.unwrap_or(false),
             module: &**module,
             params: self.attrs[&module_name].clone(),
             changed_when: self.parse_expression(&self.attrs["changed_when"]),
             failed_when: self.parse_expression(&self.attrs["failed_when"]),
-            ignore_errors: self.attrs["ignore_errors"].as_bool(),
-            quiet: self.attrs["quiet"].as_bool().unwrap_or(false),
-            no_log: self.attrs["no_log"].as_bool().unwrap_or(false),
+            ignore_errors: self.bool_attr("ignore_errors")?,
+            quiet: self.bool_attr("quiet")?.unwrap_or(false),
+            no_log: self.bool_attr("no_log")?.unwrap_or(false),
             name: self.attrs["name"].as_str().map(String::from),
             r#loop: self.optional_clone("loop"),
             register: self.attrs["register"].as_str().map(String::from),
@@ -143,11 +200,11 @@ impl TaskValid {
             always: self.optional_clone("always"),
             environment: self.optional_clone("environment"),
             notify: self.attrs.get("notify").and_then(parse_notify_value),
-            retries: self.attrs["retries"].as_u64().map(|value| value as u32),
-            delay: self.attrs["delay"].as_u64(),
+            retries: self.u32_attr("retries")?,
+            delay: self.u64_attr("delay")?,
             until: self.parse_expression(&self.attrs["until"]),
-            r#async: self.attrs["async"].as_u64(),
-            poll: self.attrs["poll"].as_u64(),
+            r#async: self.u64_attr("async")?,
+            poll: self.u64_attr("poll")?,
         })
     }
 }
@@ -200,6 +257,71 @@ mod tests {
             serde_norway::from_str("debug: { msg: hi }\nbecome_method: nope").unwrap();
         let params = GlobalParams::default();
         assert!(TaskValid::new(&yaml).get_task(&params).is_err());
+    }
+
+    fn parse_error(yaml: &str) -> String {
+        let yaml: Value = serde_norway::from_str(yaml).unwrap();
+        let params = GlobalParams::default();
+        TaskValid::new(&yaml)
+            .get_task(&params)
+            .expect_err("task must be rejected")
+            .to_string()
+    }
+
+    #[test]
+    fn string_retries_is_rejected() {
+        assert_eq!(
+            parse_error("command: echo hi\nretries: \"3\""),
+            "retries must be an integer, templates are not supported: \"3\""
+        );
+    }
+
+    #[test]
+    fn templated_typed_attributes_are_rejected() {
+        assert_eq!(
+            parse_error("command: echo hi\nignore_errors: \"{{ flag }}\""),
+            "ignore_errors must be a boolean, templates are not supported: \"{{ flag }}\""
+        );
+        assert_eq!(
+            parse_error("command: echo hi\nretries: \"{{ n }}\""),
+            "retries must be an integer, templates are not supported: \"{{ n }}\""
+        );
+        for attr in ["become", "check_mode", "quiet", "no_log"] {
+            assert!(parse_error(&format!("command: echo hi\n{attr}: yes")).contains(attr));
+        }
+        for attr in ["delay", "async", "poll"] {
+            assert!(parse_error(&format!("command: echo hi\n{attr}: '1'")).contains(attr));
+        }
+    }
+
+    #[test]
+    fn negative_and_float_numbers_are_rejected() {
+        assert_eq!(
+            parse_error("command: echo hi\nretries: -1"),
+            "retries must be a non-negative integer: -1"
+        );
+        assert_eq!(
+            parse_error("command: echo hi\ndelay: 1.5"),
+            "delay must be a non-negative integer: 1.5"
+        );
+        assert!(parse_error("command: echo hi\nasync: true").contains("async must be an integer"));
+    }
+
+    #[test]
+    fn native_typed_attributes_are_accepted() {
+        let yaml: Value = serde_norway::from_str(
+            "command: echo hi\nignore_errors: true\nquiet: false\nretries: 2\ndelay: 0\nasync: 10\npoll: 1\nno_log: ~",
+        )
+        .unwrap();
+        let params = GlobalParams::default();
+        let task = TaskValid::new(&yaml).get_task(&params).unwrap();
+        assert_eq!(task.ignore_errors, Some(true));
+        assert!(!task.quiet);
+        assert!(!task.no_log);
+        assert_eq!(task.retries, Some(2));
+        assert_eq!(task.delay, Some(0));
+        assert_eq!(task.r#async, Some(10));
+        assert_eq!(task.poll, Some(1));
     }
 
     #[test]

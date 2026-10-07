@@ -258,6 +258,61 @@ exec "$@"
     }
 }
 
+/// A become child inherits the environment (`sudo -E`): a `RASH_LOG_LEVEL` there must not
+/// make it trace the rendered params of a `no_log` task.
+#[test]
+fn test_become_no_log_hides_params_from_child_trace_logs() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let fake_sudo = temp_dir.path().join("fake-sudo");
+    std::fs::write(
+        &fake_sudo,
+        r#"#!/bin/sh
+while [ "$1" != "--" ]; do shift; done
+shift
+exec "$@"
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        &fake_sudo,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .unwrap();
+
+    let script_text = r#"
+#!/usr/bin/env rash
+- command:
+    argv: [echo, "{{ secret }}"]
+  vars:
+    secret: literal-hunter2
+  no_log: true
+  become: true
+  become_method: sudo
+  become_user: root
+  register: result
+# Checked without quoting the secret: the params of this task are traced too.
+- assert:
+    that:
+      - result.rc == 0
+      - result.stdout | trim | length == 15
+- debug:
+    msg: become-no-log-ok
+"#;
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, script_text).unwrap();
+
+    let args = [
+        "--become-exe",
+        fake_sudo.to_str().unwrap(),
+        script_path.to_str().unwrap(),
+    ];
+    let (stdout, stderr) = execute_rash_with_env(&args, &[("RASH_LOG_LEVEL", "TRACE")]);
+
+    assert!(stdout.contains("become-no-log-ok"), "stderr: {stderr}");
+    assert!(!stdout.contains("hunter2"), "stdout: {stdout}");
+    assert!(!stderr.contains("hunter2"), "stderr: {stderr}");
+}
+
 /// Run a script with the mocks (e.g. `sudo`) first in PATH, returning exit code and output.
 fn run_script_status(script_text: &str, args: &[&str]) -> (Option<i32>, String) {
     let temp_dir = tempfile::tempdir().unwrap();

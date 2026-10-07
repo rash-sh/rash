@@ -34,6 +34,7 @@
 use crate::context::GlobalParams;
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult, parse_params};
+use crate::signal;
 
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
@@ -89,7 +90,25 @@ fn read_input(prompt: Option<&str>, echo: bool) -> Result<String> {
             .map_err(|e| Error::new(ErrorKind::IOError, e))?;
         Ok(input.trim_end_matches(['\r', '\n']).to_owned())
     } else {
-        rpassword::read_password().map_err(|e| Error::new(ErrorKind::IOError, e))
+        read_hidden_input()
+    }
+}
+
+/// Read a line from the terminal without echo.
+///
+/// `rpassword` keeps the terminal raw until it returns, raising SIGINT itself on Ctrl-C: the
+/// signal is deferred so the terminal is restored before the interrupt stops the script.
+/// Ctrl-D on an empty line yields an empty string, like EOF on piped input.
+fn read_hidden_input() -> Result<String> {
+    let deferred = signal::DeferredInterrupt::new();
+    let input = rpassword::read_password();
+    if let Some(interrupt) = deferred.take_interrupt() {
+        return Err(interrupt);
+    }
+    match input {
+        Ok(input) => Ok(input),
+        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(String::new()),
+        Err(e) => Err(Error::new(ErrorKind::IOError, e)),
     }
 }
 

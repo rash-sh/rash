@@ -45,6 +45,45 @@ impl OutputMode {
     }
 }
 
+/// Exit status of Rash when a `transfer_pid` task leaves it running instead of replacing
+/// it, like a non-interactive `sh` whose `exec` fails.
+pub const FAILED_REPLACEMENT_STATUS: i32 = 1;
+
+/// Terminate Rash after a `transfer_pid` task did not replace it. The process is no longer
+/// fit to run tasks: a failed `exec` has already applied the chdir, the stdio redirections
+/// and the signal resets meant for the program, and with `become` the user was switched in
+/// place. Nothing after this runs: no `rescue` or `always` section, nor `ignore_errors`.
+pub fn exit_after_failed_replacement(reason: impl std::fmt::Display, code: i32) -> ! {
+    error!("transfer_pid failed, exiting: {reason}");
+    std::process::exit(code)
+}
+
+/// Credentials a child runs with instead of Rash's, resolved before spawning it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProcessUser {
+    pub uid: libc::uid_t,
+    pub gid: libc::gid_t,
+    /// The whole supplementary group list, as `initgroups(3)` would set it.
+    pub groups: Vec<libc::gid_t>,
+}
+
+impl ProcessUser {
+    /// Switch the current process to this user. Runs between `fork` and `exec`, so it only
+    /// makes async-signal-safe syscalls and never allocates: another thread of the parent
+    /// may hold the allocator lock at the time of the fork.
+    fn apply(&self) -> io::Result<()> {
+        // SAFETY: setgroups(2) reads `groups.len()` gids from a live buffer.
+        if unsafe { libc::setgroups(self.groups.len() as _, self.groups.as_ptr()) } != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: setgid(2) and setuid(2) have no preconditions.
+        if unsafe { libc::setgid(self.gid) } != 0 || unsafe { libc::setuid(self.uid) } != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ProcessSpec {
     pub program: String,
@@ -54,8 +93,8 @@ pub struct ProcessSpec {
     pub stdout: OutputMode,
     pub stderr: OutputMode,
     pub env: Vec<(String, String)>,
-    /// Run the child as this `(uid, gid)` instead of Rash's user.
-    pub user: Option<(u32, u32)>,
+    /// Run the child as this user instead of Rash's.
+    pub user: Option<ProcessUser>,
     /// Run the child as a background job in its own process group, so its whole tree can
     /// be killed, and without `stdin` data on an empty stdin. Only async jobs need it:
     /// synchronous children stay in Rash's process group, so they behave as a foreground
@@ -105,8 +144,11 @@ impl ProcessSpec {
         if self.process_group {
             command.process_group(0);
         }
-        if let Some((uid, gid)) = self.user {
-            command.uid(uid).gid(gid);
+        if let Some(user) = &self.user {
+            let user = user.clone();
+            // SAFETY: `apply` only makes async-signal-safe syscalls on data owned by the
+            // closure, which is allocated here, before the fork.
+            unsafe { command.pre_exec(move || user.apply()) };
         }
         command
     }
@@ -183,13 +225,20 @@ impl ProcessSpec {
         Ok(spec)
     }
 
+    /// Replace the Rash process with this one, like `exec` in a shell. Returns only when
+    /// the spec cannot replace a process, before anything was done. Once `exec` is attempted
+    /// and fails, Rash exits with [`FAILED_REPLACEMENT_STATUS`]: see
+    /// [`exit_after_failed_replacement`].
     pub fn replace(&self) -> Error {
         let spec = match self.replacement_spec() {
             Ok(spec) => spec,
             Err(e) => return e,
         };
         let error = spec.command().exec();
-        Error::new(ErrorKind::SubprocessFail, error)
+        exit_after_failed_replacement(
+            format!("Failed to execute '{}': {error}", self.program),
+            FAILED_REPLACEMENT_STATUS,
+        )
     }
 }
 
@@ -201,7 +250,7 @@ pub enum ProcessPlan {
     Done(ModuleResult),
     /// Run the process to completion.
     Run(ProcessSpec),
-    /// Replace the Rash process with it (`transfer_pid`).
+    /// Replace the Rash process with it (`transfer_pid`); Rash exits if that fails.
     Replace(ProcessSpec),
 }
 
@@ -532,11 +581,72 @@ mod tests {
         assert!(!replacement.process_group);
     }
 
+    /// A spec that cannot replace a process is an ordinary error, reported before `exec`
+    /// is attempted (a failed `exec` would exit the test process instead).
     #[test]
     fn replacement_rejects_stdin() {
         let mut spec = ProcessSpec::new("cat");
         spec.stdin = Some("data".into());
+        assert!(spec.replacement_spec().is_err());
         assert!(spec.replace().to_string().contains("stdin"));
+    }
+
+    /// Root-only (setgroups(2) needs CAP_SETGID, even for the caller's own list): the
+    /// child gets exactly the given uid, gid and supplementary groups.
+    #[test]
+    fn test_as_root_process_user_applies_groups_gid_and_uid() {
+        if !nix::unistd::Uid::effective().is_root() {
+            eprintln!(
+                "test_as_root_process_user_applies_groups_gid_and_uid: skipped: requires root"
+            );
+            return;
+        }
+        let nobody = nix::unistd::User::from_name("nobody").unwrap().unwrap();
+        let (uid, gid) = (nobody.uid.as_raw(), nobody.gid.as_raw());
+        // An unrelated extra group, to tell the list apart from initgroups(3)'s.
+        let extra = nix::unistd::Group::from_name("daemon")
+            .unwrap()
+            .map_or(1, |group| group.gid.as_raw());
+        let mut spec = shell("id -u; id -g; id -G");
+        spec.user = Some(ProcessUser {
+            uid,
+            gid,
+            groups: vec![gid, extra],
+        });
+        let result = spec.run().unwrap();
+        assert!(result.success(), "{result:?}");
+        let output = result.stdout.unwrap();
+        let mut lines = output.lines();
+        assert_eq!(lines.next().unwrap(), uid.to_string(), "{output}");
+        assert_eq!(lines.next().unwrap(), gid.to_string(), "{output}");
+        let mut reported: Vec<u32> = lines
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .map(|gid| gid.parse().unwrap())
+            .collect();
+        reported.sort_unstable();
+        reported.dedup();
+        let mut expected = vec![gid, extra];
+        expected.sort_unstable();
+        expected.dedup();
+        assert_eq!(reported, expected, "{output}");
+    }
+
+    #[test]
+    fn process_user_failure_is_a_spawn_error() {
+        if nix::unistd::Uid::effective().is_root() {
+            return;
+        }
+        let mut spec = shell("id -u");
+        spec.user = Some(ProcessUser {
+            uid: 0,
+            gid: 0,
+            groups: vec![0],
+        });
+        let error = spec.run().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::SubprocessFail);
+        assert!(error.to_string().contains("Failed to execute"), "{error}");
     }
 
     #[test]

@@ -74,10 +74,16 @@ pub type Tasks = Vec<Task>;
 
 impl Task {
     pub fn new(yaml: &YamlValue, global_params: &GlobalParams) -> Result<Self> {
-        trace!("new task: {yaml:?}");
-        TaskNew::from(yaml)
+        let task = TaskNew::from(yaml)
             .validate_attrs()?
-            .get_task(global_params)
+            .get_task(global_params)?;
+        // Parsed before logging: the params of a `no_log` task may hold secrets.
+        if task.no_log {
+            trace!("new task: <no_log>");
+        } else {
+            trace!("new task: {yaml:?}");
+        }
+        Ok(task)
     }
 
     fn is_attr(attr: &str) -> bool {
@@ -343,6 +349,10 @@ impl Task {
 
     pub fn get_no_log(&self) -> bool {
         self.no_log
+    }
+
+    pub fn get_register(&self) -> Option<&str> {
+        self.register.as_deref()
     }
 }
 
@@ -691,6 +701,7 @@ mod tests {
             set_vars:
               from_loop: "{{ item }}"
             loop: [first, last]
+            register: r
             "#,
         )
         .unwrap();
@@ -699,6 +710,18 @@ mod tests {
         let result = task.exec(context! {}).unwrap();
         let vars = result.get_vars().unwrap();
         assert_eq!(vars.get_attr("from_loop").unwrap().as_str(), Some("last"));
+        // The registered result is the last item's, plus the results of every item.
+        let r = vars.get_attr("r").unwrap();
+        assert_eq!(r.get_attr("item").unwrap().as_str(), Some("last"));
+        assert!(!r.get_attr("failed").unwrap().is_true());
+        let items: Vec<String> = r
+            .get_attr("results")
+            .unwrap()
+            .try_iter()
+            .unwrap()
+            .map(|entry| entry.get_attr("item").unwrap().to_string())
+            .collect();
+        assert_eq!(items, vec!["first", "last"]);
     }
 
     #[test]

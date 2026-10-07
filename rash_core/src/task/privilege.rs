@@ -15,7 +15,11 @@
 //! through the descriptor it created instead of reopening the path.
 use crate::context::{BecomeMethod, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
-use crate::process::{OutputMode, ProcessResult, ProcessSpec};
+use crate::logger::suppress_logs;
+use crate::process::{
+    FAILED_REPLACEMENT_STATUS, OutputMode, ProcessResult, ProcessSpec, ProcessUser,
+    exit_after_failed_replacement,
+};
 use crate::task::{Task, TaskExecResult};
 
 use std::env;
@@ -91,6 +95,67 @@ impl BecomeUser {
         setgid(gid).map_err(|e| failed("gid", &e))?;
         setuid(Uid::from_raw(self.uid)).map_err(|e| failed("uid", &e))
     }
+
+    /// This user as a child process runs it, with its supplementary groups resolved now:
+    /// a child cannot look them up between `fork` and `exec`.
+    pub fn process_user(&self) -> Result<ProcessUser> {
+        let groups = supplementary_groups(&self.name, Gid::from_raw(self.gid)).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!(
+                    "cannot become user {}: groups cannot be read: {e}",
+                    self.name
+                ),
+            )
+        })?;
+        Ok(ProcessUser {
+            uid: self.uid,
+            gid: self.gid,
+            groups,
+        })
+    }
+}
+
+#[cfg(not(any(target_vendor = "apple", target_os = "redox", target_os = "haiku")))]
+fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
+    let name = std::ffi::CString::new(name).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    let groups = nix::unistd::getgrouplist(&name, gid)?;
+    Ok(groups.into_iter().map(Gid::as_raw).collect())
+}
+
+/// nix has no `getgrouplist(3)` binding on Apple targets, whose gids are `int`s.
+#[cfg(target_vendor = "apple")]
+fn supplementary_groups(name: &str, gid: Gid) -> Result<Vec<u32>> {
+    let name = std::ffi::CString::new(name).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    // Wrapping is intended: gids above i32::MAX, like nobody's (-2), are negative ints.
+    let gid = gid.as_raw() as libc::c_int;
+    let mut capacity: libc::c_int = 32;
+    loop {
+        let mut groups: Vec<libc::c_int> = vec![0; capacity as usize];
+        let mut count = capacity;
+        // SAFETY: `groups` holds `count` ints and `name` is NUL-terminated; both outlive
+        // the call, which writes at most `count` entries and the final count to `count`.
+        let result =
+            unsafe { libc::getgrouplist(name.as_ptr(), gid, groups.as_mut_ptr(), &mut count) };
+        if result != -1 {
+            groups.truncate(count.max(0) as usize);
+            return Ok(groups.into_iter().map(|gid| gid as u32).collect());
+        }
+        // The list did not fit: retry with a larger buffer, up to a sane bound.
+        if capacity >= 1 << 16 {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "too many supplementary groups",
+            ));
+        }
+        capacity *= 2;
+    }
+}
+
+/// No `getgrouplist(3)` here: only the primary group, matching `set_supplementary_groups`.
+#[cfg(any(target_os = "redox", target_os = "haiku"))]
+fn supplementary_groups(_name: &str, gid: Gid) -> Result<Vec<u32>> {
+    Ok(vec![gid.as_raw()])
 }
 
 #[cfg(not(any(target_vendor = "apple", target_os = "redox", target_os = "haiku")))]
@@ -234,6 +299,8 @@ pub const RASH_INTERNAL_TASK_ENV: &str = "RASH_INTERNAL_TASK_FILE";
 pub const RASH_INTERNAL_RESULT_ENV: &str = "RASH_INTERNAL_RESULT_FILE";
 pub const RASH_INTERNAL_OUTPUT_ENV: &str = "RASH_INTERNAL_OUTPUT";
 pub const RASH_INTERNAL_TASK_FLAG: &str = "RASH_INTERNAL";
+/// Fallback verbosity of the `rash` binary when no `-v` flag is given.
+pub const RASH_LOG_LEVEL_ENV: &str = "RASH_LOG_LEVEL";
 
 /// Termination signals a become child turns into its exit status (`128 + signal`).
 const CHILD_INTERRUPT_SIGNALS: [i32; 3] = [libc::SIGINT, libc::SIGTERM, libc::SIGHUP];
@@ -358,10 +425,17 @@ fn open_result_file(owner: u32) -> Result<File> {
     Ok(file)
 }
 
+/// Whether a task sent by the parent is a `no_log` one (see `Task::internal_task`).
+fn is_no_log_internal_task(task: &YamlValue) -> bool {
+    task.get("no_log").and_then(YamlValue::as_bool) == Some(true)
+}
+
 fn run_internal_task(data: InternalTaskData, child_become: &ChildBecome) -> Result<TaskExecResult> {
     if let ChildBecome::Switch(user) = child_become {
         user.switch()?;
     }
+    // Suppressed before parsing: the task holds rendered params, secrets included.
+    let _no_log_guard = is_no_log_internal_task(&data.task).then(suppress_logs);
     let global_params = GlobalParams::default();
     Task::new(&data.task, &global_params)?.exec_in_become_child(data.vars)
 }
@@ -408,8 +482,12 @@ impl Task {
                 return self.execute_module_with_environment(rendered_params, vars);
             }
             if self.transfers_pid(rendered_params) {
-                // The process is replaced on success: switching users in place is fine.
-                BecomeUser::from(&user).switch()?;
+                // The process is replaced on success: switching users in place is fine. But
+                // a failed switch may be partial (groups and gid changed, uid not): Rash
+                // must stop rather than report an error the script could ignore.
+                if let Err(error) = BecomeUser::from(&user).switch() {
+                    exit_after_failed_replacement(error, FAILED_REPLACEMENT_STATUS);
+                }
                 let result = self.execute_module_with_environment(rendered_params, vars);
                 exit_after_failed_transfer(&user.name, result);
             }
@@ -583,6 +661,8 @@ impl Task {
         spec.env = vec![
             (RASH_INTERNAL_RESULT_ENV.to_owned(), path_arg(result_file)?),
             (RASH_INTERNAL_TASK_FLAG.to_owned(), "1".to_owned()),
+            // Only the flags above set the child's verbosity, never an inherited variable.
+            (RASH_LOG_LEVEL_ENV.to_owned(), String::new()),
         ];
         Ok(spec)
     }
@@ -662,25 +742,32 @@ impl Task {
     }
 }
 
-/// A `transfer_pid` task returned after Rash switched to the become user in place, so the
-/// process was not replaced: stop instead of running further tasks (or `always` sections)
-/// as that user.
-fn exit_after_failed_transfer(user: &str, result: Result<TaskExecResult>) -> ! {
-    let (reason, code) = match &result {
+/// Reason and exit status when a `transfer_pid` task returned instead of replacing Rash:
+/// its failure with [`FAILED_REPLACEMENT_STATUS`], or the status of an explicit
+/// termination (exit, interrupt), which keeps its meaning.
+fn replacement_failure(result: &Result<TaskExecResult>) -> (String, i32) {
+    match result {
         Ok(result) => (
             result
                 .get_error()
                 .unwrap_or("process not replaced")
                 .to_owned(),
-            1,
+            FAILED_REPLACEMENT_STATUS,
         ),
-        Err(error) if error.is_termination() => {
-            (error.to_string(), error.raw_os_error().unwrap_or(1))
-        }
-        Err(error) => (error.to_string(), 1),
-    };
-    error!("transfer_pid failed after switching to user {user}, exiting: {reason}");
-    std::process::exit(code)
+        Err(error) if error.is_termination() => (
+            error.to_string(),
+            error.raw_os_error().unwrap_or(FAILED_REPLACEMENT_STATUS),
+        ),
+        Err(error) => (error.to_string(), FAILED_REPLACEMENT_STATUS),
+    }
+}
+
+/// A `transfer_pid` task returned after Rash switched to the become user in place, so the
+/// process was not replaced: stop instead of running further tasks (or `always` sections)
+/// as that user.
+fn exit_after_failed_transfer(user: &str, result: Result<TaskExecResult>) -> ! {
+    let (reason, code) = replacement_failure(&result);
+    exit_after_failed_replacement(format!("after switching to user {user}: {reason}"), code)
 }
 
 #[cfg(test)]
@@ -845,6 +932,61 @@ mod tests {
         for invalid in ["", "root", "0:0", "0:0:", "x:0:root", "0:-1:root"] {
             assert!(ChildBecome::from_arg(invalid).is_err(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn replacement_failure_maps_outcomes_to_exit_status() {
+        let failed = TaskExecResult::failed(false, None, "no such program");
+        assert_eq!(
+            replacement_failure(&Ok(failed)),
+            ("no such program".to_owned(), 1)
+        );
+        assert_eq!(
+            replacement_failure(&Ok(TaskExecResult::new(true, None))),
+            ("process not replaced".to_owned(), 1)
+        );
+        let (reason, code) = replacement_failure(&Err(Error::new(ErrorKind::Other, "boom")));
+        assert!(reason.contains("boom"), "{reason}");
+        assert_eq!(code, 1);
+        assert_eq!(replacement_failure(&Err(Error::explicit_exit(7))).1, 7);
+        assert_eq!(replacement_failure(&Err(Error::interrupted(15))).1, 143);
+    }
+
+    #[test]
+    fn internal_task_carries_no_log_as_a_flag() {
+        let global_params = GlobalParams::default();
+        let params: YamlValue = serde_norway::from_str("argv: [echo, secret]").unwrap();
+        let task = task_with("command: echo secret\nno_log: true", &global_params);
+        assert!(is_no_log_internal_task(&task.internal_task(&params)));
+        let task = task_with("command: echo secret", &global_params);
+        assert!(!is_no_log_internal_task(&task.internal_task(&params)));
+        // Only the exact flag the parent sets, never something templated or truthy.
+        let yaml: YamlValue = serde_norway::from_str("command: x\nno_log: 'true'").unwrap();
+        assert!(!is_no_log_internal_task(&yaml));
+    }
+
+    #[test]
+    fn become_child_spec_resets_inherited_log_level() {
+        let global_params = GlobalParams::default();
+        let task = task_with("command: id\nbecome: true", &global_params);
+        let spec = task
+            .become_child_spec(Path::new("/tmp/task"), Path::new("/tmp/result"), 0)
+            .unwrap();
+        assert!(
+            spec.env
+                .contains(&(RASH_LOG_LEVEL_ENV.to_owned(), String::new())),
+            "{:?}",
+            spec.env
+        );
+    }
+
+    #[test]
+    fn process_user_resolves_supplementary_groups() {
+        let current = User::from_uid(Uid::current()).unwrap().unwrap();
+        let user = BecomeUser::from(&current).process_user().unwrap();
+        assert_eq!(user.uid, current.uid.as_raw());
+        assert_eq!(user.gid, current.gid.as_raw());
+        assert!(user.groups.contains(&current.gid.as_raw()));
     }
 
     #[test]

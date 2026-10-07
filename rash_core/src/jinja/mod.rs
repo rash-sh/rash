@@ -158,8 +158,18 @@ pub fn merge_option(a: Value, b: Option<Value>) -> Value {
 }
 
 pub fn merge(a: Value, b: Value) -> Value {
+    merge_replacing(a, b, None)
+}
+
+/// Merge `b` into `a` like [`merge`], except that `replaced` is taken from `b` as is instead
+/// of being merged into its old value: a registered result must not keep the keys (or
+/// accumulate the lists, like `results`) of a result registered earlier under the same name.
+pub fn merge_replacing(a: Value, b: Value, replaced: Option<&str>) -> Value {
     let mut a_json_value: serde_json::Value = serde_json::Value::deserialize(a).unwrap();
     let b_json_value: serde_json::Value = serde_json::Value::deserialize(b).unwrap();
+    if let (Some(key), Some(a_map)) = (replaced, a_json_value.as_object_mut()) {
+        a_map.remove(key);
+    }
     merge_json_without_sum(&mut a_json_value, b_json_value);
     Value::from_serialize(a_json_value)
 }
@@ -167,6 +177,27 @@ pub fn merge(a: Value, b: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_merge_replacing_takes_the_replaced_key_as_is() {
+        let old = context! {probe => context! {results => vec![1, 2], stale => true}, kept => 1};
+        let new = context! {probe => context! {results => vec![3]}};
+        let merged = merge_replacing(old.clone(), new.clone(), Some("probe"));
+        let probe = merged.get_attr("probe").unwrap();
+        assert_eq!(probe.get_attr("results").unwrap().len(), Some(1));
+        assert!(probe.get_attr("stale").unwrap().is_undefined());
+        assert_eq!(merged.get_attr("kept").unwrap().as_i64(), Some(1));
+
+        let deep = merge(old, new);
+        assert_eq!(
+            deep.get_attr("probe")
+                .unwrap()
+                .get_attr("results")
+                .unwrap()
+                .len(),
+            Some(3)
+        );
+    }
 
     #[test]
     fn test_render_map() {

@@ -6,8 +6,10 @@ weight: 8000
 # Lookups
 
 Lookups are MiniJinja functions that obtain or derive values while Rash renders a task. They execute
-locally in the Rash process; task keywords such as `become`, `check_mode`, `async`, `quiet`, and
-`environment` do not change how a lookup runs.
+locally in the Rash process, as Rash's user; task keywords such as `check_mode`, `async`, `quiet`,
+and `environment` do not change how a lookup runs. The exception is `become`: the `changed_when`,
+`failed_when` and `environment` of a become task are rendered in the become child, so a lookup
+there runs as the become user.
 
 Use a lookup when a value is needed **during rendering**. Use a module when the operation is itself a
 task whose changed/failed state, result, retries, privilege escalation, or output handling matters.
@@ -40,7 +42,8 @@ The generated reference below contains the exact parameters and examples for eac
 - executes through `/bin/sh -c`, so shell pipelines/redirections work;
 - returns stdout as a string with trailing whitespace (newlines, spaces, tabs) removed;
 - fails rendering if the command cannot be started or exits non-zero;
-- does not participate in task `failed_when`, `register`, `become`, or async semantics.
+- does not participate in task `failed_when`, `register`, or async semantics, and runs as Rash's
+  user except in the become task conditions described above.
 
 Because it invokes a shell, do not concatenate untrusted input into the command. When command
 execution itself is the operation you want to model, prefer a `command` or `shell` task instead.

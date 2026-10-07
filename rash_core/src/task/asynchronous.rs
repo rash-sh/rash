@@ -6,7 +6,8 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::job::{JobInfo, JobStatus, get_job_info, kill_job, register_job};
 use crate::modules::ModuleResult;
 use crate::process::{ProcessPlan, ProcessSpec};
-use crate::task::{Task, TaskExecResult};
+use crate::task::control::Accumulated;
+use crate::task::{BecomeUser, Task, TaskExecResult};
 
 use std::thread;
 use std::time::Duration;
@@ -61,13 +62,6 @@ fn finished_job(job_id: u64) -> Result<Option<JobOutcome>> {
     })
 }
 
-fn extra_field(result: &ModuleResult, key: &str) -> Option<YamlValue> {
-    result
-        .get_extra()
-        .and_then(|extra| extra.get(key).cloned())
-        .filter(|value| !value.is_null())
-}
-
 impl Task {
     fn get_poll_interval(&self) -> u64 {
         self.poll.unwrap_or(0)
@@ -90,7 +84,7 @@ impl Task {
         }
         let user = self.resolve_become_user()?;
         if user.uid != Uid::current() {
-            spec.user = Some((user.uid.as_raw(), user.gid.as_raw()));
+            spec.user = Some(BecomeUser::from(&user).process_user()?);
         }
         Ok(())
     }
@@ -218,8 +212,23 @@ impl Task {
             let result = ModuleResult::new(changed, Some(extra), None);
             return self.finalize_module_result(result, None, &extended, false);
         }
-        let outcome = summarize_items(self.wait_async_items(items)?, &job_ids)?;
-        self.finish_outcome(outcome, &extended)
+        let items = self.wait_async_items(items)?;
+        self.finish_async_items(items, &vars)
+    }
+
+    /// Fold the ended items into the loop result: each item is finalized like a synchronous
+    /// one (`changed_when`, `failed_when`, `register`) with its `item` in scope.
+    fn finish_async_items(&self, items: Vec<ItemResult>, vars: &Value) -> Result<TaskExecResult> {
+        let mut accumulated = Accumulated::default();
+        for entry in items {
+            let Some(outcome) = entry.outcome else {
+                continue;
+            };
+            let item_vars = self.extend_vars(context! {item => &entry.item, ..vars.clone()})?;
+            let result = self.finish_outcome(outcome, &item_vars)?;
+            accumulated.add_item(self, &entry.item, result);
+        }
+        Ok(accumulated.into_loop_result(self))
     }
 }
 
@@ -228,44 +237,6 @@ struct ItemResult {
     item: YamlValue,
     job_id: Option<u64>,
     outcome: Option<JobOutcome>,
-}
-
-/// Aggregate the results of an async loop into a single module result.
-fn summarize_items(items: Vec<ItemResult>, job_ids: &[u64]) -> Result<JobOutcome> {
-    let mut changed = false;
-    let mut failed = false;
-    let mut results = Vec::new();
-    for entry in items {
-        let result = match entry.outcome {
-            Some(JobOutcome::Completed(result)) => result,
-            Some(JobOutcome::Broken(error)) => return Ok(JobOutcome::Broken(error)),
-            None => continue,
-        };
-        let item_failed = extra_field(&result, "failed")
-            .and_then(|value| value.as_bool())
-            .unwrap_or(false);
-        changed |= result.get_changed();
-        failed |= item_failed;
-        results.push(json!({
-            "job_id": entry.job_id,
-            "item": entry.item,
-            "rc": extra_field(&result, "rc"),
-            "output": result.get_output(),
-            "stderr": extra_field(&result, "stderr"),
-            "changed": result.get_changed(),
-            "failed": item_failed,
-        }));
-    }
-    let extra = serde_norway::value::to_value(json!({
-        "rash_job_ids": job_ids,
-        "results": results,
-        "failed": failed,
-    }))?;
-    Ok(JobOutcome::Completed(ModuleResult::new(
-        changed,
-        Some(extra),
-        None,
-    )))
 }
 
 #[cfg(test)]
@@ -348,6 +319,54 @@ mod tests {
         // Switching to another user needs privileges: the job must not run as ourselves.
         assert!(result.is_err());
         assert!(!marker.exists());
+    }
+
+    /// Root-only (see `running_as_root` in the CLI tests): the job runs with the become
+    /// user's uid, gid and supplementary groups, not root's.
+    #[test]
+    fn test_as_root_become_syscall_job_has_become_user_groups() {
+        use nix::unistd::{Gid, User, getgrouplist};
+        use std::collections::BTreeSet;
+
+        if !Uid::effective().is_root() {
+            eprintln!(
+                "test_as_root_become_syscall_job_has_become_user_groups: skipped: requires root"
+            );
+            return;
+        }
+        // Under sudo, the invoking user: unlike nobody, it usually has supplementary groups.
+        let name = std::env::var("SUDO_USER").unwrap_or_else(|_| "nobody".to_owned());
+        let user = User::from_name(&name).unwrap().unwrap();
+        let cname = std::ffi::CString::new(name.clone()).unwrap();
+        let expected: BTreeSet<u32> = getgrouplist(&cname, user.gid)
+            .unwrap()
+            .into_iter()
+            .chain([user.gid])
+            .map(Gid::as_raw)
+            .collect();
+
+        let result = exec(&format!(
+            "command: id -u; id -g; id -G\nasync: 10\npoll: 1\nbecome: true\nbecome_user: {name}\nregister: out"
+        ))
+        .unwrap();
+        let stdout = result
+            .get_vars()
+            .unwrap()
+            .get_attr("out")
+            .unwrap()
+            .get_attr("stdout")
+            .unwrap()
+            .to_string();
+        let mut lines = stdout.lines();
+        assert_eq!(lines.next().unwrap(), user.uid.to_string(), "{stdout}");
+        assert_eq!(lines.next().unwrap(), user.gid.to_string(), "{stdout}");
+        let groups: BTreeSet<u32> = lines
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .map(|gid| gid.parse().unwrap())
+            .collect();
+        assert_eq!(groups, expected, "{stdout}");
     }
 
     #[test]
