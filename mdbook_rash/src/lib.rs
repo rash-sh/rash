@@ -557,6 +557,31 @@ mod llms_txt_test {
         assert!(output.contains("generated lookup pages"));
         assert!(output.contains("CLI reference"));
     }
+
+    #[test]
+    fn test_generate_llms_txt_indexes_processed_markdown_directory() {
+        let directory = std::env::temp_dir().join(format!("rash-llms-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("index.md"),
+            "---\ntitle: Introduction\nweight: 0\n---\n\n# Introduction\n",
+        )
+        .unwrap();
+        fs::write(
+            directory.join("module_file.md"),
+            "---\ntitle: file\nweight: 5001\nindent: true\n---\n\n# file\n",
+        )
+        .unwrap();
+        fs::write(directory.join("ignored.md"), "# No front matter\n").unwrap();
+
+        let output = generate_llms_txt(&directory, "v3.0").unwrap();
+        fs::remove_dir_all(&directory).unwrap();
+
+        assert!(output.contains("[Introduction]("));
+        assert!(output.contains("  - [file]("));
+        assert!(!output.contains("ignored.md"));
+    }
 }
 
 #[cfg(test)]
