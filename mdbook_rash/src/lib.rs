@@ -1,6 +1,9 @@
 use rash_core::jinja::lookup::LOOKUPS;
 use rash_core::modules::MODULES;
 
+use std::fs;
+use std::io;
+use std::path::Path;
 use std::sync::LazyLock;
 
 use mdbook_core::book::{Book, BookItem, Chapter};
@@ -16,7 +19,9 @@ extern crate log;
 
 pub const SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
-const DOCS_BASE_URL: &str = "https://rash-sh.github.io/docs/rash/latest";
+const PUBLIC_SITE_URL: &str = "https://rash.sh";
+const DOCS_RAW_BASE_URL: &str =
+    "https://raw.githubusercontent.com/rash-sh/rash-sh.github.io/master/docs/rash";
 const GITHUB_URL: &str = "https://github.com/rash-sh/rash";
 
 static RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -325,211 +330,232 @@ pub fn run(_ctx: &PreprocessorContext, book: Book) -> Result<Book, Error> {
     Ok(processed_book)
 }
 
-/// Generate llms.txt content for LLM discoverability.
-///
-/// Returns a markdown-formatted string containing:
-/// - Project overview and features
-/// - Installation instructions
-/// - Quick start example
-/// - Module list (all available modules)
-/// - Lookup list
-/// - Built-in variables
-/// - Links to full documentation
-pub fn generate_llms_txt() -> String {
-    let sections: Vec<String> = vec![
-        section_header(),
-        section_what_is_rash(),
-        section_installation(),
-        section_quick_start(),
-        section_modules(),
-        section_lookups(),
-        section_builtins(),
-        section_links(),
-    ];
-    sections.join("\n")
+/// A page from the fully processed Markdown documentation output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DocumentationEntry {
+    title: String,
+    path: String,
+    weight: u32,
+    indent: bool,
 }
 
-fn section_header() -> String {
+fn parse_front_matter(content: &str) -> io::Result<Option<(String, u32, bool)>> {
+    let mut lines = content.lines();
+    if lines.next() != Some("---") {
+        return Ok(None);
+    }
+
+    let mut title = None;
+    let mut weight = None;
+    let mut indent = false;
+
+    for line in lines {
+        if line == "---" {
+            break;
+        }
+
+        if let Some(value) = line.strip_prefix("title:") {
+            title = Some(value.trim().trim_matches('"').to_owned());
+        } else if let Some(value) = line.strip_prefix("weight:") {
+            weight = Some(value.trim().parse::<u32>().map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("invalid documentation weight {value:?}: {error}"),
+                )
+            })?);
+        } else if let Some(value) = line.strip_prefix("indent:") {
+            indent = value.trim() == "true";
+        }
+    }
+
+    match (title, weight) {
+        (Some(title), Some(weight)) => Ok(Some((title, weight, indent))),
+        _ => Ok(None),
+    }
+}
+
+fn collect_markdown_entries(
+    root: &Path,
+    directory: &Path,
+    entries: &mut Vec<DocumentationEntry>,
+) -> io::Result<()> {
+    for item in fs::read_dir(directory)? {
+        let item = item?;
+        let path = item.path();
+
+        if path.is_dir() {
+            collect_markdown_entries(root, &path, entries)?;
+            continue;
+        }
+
+        if path.extension().and_then(|extension| extension.to_str()) != Some("md") {
+            continue;
+        }
+
+        let content = fs::read_to_string(&path)?;
+        let Some((title, weight, indent)) = parse_front_matter(&content)? else {
+            continue;
+        };
+        let relative = path.strip_prefix(root).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("documentation path {} is outside {}: {error}", path.display(), root.display()),
+            )
+        })?;
+        let relative = relative.to_string_lossy().replace('\\', "/");
+
+        entries.push(DocumentationEntry {
+            title,
+            path: relative,
+            weight,
+            indent,
+        });
+    }
+
+    Ok(())
+}
+
+fn render_llms_txt(entries: &[DocumentationEntry], docs_version: &str) -> String {
+    let mut entries = entries.to_vec();
+    entries.sort_by(|left, right| {
+        left.weight
+            .cmp(&right.weight)
+            .then_with(|| left.path.cmp(&right.path))
+    });
+
+    let public_docs_url = format!("{PUBLIC_SITE_URL}/docs/rash/{docs_version}");
+    let raw_docs_url = format!("{DOCS_RAW_BASE_URL}/{docs_version}");
+
     let mut output = String::from("# Rash\n\n");
     output.push_str(
-        "> Rash is a declarative shell scripting language using Ansible-like YAML syntax, ",
+        "> Rash is a declarative local automation tool using Ansible-like YAML tasks and ",
     );
     output.push_str(
-        "compiled to a single Rust binary. Designed for container entrypoints, IoT devices, ",
+        "MiniJinja templates, distributed as a single Rust binary with no runtime dependencies.\n\n",
     );
-    output.push_str("and local scripting with zero dependencies.\n");
-    output
-}
 
-fn section_what_is_rash() -> String {
-    let mut output = String::from("\n## What is Rash\n\nRash provides:\n");
-    output.push_str("- A **simple syntax** to maintain low complexity\n");
-    output.push_str("- One static binary to be **container oriented**\n");
-    output.push_str("- A **declarative** syntax to be idempotent\n");
-    output.push_str("- **Clear output** to log properly\n");
-    output.push_str("- **Security** by design\n");
-    output.push_str("- **Speed and efficiency**\n");
-    output.push_str("- **Modular** design\n");
-    output.push_str("- Support of [MiniJinja](https://docs.rs/minijinja/latest/minijinja/syntax/index.html) **templates**\n");
-    output
-}
-
-fn section_installation() -> String {
-    let mut output = String::from("\n## Installation\n\n```bash\n");
-    output.push_str("# Download latest binary (Linux/macOS)\n");
-    output.push_str("curl -s https://api.github.com/repos/rash-sh/rash/releases/latest \\\n");
-    output.push_str("    | grep browser_download_url \\\n");
-    output.push_str("    | grep -v sha256 \\\n");
-    output.push_str("    | grep $(uname -m) \\\n");
-    output.push_str("    | grep $(uname | tr '[:upper:]' '[:lower:]') \\\n");
-    output.push_str("    | grep -v musl \\\n");
-    output.push_str("    | cut -d '\"' -f 4 \\\n");
-    output.push_str("    | xargs curl -s -L \\\n");
-    output.push_str("    | sudo tar xvz -C /usr/local/bin\n");
-    output.push_str("```\n");
-    output
-}
-
-fn section_quick_start() -> String {
-    let mut output =
-        String::from("\n## Quick Start\n\nCreate an `entrypoint.rh` file:\n\n```yaml\n");
-    output.push_str("- name: Ensure directory exists\n");
-    output.push_str("  file:\n");
-    output.push_str("    path: /app/data\n");
-    output.push_str("    state: directory\n\n");
-    output.push_str("- name: Copy configuration\n");
-    output.push_str("  copy:\n");
-    output.push_str("    content: \"{{ env.APP_CONFIG }}\"\n");
-    output.push_str("    dest: /app/config.yml\n\n");
-    output.push_str("- name: Run application\n");
-    output.push_str("  command:\n");
-    output.push_str("    cmd: /app/bin/start\n");
-    output.push_str("```\n");
-    output
-}
-
-fn section_modules() -> String {
-    let mut output =
-        String::from("\n## Modules\n\nRash modules are idempotent operations like Ansible.\n\n");
-
-    let mut modules: Vec<_> = MODULES.keys().collect();
-    modules.sort();
-
-    for name in modules {
-        output.push_str(&format!("- {name}\n"));
+    if docs_version == "latest" {
+        output.push_str(
+            "This index covers the unreleased documentation built from Rash's `master` branch. ",
+        );
+        output.push_str(
+            "For a released Rash version, use the `llms.txt` file under that version's documentation path.\n\n",
+        );
+    } else {
+        output.push_str(&format!(
+            "This index covers Rash documentation version `{docs_version}`. Keep answers within this version unless the user explicitly asks about another release.\n\n"
+        ));
     }
 
-    output.push_str(&format!(
-        "\nSee {DOCS_BASE_URL}/modules.html for full documentation.\n"
-    ));
-    output
-}
+    output.push_str(
+        "For exact built-in module parameters, required fields, types, enum values and defaults, ",
+    );
+    output.push_str(
+        "prefer the generated module reference, which is backed by Rash's JSON schemas when available ",
+    );
+    output.push_str(
+        "and by the module's Rust documentation otherwise. Prefer generated lookup pages for lookup ",
+    );
+    output.push_str(
+        "behavior, the CLI reference for command-line behavior, and the versioned book for language semantics.\n\n",
+    );
 
-fn section_lookups() -> String {
-    let mut output =
-        String::from("\n## Lookups\n\nLookups allow fetching data from external sources.\n\n");
-
-    let mut lookups: Vec<_> = LOOKUPS.iter().collect();
-    lookups.sort();
-
-    for name in lookups {
-        output.push_str(&format!("- {name}\n"));
+    output.push_str("## Documentation\n\n");
+    for entry in &entries {
+        let prefix = if entry.indent { "  - " } else { "- " };
+        output.push_str(&format!(
+            "{prefix}[{}]({raw_docs_url}/{})\n",
+            entry.title, entry.path
+        ));
     }
 
+    output.push_str("\n## Primary sources\n\n");
     output.push_str(&format!(
-        "\nSee {DOCS_BASE_URL}/lookups.html for full documentation.\n"
+        "- [Human documentation]({public_docs_url}/): Rendered documentation for this version.\n"
     ));
+    output.push_str(&format!(
+        "- [Rash repository]({GITHUB_URL}): Runtime implementation, tests, examples, and documentation sources.\n"
+    ));
+
     output
 }
 
-fn section_builtins() -> String {
-    let mut output = String::from("\n## Built-in Variables\n\n");
-    output.push_str("- `rash.path` - Path to the current script\n");
-    output.push_str("- `rash.dir` - Directory of the current script\n");
-    output.push_str("- `rash.cwd` - Current working directory\n");
-    output.push_str("- `rash.arch` - System architecture\n");
-    output.push_str("- `rash.check_mode` - Boolean indicating check mode\n");
-    output.push_str("- `env.VAR_NAME` - Access environment variables\n");
-    output.push_str(&format!(
-        "\nSee {DOCS_BASE_URL}/builtins.html for full documentation.\n"
-    ));
-    output
-}
-
-fn section_links() -> String {
-    format!("\n## Links\n\n- GitHub: {GITHUB_URL}\n- Documentation: {DOCS_BASE_URL}/\n")
+/// Generate a versioned llms.txt index from mdBook's fully processed Markdown output.
+///
+/// The input directory must be the output of Rash's Markdown renderer. This deliberately indexes
+/// generated module and lookup pages as well as authored chapters, so the LLM navigation follows
+/// the exact same documentation graph that is published for humans.
+pub fn generate_llms_txt(docs_dir: &Path, docs_version: &str) -> io::Result<String> {
+    let mut entries = Vec::new();
+    collect_markdown_entries(docs_dir, docs_dir, &mut entries)?;
+    Ok(render_llms_txt(&entries, docs_version))
 }
 
 #[cfg(test)]
 mod llms_txt_test {
     use super::*;
 
-    #[test]
-    fn test_generate_llms_txt_contains_expected_sections() {
-        let output = generate_llms_txt();
-        assert!(output.contains("# Rash"), "Missing main header");
-        assert!(
-            output.contains("## What is Rash"),
-            "Missing What is Rash section"
-        );
-        assert!(
-            output.contains("## Installation"),
-            "Missing Installation section"
-        );
-        assert!(
-            output.contains("## Quick Start"),
-            "Missing Quick Start section"
-        );
-        assert!(output.contains("## Modules"), "Missing Modules section");
-        assert!(output.contains("## Lookups"), "Missing Lookups section");
-        assert!(
-            output.contains("## Built-in Variables"),
-            "Missing Built-in Variables section"
-        );
-        assert!(output.contains("## Links"), "Missing Links section");
+    fn entries() -> Vec<DocumentationEntry> {
+        vec![
+            DocumentationEntry {
+                title: "Modules".to_owned(),
+                path: "modules.md".to_owned(),
+                weight: 5000,
+                indent: false,
+            },
+            DocumentationEntry {
+                title: "file".to_owned(),
+                path: "module_file.md".to_owned(),
+                weight: 5001,
+                indent: true,
+            },
+            DocumentationEntry {
+                title: "Introduction".to_owned(),
+                path: "index.md".to_owned(),
+                weight: 0,
+                indent: false,
+            },
+        ]
     }
 
     #[test]
-    fn test_generate_llms_txt_contains_all_modules() {
-        let output = generate_llms_txt();
-        for name in MODULES.keys() {
-            assert!(
-                output.contains(&format!("- {name}\n")),
-                "Missing module: {name}"
-            );
-        }
+    fn test_parse_front_matter() {
+        let metadata = parse_front_matter(
+            "---\ntitle: file\nweight: 5001\nindent: true\n---\n\n# file\n",
+        )
+        .unwrap();
+
+        assert_eq!(metadata, Some(("file".to_owned(), 5001, true)));
     }
 
     #[test]
-    fn test_generate_llms_txt_contains_all_lookups() {
-        let output = generate_llms_txt();
-        for name in LOOKUPS.iter() {
-            assert!(
-                output.contains(&format!("- {name}\n")),
-                "Missing lookup: {name}"
-            );
-        }
+    fn test_render_llms_txt_uses_processed_markdown_links() {
+        let output = render_llms_txt(&entries(), "v3.0");
+
+        assert!(output.contains(
+            "https://raw.githubusercontent.com/rash-sh/rash-sh.github.io/master/docs/rash/v3.0/index.md"
+        ));
+        assert!(output.contains(
+            "  - [file](https://raw.githubusercontent.com/rash-sh/rash-sh.github.io/master/docs/rash/v3.0/module_file.md)"
+        ));
+        assert!(!output.contains("/docs/rash/latest/"));
     }
 
     #[test]
-    fn test_generate_llms_txt_links_are_valid() {
-        let output = generate_llms_txt();
-        assert!(output.contains(DOCS_BASE_URL), "Missing docs base URL");
-        assert!(output.contains(GITHUB_URL), "Missing GitHub URL");
+    fn test_latest_is_explicitly_unreleased() {
+        let output = render_llms_txt(&entries(), "latest");
+
+        assert!(output.contains("unreleased documentation"));
+        assert!(output.contains("/docs/rash/latest/index.md"));
     }
 
     #[test]
-    fn test_generate_llms_txt_quick_start_is_valid_yaml() {
-        let output = generate_llms_txt();
-        let start = output
-            .find("```yaml\n")
-            .expect("Could not find yaml block start");
-        let end = output[start..]
-            .find("\n```\n")
-            .expect("Could not find yaml block end");
-        let yaml_content = &output[start + 8..start + end];
-        serde_norway::from_str::<serde_norway::Value>(yaml_content)
-            .expect("Quick start example is not valid YAML");
+    fn test_llms_txt_documents_source_precedence() {
+        let output = render_llms_txt(&entries(), "v3.0");
+
+        assert!(output.contains("JSON schemas"));
+        assert!(output.contains("generated lookup pages"));
+        assert!(output.contains("CLI reference"));
     }
 }
 
