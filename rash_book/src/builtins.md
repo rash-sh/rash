@@ -1,10 +1,10 @@
 ---
-title: Bultins
+title: Builtins
 weight: 6100
 indent: true
 ---
 
-# Bultins
+# Builtins
 
 By default, every execution of `rash` exposes two variables to the Context: `{{ rash }}` and
 `{{ env }}`.
