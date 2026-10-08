@@ -116,10 +116,10 @@ exec "$@"
   vars:
     server_port: "{{ env.SERVER_PORT | default('8080') }}"
 
-- name: Launch command
+- name: Launch application
   command:
-    cmd: "{{ rash.argv }}"
-    transfer_pid: yes
+    cmd: /app/bin/start
+    transfer_pid: true
 ```
 
 ## Installation
@@ -232,7 +232,7 @@ Run commands as different users with the built-in `become` functionality:
 ## Documentation
 
 For comprehensive documentation, visit:
-[https://rash-sh.github.io/docs/rash/master/](https://rash-sh.github.io/docs/rash/master/)
+[https://rash.sh/docs/rash/latest/](https://rash.sh/docs/rash/latest/)
 
 ## Community
 
