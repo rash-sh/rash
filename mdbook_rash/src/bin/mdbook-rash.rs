@@ -126,12 +126,14 @@ fn handle_supports(sub_args: &ArgMatches) -> ! {
 }
 
 fn handle_generate_llms_txt(sub_args: &ArgMatches) {
-    let input = sub_args
-        .get_one::<String>("input")
-        .expect("required argument is enforced by clap");
-    let docs_version = sub_args
-        .get_one::<String>("docs-version")
-        .expect("required argument is enforced by clap");
+    let Some(input) = sub_args.get_one::<String>("input") else {
+        error!("Missing required --input argument");
+        process::exit(2);
+    };
+    let Some(docs_version) = sub_args.get_one::<String>("docs-version") else {
+        error!("Missing required --docs-version argument");
+        process::exit(2);
+    };
     let content = match mdbook_rash::generate_llms_txt(Path::new(input), docs_version) {
         Ok(content) => content,
         Err(error) => {
