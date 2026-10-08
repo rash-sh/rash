@@ -121,6 +121,18 @@ jobs:
         if: matrix.job.target != 'x86_64-unknown-freebsd'
         run: CARGO_TARGET=${{ matrix.job.target }} make test
 
+      # Tests switching users (`test_as_root_*`, e.g. the syscall become path) skip
+      # themselves unless run as root. Run just them as root, executing the test binaries
+      # already built by `make test` directly so root never writes to the cargo home or
+      # the target directory.
+      - name: Run root-only tests
+        if: matrix.job.target == 'x86_64-unknown-linux-gnu'
+        working-directory: rash_core
+        run: |
+          cargo test --locked --target ${{ matrix.job.target }} --no-run --message-format=json \
+            | jq -r 'select(.profile.test == true) | .executable // empty' \
+            | while read -r test_bin; do sudo "$test_bin" test_as_root || exit 1; done
+
       - name: Extract crate information
         shell: bash
         run: |

@@ -1,4 +1,4 @@
-use crate::cli::execute_rash;
+use crate::cli::{execute_rash, execute_rash_with_env, running_as_root};
 
 #[test]
 fn test_become_method_sudo_command() {
@@ -189,4 +189,301 @@ fn test_become_password_task_parameter() {
         "stdout should contain debug output or be empty: {}",
         stdout
     );
+}
+
+#[test]
+fn test_become_sudo_task_files_are_private_and_removed() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let log_path = temp_dir.path().join("sudo.log");
+    let fake_sudo = temp_dir.path().join("fake-sudo");
+    std::fs::write(
+        &fake_sudo,
+        r#"#!/bin/sh
+while [ "$1" != "--" ]; do shift; done
+shift
+{
+  echo "$3"
+  echo "$RASH_INTERNAL_RESULT_FILE"
+  # Portable (GNU and BSD) permission strings, e.g. -rw-------
+  ls -ln "$3" | cut -c1-10
+  ls -ln "$RASH_INTERNAL_RESULT_FILE" | cut -c1-10
+} > "$RASH_TEST_SUDO_LOG"
+exec "$@"
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        &fake_sudo,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .unwrap();
+
+    let script_text = r#"
+#!/usr/bin/env rash
+- command: echo "{{ secret }}"
+  vars:
+    secret: top-secret-value
+  become: true
+  become_method: sudo
+  become_user: root
+  register: result
+- assert:
+    that:
+      - result.stdout == "top-secret-value\n"
+- debug:
+    msg: sudo-files-ok
+"#;
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, script_text).unwrap();
+
+    let args = [
+        "--output",
+        "raw",
+        "--become-exe",
+        fake_sudo.to_str().unwrap(),
+        script_path.to_str().unwrap(),
+    ];
+    let log = log_path.to_str().unwrap();
+    let (stdout, stderr) = execute_rash_with_env(&args, &[("RASH_TEST_SUDO_LOG", log)]);
+
+    assert!(stdout.contains("sudo-files-ok"), "stderr: {stderr}");
+    let log_content = std::fs::read_to_string(&log_path).unwrap();
+    let lines: Vec<&str> = log_content.lines().collect();
+    assert_eq!(&lines[2..], ["-rw-------", "-rw-------"], "{log_content}");
+    for file in &lines[..2] {
+        assert!(
+            !std::path::Path::new(file).exists(),
+            "{file} was not removed"
+        );
+    }
+}
+
+/// A become child inherits the environment (`sudo -E`): a `RASH_LOG_LEVEL` there must not
+/// make it trace the rendered params of a `no_log` task.
+#[test]
+fn test_become_no_log_hides_params_from_child_trace_logs() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let fake_sudo = temp_dir.path().join("fake-sudo");
+    std::fs::write(
+        &fake_sudo,
+        r#"#!/bin/sh
+while [ "$1" != "--" ]; do shift; done
+shift
+exec "$@"
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        &fake_sudo,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .unwrap();
+
+    let script_text = r#"
+#!/usr/bin/env rash
+- command:
+    argv: [echo, "{{ secret }}"]
+  vars:
+    secret: literal-hunter2
+  no_log: true
+  become: true
+  become_method: sudo
+  become_user: root
+  register: result
+# Checked without quoting the secret: the params of this task are traced too.
+- assert:
+    that:
+      - result.rc == 0
+      - result.stdout | trim | length == 15
+- debug:
+    msg: become-no-log-ok
+"#;
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, script_text).unwrap();
+
+    let args = [
+        "--become-exe",
+        fake_sudo.to_str().unwrap(),
+        script_path.to_str().unwrap(),
+    ];
+    let (stdout, stderr) = execute_rash_with_env(&args, &[("RASH_LOG_LEVEL", "TRACE")]);
+
+    assert!(stdout.contains("become-no-log-ok"), "stderr: {stderr}");
+    assert!(!stdout.contains("hunter2"), "stdout: {stdout}");
+    assert!(!stderr.contains("hunter2"), "stderr: {stderr}");
+}
+
+/// Run a script with the mocks (e.g. `sudo`) first in PATH, returning exit code and output.
+fn run_script_status(script_text: &str, args: &[&str]) -> (Option<i32>, String) {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let script_path = temp_dir.path().join("test.rh");
+    std::fs::write(&script_path, script_text).unwrap();
+    let mocks = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+    let path = std::env::join_paths(
+        std::iter::once(mocks).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_rash"))
+        .args(args)
+        .arg(&script_path)
+        .env("PATH", path)
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&output.stdout).to_string()
+        + &String::from_utf8_lossy(&output.stderr);
+    (output.status.code(), text)
+}
+
+const TEMPLATED_EXIT: &str = r#"
+- set_vars:
+    wanted: "{{ 3 + 4 }}"
+- block:
+    - meta:
+        action: exit
+        code: "{{ wanted }}"
+  become: true
+- debug:
+    msg: unreachable-after-exit
+"#;
+
+#[test]
+fn test_meta_exit_code_propagates_with_become() {
+    for args in [
+        &[][..],
+        &["--become"][..],
+        &["--become", "--become-method", "sudo"][..],
+    ] {
+        let (code, output) = run_script_status(TEMPLATED_EXIT, args);
+        assert_eq!(code, Some(7), "{args:?}: {output}");
+        assert!(!output.contains("unreachable-after-exit"), "{output}");
+    }
+}
+
+#[test]
+fn test_block_children_inherit_become_and_escalate_individually() {
+    let script_text = r#"
+- block:
+    - command: echo escalated
+      register: inner
+  become: true
+  become_method: sudo
+- assert:
+    that:
+      - inner.stdout == "escalated\n"
+- debug:
+    msg: block-become-ok
+"#;
+    let (code, output) = run_script_status(script_text, &[]);
+    assert_eq!(code, Some(0), "{output}");
+    assert!(output.contains("block-become-ok"), "{output}");
+}
+
+#[test]
+fn test_failed_become_child_never_continues_script() {
+    let script_text = r#"
+- command: echo hi
+  become: true
+  become_user: nobody
+  ignore_errors: true
+- debug:
+    msg: after-become-task
+"#;
+    let (code, output) = run_script_status(script_text, &[]);
+    assert_eq!(code, Some(0), "{output}");
+    assert_eq!(output.matches("after-become-task").count(), 1, "{output}");
+}
+
+/// Switching to another user needs root: skipped otherwise.
+#[test]
+fn test_as_root_syscall_become_runs_modules_as_user_with_its_own_groups() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    if !running_as_root("test_as_root_syscall_become_runs_modules_as_user_with_its_own_groups") {
+        return;
+    }
+    let nobody = nix::unistd::User::from_name("nobody").unwrap().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o777)).unwrap();
+    let dest = dir.path().join("owned-by-nobody");
+    let script_text = format!(
+        r#"
+- command: id -u
+  become: true
+  become_user: nobody
+  register: uid
+- command: id -G
+  become: true
+  become_user: nobody
+  register: groups
+- copy:
+    content: written as nobody
+    dest: {}
+  become: true
+  become_user: nobody
+- debug:
+    msg: "uid=[{{{{ uid.stdout | trim }}}}] groups=[{{{{ groups.stdout | trim }}}}]"
+"#,
+        dest.display()
+    );
+
+    let (code, output) = run_script_status(&script_text, &[]);
+
+    assert_eq!(code, Some(0), "{output}");
+    assert!(
+        output.contains(&format!("uid=[{}]", nobody.uid)),
+        "{output}"
+    );
+    let groups = output
+        .split("groups=[")
+        .nth(1)
+        .unwrap()
+        .split(']')
+        .next()
+        .unwrap();
+    // initgroups: root's supplementary groups are not kept.
+    assert!(!groups.split_whitespace().any(|gid| gid == "0"), "{output}");
+    assert_eq!(std::fs::metadata(&dest).unwrap().uid(), nobody.uid.as_raw());
+}
+
+/// With `transfer_pid`, Rash switches to the become user in place before replacing itself:
+/// if the program cannot be executed, it must stop instead of going on as that user.
+#[test]
+fn test_as_root_failed_transfer_pid_never_continues_as_become_user() {
+    if !running_as_root("test_as_root_failed_transfer_pid_never_continues_as_become_user") {
+        return;
+    }
+    let script_text = r#"
+- command:
+    cmd: /nonexistent/rash-test-program
+    transfer_pid: true
+  become: true
+  become_user: nobody
+  ignore_errors: true
+- command: id -u
+  register: after
+- debug:
+    msg: "continued-as-uid-{{ after.stdout | trim }}"
+"#;
+    let (code, output) = run_script_status(script_text, &[]);
+    assert_eq!(code, Some(1), "{output}");
+    assert!(!output.contains("continued-as-uid"), "{output}");
+    assert!(output.contains("transfer_pid failed"), "{output}");
+}
+
+#[test]
+fn test_ignored_become_failure_is_reported_once() {
+    let script_text = r#"
+- command: sh -c 'echo become-child-failed >&2; exit 3'
+  become: true
+  become_method: sudo
+  ignore_errors: true
+  register: failed_in_child
+- assert:
+    that:
+      - failed_in_child is failed
+      - failed_in_child.rc == 3
+"#;
+    let (code, output) = run_script_status(script_text, &["--output", "raw"]);
+    assert_eq!(code, Some(0), "{output}");
+    assert_eq!(output.matches("become-child-failed").count(), 1, "{output}");
 }

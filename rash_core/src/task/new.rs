@@ -2,6 +2,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::modules::is_module;
 use crate::task::Task;
 use crate::task::valid::TaskValid;
+use crate::utils::yaml_to_string;
 
 use serde_norway::Value;
 
@@ -26,7 +27,10 @@ impl TaskNew {
         let attrs_map = proto_attrs_copy.as_mapping().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidData,
-                format!("Task is not a mapping {:?}", self.proto_attrs),
+                format!(
+                    "Task is not a mapping: {}",
+                    yaml_to_string(&self.proto_attrs)
+                ),
             )
         })?;
         let attrs_seq = attrs_map
@@ -35,7 +39,11 @@ impl TaskNew {
                 key.clone().as_str().map(String::from).ok_or_else(|| {
                     Error::new(
                         ErrorKind::InvalidData,
-                        format!("{:?} is not valid in {:?}", key, self.proto_attrs),
+                        format!(
+                            "{} is not valid in {}",
+                            yaml_to_string(key),
+                            yaml_to_string(&self.proto_attrs)
+                        ),
                     )
                 })
             })

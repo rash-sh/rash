@@ -3,16 +3,14 @@ use rash_core::error::{Error, ErrorKind};
 use rash_core::logger;
 use rash_core::modules::add_module_search_path;
 use rash_core::script_cli;
-use rash_core::task::{
-    InternalTaskData, get_internal_result_path, parse_file, parse_file_with_handlers,
-};
+use rash_core::signal;
+use rash_core::task::parse_script;
 use rash_core::vars::builtin::Builtins;
 use rash_core::vars::env;
 
 use rpassword::read_password;
 use std::error::Error as StdError;
-use std::fs::{File, read_to_string};
-use std::io::Write;
+use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -92,9 +90,15 @@ struct Cli {
     /// they will be parsed and added as variables too. For more information check rash_book.
     #[arg(action = ArgAction::Append, num_args = 1)]
     script_args: Vec<String>,
-    /// Internal task file for sudo become execution (hidden, not for direct use)
+    /// Internal task file for become execution (hidden, not for direct use)
     #[arg(long, hide = true)]
     internal_task: Option<PathBuf>,
+    /// Owner uid of the internal task and result files (hidden, not for direct use)
+    #[arg(long, hide = true, requires = "internal_task")]
+    internal_task_owner: Option<u32>,
+    /// How the internal task runs as the become user (hidden, not for direct use)
+    #[arg(long, hide = true, requires = "internal_task")]
+    internal_become: Option<String>,
 }
 
 fn log_inner_errors(e: &dyn StdError) {
@@ -105,9 +109,15 @@ fn log_inner_errors(e: &dyn StdError) {
 }
 
 fn crash_error(e: Error) -> ! {
+    if e.kind() == ErrorKind::ExplicitExit {
+        exit(e.raw_os_error().unwrap_or(0));
+    }
+    if e.kind() == ErrorKind::Interrupted {
+        // Do not leave async jobs running once the script stops.
+        signal::kill_job_groups();
+    }
     error!("{e}");
     let exit_code = e.raw_os_error().unwrap_or(1);
-
     if let Some(inner_error) = e.into_inner()
         && let Some(source_error) = inner_error.source()
     {
@@ -120,24 +130,16 @@ fn setup_module_search_paths(script_path: &Path) {
     if let Some(script_dir) = script_path.parent() {
         let script_modules = script_dir.join("modules");
         if script_modules.exists() {
-            trace!(
-                "Adding script-relative module search path: {:?}",
-                script_modules
-            );
             add_module_search_path(script_modules);
         }
     }
-
     let system_modules = PathBuf::from("/etc/rash/modules");
     if system_modules.exists() {
-        trace!("Adding system module search path: {:?}", system_modules);
         add_module_search_path(system_modules);
     }
-
     if let Ok(config_home) = std::env::var("XDG_CONFIG_HOME") {
         let user_modules = PathBuf::from(config_home).join("rash").join("modules");
         if user_modules.exists() {
-            trace!("Adding user module search path (XDG): {:?}", user_modules);
             add_module_search_path(user_modules);
         }
     } else if let Ok(home) = std::env::var("HOME") {
@@ -146,88 +148,21 @@ fn setup_module_search_paths(script_path: &Path) {
             .join("rash")
             .join("modules");
         if user_modules.exists() {
-            trace!("Adding user module search path (HOME): {:?}", user_modules);
             add_module_search_path(user_modules);
         }
     }
 }
 
-fn execute_internal_task(task_path: &Path) {
-    trace!("Internal task execution from: {:?}", task_path);
-
-    let task_content = match read_to_string(task_path) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to read internal task file: {}", e);
-            exit(1);
-        }
-    };
-
-    let internal_data: InternalTaskData = match serde_yaml::from_str(&task_content) {
-        Ok(d) => d,
-        Err(e) => {
-            error!("Failed to parse internal task data: {}", e);
-            exit(1);
-        }
-    };
-
-    let global_params = GlobalParams::default();
-
-    let task_yaml =
-        serde_yaml::to_string(std::slice::from_ref(&internal_data.task)).unwrap_or_default();
-
-    let (tasks, _) = match parse_file_with_handlers(&task_yaml, &global_params) {
-        Ok(parsed) => (parsed.tasks, parsed.handlers),
-        Err(_) => match parse_file(&task_yaml, &global_params) {
-            Ok(tasks) => (tasks, None),
-            Err(e) => {
-                error!("Failed to parse internal task: {}", e);
-                exit(1);
-            }
-        },
-    };
-
-    let script_path = internal_data
-        .original_path
-        .as_deref()
-        .map(Path::new)
-        .unwrap_or_else(|| Path::new("internal_task"));
-
-    let result = match Builtins::new(internal_data.args.unwrap_or_default(), script_path, false) {
-        Ok(builtins) => {
-            let vars = context! {rash => &builtins, ..internal_data.vars};
-            trace!("Internal task vars: {:?}", vars);
-            Context::new(tasks, vars, None).exec()
-        }
-        Err(e) => {
-            error!("Failed to create builtins: {}", e);
-            exit(1);
-        }
-    };
-
-    let result_path = match get_internal_result_path() {
-        Some(p) => p,
-        None => {
-            error!("No result file path specified");
-            exit(1);
-        }
-    };
-
-    match result {
-        Ok(_context) => {
-            let exec_result = rash_core::task::TaskExecResult::new(false, None);
-            let result_json = serde_json::to_string(&exec_result).unwrap_or_default();
-            if let Err(e) =
-                File::create(&result_path).and_then(|mut f| f.write_all(result_json.as_bytes()))
-            {
-                error!("Failed to write result file: {}", e);
-                exit(1);
-            }
-        }
-        Err(e) => {
-            error!("Internal task failed: {}", e);
-            exit(1);
-        }
+fn execute_internal_task(cli: &Cli, task_path: &Path) {
+    trace!("Internal task execution from: {task_path:?}");
+    let result = rash_core::task::execute_internal_task(
+        task_path,
+        cli.internal_task_owner,
+        cli.internal_become.as_deref(),
+    );
+    if let Err(e) = result {
+        error!("{e}");
+        exit(1);
     }
 }
 
@@ -247,10 +182,7 @@ fn main() {
         cli.verbose
     };
 
-    // Set the output format env var so sudo tasks inherit it
-    // SAFETY: We're setting environment variables at startup before any concurrent access.
     unsafe {
-        // Only set if not already set (e.g., by parent process via sudo -E)
         if std::env::var(rash_core::task::RASH_INTERNAL_OUTPUT_ENV).is_err() {
             std::env::set_var(
                 rash_core::task::RASH_INTERNAL_OUTPUT_ENV,
@@ -261,13 +193,11 @@ fn main() {
                 },
             );
         }
-        // Only set RASH_INTERNAL flag for internal task execution (not for main process)
         if cli.internal_task.is_some() {
             std::env::set_var(rash_core::task::RASH_INTERNAL_TASK_FLAG, "1");
         }
     }
 
-    // Determine output format: for internal task, read from env; otherwise use CLI
     let output = if cli.internal_task.is_some() {
         match rash_core::task::get_internal_output().as_deref() {
             Some("raw") => logger::Output::Raw,
@@ -277,12 +207,13 @@ fn main() {
     } else {
         cli.output.clone()
     };
-
     logger::setup_logging(verbose, &cli.diff, &output).expect("failed to initialize logging.");
+    if let Err(e) = signal::install_handlers() {
+        crash_error(e);
+    }
 
-    // Handle internal task execution for sudo become
     if let Some(internal_task_path) = &cli.internal_task {
-        execute_internal_task(internal_task_path);
+        execute_internal_task(&cli, internal_task_path);
         return;
     }
 
@@ -293,12 +224,12 @@ fn main() {
             "Please provide either <SCRIPT_FILE> or --script.",
         )
         .exit();
-    };
+    }
+
     trace!("start logger");
     trace!("{:?}", cli);
     let script_path_string = cli.script_file.unwrap_or_else(|| "rash".to_string());
     let script_path = Path::new(&script_path_string);
-
     setup_module_search_paths(script_path);
 
     let main_file = if let Some(s) = cli.script {
@@ -329,7 +260,6 @@ fn main() {
         become_method: cli.become_method,
         become_exe: &cli.become_exe,
         become_password: if cli.ask_become_pass {
-            // Prompt for password
             eprint!("BECOME password: ");
             let password = read_password().unwrap_or_default();
             Some(password.leak() as &'static str)
@@ -339,14 +269,9 @@ fn main() {
         check_mode: cli.check,
     };
 
-    let (tasks, handlers) = match parse_file_with_handlers(&main_file, &global_params) {
+    let (tasks, handlers) = match parse_script(&main_file, &global_params) {
         Ok(parsed) => (parsed.tasks, parsed.handlers),
-        Err(e1) => match parse_file(&main_file, &global_params) {
-            Ok(tasks) => (tasks, None),
-            Err(_) => {
-                crash_error(e1);
-            }
-        },
+        Err(e) => crash_error(e),
     };
 
     let env_vars = env::load(cli.environment);

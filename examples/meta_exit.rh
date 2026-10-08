@@ -1,0 +1,29 @@
+#!/usr/bin/env rash
+# `meta: exit` stops the script with an explicit status code. It is control flow, not a
+# failure: `rescue` and `ignore_errors` do not catch it, but `always` still runs.
+
+- name: prepare state to clean up
+  tempfile:
+    state: directory
+  register: workdir
+
+- name: stop early, nothing left to do
+  meta:
+    action: exit
+    code: "{{ env.EXIT_CODE | default(0) }}"
+  rescue:
+    - fail:
+        msg: "unreachable: an explicit exit is not a failure"
+  always:
+    - file:
+        path: "{{ workdir.output }}"
+        state: absent
+    - stat:
+        path: "{{ workdir.output }}"
+      register: leftover
+    - assert:
+        that:
+          - not leftover.stat.exists
+
+- fail:
+    msg: "unreachable: the script already exited"

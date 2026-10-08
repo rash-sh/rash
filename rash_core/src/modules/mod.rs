@@ -7,6 +7,7 @@ mod apt_repository;
 mod archive;
 mod assemble;
 mod assert;
+mod async_poll;
 mod async_status;
 mod at;
 mod auditd;
@@ -212,7 +213,8 @@ use crate::modules::apt_repository::AptRepository;
 use crate::modules::archive::Archive;
 use crate::modules::assemble::Assemble;
 use crate::modules::assert::Assert;
-use crate::modules::async_status::{AsyncPoll, AsyncStatus};
+use crate::modules::async_poll::AsyncPoll;
+use crate::modules::async_status::AsyncStatus;
 use crate::modules::at::At;
 use crate::modules::auditd::Auditd;
 use crate::modules::authorized_key::AuthorizedKey;
@@ -405,6 +407,7 @@ use crate::modules::yum_repository::YumRepository;
 use crate::modules::zfs::Zfs;
 use crate::modules::zpool::Zpool;
 use crate::modules::zypper::Zypper;
+use crate::process::ProcessPlan;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -458,6 +461,38 @@ pub trait Module: Send + Sync + std::fmt::Debug {
 
     fn force_string_on_params(&self) -> bool {
         true
+    }
+
+    /// Whether the task must pass params to the module without rendering them first.
+    /// Needed by modules holding child tasks, which render their own params when they run
+    /// (so they can use vars registered by previous children or loop `item`s).
+    fn defer_params_rendering(&self) -> bool {
+        false
+    }
+
+    /// Plan the single process this module runs for `params` without running it, so it can
+    /// also be started as an async job.
+    fn plan_process(&self, _params: YamlValue, _check_mode: bool) -> Result<ProcessPlan> {
+        Err(Error::new(
+            ErrorKind::InvalidData,
+            format!(
+                "module {} cannot run with async: only command, shell and script do",
+                self.get_name()
+            ),
+        ))
+    }
+
+    /// Whether the module only drives Rash itself (flow control, vars, messages, child tasks)
+    /// and has no side effects of its own. Such modules always run in the Rash process,
+    /// never as the `become` user; their child tasks escalate on their own.
+    fn is_control_flow(&self) -> bool {
+        false
+    }
+
+    /// Whether the output produced with these (rendered) params must never be logged, e.g.
+    /// a secret typed by the user. It is still available through `register`.
+    fn hides_output(&self, _params: &YamlValue) -> bool {
+        false
     }
 
     #[cfg(feature = "docs")]

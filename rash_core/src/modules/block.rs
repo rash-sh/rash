@@ -1,10 +1,9 @@
 /// ANCHOR: module
 /// # block
 ///
-/// This module allows grouping tasks together for execution.
-/// Similar to Ansible's block directive.
-///
-/// Note: `vars` declared in a block are added to the parent context.
+/// Group tasks together for execution. The traditional sequence form remains supported. The
+/// mapping form adds `defaults`, which are merged into every child task unless that task overrides
+/// them. `vars` and `environment` maps are merged key-by-key.
 ///
 /// ## Attributes
 ///
@@ -14,32 +13,35 @@
 /// ```
 /// ANCHOR_END: module
 /// ANCHOR: parameters
-/// | Parameter | Required | Type | Values | Description                   |
-/// | --------- | -------- | ---- | ------ | ----------------------------- |
-/// | block     | true     | list |        | List of tasks to execute      |
+/// `block` takes either a list of tasks or a mapping:
+///
+/// | Parameter | Required | Type | Values | Description                                                |
+/// | --------- | -------- | ---- | ------ | ---------------------------------------------------------- |
+/// | tasks     | true     | list |        | Tasks to execute.                                          |
+/// | defaults  | false    | map  |        | Task attributes applied to every child task it doesn't set. |
 ///
 /// ANCHOR_END: parameters
-///
 /// ANCHOR: examples
 /// ## Example
 ///
 /// ```yaml
-/// - name: Example block
-///   block:
-///     - name: Create a file
-///       copy:
-///         content: "Hello World"
-///         dest: "/tmp/test.txt"
+/// - block:
+///     - command: echo simple
 ///
-///     - name: Run a command
-///       command:
-///         cmd: "echo 'Success'"
+/// - block:
+///     tasks:
+///       - command: ./migrate
+///       - command: ./verify
+///     defaults:
+///       environment:
+///         APP_ENV: production
+///       become: true
 /// ```
 /// ANCHOR_END: examples
 use crate::context::{Context, GlobalParams};
 use crate::error::{Error, ErrorKind, Result};
 use crate::modules::{Module, ModuleResult};
-use crate::task::{Task, Tasks};
+use crate::task::parse_tasks_with_defaults;
 
 use minijinja::Value;
 #[cfg(feature = "docs")]
@@ -49,9 +51,47 @@ use serde_norway::Value as YamlValue;
 #[derive(Debug)]
 pub struct Block;
 
+fn parse_block_params(params: YamlValue) -> Result<(Vec<YamlValue>, Option<YamlValue>)> {
+    match params {
+        YamlValue::Sequence(tasks) => Ok((tasks, None)),
+        YamlValue::Mapping(mapping) => {
+            let tasks = mapping
+                .get(YamlValue::String("tasks".to_owned()))
+                .and_then(YamlValue::as_sequence)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidData,
+                        "block mapping requires a 'tasks' sequence",
+                    )
+                })?
+                .clone();
+            let defaults = mapping
+                .get(YamlValue::String("defaults".to_owned()))
+                .cloned();
+            for key in mapping.keys() {
+                if !matches!(key.as_str(), Some("tasks" | "defaults")) {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        format!("Unknown block parameter: {key:?}"),
+                    ));
+                }
+            }
+            Ok((tasks, defaults))
+        }
+        _ => Err(Error::new(
+            ErrorKind::InvalidData,
+            "block must be a task sequence or mapping with tasks/defaults",
+        )),
+    }
+}
+
 impl Module for Block {
     fn get_name(&self) -> &str {
         "block"
+    }
+
+    fn is_control_flow(&self) -> bool {
+        true
     }
 
     fn exec(
@@ -61,29 +101,22 @@ impl Module for Block {
         vars: &Value,
         _check_mode: bool,
     ) -> Result<(ModuleResult, Option<Value>)> {
-        match params {
-            YamlValue::Sequence(task_yamls) => {
-                trace!("Block module executing {} tasks", task_yamls.len());
-
-                let tasks = self.parse_tasks_from_yaml(&task_yamls, global_params)?;
-
-                let context = Context::new(tasks, vars.clone(), None);
-                let result_context = context.exec()?;
-
-                // Block is a control structure, so it doesn't display its own output
-                let module_result = ModuleResult::new(false, None, None);
-
-                Ok((module_result, result_context.get_scoped_vars().cloned()))
-            }
-            _ => Err(Error::new(
-                ErrorKind::InvalidData,
-                "block parameter must be a sequence of tasks",
-            )),
-        }
+        let (task_yamls, defaults) = parse_block_params(params)?;
+        trace!("Block module executing {} tasks", task_yamls.len());
+        let tasks = parse_tasks_with_defaults(&task_yamls, defaults.as_ref(), global_params)?;
+        let result_context = Context::new(tasks, vars.clone(), None).exec()?;
+        Ok((
+            ModuleResult::new(false, None, None),
+            result_context.get_scoped_vars().cloned(),
+        ))
     }
 
     fn force_string_on_params(&self) -> bool {
         false
+    }
+
+    fn defer_params_rendering(&self) -> bool {
+        true
     }
 
     #[cfg(feature = "docs")]
@@ -92,119 +125,32 @@ impl Module for Block {
     }
 }
 
-impl Block {
-    /// Parse YAML task definitions into validated Task objects.
-    fn parse_tasks_from_yaml<'a>(
-        &self,
-        task_yamls: &[YamlValue],
-        global_params: &'a GlobalParams,
-    ) -> Result<Tasks<'a>> {
-        task_yamls
-            .iter()
-            .enumerate()
-            .map(|(index, task_yaml)| {
-                Task::new(task_yaml, global_params).map_err(|e| {
-                    Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Failed to parse task at index {index}: {e}"),
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>>>()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context::GlobalParams;
-    use minijinja::context;
-    use serde_norway;
-
-    fn create_test_global_params() -> GlobalParams<'static> {
-        GlobalParams::default()
-    }
 
     #[test]
-    fn test_block_module_get_name() {
-        let block = Block;
-        assert_eq!(block.get_name(), "block");
-    }
-
-    #[test]
-    fn test_module_exec_with_empty_block() {
-        let block = Block;
-        let global_params = create_test_global_params();
-        let params = YamlValue::Sequence(vec![]);
-        let vars = context! {};
-
-        let result = block.exec(&global_params, params, &vars, false);
-        assert!(result.is_ok());
-
-        let (module_result, _final_vars) = result.unwrap();
-        assert!(!module_result.changed);
-    }
-
-    #[test]
-    fn test_module_exec_with_invalid_params() {
-        let block = Block;
-        let global_params = create_test_global_params();
-        let params = YamlValue::String("not a sequence".to_string());
-        let vars = context! {};
-
-        let result = block.exec(&global_params, params, &vars, false);
-        assert!(result.is_err());
-
-        let error_message = result.unwrap_err().to_string();
-        assert!(error_message.contains("block parameter must be a sequence"));
-    }
-
-    #[test]
-    fn test_parse_tasks_from_yaml_empty() {
-        let block = Block;
-        let global_params = create_test_global_params();
-        let task_yamls: Vec<YamlValue> = vec![];
-
-        let result = block.parse_tasks_from_yaml(&task_yamls, &global_params);
-        assert!(result.is_ok());
-
-        let tasks = result.unwrap();
-        assert_eq!(tasks.len(), 0);
-    }
-
-    #[test]
-    fn test_parse_tasks_from_yaml_valid() {
-        let block = Block;
-        let global_params = create_test_global_params();
-
-        let yaml_str = r#"
-        name: test task
-        debug:
-          msg: test message
-        "#;
-        let task_yaml: YamlValue = serde_norway::from_str(yaml_str).unwrap();
-        let task_yamls = vec![task_yaml];
-
-        let result = block.parse_tasks_from_yaml(&task_yamls, &global_params);
-        assert!(result.is_ok());
-
-        let tasks = result.unwrap();
+    fn old_sequence_form_still_parses() {
+        let params: YamlValue = serde_norway::from_str("- debug: { msg: hi }").unwrap();
+        let (tasks, defaults) = parse_block_params(params).unwrap();
         assert_eq!(tasks.len(), 1);
-        // Note: Can't test task.name directly as it's private, but we can test length
+        assert!(defaults.is_none());
     }
 
     #[test]
-    fn test_parse_tasks_from_yaml_invalid_structure() {
-        let block = Block;
-        let global_params = create_test_global_params();
-
-        // Invalid task structure - not a mapping
-        let task_yamls = vec![YamlValue::String("invalid task".to_string())];
-
-        let result = block.parse_tasks_from_yaml(&task_yamls, &global_params);
-        assert!(result.is_err());
-
-        let error_message = result.unwrap_err().to_string();
-        assert!(error_message.contains("Failed to parse task at index 0"));
+    fn mapping_form_accepts_defaults() {
+        let params: YamlValue = serde_norway::from_str(
+            r#"
+            tasks:
+              - debug: { msg: hi }
+            defaults:
+              environment:
+                APP_ENV: production
+            "#,
+        )
+        .unwrap();
+        let (tasks, defaults) = parse_block_params(params).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert!(defaults.is_some());
     }
 }

@@ -96,6 +96,12 @@ fn get_terminal_width_ioctl() -> Option<usize> {
     None
 }
 
+/// A YAML value as users write it, for messages: `foo` is shown as `"foo"`, not as
+/// `String("foo")`.
+pub fn yaml_to_string(value: &serde_norway::Value) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| format!("{value:?}"))
+}
+
 pub fn parse_octal(s: &str) -> Result<u32> {
     match s.len() {
         3 => u32::from_str_radix(s, 8).map_err(|e| Error::new(ErrorKind::InvalidData, e)),
@@ -151,6 +157,14 @@ pub fn default_false() -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_yaml_to_string_shows_values_as_written() {
+        let value: serde_norway::Value = serde_norway::from_str("foo").unwrap();
+        assert_eq!(yaml_to_string(&value), "\"foo\"");
+        let value: serde_norway::Value = serde_norway::from_str("{a: [1, true]}").unwrap();
+        assert_eq!(yaml_to_string(&value), "{\"a\":[1,true]}");
+    }
 
     #[test]
     fn test_parse_octal() {

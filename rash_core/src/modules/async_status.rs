@@ -37,8 +37,6 @@ use crate::modules::{Module, ModuleResult, parse_params};
 #[cfg(feature = "docs")]
 use rash_derive::DocJsonSchema;
 
-use std::process;
-
 use minijinja::Value;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
@@ -46,7 +44,7 @@ use serde::Deserialize;
 use serde_norway::Value as YamlValue;
 use serde_norway::value;
 
-fn deserialize_jid<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
+pub(crate) fn deserialize_jid<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -116,6 +114,10 @@ impl Module for AsyncStatus {
         "async_status"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         _: &GlobalParams,
@@ -182,98 +184,6 @@ impl Module for AsyncStatus {
     }
 }
 
-#[derive(Debug)]
-pub struct AsyncPoll;
-
-#[derive(Debug, PartialEq, Deserialize)]
-#[cfg_attr(feature = "docs", derive(JsonSchema, DocJsonSchema))]
-#[serde(deny_unknown_fields)]
-pub struct PollParams {
-    /// Job ID to poll.
-    #[serde(deserialize_with = "deserialize_jid")]
-    pub jid: u64,
-    /// Poll interval in seconds.
-    pub interval: Option<u64>,
-}
-
-impl Module for AsyncPoll {
-    fn get_name(&self) -> &str {
-        "async_poll"
-    }
-
-    fn exec(
-        &self,
-        _: &GlobalParams,
-        optional_params: YamlValue,
-        _vars: &Value,
-        _check_mode: bool,
-    ) -> Result<(ModuleResult, Option<Value>)> {
-        let params: PollParams = parse_params(optional_params)?;
-
-        if !job_exists(params.jid) {
-            return Err(Error::new(
-                ErrorKind::NotFound,
-                format!("Job with ID {} not found", params.jid),
-            ));
-        }
-
-        let interval = params.interval.unwrap_or(1);
-        let _sleep_duration = std::time::Duration::from_secs(interval);
-
-        loop {
-            let info = get_job_info(params.jid).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::NotFound,
-                    format!("Job with ID {} not found", params.jid),
-                )
-            })?;
-
-            match info.status {
-                JobStatus::Finished => {
-                    let extra = Some(value::to_value(json!({
-                        "jid": params.jid,
-                        "status": "finished",
-                        "finished": true,
-                        "failed": false,
-                        "output": info.output,
-                        "changed": info.changed,
-                        "elapsed": info.elapsed.as_secs(),
-                    }))?);
-                    return Ok((ModuleResult::new(info.changed, extra, info.output), None));
-                }
-                JobStatus::Failed => {
-                    let extra = Some(value::to_value(json!({
-                        "jid": params.jid,
-                        "status": "failed",
-                        "finished": true,
-                        "failed": true,
-                        "output": info.output,
-                        "error": info.error,
-                        "changed": info.changed,
-                        "elapsed": info.elapsed.as_secs(),
-                    }))?);
-                    return Ok((ModuleResult::new(info.changed, extra, info.output), None));
-                }
-                JobStatus::Running | JobStatus::Pending => {
-                    trace!(
-                        "Job {} still running, sleeping for {}s",
-                        params.jid, interval
-                    );
-                    process::Command::new("sleep")
-                        .arg(interval.to_string())
-                        .output()
-                        .map_err(|e| Error::new(ErrorKind::SubprocessFail, e))?;
-                }
-            }
-        }
-    }
-
-    #[cfg(feature = "docs")]
-    fn get_json_schema(&self) -> Option<Schema> {
-        Some(PollParams::get_json_schema())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,25 +222,6 @@ mod tests {
         .unwrap();
         let params: Params = parse_params(yaml).unwrap();
         assert_eq!(params, Params { jid: 456 });
-    }
-
-    #[test]
-    fn test_parse_poll_params_jid_from_string() {
-        let yaml: YamlValue = serde_norway::from_str(
-            r#"
-            jid: "789"
-            interval: 2
-            "#,
-        )
-        .unwrap();
-        let params: PollParams = parse_params(yaml).unwrap();
-        assert_eq!(
-            params,
-            PollParams {
-                jid: 789,
-                interval: Some(2)
-            }
-        );
     }
 
     #[test]

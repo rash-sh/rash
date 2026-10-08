@@ -79,6 +79,10 @@ impl Module for Debug {
         "debug"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         _: &GlobalParams,

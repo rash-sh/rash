@@ -66,6 +66,10 @@ impl Module for Fail {
         "fail"
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         _: &GlobalParams,

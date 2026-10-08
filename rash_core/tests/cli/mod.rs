@@ -11,21 +11,37 @@ mod become_method;
 mod environment;
 #[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
 mod modules;
+#[cfg(not(all(target_arch = "aarch64", target_os = "linux")))]
+mod process;
 
 use std::env;
-use std::iter;
+use std::ffi::OsString;
 use std::path::Path;
 use std::process::Command;
 
-pub fn update_path(new_path: &Path) {
-    let path = env::var_os("PATH").unwrap();
-    let paths = iter::once(new_path.to_path_buf())
-        .chain(env::split_paths(&path))
-        .collect::<Vec<_>>();
-    let new_path = env::join_paths(paths).unwrap();
-    unsafe {
-        env::set_var("PATH", new_path);
+/// PATH for Rash under test: mocks first, then the Rash binary. Passed to each command
+/// instead of changing the test process environment, which parallel tests share.
+fn test_path() -> OsString {
+    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
+    let mocks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
+    let path = env::var_os("PATH").unwrap_or_default();
+    let paths = [mocks_path, bin_path.parent().unwrap().to_path_buf()]
+        .into_iter()
+        .chain(env::split_paths(&path));
+    env::join_paths(paths).unwrap()
+}
+
+/// Whether the test runs as root, as tests switching users need. Tests that need it are
+/// named `test_as_root_*` so CI can run just them as root; otherwise they skip themselves,
+/// saying so on stderr (written directly so the test harness does not capture it).
+pub fn running_as_root(test: &str) -> bool {
+    use std::io::Write;
+
+    let root = nix::unistd::Uid::effective().is_root();
+    if !root {
+        let _ = writeln!(std::io::stderr(), "{test}: skipped: requires root");
     }
+    root
 }
 
 pub fn execute_rash(args: &[&str]) -> (String, String) {
@@ -33,13 +49,8 @@ pub fn execute_rash(args: &[&str]) -> (String, String) {
 }
 
 pub fn execute_rash_with_env(args: &[&str], env_vars: &[(&str, &str)]) -> (String, String) {
-    let bin_path = Path::new(env!("CARGO_BIN_EXE_rash"));
-    update_path(bin_path.parent().unwrap());
-    let mocks_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/mocks");
-    update_path(&mocks_path);
-
-    let mut cmd = Command::new(bin_path);
-    cmd.args(args);
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rash"));
+    cmd.args(args).env("PATH", test_path());
 
     // Pass provided environment variables to subprocess
     for (key, value) in env_vars {

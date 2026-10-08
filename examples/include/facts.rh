@@ -1,0 +1,12 @@
+#!/usr/bin/env rash
+# Included by ../include.rh; also runs on its own.
+
+- name: compute facts
+  set_vars:
+    app_name: "{{ app_name | default('rash') }}"
+    app_slug: "{{ app_name | default('rash') | lower | replace(' ', '-') }}"
+    scratch: "only used inside this file"
+
+- assert:
+    that:
+      - app_slug is defined

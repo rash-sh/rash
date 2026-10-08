@@ -208,6 +208,10 @@ impl Module for DynamicModule {
         &self.name
     }
 
+    fn is_control_flow(&self) -> bool {
+        true
+    }
+
     fn exec(
         &self,
         global_params: &GlobalParams,

@@ -82,7 +82,7 @@ pub fn function(command: String) -> StdResult<Value, MinijinjaError> {
         ));
     }
 
-    // Return stdout as a string, trimming trailing newlines
+    // Return stdout as a string, trimming trailing whitespace
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result = stdout.trim_end().to_string();
 

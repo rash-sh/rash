@@ -25,7 +25,7 @@ static RE: LazyLock<Regex> = LazyLock::new(|| {
         \{\s*                                                     # link opening parens and whitespace
         \$([a-zA-Z0-9_]+)                                         # link type
         (?:\s+                                                    # separating whitespace
-        ([a-zA-Z0-9\s_.,\*\{\}\[\]\(\)\|'\-\\/`"\#+=:/\\%^?]+))?  # all doc
+        ([a-zA-Z0-9\s_.,\*\{\}\[\]\(\)\|'\-\\/`"\#+=:/\\%^?&<>;!@~\x{80}-\x{10FFFF}]+))?  # all doc
         \s*\}                                                     # whitespace and link closing parens"#
     )
     .unwrap()

@@ -18,11 +18,31 @@ use serde_norway::value::Value as YamlValue;
 
 const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
 
+fn result_flag(value: Value, key: &str) -> Option<bool> {
+    value.get_attr(key).ok().map(|flag| flag.is_true())
+}
+
+fn result_failed(value: Value) -> bool {
+    result_flag(value, "failed").unwrap_or(false)
+}
+
+fn result_succeeded(value: Value) -> bool {
+    result_flag(value, "failed").is_some_and(|failed| !failed)
+}
+
+fn result_changed(value: Value) -> bool {
+    result_flag(value, "changed").unwrap_or(false)
+}
+
 fn init_env() -> Environment<'static> {
     let mut env = Environment::new();
     env.set_keep_trailing_newline(true);
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_global("omit", OMIT_VALUE);
+    env.add_test("failed", result_failed);
+    env.add_test("succeeded", result_succeeded);
+    env.add_test("success", result_succeeded);
+    env.add_test("changed", result_changed);
     lookup::add_lookup_functions(&mut env);
     env
 }
@@ -138,8 +158,18 @@ pub fn merge_option(a: Value, b: Option<Value>) -> Value {
 }
 
 pub fn merge(a: Value, b: Value) -> Value {
+    merge_replacing(a, b, None)
+}
+
+/// Merge `b` into `a` like [`merge`], except that `replaced` is taken from `b` as is instead
+/// of being merged into its old value: a registered result must not keep the keys (or
+/// accumulate the lists, like `results`) of a result registered earlier under the same name.
+pub fn merge_replacing(a: Value, b: Value, replaced: Option<&str>) -> Value {
     let mut a_json_value: serde_json::Value = serde_json::Value::deserialize(a).unwrap();
     let b_json_value: serde_json::Value = serde_json::Value::deserialize(b).unwrap();
+    if let (Some(key), Some(a_map)) = (replaced, a_json_value.as_object_mut()) {
+        a_map.remove(key);
+    }
     merge_json_without_sum(&mut a_json_value, b_json_value);
     Value::from_serialize(a_json_value)
 }
@@ -147,6 +177,27 @@ pub fn merge(a: Value, b: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_merge_replacing_takes_the_replaced_key_as_is() {
+        let old = context! {probe => context! {results => vec![1, 2], stale => true}, kept => 1};
+        let new = context! {probe => context! {results => vec![3]}};
+        let merged = merge_replacing(old.clone(), new.clone(), Some("probe"));
+        let probe = merged.get_attr("probe").unwrap();
+        assert_eq!(probe.get_attr("results").unwrap().len(), Some(1));
+        assert!(probe.get_attr("stale").unwrap().is_undefined());
+        assert_eq!(merged.get_attr("kept").unwrap().as_i64(), Some(1));
+
+        let deep = merge(old, new);
+        assert_eq!(
+            deep.get_attr("probe")
+                .unwrap()
+                .get_attr("results")
+                .unwrap()
+                .len(),
+            Some(3)
+        );
+    }
 
     #[test]
     fn test_render_map() {
@@ -224,6 +275,36 @@ mod tests {
         assert!(!r_false);
         let r_true = is_render_string("boo == 'test'", &context! {boo => "test"}).unwrap();
         assert!(r_true);
+    }
+
+    #[test]
+    fn test_result_state_tests() {
+        let failed = Value::from_serialize(serde_json::json!({"failed": true, "changed": false}));
+        let ok = Value::from_serialize(serde_json::json!({"failed": false, "changed": true}));
+        assert_eq!(
+            render_string(
+                "{% if value is failed %}failed{% endif %}",
+                &context! {value => failed}
+            )
+            .unwrap(),
+            "failed"
+        );
+        assert_eq!(
+            render_string(
+                "{% if value is succeeded %}ok{% endif %}",
+                &context! {value => ok.clone()}
+            )
+            .unwrap(),
+            "ok"
+        );
+        assert_eq!(
+            render_string(
+                "{% if value is changed %}changed{% endif %}",
+                &context! {value => ok}
+            )
+            .unwrap(),
+            "changed"
+        );
     }
 
     #[test]
