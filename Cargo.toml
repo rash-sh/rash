@@ -9,7 +9,7 @@ authors = ["Pando85 <pando855@gmail.com>"]
 rust-version = "1.94.1"
 edition = "2024"
 license-file = "LICENSE"
-homepage = "https://rash-sh.github.io"
+homepage = "https://rash.sh"
 repository = "https://github.com/rash-sh/rash"
 readme = "README.md"
 
