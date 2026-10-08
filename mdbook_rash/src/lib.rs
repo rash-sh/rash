@@ -399,7 +399,11 @@ fn collect_markdown_entries(
         let relative = path.strip_prefix(root).map_err(|error| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("documentation path {} is outside {}: {error}", path.display(), root.display()),
+                format!(
+                    "documentation path {} is outside {}: {error}",
+                    path.display(),
+                    root.display()
+                ),
             )
         })?;
         let relative = relative.to_string_lossy().replace('\\', "/");
@@ -520,10 +524,9 @@ mod llms_txt_test {
 
     #[test]
     fn test_parse_front_matter() {
-        let metadata = parse_front_matter(
-            "---\ntitle: file\nweight: 5001\nindent: true\n---\n\n# file\n",
-        )
-        .unwrap();
+        let metadata =
+            parse_front_matter("---\ntitle: file\nweight: 5001\nindent: true\n---\n\n# file\n")
+                .unwrap();
 
         assert_eq!(metadata, Some(("file".to_owned(), 5001, true)));
     }
