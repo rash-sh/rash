@@ -146,9 +146,9 @@ book:	mdbook-rash
 	@DOCS_OUTPUT_DIR="rash_book/$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION)"; \
 	MDBOOK_BUILD__BUILD_DIR=$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book && \
 	mdbook-rash generate-llms-txt \
-		--input "$DOCS_OUTPUT_DIR" \
+		--input "$$DOCS_OUTPUT_DIR" \
 		--docs-version "$(VERSION)" \
-		--output "$DOCS_OUTPUT_DIR/llms.txt"
+		--output "$$DOCS_OUTPUT_DIR/llms.txt"
 
 .PHONY: update-changelog
 update-changelog:	## automatically update changelog based on commits
