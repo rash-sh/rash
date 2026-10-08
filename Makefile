@@ -153,7 +153,7 @@ update-changelog:	## automatically update changelog based on commits
 .PHONY: release
 release: cross
 release:	## generate $(PKG_BASE_NAME).tar.gz with binary
-	@$(CARGO) build --frozen --bin rash --release $(CARGO_BUILD_PARAMS)
+	@$(CARGO) build --locked --bin rash --release $(CARGO_BUILD_PARAMS)
 	@if echo "$(CARGO_TARGET)" | grep -q "linux" \
 		&& command -v "upx" >/dev/null 2>&1; then \
 		upx $(CARGO_TARGET_DIR)/$(CARGO_TARGET)/release/rash; \
