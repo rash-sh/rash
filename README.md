@@ -232,7 +232,7 @@ Run commands as different users with the built-in `become` functionality:
 ## Documentation
 
 For comprehensive documentation, visit:
-[https://rash.sh/docs/rash/latest/](https://rash.sh/docs/rash/latest/)
+[https://rash-sh.github.io/docs/rash/latest/](https://rash-sh.github.io/docs/rash/latest/)
 
 ## Community
 
