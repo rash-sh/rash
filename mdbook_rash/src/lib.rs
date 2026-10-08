@@ -19,7 +19,7 @@ extern crate log;
 
 pub const SUPPORTED_RENDERER: &[&str] = &["markdown"];
 
-const PUBLIC_SITE_URL: &str = "https://rash.sh";
+const PUBLIC_SITE_URL: &str = "https://rash-sh.github.io";
 const DOCS_RAW_BASE_URL: &str =
     "https://raw.githubusercontent.com/rash-sh/rash-sh.github.io/master/docs/rash";
 const GITHUB_URL: &str = "https://github.com/rash-sh/rash";
