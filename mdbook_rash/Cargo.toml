@@ -29,3 +29,4 @@ mdbook-preprocessor = "0.5"
 prettytable-rs = "^0.10"
 semver = "1.0"
 serde_json.workspace = true
+serde_norway.workspace = true
