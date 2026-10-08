@@ -143,7 +143,7 @@ mdbook-rash:	## install mdbook_rash to create rash_book
 .PHONY: book
 book:	## create rash_book under rash_book/rash-sh.github.io
 book:	mdbook-rash
-	@DOCS_OUTPUT_DIR="rash_book/$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION)"; \
+	@DOCS_OUTPUT_DIR="$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION)"; \
 	MDBOOK_BUILD__BUILD_DIR=$(BOOK_DIR)/rash-sh.github.io/docs/rash/$(VERSION) mdbook build rash_book && \
 	mdbook-rash generate-llms-txt \
 		--input "$$DOCS_OUTPUT_DIR" \
