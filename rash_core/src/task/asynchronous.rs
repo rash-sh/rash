@@ -159,7 +159,7 @@ impl Task {
     fn start_async_items(&self, vars: &Value) -> Result<Vec<ItemResult>> {
         let mut items: Vec<ItemResult> = Vec::new();
         for item in self.render_iterator(vars.clone())? {
-            let item_vars = context! {item => Serde(&item), ..vars.clone()};
+            let item_vars = context! {item => Serde(item.clone()), ..vars.clone()};
             let started = self.start_async(&item_vars).inspect_err(|_| {
                 for job_id in items.iter().filter_map(|entry| entry.job_id) {
                     kill_job(job_id);
@@ -226,7 +226,7 @@ impl Task {
                 continue;
             };
             let item_vars =
-                self.extend_vars(context! {item => Serde(&entry.item), ..vars.clone()})?;
+                self.extend_vars(context! {item => Serde(entry.item.clone()), ..vars.clone()})?;
             let result = self.finish_outcome(outcome, &item_vars)?;
             accumulated.add_item(self, &entry.item, result);
         }
