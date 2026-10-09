@@ -160,7 +160,11 @@ mod tests {
 
     #[test]
     fn test_debug_vars() {
-        let vars = minijinja::value::Serde([("yea", "foo")].into_iter().collect::<std::collections::HashMap<_, _>>());
+        let vars = minijinja::value::Serde(
+            [("yea", "foo")]
+                .into_iter()
+                .collect::<std::collections::HashMap<_, _>>(),
+        );
         let output = debug(
             Params {
                 required: Required::Var("yea".to_owned()),

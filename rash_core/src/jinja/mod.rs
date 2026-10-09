@@ -13,8 +13,8 @@ use serde::Deserialize;
 
 use std::sync::LazyLock;
 
-use minijinja::{Environment, UndefinedBehavior, Value, context, syntax::SyntaxConfig};
 use minijinja::value::Serde;
+use minijinja::{Environment, UndefinedBehavior, Value, context, syntax::SyntaxConfig};
 use serde_norway::value::Value as YamlValue;
 
 const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
@@ -41,7 +41,7 @@ fn init_env() -> Environment<'static> {
         SyntaxConfig::builder()
             .keep_trailing_newline(true)
             .build()
-            .unwrap()
+            .unwrap(),
     );
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_global("omit", OMIT_VALUE);

@@ -6,8 +6,8 @@ use crate::logger::is_json_output;
 use crate::modules::ModuleResult;
 use crate::task::Task;
 
-use minijinja::{Value, context};
 use minijinja::value::Serde;
+use minijinja::{Value, context};
 use serde::{Deserialize, Serialize};
 use serde_norway::Value as YamlValue;
 

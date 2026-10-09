@@ -28,8 +28,8 @@ use rash_derive::FieldNames;
 use std::collections::HashMap;
 use std::env;
 
-use minijinja::{Value, context};
 use minijinja::value::Serde;
+use minijinja::{Value, context};
 use serde_norway::Value as YamlValue;
 
 /// Failure message reported instead of the real one for `no_log` tasks (as Ansible does).
@@ -525,7 +525,7 @@ mod tests {
     use super::*;
     use crate::modules::ModuleResult;
     use minijinja::context;
-use minijinja::value::Serde;
+    
 
     #[test]
     fn failed_when_false_keeps_nonzero_command_as_data() {

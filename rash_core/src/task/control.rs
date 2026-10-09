@@ -287,8 +287,8 @@ mod tests {
     use crate::jinja::is_render_string;
     use crate::task::{Task, TaskExecResult};
 
-use minijinja::{Value, context};
-use minijinja::value::Serde;
+    
+    use minijinja::{Value, context};
     use serde_norway::Value as YamlValue;
 
     fn exec(yaml: &str) -> crate::error::Result<TaskExecResult> {

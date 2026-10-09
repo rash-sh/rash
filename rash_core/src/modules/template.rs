@@ -34,7 +34,6 @@ use std::fs::{metadata, read_to_string};
 use std::os::unix::fs::PermissionsExt;
 
 use minijinja::Value;
-use minijinja::value::Serde;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
@@ -114,7 +113,7 @@ mod tests {
     use std::io::Write;
 
     use minijinja::context;
-use minijinja::value::Serde;
+    use minijinja::value::Serde;
     use tempfile::tempdir;
 
     #[test]

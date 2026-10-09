@@ -87,8 +87,8 @@ use std::collections::HashMap;
 use std::env;
 use std::result::Result as StdResult;
 
-use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value, value::Kwargs};
 use minijinja::value::Serde;
+use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value, value::Kwargs};
 use reqwest;
 use vaultrs::client::VaultClientSettingsBuilder;
 

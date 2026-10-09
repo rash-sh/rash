@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
-use minijinja::{Value, context};
 use minijinja::value::Serde;
+use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::Schema;
 use serde::Deserialize;

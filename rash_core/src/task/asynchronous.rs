@@ -12,8 +12,8 @@ use crate::task::{BecomeUser, Task, TaskExecResult};
 use std::thread;
 use std::time::Duration;
 
-use minijinja::{Value, context};
 use minijinja::value::Serde;
+use minijinja::{Value, context};
 use nix::unistd::Uid;
 use serde_norway::Value as YamlValue;
 
@@ -225,7 +225,8 @@ impl Task {
             let Some(outcome) = entry.outcome else {
                 continue;
             };
-            let item_vars = self.extend_vars(context! {item => Serde(&entry.item), ..vars.clone()})?;
+            let item_vars =
+                self.extend_vars(context! {item => Serde(&entry.item), ..vars.clone()})?;
             let result = self.finish_outcome(outcome, &item_vars)?;
             accumulated.add_item(self, &entry.item, result);
         }
