@@ -45,6 +45,7 @@ use std::fs::read_to_string;
 use std::path::Path;
 
 use minijinja::Value;
+use minijinja::value::Serde;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
@@ -235,7 +236,7 @@ fn load_and_merge_files(file_paths: &[String]) -> Result<(Vec<String>, Value)> {
         }
     }
 
-    let final_context = Value::from_serialize(context_json);
+    let final_context = Value::from(Serde(context_json));
     Ok((loaded_files, final_context))
 }
 

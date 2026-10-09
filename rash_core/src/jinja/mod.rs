@@ -13,7 +13,8 @@ use serde::Deserialize;
 
 use std::sync::LazyLock;
 
-use minijinja::{Environment, UndefinedBehavior, Value, context};
+use minijinja::{Environment, UndefinedBehavior, Value, context, syntax::SyntaxConfig};
+use minijinja::value::Serde;
 use serde_norway::value::Value as YamlValue;
 
 const OMIT_VALUE: &str = "OMIT_THIS_VARIABLE";
@@ -36,7 +37,12 @@ fn result_changed(value: Value) -> bool {
 
 fn init_env() -> Environment<'static> {
     let mut env = Environment::new();
-    env.set_keep_trailing_newline(true);
+    env.set_syntax(
+        SyntaxConfig::builder()
+            .keep_trailing_newline(true)
+            .build()
+            .unwrap()
+    );
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_global("omit", OMIT_VALUE);
     env.add_test("failed", result_failed);
@@ -62,7 +68,7 @@ pub fn render_map(
         match _render(v.clone(), &current_vars, force_string) {
             Ok(v) => {
                 // safe unwrap: k is always a String
-                let value: Value = [(k.as_str().unwrap(), Value::from_serialize(v.clone()))]
+                let value: Value = [(k.as_str().unwrap(), Value::from(Serde(v.clone())))]
                     .into_iter()
                     .collect();
                 current_vars = context! {
@@ -171,7 +177,7 @@ pub fn merge_replacing(a: Value, b: Value, replaced: Option<&str>) -> Value {
         a_map.remove(key);
     }
     merge_json_without_sum(&mut a_json_value, b_json_value);
-    Value::from_serialize(a_json_value)
+    Value::from(Serde(a_json_value))
 }
 
 #[cfg(test)]
@@ -279,8 +285,8 @@ mod tests {
 
     #[test]
     fn test_result_state_tests() {
-        let failed = Value::from_serialize(serde_json::json!({"failed": true, "changed": false}));
-        let ok = Value::from_serialize(serde_json::json!({"failed": false, "changed": true}));
+        let failed = Value::from(Serde(serde_json::json!({"failed": true, "changed": false})));
+        let ok = Value::from(Serde(serde_json::json!({"failed": false, "changed": true})));
         assert_eq!(
             render_string(
                 "{% if value is failed %}failed{% endif %}",

@@ -43,6 +43,7 @@ use crate::jinja::render;
 use crate::modules::{Module, ModuleResult};
 
 use minijinja::{Value, context};
+use minijinja::value::Serde;
 #[cfg(feature = "docs")]
 use schemars::Schema;
 use serde_norway::Value as YamlValue;
@@ -80,7 +81,7 @@ impl Module for SetVars {
                         })?;
                         let value: Value = [(
                             key,
-                            Value::from_serialize(render(hash_map.1.clone(), vars)?),
+                            Value::from(Serde(render(hash_map.1.clone(), vars)?)),
                         )]
                         .into_iter()
                         .collect();

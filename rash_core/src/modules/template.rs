@@ -34,6 +34,7 @@ use std::fs::{metadata, read_to_string};
 use std::os::unix::fs::PermissionsExt;
 
 use minijinja::Value;
+use minijinja::value::Serde;
 #[cfg(feature = "docs")]
 use schemars::{JsonSchema, Schema};
 use serde::Deserialize;
@@ -113,6 +114,7 @@ mod tests {
     use std::io::Write;
 
     use minijinja::context;
+use minijinja::value::Serde;
     use tempfile::tempdir;
 
     #[test]
@@ -233,7 +235,7 @@ mod tests {
         permissions.set_mode(0o604);
         set_permissions(&file_path, permissions).unwrap();
 
-        let vars = Value::from_serialize(context! { boo => "test" });
+        let vars = Value::from(Serde(context! { boo => "test" }));
 
         let copy_params = render_content(
             Params {

@@ -9,6 +9,7 @@ use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
 use minijinja::{Value, context};
+use minijinja::value::Serde;
 #[cfg(feature = "docs")]
 use schemars::Schema;
 use serde::Deserialize;
@@ -160,12 +161,12 @@ impl DynamicModule {
     }
 
     fn convert_to_value(params: HashMap<String, YamlValue>) -> Value {
-        Value::from_serialize(
+        Value::from(Serde(
             params
                 .into_iter()
                 .map(|(k, v)| (k, yaml_to_json(v)))
                 .collect::<HashMap<String, serde_json::Value>>(),
-        )
+        ))
     }
 }
 
@@ -245,7 +246,7 @@ impl Module for DynamicModule {
 
         let builtins = Builtins::deserialize(vars.get_attr("rash")?)?;
         let module_builtins = builtins.update(&self.main_path)?;
-        let module_exec_vars = context! {rash => &module_builtins, ..exec_vars};
+        let module_exec_vars = context! {rash => Serde(&module_builtins), ..exec_vars};
 
         let result_context = Context::new(tasks, module_exec_vars, None).exec()?;
 
@@ -282,7 +283,7 @@ impl Module for DynamicModule {
             {
                 result_map.insert("extra".to_string(), json_val);
             }
-            Some(Value::from_serialize(result_map))
+            Some(Value::from(Serde(result_map)))
         } else {
             None
         };
