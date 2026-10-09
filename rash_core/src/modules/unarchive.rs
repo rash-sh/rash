@@ -523,7 +523,15 @@ fn extract_zip<R: Read + Seek>(
             )
         })?;
 
-        let path_str = file.name().to_string();
+        let path_str = file
+            .name()
+            .map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Failed to read zip entry name {}: {e}", i),
+                )
+            })?
+            .to_string();
 
         if should_exclude(&path_str, exclude) {
             trace!("Excluding: {}", path_str);
