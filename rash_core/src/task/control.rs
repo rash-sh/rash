@@ -41,7 +41,7 @@ impl Accumulated {
     pub(super) fn add_item(&mut self, task: &Task, item: &YamlValue, result: TaskExecResult) {
         if let Some(registered) = task.registered_value(result.get_vars()) {
             self.item_results
-                .push(context! {item => item, ..registered});
+                .push(context! {item => minijinja::value::Serde(item.clone()), ..registered});
         }
         self.add(result);
     }
@@ -180,7 +180,7 @@ impl Task {
     ) -> Result<TaskExecResult> {
         let mut accumulated = Accumulated::default();
         for item in self.render_iterator(vars.clone())? {
-            let item_vars = context! {item => &item, ..vars.clone()};
+            let item_vars = context! {item => minijinja::value::Serde(item.clone()), ..vars.clone()};
             accumulated.add_item(self, &item, exec_item(self, item_vars)?);
             if accumulated.failed && !self.ignore_errors.unwrap_or(false) {
                 break;
@@ -287,6 +287,7 @@ mod tests {
     use crate::jinja::is_render_string;
     use crate::task::{Task, TaskExecResult};
 
+    
     use minijinja::{Value, context};
     use serde_norway::Value as YamlValue;
 

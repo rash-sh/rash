@@ -48,6 +48,7 @@ use std::collections::BTreeMap;
 use std::fs::read_to_string;
 use std::path::Path;
 
+use minijinja::value::Serde;
 use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::Schema;
@@ -91,7 +92,7 @@ fn select_exports(scoped: Option<&Value>, export: Option<&Export>) -> Result<Opt
                     })?;
                 exported_map.insert(name, value);
             }
-            Ok(Some(Value::from_serialize(exported_map)))
+            Ok(Some(Value::from(Serde(exported_map))))
         }
     }
 }
@@ -134,7 +135,7 @@ impl Module for Include {
 
         let builtins = Builtins::deserialize(vars.get_attr("rash")?)?;
         let include_builtins = builtins.update(script_path)?;
-        let include_vars = context! {rash => &include_builtins, ..vars.clone()};
+        let include_vars = context! {rash => Serde(&include_builtins), ..vars.clone()};
 
         let parsed = parse_script(&main_file, global_params)?;
         let result_context =

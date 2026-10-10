@@ -113,6 +113,7 @@ mod tests {
     use std::io::Write;
 
     use minijinja::context;
+    use minijinja::value::Serde;
     use tempfile::tempdir;
 
     #[test]
@@ -233,7 +234,7 @@ mod tests {
         permissions.set_mode(0o604);
         set_permissions(&file_path, permissions).unwrap();
 
-        let vars = Value::from_serialize(context! { boo => "test" });
+        let vars = Value::from(Serde(context! { boo => "test" }));
 
         let copy_params = render_content(
             Params {
