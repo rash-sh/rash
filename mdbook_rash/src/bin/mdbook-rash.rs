@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::io;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use chrono::Local;
@@ -27,7 +27,22 @@ pub fn make_app() -> Command {
         )
         .subcommand(
             Command::new("generate-llms-txt")
-                .about("Generate llms.txt for LLM discoverability")
+                .about("Generate a versioned llms.txt from processed Markdown documentation")
+                .arg(
+                    Arg::new("input")
+                        .long("input")
+                        .short('i')
+                        .value_name("DIRECTORY")
+                        .required(true)
+                        .help("Processed mdBook Markdown output directory"),
+                )
+                .arg(
+                    Arg::new("docs-version")
+                        .long("docs-version")
+                        .value_name("VERSION")
+                        .required(true)
+                        .help("Published documentation version (for example latest or v3.0)"),
+                )
                 .arg(
                     Arg::new("output")
                         .long("output")
@@ -111,7 +126,21 @@ fn handle_supports(sub_args: &ArgMatches) -> ! {
 }
 
 fn handle_generate_llms_txt(sub_args: &ArgMatches) {
-    let content = mdbook_rash::generate_llms_txt();
+    let Some(input) = sub_args.get_one::<String>("input") else {
+        error!("Missing required --input argument");
+        process::exit(2);
+    };
+    let Some(docs_version) = sub_args.get_one::<String>("docs-version") else {
+        error!("Missing required --docs-version argument");
+        process::exit(2);
+    };
+    let content = match mdbook_rash::generate_llms_txt(Path::new(input), docs_version) {
+        Ok(content) => content,
+        Err(error) => {
+            error!("Failed to generate llms.txt: {error}");
+            process::exit(1);
+        }
+    };
 
     if let Some(output_path) = sub_args.get_one::<String>("output") {
         let path = PathBuf::from(output_path);

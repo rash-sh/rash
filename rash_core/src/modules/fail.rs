@@ -29,7 +29,7 @@
 ///
 /// - name: Fail with templated message
 ///   fail:
-///     msg: "Unsupported architecture: {{ rash.arch }}"
+///     msg: "Script {{ rash.path }} cannot continue"
 /// ```
 /// ANCHOR_END: examples
 use crate::context::GlobalParams;
