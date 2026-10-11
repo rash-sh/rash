@@ -173,7 +173,9 @@ fn test_homebrew_result_extra() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),

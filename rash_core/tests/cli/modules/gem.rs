@@ -115,7 +115,8 @@ fn test_gem_result_extra() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', ""),
+        stdout.lines().last().unwrap().replace(' ', "")
+        .replace("\'", "\""),
         serde_json::to_string(&json!({
             "installed_gems": [],
             "removed_gems": ["bundler", "rubocop"],
