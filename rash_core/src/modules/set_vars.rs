@@ -79,10 +79,10 @@ impl Module for SetVars {
                                 format!("{:?} is not a valid string", hash_map.0),
                             )
                         })?;
-                        let value: Value =
-                            [(key, Value::from(Serde(render(hash_map.1.clone(), vars)?)))]
-                                .into_iter()
-                                .collect();
+                        let value: Value = Value::from_pairs([(
+                            key,
+                            Value::from(Serde(render(hash_map.1.clone(), vars)?)),
+                        )]);
                         new_vars = context! {..value, ..new_vars.clone()};
                         Ok(())
                     })
