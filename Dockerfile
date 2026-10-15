@@ -1,12 +1,12 @@
-ARG BASE_IMAGE=rust:1.99.0
-FROM ${BASE_IMAGE} AS builder
+ARG BASE_IMAGE=rust:1.99.1
+FROM --platform=linux/amd64 ${BASE_IMAGE} AS builder
 LABEL mantainer=pando855@gmail.com
 
 WORKDIR /usr/src/rash
 COPY . .
 RUN cargo build --locked --release --bin rash
 
-FROM debian:trixie-20240904-slim
+FROM --platform=linux/amd64 debian:trixie-20240904-slim
 LABEL mantainer=pando855@gmail.com
 
 COPY --from=builder /usr/src/rash/target/release/rash /bin/rash
