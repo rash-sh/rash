@@ -175,6 +175,7 @@ images: CARGO_TARGET=x86_64-unknown-linux-musl
 images: release
 	@for DOCKERFILE in $(DOCKERFILES);do \
 		docker buildx build -f $$DOCKERFILE \
+			--platform linux/amd64 \
 			--build-arg "CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)" \
 			--load \
 			-t $(IMAGE_NAME):$(IMAGE_VERSION)`echo $${DOCKERFILE} | sed 's/Dockerfile//' | tr '.' '-'` \

@@ -6,7 +6,7 @@ WORKDIR /usr/src/rash
 COPY . .
 RUN cargo build --locked --release --bin rash
 
-FROM debian:trixie-20240904-slim
+FROM --platform=linux/amd64 debian:trixie-20240904-slim
 LABEL mantainer=pando855@gmail.com
 
 COPY --from=builder /usr/src/rash/target/release/rash /bin/rash
