@@ -117,7 +117,9 @@ fn test_dnf_result_extra() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),
@@ -163,7 +165,9 @@ fn test_dnf_list_from_var() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),

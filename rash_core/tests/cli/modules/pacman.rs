@@ -160,7 +160,9 @@ fn test_pacman_result_extra() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),
@@ -208,7 +210,9 @@ fn test_pacman_list_from_var() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),

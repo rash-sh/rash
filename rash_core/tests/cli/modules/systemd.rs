@@ -230,8 +230,10 @@ fn test_systemd_result_extra() {
         .last()
         .unwrap()
         .replace(' ', "")
+        .replace("\'", "\"")
         .replace("False", "false")
-        .replace("True", "true");
+                .replace("\'", "\"")
+                .replace("True", "true");
     assert!(last_line.contains("\"name\":\"httpd\""));
     assert!(last_line.contains("\"active\":true"));
     assert!(last_line.contains("\"enabled\":true"));
