@@ -28,6 +28,7 @@ use rash_derive::FieldNames;
 use std::collections::HashMap;
 use std::env;
 
+use minijinja::value::Serde;
 use minijinja::{Value, context};
 use serde_norway::Value as YamlValue;
 
@@ -94,7 +95,7 @@ impl Task {
         match self.vars.clone() {
             Some(vars) => {
                 let rendered = match render(vars, &additional_vars) {
-                    Ok(value) => Value::from_serialize(value),
+                    Ok(value) => Value::from(Serde(value)),
                     Err(e) if e.kind() == ErrorKind::OmitParam => context! {},
                     Err(e) => return Err(e),
                 };
@@ -524,6 +525,7 @@ mod tests {
     use super::*;
     use crate::modules::ModuleResult;
     use minijinja::context;
+    
 
     #[test]
     fn failed_when_false_keeps_nonzero_command_as_data() {
