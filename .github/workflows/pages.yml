@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     concurrency:
-      group: github-pages-deploy-${{ github.ref }}
+      group: github-pages-deploy
       cancel-in-progress: false
 
     steps:

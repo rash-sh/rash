@@ -161,7 +161,7 @@ RASH_LOG_LEVEL=DEBUG    # Set log level (DEBUG, TRACE)
 
 - Uses MiniJinja with features: `loader`, `json`, `loop_controls`
 - Available in all module parameters
-- Builtins accessible: `{{ env.USER }}`, `{{ rash.path }}`, `{{ rash.argv }}`
+- Builtins accessible: `{{ env.USER }}`, `{{ rash.path }}`, `{{ rash.args }}`, `{{ rash.user.uid }}`
 - Filters supported: `default`, `split`, `last`, etc.
 
 ## Release Process
