@@ -178,7 +178,9 @@ fn test_pip_result_extra() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),
@@ -224,7 +226,9 @@ fn test_pip_list_from_var() {
                 .last()
                 .unwrap()
                 .replace(' ', "")
+        .replace("\'", "\"")
                 .replace("False", "false")
+                .replace("\'", "\"")
                 .replace("True", "true")
         )
         .unwrap(),

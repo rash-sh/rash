@@ -27,16 +27,15 @@
 use crate::jinja::lookup::utils::to_minijinja_error;
 use crate::modules::find::{Params, find};
 
-use std::ops::Deref;
 use std::result::Result as StdResult;
 
-use minijinja::value::ViaDeserialize;
+use minijinja::value::Serde;
 use minijinja::{Error as MinijinjaError, Value};
 
-pub fn function(config: ViaDeserialize<Params>) -> StdResult<Value, MinijinjaError> {
-    let params = config.deref();
+pub fn function(config: Serde<Params>) -> StdResult<Value, MinijinjaError> {
+    let params = &*config;
     find(params.clone())
         .map_err(to_minijinja_error)
-        .map(|x| Value::from_serialize(x.get_extra()))
+        .map(|x| Value::from(Serde(x.get_extra())))
         .map_err(to_minijinja_error)
 }
