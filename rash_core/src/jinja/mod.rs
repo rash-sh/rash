@@ -68,9 +68,7 @@ pub fn render_map(
         match _render(v.clone(), &current_vars, force_string) {
             Ok(v) => {
                 // safe unwrap: k is always a String
-                let value: Value = [(k.as_str().unwrap(), Value::from(Serde(v.clone())))]
-                    .into_iter()
-                    .collect();
+                let value = Value::from_pairs([(k.as_str().unwrap(), Value::from(Serde(v.clone())))]);
                 current_vars = context! {
                     ..current_vars,
                     ..value
@@ -247,6 +245,18 @@ mod tests {
         )
         .unwrap();
         assert_eq!(r_yaml, expected);
+    }
+
+    #[test]
+    fn test_render_map_resolves_previously_rendered_keys() {
+        let yaml: YamlValue = serde_norway::from_str(
+            "username: alice\nmessage: \"{{ username }}:ready\"\n",
+        )
+        .unwrap();
+        let actual = render_map(yaml.as_mapping().unwrap().clone(), &context! {}, false).unwrap();
+        let expected: YamlValue =
+            serde_norway::from_str("username: alice\nmessage: 'alice:ready'\n").unwrap();
+        assert_eq!(actual, expected);
     }
 
     #[test]
