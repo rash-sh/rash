@@ -68,7 +68,10 @@ pub fn render_map(
         match _render(v.clone(), &current_vars, force_string) {
             Ok(v) => {
                 // safe unwrap: k is always a String
-                let value = Value::from_pairs([(k.as_str().unwrap(), Value::from(Serde(v.clone())))]);
+                let value = Value::from_pairs([(
+                    k.as_str().unwrap(),
+                    Value::from(Serde(v.clone())),
+                )]);
                 current_vars = context! {
                     ..current_vars,
                     ..value
