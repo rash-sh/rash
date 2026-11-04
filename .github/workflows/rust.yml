@@ -76,6 +76,47 @@ jobs:
           cp target/debug/rash /usr/local/bin/rash
           make test-examples
 
+  docs:
+    name: Documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Install stable toolchain
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - run: rustup override set ${{ steps.toolchain.outputs.name }}
+
+      - name: Install mdBook
+        run: |
+          MDBOOK_VERSION=$(grep -A 1 'name = "mdbook-core"' Cargo.lock | grep 'version' | awk -F '"' '{print $2}')
+          cargo install mdbook --version "${MDBOOK_VERSION}"
+
+      - name: Build development documentation and LLM index
+        run: make book VERSION=latest
+
+      - name: Verify development LLM index
+        run: |
+          test -f rash_book/rash-sh.github.io/docs/rash/latest/llms.txt
+          grep -F 'docs/rash/latest/module_file.md' rash_book/rash-sh.github.io/docs/rash/latest/llms.txt
+          grep -F 'docs/rash/latest/lookup_file.md' rash_book/rash-sh.github.io/docs/rash/latest/llms.txt
+          if grep -F 'rash.cwd' rash_book/rash-sh.github.io/docs/rash/latest/llms.txt; then
+            echo "stale builtin leaked into llms.txt"
+            exit 1
+          fi
+
+      - name: Build and verify release-style LLM index
+        run: |
+          make book VERSION=v3.0
+          test -f rash_book/rash-sh.github.io/docs/rash/v3.0/llms.txt
+          grep -F 'docs/rash/v3.0/module_file.md' rash_book/rash-sh.github.io/docs/rash/v3.0/llms.txt
+          if grep -F 'docs/rash/latest/' rash_book/rash-sh.github.io/docs/rash/v3.0/llms.txt; then
+            echo "release documentation index leaked latest/master links"
+            exit 1
+          fi
+
   build:
     strategy:
       fail-fast: false
