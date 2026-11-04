@@ -525,7 +525,6 @@ mod tests {
     use super::*;
     use crate::modules::ModuleResult;
     use minijinja::context;
-    
 
     #[test]
     fn failed_when_false_keeps_nonzero_command_as_data() {

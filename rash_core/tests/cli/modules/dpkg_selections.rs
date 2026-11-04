@@ -136,7 +136,11 @@ fn test_dpkg_selections_query() {
     let (stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
-    let last_line = stdout.lines().last().unwrap().replace(' ', "")
+    let last_line = stdout
+        .lines()
+        .last()
+        .unwrap()
+        .replace(' ', "")
         .replace("\'", "\"");
     assert!(last_line.contains("nginx"));
 }
@@ -165,7 +169,11 @@ fn test_dpkg_selections_result_extra() {
     let (stdout, stderr) = run_test(&script_text, &args);
 
     assert!(stderr.is_empty());
-    let last_line = stdout.lines().last().unwrap().replace(' ', "")
+    let last_line = stdout
+        .lines()
+        .last()
+        .unwrap()
+        .replace(' ', "")
         .replace("\'", "\"");
     assert!(last_line.contains("curl"));
     assert!(last_line.contains("hold"));

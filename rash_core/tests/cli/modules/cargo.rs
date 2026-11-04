@@ -137,8 +137,12 @@ fn test_cargo_result_extra() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', "")
-        .replace("\'", "\""),
+        stdout
+            .lines()
+            .last()
+            .unwrap()
+            .replace(' ', "")
+            .replace("\'", "\""),
         serde_json::to_string(&json!({
             "installed_crates": [],
             "removed_crates": ["bat", "ripgrep"],
@@ -174,8 +178,12 @@ fn test_cargo_list_from_var() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', "")
-        .replace("\'", "\""),
+        stdout
+            .lines()
+            .last()
+            .unwrap()
+            .replace(' ', "")
+            .replace("\'", "\""),
         serde_json::to_string(&json!({
             "installed_crates": ["exa", "tokei"],
             "removed_crates": [],
