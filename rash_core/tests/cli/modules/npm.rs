@@ -115,8 +115,12 @@ fn test_npm_result_extra() {
 
     assert!(stderr.is_empty());
     assert_eq!(
-        stdout.lines().last().unwrap().replace(' ', "")
-        .replace("\'", "\""),
+        stdout
+            .lines()
+            .last()
+            .unwrap()
+            .replace(' ', "")
+            .replace("\'", "\""),
         serde_json::to_string(&json!({
             "installed_packages": [],
             "removed_packages": ["express", "react"],
