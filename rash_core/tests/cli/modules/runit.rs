@@ -153,7 +153,9 @@ fn test_runit_result_extra() {
         .last()
         .unwrap()
         .replace(' ', "")
+        .replace("\'", "\"")
         .replace("False", "false")
+        .replace("\'", "\"")
         .replace("True", "true");
     assert!(last_line.contains("\"name\":\"nginx\""));
     assert!(last_line.contains("\"enabled\":true"));

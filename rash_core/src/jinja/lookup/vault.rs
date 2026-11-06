@@ -87,6 +87,7 @@ use std::collections::HashMap;
 use std::env;
 use std::result::Result as StdResult;
 
+use minijinja::value::Serde;
 use minijinja::{Error as MinijinjaError, ErrorKind as MinijinjaErrorKind, Value, value::Kwargs};
 use reqwest;
 use vaultrs::client::VaultClientSettingsBuilder;
@@ -573,7 +574,7 @@ fn convert_json_to_minijinja_value(
                 let v = convert_json_to_minijinja_value(value)?;
                 map.insert(key.clone(), v);
             }
-            Ok(Value::from_serialize(&map))
+            Ok(Value::from(Serde(&map)))
         }
     }
 }

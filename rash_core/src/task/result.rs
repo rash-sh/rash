@@ -6,6 +6,7 @@ use crate::logger::is_json_output;
 use crate::modules::ModuleResult;
 use crate::task::Task;
 
+use minijinja::value::Serde;
 use minijinja::{Value, context};
 use serde::{Deserialize, Serialize};
 use serde_norway::Value as YamlValue;
@@ -158,11 +159,11 @@ impl Task {
                 object.entry(key).or_insert(value);
             }
         }
-        Value::from_serialize(serde_json::Value::Object(object))
+        Value::from(Serde(serde_json::Value::Object(object)))
     }
 
     fn expression_vars(&self, vars: &Value, result: Value) -> Value {
-        let result_binding = [("result", result.clone())].into_iter().collect::<Value>();
+        let result_binding = Value::from_pairs([("result", result.clone())]);
         let additions = merge_option(result_binding, self.register_vars(result));
         context! {..additions, ..vars.clone()}
     }
@@ -228,7 +229,7 @@ impl Task {
     pub(super) fn register_vars(&self, value: Value) -> Option<Value> {
         self.register
             .as_ref()
-            .map(|register| [(register.as_str(), value)].into_iter().collect::<Value>())
+            .map(|register| Value::from_pairs([(register.as_str(), value)]))
     }
 
     fn requests_handler_flush(&self, result: &ModuleResult) -> bool {

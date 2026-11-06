@@ -16,6 +16,7 @@ use std::process::exit;
 
 use clap::error::ErrorKind as ClapErrorKind;
 use clap::{ArgAction, CommandFactory, Parser, crate_authors, crate_description, crate_version};
+use minijinja::value::Serde;
 use minijinja::{Value, context};
 
 #[macro_use]
@@ -244,7 +245,7 @@ fn main() {
 
     let script_args: Vec<&str> = cli.script_args.iter().map(|s| &**s).collect();
     let mut new_vars = match script_cli::parse(&main_file, &script_args) {
-        Ok(v) => Value::from_serialize(v),
+        Ok(v) => Value::from(Serde(v)),
         Err(e) => match e.kind() {
             ErrorKind::GracefulExit => {
                 info!("{e}");
@@ -281,7 +282,9 @@ fn main() {
         script_path,
         cli.check,
     ) {
-        Ok(builtins) => new_vars = context! {rash => &builtins, ..new_vars},
+        Ok(builtins) => {
+            new_vars = context! {rash => minijinja::value::Serde(&builtins), ..new_vars}
+        }
         Err(e) => crash_error(e),
     };
     trace!("Vars: {new_vars}");
