@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=rust:1.99.1
+ARG BASE_IMAGE=rust:1.100.0
 FROM --platform=linux/amd64 ${BASE_IMAGE} AS builder
 LABEL mantainer=pando855@gmail.com
 
