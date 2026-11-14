@@ -14,15 +14,11 @@ fn kubectl_available() -> bool {
             }
             let stderr = String::from_utf8_lossy(&o.stderr);
             let stdout = String::from_utf8_lossy(&o.stdout);
-            if stderr.contains("connection refused")
+            !(stderr.contains("connection refused")
                 || stderr.contains("Unable to connect")
                 || stderr.contains("couldn't get")
                 || stderr.contains("dial tcp")
-                || !stdout.contains("control plane")
-            {
-                return false;
-            }
-            true
+                || !stdout.contains("control plane"))
         }
         Err(_) => false,
     }
