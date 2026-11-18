@@ -159,7 +159,8 @@ jobs:
       - run: rustup component add rustfmt clippy
 
       - name: Run tests
-        if: matrix.job.target != 'x86_64-unknown-freebsd'
+        # ARM64 runtime tests run natively; keep cross-built release artifacts.
+        if: matrix.job.target != 'x86_64-unknown-freebsd' && matrix.job.target != 'aarch64-unknown-linux-gnu'
         run: CARGO_TARGET=${{ matrix.job.target }} make test
 
       # Tests switching users (`test_as_root_*`, e.g. the syscall become path) skip
@@ -228,10 +229,40 @@ jobs:
             ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz
             ${{ steps.package.outputs.PKG_BASE_NAME }}.tar.gz.sha256
 
+  arm64_tests:
+    name: (ubuntu-24.04-arm) aarch64-unknown-linux-gnu tests
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v7
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: aarch64-native
+
+      - name: Install Rust toolchain
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - run: rustup override set ${{steps.toolchain.outputs.name}}
+      - run: rustup component add rustfmt clippy
+
+      # Test on native ARM64 to avoid cross-linking large debug executables.
+      # Clippy runs in a separate job; some test-only helpers are x86-specific.
+      # Keep release builds cross-compiled to preserve the existing glibc floor.
+      - name: Run ARM64 tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked
+          while IFS= read -r test; do
+            cargo run --locked --bin rash "$test"
+          done < <(find test -name '*.rh' -not -path 'test/modules/helm/helm.rh')
+
   publish:
     name: Publish Release
-    needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' && startsWith(github.ref, 'refs/tags/') }}
+    needs: [build, arm64_tests]
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.arm64_tests.result == 'success' && startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code

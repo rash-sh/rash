@@ -42,6 +42,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::jinja::render;
 use crate::modules::{Module, ModuleResult};
 
+use minijinja::value::Serde;
 use minijinja::{Value, context};
 #[cfg(feature = "docs")]
 use schemars::Schema;
@@ -78,12 +79,10 @@ impl Module for SetVars {
                                 format!("{:?} is not a valid string", hash_map.0),
                             )
                         })?;
-                        let value: Value = [(
+                        let value: Value = Value::from_pairs([(
                             key,
-                            Value::from_serialize(render(hash_map.1.clone(), vars)?),
-                        )]
-                        .into_iter()
-                        .collect();
+                            Value::from(Serde(render(hash_map.1.clone(), vars)?)),
+                        )]);
                         new_vars = context! {..value, ..new_vars.clone()};
                         Ok(())
                     })

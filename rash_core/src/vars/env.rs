@@ -1,4 +1,5 @@
 use minijinja::Value;
+use minijinja::value::Serde;
 
 use std::collections::HashMap;
 use std::env;
@@ -36,7 +37,7 @@ pub fn load(envars: Vec<(String, String)>) -> Value {
     envars.into_iter().for_each(|(k, v)| unsafe {
         env::set_var(k, v);
     });
-    Value::from_serialize(Env::from(env::vars()))
+    Value::from(Serde(Env::from(env::vars())))
 }
 
 #[cfg(test)]

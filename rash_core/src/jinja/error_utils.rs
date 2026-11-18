@@ -115,9 +115,9 @@ mod tests {
     fn test_is_variable_undefined_nested() {
         use serde_json::json;
         let vars = context! {
-            obj => json!({
+            obj => minijinja::value::Serde(json!({
                 "prop": "value"
-            })
+            }))
         };
         assert!(!is_variable_undefined("obj.prop", &vars));
         assert!(is_variable_undefined("obj.missing", &vars));
