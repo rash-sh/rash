@@ -40,7 +40,7 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
       - run: rustup component add clippy
 
-      - uses: clechasseur/rs-clippy-check@v6.1.0
+      - uses: clechasseur/rs-clippy-check@v6.1.2
         with:
           args: --locked --all-targets --all-features
 
@@ -75,6 +75,47 @@ jobs:
         run: |
           cp target/debug/rash /usr/local/bin/rash
           make test-examples
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Install stable toolchain
+        id: toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - run: rustup override set ${{ steps.toolchain.outputs.name }}
+
+      - name: Install mdBook
+        run: |
+          MDBOOK_VERSION=$(grep -A 1 'name = "mdbook-core"' Cargo.lock | grep 'version' | awk -F '"' '{print $2}')
+          cargo install mdbook --version "${MDBOOK_VERSION}"
+
+      - name: Build development documentation and LLM index
+        run: make book VERSION=latest
+
+      - name: Verify development LLM index
+        run: |
+          test -f rash_book/rash-sh.github.io/docs/rash/latest/llms.txt
+          grep -F 'docs/rash/latest/module_file.md' rash_book/rash-sh.github.io/docs/rash/latest/llms.txt
+          grep -F 'docs/rash/latest/lookup_file.md' rash_book/rash-sh.github.io/docs/rash/latest/llms.txt
+          if grep -F 'rash.cwd' rash_book/rash-sh.github.io/docs/rash/latest/llms.txt; then
+            echo "stale builtin leaked into llms.txt"
+            exit 1
+          fi
+
+      - name: Build and verify release-style LLM index
+        run: |
+          make book VERSION=v3.0
+          test -f rash_book/rash-sh.github.io/docs/rash/v3.0/llms.txt
+          grep -F 'docs/rash/v3.0/module_file.md' rash_book/rash-sh.github.io/docs/rash/v3.0/llms.txt
+          if grep -F 'docs/rash/latest/' rash_book/rash-sh.github.io/docs/rash/v3.0/llms.txt; then
+            echo "release documentation index leaked latest/master links"
+            exit 1
+          fi
 
   build:
     strategy:
@@ -118,7 +159,7 @@ jobs:
       - run: rustup component add rustfmt clippy
 
       - name: Run tests
-        # ARM64 runtime tests run natively below; this job keeps cross-built release artifacts.
+        # ARM64 runtime tests run natively; keep cross-built release artifacts.
         if: matrix.job.target != 'x86_64-unknown-freebsd' && matrix.job.target != 'aarch64-unknown-linux-gnu'
         run: CARGO_TARGET=${{ matrix.job.target }} make test
 
@@ -206,8 +247,8 @@ jobs:
       - run: rustup override set ${{steps.toolchain.outputs.name}}
       - run: rustup component add rustfmt clippy
 
-      # Test on actual ARM64 hardware, avoiding large cross-linked debug executables.
-      # Keep release builds cross-compiled to preserve the existing glibc compatibility.
+      # Test on native ARM64 to avoid cross-linking large debug executables.
+      # Keep release builds cross-compiled to preserve the existing glibc floor.
       - name: Run ARM64 tests
         run: CARGO_TARGET=aarch64-unknown-linux-gnu make test
 
