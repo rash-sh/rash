@@ -248,9 +248,16 @@ jobs:
       - run: rustup component add rustfmt clippy
 
       # Test on native ARM64 to avoid cross-linking large debug executables.
+      # Clippy runs in a separate job; some test-only helpers are x86-specific.
       # Keep release builds cross-compiled to preserve the existing glibc floor.
       - name: Run ARM64 tests
-        run: CARGO_TARGET=aarch64-unknown-linux-gnu make test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked
+          while IFS= read -r test; do
+            cargo run --locked --bin rash "$test"
+          done < <(find test -name '*.rh' -not -path 'test/modules/helm/helm.rh')
 
   publish:
     name: Publish Release
